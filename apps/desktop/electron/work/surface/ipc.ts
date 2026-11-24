@@ -11,6 +11,7 @@ export function registerMatrixWorkIpc(
     WorkSurface,
     | 'getSurfaceMode'
     | 'getSidebar'
+    | 'getAttention'
     | 'runCommand'
     | 'setSurfaceMode'
     | 'allowAssistants'
@@ -45,6 +46,8 @@ export function registerMatrixWorkIpc(
       case 'getSurfaceMode': return surface.getSurfaceMode()
 
       case 'getSidebar': return surface.getSidebar()
+
+      case 'getAttention': return surface.getAttention()
 
       case 'runCommand': return surface.runCommand(request.command)
 

@@ -56,6 +56,9 @@ interface DriveCopy {
   refreshing: string
   reveal: string
   search: string
+  /** The plus menu's new folder and document (layout r2 §4): their first name. */
+  untitledFolder: string
+  untitledDocument: string
   searchScope: { title: string; drive: string; searching: string }
   searchEmpty: string
   viewMode: string
@@ -170,6 +173,8 @@ export const matrixDriveCopy: Record<Locale, DriveCopy> = {
     refreshing: 'Refreshing…',
     reveal: 'Show in Finder',
     search: 'Search Drive',
+    untitledFolder: 'untitled folder',
+    untitledDocument: 'Untitled document',
     searchScope: { title: 'Search:', drive: 'This Drive', searching: 'Searching Drive…' },
     searchEmpty: 'No files match this search.',
     viewMode: 'View',
@@ -397,6 +402,8 @@ export const matrixDriveCopy: Record<Locale, DriveCopy> = {
     refreshing: 'Đang làm mới…',
     reveal: 'Hiện trong Finder',
     search: 'Tìm trong Drive',
+    untitledFolder: 'Thư mục mới',
+    untitledDocument: 'Tài liệu mới',
     searchScope: { title: 'Tìm trong:', drive: 'Drive này', searching: 'Đang tìm trong Drive…' },
     searchEmpty: 'Không có tệp nào khớp với tìm kiếm này.',
     viewMode: 'Kiểu xem',
@@ -624,6 +631,8 @@ export const matrixDriveCopy: Record<Locale, DriveCopy> = {
     refreshing: '更新中…',
     reveal: 'Finder に表示',
     search: 'Drive を検索',
+    untitledFolder: '名称未設定フォルダ',
+    untitledDocument: '名称未設定の書類',
     searchScope: { title: '検索範囲:', drive: 'この Drive', searching: 'Drive を検索中…' },
     searchEmpty: 'この検索に一致するファイルはありません。',
     viewMode: '表示',
@@ -859,6 +868,8 @@ export const matrixDriveCopy: Record<Locale, DriveCopy> = {
     refreshing: '正在刷新…',
     reveal: '在 Finder 中显示',
     search: '搜索 Drive',
+    untitledFolder: '未命名文件夹',
+    untitledDocument: '未命名文稿',
     searchScope: { title: '搜索范围：', drive: '此 Drive', searching: '正在搜索 Drive…' },
     searchEmpty: '没有与此搜索匹配的文件。',
     viewMode: '视图',
@@ -1079,6 +1090,8 @@ export const matrixDriveCopy: Record<Locale, DriveCopy> = {
     refreshing: '正在重新整理…',
     reveal: '在 Finder 中顯示',
     search: '搜尋 Drive',
+    untitledFolder: '未命名檔案夾',
+    untitledDocument: '未命名文件',
     searchScope: { title: '搜尋範圍：', drive: '此 Drive', searching: '正在搜尋 Drive…' },
     searchEmpty: '沒有符合此搜尋的檔案。',
     viewMode: '顯示方式',

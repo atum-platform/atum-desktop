@@ -105,6 +105,9 @@ export interface MatrixAccountEntry {
  * Status shows only when something is wrong, with the one thing to do about it.
  */
 export function MatrixRailAccount({
+  attention,
+  attentionLabel,
+  attentionMarker,
   balance,
   fail,
   onOpenChange,
@@ -116,6 +119,12 @@ export function MatrixRailAccount({
   phone,
   snapshot
 }: {
+  /** What waits for the person (the bell's old list, owner 2026-11-24): drawn at the top of the face. */
+  attention?: ReactNode
+  /** Set while an item waits: the face wears a red dot and says this to assistive tech. */
+  attentionLabel?: string
+  /** The waiting item's kind, or `count` for several (`data-matrix-attention`). */
+  attentionMarker?: string
   /** The wallet, once its provider exists: the Protons row opens Settings. No balance is shown here. */
   balance?: ProtonsWalletData
   fail: () => void
@@ -163,14 +172,22 @@ export function MatrixRailAccount({
           <DropdownMenuTrigger asChild>
             <button
               aria-describedby={status ? statusId : undefined}
-              aria-label={`${shell.account}: ${name}`}
-              className="atum-nav-item atum-rail-account"
+              aria-label={`${shell.account}: ${name}${attentionLabel ? ` · ${attentionLabel}` : ''}`}
+              className="atum-nav-item atum-rail-account relative"
+              data-matrix-attention={attentionMarker}
               data-matrix-rail-account
               type="button"
             >
               <span className="atum-rail-account-face grid size-7 place-items-center">
                 <OwnAvatar className="size-7 rounded-(--atum-r-control) text-[0.75rem]" snapshot={snapshot} />
               </span>
+              {attentionLabel && (
+                <span
+                  aria-hidden
+                  className="absolute top-0.5 right-0.5 size-2 rounded-full bg-(--atum-danger) animate-in fade-in-0 duration-150 motion-reduce:animate-none"
+                  data-matrix-attention-badge="danger"
+                />
+              )}
               {/* Trouble is named accessibly and in the opened account menu, not marked on the face. */}
               {status && (
                 <span className="sr-only" id={statusId}>
@@ -182,11 +199,12 @@ export function MatrixRailAccount({
         </Tip>
         <DropdownMenuContent
           align="end"
-          className="atum-account-menu w-64 rounded-xl p-1.5"
+          className={`atum-account-menu ${attention ? 'w-80' : 'w-64'} rounded-xl p-1.5`}
           data-matrix-account-menu
           side="right"
           sideOffset={10}
         >
+          {attention && <div className="pt-0.5">{attention}</div>}
           <div className="flex items-center gap-2.5 px-2 pt-1.5 pb-2">
             <OwnAvatar className="size-9 shrink-0 rounded-(--atum-r-button) text-sm" snapshot={snapshot} />
             <span className="min-w-0 flex-1">

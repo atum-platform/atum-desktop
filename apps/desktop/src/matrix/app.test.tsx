@@ -59,6 +59,7 @@ import { resetMatrixGoogleNudgeDismissals } from './google-connection-settings'
 import { $outgoingEchoes } from './outgoing-echo'
 import { matrixHandleAccount, rememberMatrixHandle, resetMatrixHandlesForTest } from './person-handles'
 import { COMPANY_AI_ANSWER_FIXTURE, playgroundCompanyDesktopAdapter } from './playground/company-ai-fixtures'
+import { setMatrixRightPanel } from './right-panel'
 import { normalizeMatrixSettingsPane, settingsPageOf } from './settings-revamp'
 import { MATRIX_LAUNCH_HOLD_MS } from './startup-screen'
 import { hubSkillRequest } from './store/hub-skill'
@@ -432,6 +433,8 @@ beforeEach(() => {
   resetMatrixGoogleNudgeDismissals()
   // The first launch's story has its own tests; everything else starts past it.
   window.localStorage.setItem('io.atum.welcome.played', '1')
+  // Chat's right panel opens by default (layout r2 §2, its own test below); everything else starts closed.
+  setMatrixRightPanel('chat', false)
   vi.stubGlobal('innerWidth', 1220)
   Object.defineProperty(Element.prototype, 'scrollIntoView', { configurable: true, value: vi.fn() })
   vi.stubGlobal(
@@ -2574,7 +2577,8 @@ describe('isolated Matrix composition', () => {
   // Preserve user-visible identity, state and recovery behavior across connection changes.
   // content and pushed the side panel down. It is the title bar's attention item now: nothing in
   // the page's status stack, nothing in the chat card's flow; its line opens from the bell.
-  it('says a new sign-in in the title bar’s indicator, never in the page’s flow', async () => {
+  // The bell is gone (owner, 2026-11-24): the rail's account face holds what waits, at its top.
+  it('says a new sign-in on the account face, never in the page’s flow', async () => {
     const ready: MatrixSnapshot = {
       ...signedOut,
       state: 'ready',
@@ -2584,14 +2588,13 @@ describe('isolated Matrix composition', () => {
 
     const { bridge } = fixture(async () => ready)
 
-    const pill = await screen.findByRole('button', { name: 'Needs you: New sign-in on an iPhone' })
+    const pill = await screen.findByRole('button', { name: /Needs you: New sign-in on an iPhone$/ })
     const stack = window.document.querySelector('[data-matrix-status-stack]')
     expect(stack?.childElementCount ?? 0).toBe(0)
     expect(window.document.querySelector('[data-matrix-new-sign-in]')).toBeNull()
     expect(screen.queryByText(/Unknown device/)).toBeNull()
 
     fireEvent.pointerDown(pill, { button: 0, ctrlKey: false, pointerType: 'mouse' })
-    fireEvent.click(pill)
 
     const line = await screen.findByText('Was this you?')
     expect(line.closest('[data-atum-chat]')).toBeNull()
@@ -2616,9 +2619,8 @@ describe('isolated Matrix composition', () => {
     const { bridge } = fixture(async () => ready)
     vi.mocked(bridge.endDeviceSession).mockRejectedValueOnce(new Error('matrix_offline'))
 
-    const pill = await screen.findByRole('button', { name: 'Needs you: New sign-in on MacBook Air' })
+    const pill = await screen.findByRole('button', { name: /Needs you: New sign-in on MacBook Air$/ })
     fireEvent.pointerDown(pill, { button: 0, ctrlKey: false, pointerType: 'mouse' })
-    fireEvent.click(pill)
     fireEvent.click(await screen.findByRole('button', { name: 'Sign it out' }))
 
     expect(await screen.findByText('Couldn’t open the sign-out page. Try again.')).toBeTruthy()
@@ -4190,6 +4192,43 @@ describe('isolated Matrix composition', () => {
   })
 
   // Preserve user-visible identity, state and recovery behavior across connection changes.
+  // Layout r2 §2 (owner 2026-11-24): Chat's right panel is open by default, with the person's card, and
+  // the person's own close is remembered for the next conversation.
+  it('opens a person’s chat with their card beside it, and remembers when the person closes it', async () => {
+    setMatrixRightPanel('chat', true)
+
+    const command = vi.fn(async (value: Parameters<MatrixUiBridge['command']>[0]) =>
+      value.kind === 'roomShared' ? { section: value.section, items: [], source: 'device', unreadable: 0 } : null
+    )
+
+    const { emit } = fixture(undefined, 'en', undefined, command)
+
+    const linh = {
+      id: '!linh:test',
+      name: 'Linh',
+      membership: 'join' as const,
+      encrypted: true,
+      direct: true,
+      participants: [
+        { userId: '@owner:test', membership: 'join' as const },
+        { userId: '@linh:test', membership: 'join' as const }
+      ]
+    }
+
+    emit({
+      ...controlsState,
+      roomId: '!linh:test',
+      rooms: [...controlsState.rooms, linh],
+      members: [{ userId: '@linh:test', name: 'Linh', membership: 'join', canRemove: false }],
+      messages: []
+    })
+    await waitFor(() => expect(window.document.querySelector('[data-matrix-person-info="person"]')).toBeTruthy())
+
+    fireEvent.click(screen.getByRole('button', { name: 'Close workspace' }))
+    await waitFor(() => expect(window.document.querySelector('[data-matrix-person-info]')).toBeNull())
+    expect(JSON.parse(window.localStorage.getItem('io.atum.rightPanel') ?? '{}').chat).toBe(false)
+  })
+
   it('opens conversation info from the titlebar in a chat with a person, and the workbench in an assistant chat', async () => {
     const command = vi.fn(async (value: Parameters<MatrixUiBridge['command']>[0]) =>
       value.kind === 'roomShared' ? { section: value.section, items: [], source: 'device', unreadable: 0 } : null
@@ -9232,10 +9271,12 @@ describe('cold-start preparation screen', () => {
   it.each([undefined, { state: 'unavailable' as const, since: 1 }])(
     'opens the shell after the roster timeout with setup notices suppressed (%s)', async agentRoster => {
       vi.useFakeTimers({ shouldAdvanceTime: true })
+
       const { view } = fixture(async () => ({
         ...preparing, assistant: undefined, startup: undefined, agents: undefined, agentRoster,
         readiness: { phase: 'ready', since: 1 }
       }))
+
       await waitFor(() => expect(plate()).not.toBeNull())
       await act(async () => { await vi.advanceTimersByTimeAsync(21_000) })
       await passLaunch()
@@ -9778,11 +9819,11 @@ describe('the local assistant path (plan 2026-09-26-reliable-local-first-chat)',
     )
 
     await waitForLaunchToOpen()
-    const indicator = await screen.findByRole('button', { name: 'Needs you: Update Atum' })
+    const indicator = await screen.findByRole('button', { name: /Needs you: Update Atum$/ })
     expect(window.document.querySelector('[data-matrix-launch-notice]')).toBeNull()
     expect(screen.getByRole('textbox', { name: COMPOSER }).getAttribute('placeholder')).toBe('Update Atum')
     expect(screen.queryByRole('button', { name: 'Try again' })).toBeNull()
-    fireEvent.click(indicator)
+    fireEvent.pointerDown(indicator, { button: 0, ctrlKey: false, pointerType: 'mouse' })
     fireEvent.click(await screen.findByRole('button', { name: /^Update Atum/ }))
     await waitFor(() => expect(bridge.openLink).toHaveBeenCalledWith(ATUM_LINKS.download))
     expect(bridge.retryReadiness).not.toHaveBeenCalled()
@@ -9809,13 +9850,13 @@ describe('the local assistant path (plan 2026-09-26-reliable-local-first-chat)',
     )
 
     await waitForLaunchToOpen()
-    const indicator = await screen.findByRole('button', { name: 'Needs you: Out of Protons' })
+    const indicator = await screen.findByRole('button', { name: /Needs you: Out of Protons$/ })
     expect(window.document.querySelector('[data-matrix-launch-notice]')).toBeNull()
     expect(screen.getByRole('textbox', { name: COMPOSER }).getAttribute('placeholder')).toBe(
       'Top up Protons to continue.'
     )
     expect(screen.queryByRole('button', { name: 'Proton purchase terms' })).toBeNull()
-    fireEvent.click(indicator)
+    fireEvent.pointerDown(indicator, { button: 0, ctrlKey: false, pointerType: 'mouse' })
     fireEvent.click(await screen.findByRole('button', { name: /^Out of Protons/ }))
     await waitFor(() => expect(bridge.openTopUp).toHaveBeenCalledOnce())
   })
@@ -9872,7 +9913,7 @@ describe('the local assistant path (plan 2026-09-26-reliable-local-first-chat)',
 
     await waitFor(() => expect(plate()).toBeNull(), LAUNCH_OPENS)
     // Said once, in the indicator; the message box says sending waits on it.
-    const indicator = await screen.findByRole('button', { name: 'Needs you: Out of Protons' })
+    const indicator = await screen.findByRole('button', { name: /Needs you: Out of Protons$/ })
     expect(window.document.querySelector('[data-matrix-launch-notice]')).toBeNull()
     expect(screen.getByRole('textbox', { name: COMPOSER }).getAttribute('placeholder')).toBe(
       'Top up Protons to continue.'
@@ -9880,7 +9921,7 @@ describe('the local assistant path (plan 2026-09-26-reliable-local-first-chat)',
     fireEvent.change(screen.getByRole('textbox', { name: COMPOSER }), { target: { value: 'Hi' } })
     expect((screen.getByRole('button', { name: 'Send' }) as HTMLButtonElement).disabled).toBe(true)
     // No Store checkout in this build: the top-up is Atum's payments page.
-    fireEvent.click(indicator)
+    fireEvent.pointerDown(indicator, { button: 0, ctrlKey: false, pointerType: 'mouse' })
     fireEvent.click(await screen.findByRole('button', { name: /^Out of Protons/ }))
     await waitFor(() => expect(bridge.openTopUp).toHaveBeenCalledOnce())
     // A model of their own stays one step away, in the message box's model menu.
@@ -9913,7 +9954,11 @@ describe('the local assistant path (plan 2026-09-26-reliable-local-first-chat)',
     }))
 
     await waitFor(() => expect(plate()).toBeNull(), LAUNCH_OPENS)
-    fireEvent.click(await screen.findByRole('button', { name: 'Needs you: Out of Protons' }))
+    fireEvent.pointerDown(await screen.findByRole('button', { name: /Needs you: Out of Protons$/ }), {
+      button: 0,
+      ctrlKey: false,
+      pointerType: 'mouse'
+    })
     fireEvent.click(await screen.findByRole('button', { name: /^Out of Protons/ }))
     await waitFor(() => expect(bridge.command).toHaveBeenCalledWith({ kind: 'discoverApps' }))
     expect(bridge.openTopUp).not.toHaveBeenCalled()
@@ -12031,6 +12076,7 @@ describe("Home's chat (launch night, second wave)", () => {
       readiness: { phase: 'blocked', step: 'assistant', code: 'setup_failed', since: 1 },
       agentRoster: { state: 'loading', since: 1 }
     }
+
     const { emit, view } = fixture(async () => cold)
     await waitFor(() => expect(view.container.querySelector('[data-slot="matrix-startup"]')).toBeTruthy())
     expect(screen.queryByText('Atum isn’t set up on this Mac yet.')).toBeNull()
@@ -13647,6 +13693,7 @@ describe('the rail goes where it is clicked, the first time', () => {
 
   it.each([false, true])('returns to the last Chat from every rail screen (retained room: %s)', async retainRoom => {
     const personalRoom = { id: '!friend:test', name: 'Friend', membership: 'join' as const, direct: true, encrypted: true }
+
     const { command, sync } = await launch({
       drive: readyDrive(), pages: workplacePages(), companies: companyWorkspace(), retainRoom,
       snapshot: { companyWorkspaceEnabled: true, rooms: [assistantRoom, personalRoom], roomId: personalRoom.id,
@@ -13656,6 +13703,7 @@ describe('the rail goes where it is clicked, the first time', () => {
     act(() => $work.set({ view: 'off', assistants: 'off', agents: [], protons: 'ok' }))
 
     const places = ['Chats', 'Store', 'Team space', 'Atum Drive', 'Work']
+
     const click = async (name: string) => {
       fireEvent.click(within(rail()).getByRole('button', { name }))
       await settle()

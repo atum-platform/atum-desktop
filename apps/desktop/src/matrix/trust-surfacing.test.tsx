@@ -1,6 +1,6 @@
 import { EventEmitter } from 'node:events'
 
-import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, render, waitFor } from '@testing-library/react'
 import type { MatrixClient } from 'matrix-js-sdk'
 import { CryptoEvent } from 'matrix-js-sdk/lib/crypto-api/CryptoEvent'
 import { afterEach, expect, it, vi } from 'vitest'
@@ -11,7 +11,7 @@ import { MatrixUnverifiedDevices } from '../../electron/matrix/unverified-device
 import type { MatrixSnapshot } from '../../shared/matrix'
 import type { MatrixOwnDevices } from '../../shared/matrix-security'
 
-import { MatrixAttentionIndicator } from './attention-indicator'
+import { MatrixAttentionSection } from './attention-indicator'
 import { matrixSecurity, recoveryKeyCache } from './security'
 
 const stops: Array<() => void> = []
@@ -73,7 +73,7 @@ it('tracks real DevicesUpdated events for refusals and raises no reminder in the
 
   const draw = (snapshot: MatrixSnapshot) => (
     <I18nProvider configClient={null} initialLocale="en">
-      <MatrixAttentionIndicator agentName={() => 'Atum'} onOpen={vi.fn()} snapshot={snapshot} />
+      <MatrixAttentionSection agentName={() => 'Atum'} onOpen={vi.fn()} snapshot={snapshot} />
     </I18nProvider>
   )
 
@@ -102,7 +102,7 @@ it('tracks real DevicesUpdated events for refusals and raises no reminder in the
   visible = true
   await act(async () => tracker.observe(client, security.snapshot(), true))
   await waitFor(() => expect(tracker.view(client)?.map(device => device.deviceId)).toEqual(['PHONE']))
-  expect(screen.queryByRole('button', { name: /Needs you/ })).toBeNull()
+  expect(window.document.querySelector('[data-matrix-attention-list]')).toBeNull()
   const reads = readDevices.mock.calls.length
   await act(async () => {
     client.emit(CryptoEvent.DevicesUpdated, ['@someone-else:test'])
@@ -123,7 +123,7 @@ it('tracks real DevicesUpdated events for refusals and raises no reminder in the
     client.emit(CryptoEvent.DevicesUpdated, [owner])
   })
   await waitFor(() => expect(tracker.view(client)?.map(device => device.deviceId)).toEqual(['PHONE']))
-  expect(screen.queryByRole('button', { name: /Needs you/ })).toBeNull()
+  expect(window.document.querySelector('[data-matrix-attention-list]')).toBeNull()
   Object.assign(client, {
     getDevices: async () => ({ devices: [{ device_id: 'PHONE', last_seen_ts: Date.now() - 15 * 24 * 60 * 60_000 }] })
   })

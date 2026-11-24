@@ -5,6 +5,7 @@ import type {
   MatrixWorkProjection,
   MatrixWorkRect,
   MatrixWorkViewState,
+  WorkAttentionSnapshot,
   WorkBandCommand,
   WorkSidebarSnapshot,
   WorkSurfaceModeSnapshot
@@ -77,6 +78,7 @@ export interface WorkSurfaceOptions {
   canPrewarm?(): boolean
   getSurfaceMode?(): Promise<WorkSurfaceModeSnapshot | null>
   getSidebar?(): WorkSidebarSnapshot | null
+  getAttention?(): WorkAttentionSnapshot | null
   runCommand?(command: WorkBandCommand): Promise<boolean>
   setSurfaceMode?(projectId: string, mode: 'work' | 'code'): Promise<void>
   createView(incarnation: WorkIncarnation): WorkViewHandle
@@ -331,6 +333,7 @@ export class WorkSurface {
   getSurfaceMode() { return this.options.getSurfaceMode?.() ?? Promise.resolve(null) }
 
   async getSidebar() { return this.options.getSidebar?.() ?? null }
+  async getAttention() { return this.options.getAttention?.() ?? null }
 
   async runCommand(command: WorkBandCommand): Promise<boolean> {
     // The click lands in the Atum renderer; New thread ends in the view's composer, so the view takes focus first.

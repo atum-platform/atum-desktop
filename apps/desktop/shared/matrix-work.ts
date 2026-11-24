@@ -14,7 +14,8 @@ export const MATRIX_WORK_IPC = {
   request: 'matrix:work:request',
   changed: 'matrix:work:changed',
   surfaceModeChanged: 'matrix:work:surface-mode-changed',
-  sidebarChanged: 'matrix:work:sidebar-changed'
+  sidebarChanged: 'matrix:work:sidebar-changed',
+  attentionChanged: 'matrix:work:attention-changed'
 } as const
 
 /** The owner's own Work view, which fills the page. */
@@ -138,13 +139,33 @@ export function parseWorkSidebar(value: unknown): WorkSidebarSnapshot | null {
     ? { open: row.open, edge: Math.round(row.edge) } : null
 }
 
+/**
+ * What waits in the view's thread list, for Work's rail badge (layout r2 G): threads asking the person
+ * (an approval or an answer) and threads that finished since the person last looked. Counts only.
+ */
+export interface WorkAttentionSnapshot { waiting: number; finished: number }
+
+export function parseWorkAttention(value: unknown): WorkAttentionSnapshot | null {
+  if (!value || typeof value !== 'object') {
+    return null
+  }
+
+  const row = value as Record<string, unknown>
+  const count = (entry: unknown) => typeof entry === 'number' && Number.isInteger(entry) && entry >= 0 && entry <= 10_000
+
+  return count(row.waiting) && count(row.finished)
+    ? { waiting: row.waiting as number, finished: row.finished as number }
+    : null
+}
+
 /** T3 commands the Work title band offers as buttons over the roster column (spec §1.4). */
-export const WORK_BAND_COMMANDS = ['sidebar.toggle', 'chat.new'] as const
+export const WORK_BAND_COMMANDS = ['sidebar.toggle', 'chat.new', 'chat.newWorktree', 'project.add'] as const
 export type WorkBandCommand = (typeof WORK_BAND_COMMANDS)[number]
 
 export type MatrixWorkRequest =
   | { kind: 'getSurfaceMode' }
   | { kind: 'getSidebar' }
+  | { kind: 'getAttention' }
   | { kind: 'runCommand'; command: WorkBandCommand }
   | { kind: 'setSurfaceMode'; projectId: string; mode: 'work' | 'code' }
   | { kind: 'readRelay'; principal: string; roomId: string }
@@ -176,6 +197,9 @@ export interface MatrixWorkBridge {
   /** The view's thread list as it last reported it; null before a report. */
   getSidebar?(): Promise<WorkSidebarSnapshot | null>
   onSidebarChanged?(listener: (snapshot: WorkSidebarSnapshot | null) => void): () => void
+  /** The view's threads that wait for the person or finished unseen; null before a report. */
+  getAttention?(): Promise<WorkAttentionSnapshot | null>
+  onAttentionChanged?(listener: (snapshot: WorkAttentionSnapshot | null) => void): () => void
   readRelay?(principal: string, roomId: string): Promise<WorkRelayRoomView>
   selectRelay?(principal: string, expectedRevision: number, model: string, plan?: WorkRelayPlan): Promise<WorkRelaySelection>
   stopRelay?(roomId: string, eventId: string): Promise<void>
@@ -256,6 +280,8 @@ export function parseMatrixWorkRequest(value: unknown): MatrixWorkRequest | null
     case 'getSurfaceMode': return keys.length === 1 ? { kind: 'getSurfaceMode' } : null
 
     case 'getSidebar': return keys.length === 1 ? { kind: 'getSidebar' } : null
+
+    case 'getAttention': return keys.length === 1 ? { kind: 'getAttention' } : null
     case 'runCommand': {
       const command = WORK_BAND_COMMANDS.find(each => each === row.command)
 

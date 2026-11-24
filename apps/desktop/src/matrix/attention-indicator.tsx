@@ -1,10 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 
 import { Button } from '@/components/ui/button'
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
-import { Tip } from '@/components/ui/tooltip'
 import { type Locale, useI18n } from '@/i18n'
-import { Bell, ChevronRight } from '@/lib/icons'
+import { ChevronRight } from '@/lib/icons'
 import { cn } from '@/lib/utils'
 
 import type { MatrixSnapshot } from '../../shared/matrix'
@@ -195,41 +193,58 @@ function Detail({
 }
 
 /**
- * The one place the window asks the person to act (agent-attention.ts): a bell in the left side
- * of the title bar (owner, 2026-11-13), quiet while nothing needs them and wearing a small badge
- * while something does; its words are a hover or focus away. It opens a short list of the items,
- * each acting from its own row. It never takes focus by itself; a new item is said once to
- * assistive tech.
+ * The one place the window asks the person to act (agent-attention.ts). The bell is gone
+ * (owner, 2026-11-24): what only it could act on (another device asking for approval, a sign-in
+ * elsewhere, this Mac's damaged device, the room an assistant's listening stopped in) lives at the
+ * top of the account face on the rail, which wears a red dot while an item waits. Each row acts
+ * from where it is. It never takes focus by itself; a new item is said once to assistive tech.
  */
-interface IndicatorProps {
+interface SectionProps {
   agentName(principal: string): string
   /** Opens the place an item's action lives (all but the detailed ones). */
   onOpen(item: MatrixAttentionItem): void
-  /** The list opened or closed. The Work page uses it: a native view would cover the list, so it steps aside. */
-  onOpenChange?(open: boolean): void
+  /** The section's own action is done: the account face closes. */
+  onDone?(): void
   snapshot: MatrixSnapshot
 }
 
-export function MatrixAttentionIndicator(props: IndicatorProps) {
+export function MatrixAttentionSection(props: SectionProps) {
   // Account changes reset the window's dismissal state as well as its persisted scope.
-  return <AttentionIndicator key={props.snapshot.identity?.userId ?? ''} {...props} />
+  return <AttentionSection key={props.snapshot.identity?.userId ?? ''} {...props} />
 }
 
-function AttentionIndicator({ agentName, onOpen, onOpenChange, snapshot }: IndicatorProps) {
+/** What waits for the person right now, for the account face's red dot and label. */
+export function useMatrixAttentionSummary(snapshot: MatrixSnapshot, agentName: (principal: string) => string) {
   const { locale } = useI18n()
   const copy = useAttentionCopy()
   const now = useMatrixAttentionNow(snapshot)
-  const ownerId = snapshot.identity?.userId ?? ''
-  const [putOff, setPutOff] = useState(() => devicesPutOff(ownerId))
-  const [open, setOpen] = useState(false)
-  const [announcement, setAnnouncement] = useState('')
-  const seen = useRef<Set<string> | null>(null)
+  const items = snapshot.identity ? matrixAttentionItems(snapshot, now) : []
+  const single = items.length === 1 ? items[0]! : undefined
 
-  const items = matrixAttentionItems(snapshot, now)
+  return {
+    count: items.length,
+    /** The face's marker, as the bell had it: the one item's kind, or `count` for several. */
+    marker: items.length ? (single ? single.kind : 'count') : undefined,
+    label: items.length
+      ? `${copy.a11yPrefix} ${single ? itemLabel(single, copy, agentName, locale) : copy.count(items.length)}`
+      : undefined
+  }
+}
 
+/** The polite announcement of a new item, kept mounted while the account face is closed. */
+export function MatrixAttentionAnnouncer({
+  agentName,
+  snapshot
+}: Pick<SectionProps, 'agentName' | 'snapshot'>) {
+  const { locale } = useI18n()
+  const copy = useAttentionCopy()
+  const now = useMatrixAttentionNow(snapshot)
+  const items = snapshot.identity ? matrixAttentionItems(snapshot, now) : []
   const keys = items.map(itemKey).join('|')
+  const seen = useRef<Set<string> | null>(null)
+  const [announcement, setAnnouncement] = useState('')
 
-  // A new item is announced once, politely; the button is not a live region itself.
+  // A new item is announced once, politely; the account face is not a live region itself.
   useEffect(() => {
     const current = new Set(keys ? keys.split('|') : [])
     const previous = seen.current
@@ -247,18 +262,25 @@ function AttentionIndicator({ agentName, onOpen, onOpenChange, snapshot }: Indic
     // eslint-disable-next-line react-hooks/exhaustive-deps -- `keys` is the items' identity.
   }, [keys])
 
-  useEffect(() => {
-    if (!items.length) {
-      setOpen(false)
-    }
-  }, [items.length])
+  return (
+    <span aria-live="polite" className="sr-only" data-matrix-attention-live>
+      {announcement}
+    </span>
+  )
+}
 
-  useEffect(() => {
-    onOpenChange?.(open)
+function AttentionSection({ agentName, onDone, onOpen, snapshot }: SectionProps) {
+  const { locale } = useI18n()
+  const copy = useAttentionCopy()
+  const now = useMatrixAttentionNow(snapshot)
+  const ownerId = snapshot.identity?.userId ?? ''
+  const [putOff, setPutOff] = useState(() => devicesPutOff(ownerId))
 
-    return () => onOpenChange?.(false)
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- the parent's callback is stable state; only `open` is news.
-  }, [open])
+  const items = matrixAttentionItems(snapshot, now)
+
+  if (!items.length) {
+    return null
+  }
 
   // Today's put-offs only: an older one has nothing left to hold back.
   const putDeviceOff = (deviceId: string) => {
@@ -276,99 +298,53 @@ function AttentionIndicator({ agentName, onOpen, onOpenChange, snapshot }: Indic
     }
 
     setPutOff(next)
-    setOpen(false)
+    onDone?.()
   }
 
   const openItem = (item: MatrixAttentionItem) => {
-    setOpen(false)
+    onDone?.()
     onOpen(item)
   }
 
-  const live = (
-    <span aria-live="polite" className="sr-only" data-matrix-attention-live>
-      {announcement}
-    </span>
-  )
-
-  const single = items.length === 1 ? items[0]! : undefined
-  const label = single ? itemLabel(single, copy, agentName, locale) : copy.count(items.length)
-  const tone = items.some(item => item.tone === 'danger') ? 'danger' : 'warn'
-
-  // The tip wraps the popover's trigger so the trigger keeps its own props.
-  const trigger = (
-    <PopoverTrigger asChild>
-      <button
-        aria-label={items.length ? `${copy.a11yPrefix} ${label}` : copy.notifications}
-        // The kit's circle icon button, the sidebar toggle's size, in the title bar's left side.
-        className="atum-icon-btn relative grid size-7 shrink-0 place-items-center rounded-full after:absolute after:-inset-1 [-webkit-app-region:no-drag]"
-        data-matrix-attention={items.length ? (single ? single.kind : 'count') : undefined}
-        data-matrix-attention-bell
-        data-matrix-attention-count={items.length || undefined}
-        type="button"
-      >
-        <Bell aria-hidden className="size-[1.125rem]" />
-        {items.length > 0 && (
-          <span
-            aria-hidden
-            className={cn(
-              'absolute top-1 right-1 size-2 rounded-full animate-in fade-in-0 duration-150 motion-reduce:animate-none',
-              tone === 'danger' ? 'bg-(--atum-danger)' : 'bg-(--atum-warn)'
-            )}
-            data-matrix-attention-badge={tone}
-          />
-        )}
-      </button>
-    </PopoverTrigger>
-  )
-
   return (
-    <>
-      <Popover onOpenChange={setOpen} open={open}>
-        <Tip label={items.length ? label : copy.notifications}>{trigger}</Tip>
-        <PopoverContent align="start" className="w-80 p-2" data-matrix-attention-list>
-          <p className="px-1.5 pt-0.5 pb-1.5 text-(length:--atum-t-ui) font-semibold text-(--atum-ink)">
-            {copy.notifications}
-          </p>
-          {items.length === 0 ? (
-            <p className="px-1.5 pb-1.5 text-(length:--atum-t-ui) text-(--atum-ink-muted)">{copy.nothing}</p>
-          ) : (
-            <ul className="flex flex-col gap-0.5">
-              {items.map(item => (
-                <li key={itemKey(item)}>
-                  {DETAILED.has(item.kind) ? (
-                    <div className="flex flex-col">
-                      <span className="flex items-center gap-2 px-1.5 pt-1.5 text-(length:--atum-t-ui) font-medium">
-                        <Dot tone={item.tone} />
-                        {itemLabel(item, copy, agentName, locale)}
-                      </span>
-                      <Detail
-                        headed
-                        item={item}
-                        onOpen={openItem}
-                        onPutOff={putDeviceOff}
-                        snapshot={snapshot}
-                      />
-                    </div>
-                  ) : (
-                    <button
-                      className="flex h-9 w-full items-center gap-2 rounded-md px-1.5 text-left text-(length:--atum-t-ui) hover:bg-(--atum-hover) focus-visible:bg-(--atum-hover)"
-                      data-matrix-attention-item={item.kind}
-                      onClick={() => openItem(item)}
-                      type="button"
-                    >
-                      <Dot tone={item.tone} />
-                      <span className="min-w-0 flex-1 truncate">{itemLabel(item, copy, agentName, locale)}</span>
-                      <ChevronRight aria-hidden className="size-3.5 text-(--atum-ink-faint)" />
-                    </button>
-                  )}
-                </li>
-              ))}
-            </ul>
-          )}
-        </PopoverContent>
-      </Popover>
-      {live}
-    </>
+    // Plain buttons inside a menu: Tab moves between them, so the menu's own keys stop here.
+    <section
+      aria-label={copy.notifications}
+      className="mx-1 mb-1 rounded-lg bg-(--atum-sunk) p-1"
+      data-matrix-attention-list
+      onKeyDown={event => {
+        if (event.key !== 'Escape') {
+          event.stopPropagation()
+        }
+      }}
+    >
+      <ul className="flex flex-col gap-0.5">
+        {items.map(item => (
+          <li data-matrix-attention-row={item.kind} key={itemKey(item)}>
+            {DETAILED.has(item.kind) ? (
+              <div className="flex flex-col">
+                <span className="flex items-center gap-2 px-1.5 pt-1.5 text-(length:--atum-t-ui) font-medium">
+                  <Dot tone={item.tone} />
+                  {itemLabel(item, copy, agentName, locale)}
+                </span>
+                <Detail headed item={item} onOpen={openItem} onPutOff={putDeviceOff} snapshot={snapshot} />
+              </div>
+            ) : (
+              <button
+                className="flex h-8 w-full items-center gap-2 rounded-md px-1.5 text-left text-(length:--atum-t-ui) hover:bg-(--atum-hover) focus-visible:bg-(--atum-hover)"
+                data-matrix-attention-item={item.kind}
+                onClick={() => openItem(item)}
+                type="button"
+              >
+                <Dot tone={item.tone} />
+                <span className="min-w-0 flex-1 truncate">{itemLabel(item, copy, agentName, locale)}</span>
+                <ChevronRight aria-hidden className="size-3.5 text-(--atum-ink-faint)" />
+              </button>
+            )}
+          </li>
+        ))}
+      </ul>
+    </section>
   )
 }
 

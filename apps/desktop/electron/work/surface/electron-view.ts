@@ -16,7 +16,7 @@ export function createWorkViewFactory(input: {
   /** S's isolated `dist/electron-work-preload.js`. */
   preload: string
   zoomFactor?: () => number
-  /** Corner radius of the region; 0 for Work, whose view paints its own panel corners (spec §1.4). */
+  /** Corner radius of the region in CSS pixels (Work: the panel radius, WORK_VIEW_RADIUS). */
   radius?: number
   onBlocked?: (kind: string, origin: string) => void
 }): (incarnation: WorkIncarnation) => WorkViewHandle {

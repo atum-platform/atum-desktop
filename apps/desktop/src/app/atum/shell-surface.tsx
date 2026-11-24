@@ -138,6 +138,8 @@ export interface AtumNavSwitchSurfaceProps {
    * the shell passes it only while main reports Work for this account on this Mac.
    */
   workLabel?: string
+  /** Work's badge (layout r2 G): a red count of threads asking for the person, an ink dot for one that finished. */
+  workBadge?: AtumRailBadge
   onDestinationChange(destination: AtumShellDestination): void
   tray?: boolean
 }
@@ -178,6 +180,7 @@ export function AtumNavSwitchSurface({
   tray = false,
   workplaceAvailable = false,
   workLabel,
+  workBadge,
   workplaceBadge,
   workplaceLabel,
   workplaceSoonLabel,
@@ -295,7 +298,11 @@ export function AtumNavSwitchSurface({
               <Tip label={workLabel} side="right" sideOffset={8}>
                 <button
                   aria-current={destination === 'work' ? 'page' : undefined}
-                  aria-label={workLabel}
+                  aria-label={
+                    workBadge
+                      ? `${workLabel} · ${workBadge.label}${workBadge.kind === 'waiting' ? `: ${workBadge.count}` : ''}`
+                      : workLabel
+                  }
                   className="atum-nav-item relative"
                   data-atum-nav-work
                   data-icon-only
@@ -304,6 +311,7 @@ export function AtumNavSwitchSurface({
                   type="button"
                 >
                   <Laptop aria-hidden className={cn('size-4', destination === 'work' && 'fill-current')} />
+                  {workBadge && <RailBadgeMark badge={workBadge} />}
                 </button>
               </Tip>
             )}

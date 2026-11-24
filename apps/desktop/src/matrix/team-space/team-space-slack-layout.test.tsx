@@ -44,7 +44,8 @@ const conversationsReady = async () => {
 }
 
 describe('Team Space’s Slack sidebar', () => {
-  it('pins the company name over a kit search field that filters channels and conversations', async () => {
+  // Layout r2 (owner 2026-11-24): the company switcher is the left panel's foot; the search row leads.
+  it('pins the company switcher in the foot and a kit search field that filters channels and conversations', async () => {
     const source = platform({ channels: [general] })
     source.bridge.search = vi.fn()
     source.bridge.open = vi.fn()
@@ -52,8 +53,9 @@ describe('Team Space’s Slack sidebar', () => {
       searchEnabled: true })
 
     await screen.findByRole('button', { name: 'Open # general' })
-    const header = window.document.querySelector('[data-team-space-sidebar-header]') as HTMLElement
-    expect(within(header).getByRole('heading', { name: 'Atum Studio' })).toBeTruthy()
+    const foot = window.document.querySelector('[data-team-space-foot]') as HTMLElement
+    expect(within(foot).getByRole('heading', { name: 'Atum Studio' })).toBeTruthy()
+    expect(window.document.querySelector('[data-team-space-sidebar-header]')).toBeNull()
     const search = screen.getByRole('textbox', { name: 'Search Atum Studio' })
     expect(search.closest('.ak-field--search')).toBeTruthy()
     fireEvent.change(search, { target: { value: 'missing' } })
@@ -111,13 +113,13 @@ describe('Team Space’s Slack sidebar', () => {
     ])
   })
 
-  it('pins "Invite teammates" in the sidebar footer for someone who may invite, and it opens the invite', async () => {
+  it('pins Add people in the sidebar footer for someone who may invite, and it opens the invite', async () => {
     const source = platform({ conversationsOn: true, conversations: [withBao] })
     renderTeamSpace(source, { rooms: [conversationRoom(withBao.id)] })
 
     await conversationsReady()
-    expect(within(conversationsSection()).queryByRole('button', { name: 'Invite teammates' })).toBeNull()
-    const add = screen.getByRole('button', { name: 'Invite teammates' })
+    expect(within(conversationsSection()).queryByRole('button', { name: 'Add people' })).toBeNull()
+    const add = within(window.document.querySelector('[data-team-space-foot]') as HTMLElement).getByRole('button', { name: 'Add people' })
     expect(add.hasAttribute('data-team-space-invite-teammates')).toBe(true)
     fireEvent.click(add)
     expect(await screen.findByRole('dialog', { name: /^Add people to / })).toBeTruthy()
@@ -128,7 +130,7 @@ describe('Team Space’s Slack sidebar', () => {
     renderTeamSpace(source, { rooms: [conversationRoom(withBao.id)] })
 
     await within(await conversationsReady()).findByRole('button', { name: /Open conversation with/ })
-    expect(screen.queryByRole('button', { name: 'Invite teammates' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Add people' })).toBeNull()
   })
 })
 
@@ -155,6 +157,7 @@ describe('Team Space’s thread line (Slack, owner 2026-11-03)', () => {
     { id: '@cos:test', name: 'Chief of Staff', companyAIPrincipal: '00000000-0000-4000-8000-de1333e5ebbe' },
     { id: '@linh:test', name: 'Linh' }
   ]
+
   const renderThreadLine = (
     lastReplyAt: number | undefined,
     { locale = 'en', unread = true, onOpen = () => {}, lineFaces = faces }:
@@ -178,8 +181,10 @@ describe('Team Space’s thread line (Slack, owner 2026-11-03)', () => {
     renderThreadLine(Date.now() - 3 * 60_000, { onOpen: open })
 
     const line = screen.getByRole('button', { name: '2 replies, Unread, Last reply 3 minutes ago' })
+
     const order = [...line.querySelectorAll('[data-thread-summary-faces], [data-thread-summary-count], [data-team-space-last-reply]')]
       .map(element => (element.hasAttribute('data-thread-summary-faces') ? 'faces' : element.textContent?.trim()))
+
     expect(order).toEqual(['faces', '2 replies', 'Last reply 3 minutes ago'])
     // Round faces (people and assistants are circles), presence dots hidden at this size.
     expect(line.querySelectorAll('[data-thread-summary-faces] .ak-avatar, [data-thread-summary-faces] .atum-avatar').length)

@@ -61,6 +61,8 @@ export interface CompanyMenuProps {
   onCreate(): void
   onLeave(): void
   onWallet(): void
+  /** Where the menu opens: below its trigger, or above it from the left panel's foot. */
+  side?: 'top' | 'bottom'
 }
 
 /**
@@ -119,7 +121,8 @@ export function CompanyMenu({
   onOverview,
   onSettings,
   onSwitch,
-  onWallet
+  onWallet,
+  side = 'bottom'
 }: CompanyMenuProps) {
   const { company, team } = useTeamSpaceCopy()
   const layout = useTeamSpaceLayoutCopy()
@@ -131,7 +134,7 @@ export function CompanyMenu({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>{children}</DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="min-w-60" data-matrix-company-menu>
+      <DropdownMenuContent align="start" className="min-w-60" data-matrix-company-menu side={side}>
         {companies.length > 0 && (
           <>
             <DropdownMenuLabel>{company.companies}</DropdownMenuLabel>

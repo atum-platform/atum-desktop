@@ -261,6 +261,7 @@ describe('Atum shell — continuous chrome and destination rail', () => {
     const initials = ['assistant-avatar.tsx', 'chat-header.tsx', 'start-chat-dialog.tsx', 'roster-panel.tsx']
       .map(name => readFileSync(join(ATUM_DIR, name), 'utf8'))
       .join('\n')
+
     const avatarHelpers = readFileSync(resolve(ATUM_DIR, '../../lib/atum-avatar.ts'), 'utf8')
     const account = readFileSync(resolve(ATUM_DIR, '../../matrix/rail-account.tsx'), 'utf8')
 
@@ -429,7 +430,8 @@ describe('Atum Store and Drive — R13 destination contracts', () => {
   it('keeps Drive title-bar status concise and moves file actions behind kit controls', () => {
     expect(drive).toContain('data-matrix-drive-titlebar')
     expect(drive).toContain('className="ak-seg ak-seg--sm"')
-    expect(drive).toContain('className="ak-field ak-field--search"')
+    // Drive's search sits in its left panel (layout r2 D), a kit search field.
+    expect(drive).toContain('ak-field ak-field--search')
     expect(drive).toContain('<DropdownMenuItem disabled={busy} onSelect={() => void run(() => bridge.reveal())}>')
     expect(drive).not.toContain('data-matrix-drive-refresh')
   })

@@ -6427,6 +6427,7 @@ function scheduleContinuousListening() {
       keepAwakeConnection = connection
       stopWatchingKeepAwakeConnection = connection?.onState((next, reason) => {
         scheduleContinuousListening()
+
         // The Repair band reads needsRepair(); republish when it can change.
         if (reason === 'authentication' || next === 'status_exchanged') { publish(state) }
       })
@@ -18746,6 +18747,17 @@ async function start() {
     engine: driveEngine,
     store: new EncryptedStore(path.join(app.getPath('userData'), 'drive.json'), safeStorage),
     userData: app.getPath('userData'),
+    chooseUpload: async kind => {
+      if (!ui || ui.isDestroyed()) {
+        return undefined
+      }
+
+      const selected = await dialog.showOpenDialog(ui, {
+        properties: kind === 'folder' ? ['openDirectory'] : ['openFile', 'multiSelections']
+      })
+
+      return selected.canceled ? undefined : selected.filePaths
+    },
     chooseFolder: async () => {
       if (!ui || ui.isDestroyed()) {
         return undefined

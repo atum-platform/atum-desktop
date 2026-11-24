@@ -8,7 +8,20 @@ import { Loader } from '@/components/ui/loader'
 import { Tip } from '@/components/ui/tooltip'
 import { useMediaQuery } from '@/hooks/use-media-query'
 import { useI18n } from '@/i18n'
-import { ArrowLeft, Bookmark, ChevronUpDown, Hash, Messages, PencilLine, Plus, SearchIcon } from '@/lib/icons'
+import {
+  ArrowLeft,
+  Bookmark,
+  CheckCircle2,
+  ChevronUpDown,
+  Hash,
+  MessageCircle,
+  Messages,
+  PencilLine,
+  Plus,
+  SearchIcon,
+  Settings,
+  UserPlus
+} from '@/lib/icons'
 import { AppViewOverlayHold } from '@/store/use-app-view-overlay'
 
 import type { MatrixCompanyThread, MatrixRoom } from '../../shared/matrix'
@@ -53,7 +66,7 @@ import { matrixTeamSpaceCopy } from '../../shared/matrix-team-space-copy'
 
 import { CompanyAIStatus } from './company-ai-status'
 import { companyAIActivityStatusHidden } from './company-ai-thread-status'
-import { CompanyBoard } from './company-board'
+import { CompanyBoard, requestCompanyBoardNewTask } from './company-board'
 import { $companyChannelCompanyId, $companyChannelOrder, $companyOverviewRequest, companyRoomBadge } from './company-chrome'
 import { companyDesktopAdapter, companyPrivateCosDesktopAdapter } from './company-desktop-adapter'
 import { MatrixCompanyFundingPanel } from './company-funding'
@@ -71,6 +84,8 @@ import {
 } from './company-space-store'
 import { CompanySpaceTabs } from './company-space-tabs'
 import { CompanyWalletDrawer } from './company-wallet'
+import { MatrixPlusMenu, type MatrixPlusMenuItem, usePlusMenuCopy } from './plus-menu'
+import { $matrixRightPanel, setMatrixRightPanel } from './right-panel'
 import { RosterBadge } from './roster-badge'
 import { TeamSpaceSidebar, TeamSpaceSidebarRow, TeamSpaceSidebarSection } from './team-space-sidebar'
 import { companyAbilities, memberAbilities, teamSpaceProfile } from './team-space/abilities'
@@ -81,6 +96,7 @@ import { $companyAdmin, clearCompanyAdmin, loadCompanyAdmin } from './team-space
 import { type SendingStanding, sendVerdict } from './team-space/authorize'
 import { $companyBoardLinkRequest, clearCompanyBoardLink } from './team-space/board-links'
 import { type ChannelDialog, ChannelDialogs } from './team-space/channel-dialogs'
+import { TeamSpaceChannelOverview } from './team-space/channel-overview'
 import { ChannelSections } from './team-space/channel-sections'
 import {
   $companyChannels,
@@ -121,7 +137,7 @@ import {
   loadCompanyConversations,
   publishCompanySelfRef
 } from './team-space/conversations-store'
-import { TEAM_SPACE_DETAIL_PANE_CLASS, useTeamSpaceDetailPane } from './team-space/detail-pane'
+import { $teamSpaceDetailPane, TEAM_SPACE_DETAIL_PANE_CLASS, useTeamSpaceDetailPane } from './team-space/detail-pane'
 import { companyDirectoryCache } from './team-space/directory-store'
 import {
   $teamSpaceDiscovery,
@@ -539,6 +555,7 @@ export function MatrixCompanyWorkspace({ accountKey, activeRoomId, activity: syn
   // What the server says Team Space can do (C1: roles and ownership; C2: private channels). Until it
   // has answered, and on any server that predates it, this is the 1.1 workspace exactly.
   const teamCopy = matrixTeamSpaceCopy(locale)
+  const plusCopy = usePlusMenuCopy()
   const layoutCopy = teamSpaceLayoutCopy(locale)
   const revampCopy = teamSpaceRevampCopy(locale)
   const companyAvatarUrls = useCompanyAvatarUrls(bridge, rooms)
@@ -2864,10 +2881,6 @@ export function MatrixCompanyWorkspace({ accountKey, activeRoomId, activity: syn
     setSearchPane({ query, serial: searchSerialRef.current })
   }
 
-  const titleHeading = (
-    <h1 className="min-w-0 flex-1 truncate [font:var(--ak-t-headline)] text-(--atum-ink)">{companyTitle}</h1>
-  )
-
   const visibleActivity = authorizedCompanyActivity(activity, selectedCompanyId ?? '', activityRooms)
   const unreadActivity = visibleActivity.filter(item => item.unread)
 
@@ -2900,6 +2913,58 @@ export function MatrixCompanyWorkspace({ accountKey, activeRoomId, activity: syn
     unread: visibleThreads.some(thread => thread.unread)
   })
 
+  // The neutral right panel inside a channel (layout r2 §2): its overview, while no detail holds the pane
+  // and the person keeps the panel open (open by default, remembered).
+  const neutralPanelWanted = useStore($matrixRightPanel).workplace
+  const detailHolder = useStore($teamSpaceDetailPane)
+
+  const neutralChannel = !compact && neutralPanelWanted && !detailHolder && activeCompanyTab === 'chat' &&
+    !showingOverview && !showingActivity && !showingThreads && !showingSaved && !showingDrafts
+    ? channelViews?.find(item => item.room.state === 'ready' && item.room.roomId === activeRoomId)
+    : undefined
+
+  // Team Space's plus menu (layout r2 §4, owner 2026-11-24): New channel, New message ⌘N, New task, then Add people.
+  const teamSpacePlusItems: MatrixPlusMenuItem[] = [
+    ...((channelsMode ? abilities.createChannel : canCreateChannel) && visibleSnapshot ? [{
+      id: 'channel',
+      label: plusCopy.newChannel,
+      icon: <Hash aria-hidden />,
+      onSelect: () => {
+        if (channelsMode) {
+          setDialog({ kind: 'create' })
+        } else {
+          setChannelComposerOpen(true)
+          setChannelName('')
+        }
+      }
+    }] : []),
+    ...(profile.conversations && visibleSnapshot ? [{
+      id: 'message',
+      label: plusCopy.newMessage,
+      icon: <MessageCircle aria-hidden />,
+      shortcut: '⌘N',
+      onSelect: () => setConversationDialog({ kind: 'new' })
+    }] : []),
+    ...(selectedCompanyId && visibleSnapshot ? [{
+      id: 'task',
+      label: plusCopy.newTask,
+      icon: <CheckCircle2 aria-hidden />,
+      onSelect: () => {
+        requestCompanyBoardNewTask()
+        patchCompanySpacePreferences(activeCompanyScope, { tab: 'board' })
+
+        if (compact) {setCompactPane('content')}
+      }
+    }] : []),
+    ...(menuAllowed.invite ? [{
+      id: 'people',
+      label: plusCopy.addPeople,
+      icon: <UserPlus aria-hidden />,
+      separated: true,
+      onSelect: openInvite
+    }] : [])
+  ]
+
   return (
     <section aria-label={copy.title} className="relative flex min-h-0 flex-1 overflow-hidden" data-matrix-company-workspace>
       <PrivateCosAutoJoin
@@ -2913,20 +2978,10 @@ export function MatrixCompanyWorkspace({ accountKey, activeRoomId, activity: syn
         state={privateCosState}
       />
       <TeamSpaceSidebar compactFull={compact && compactPane === 'sidebar'}
-        footer={menuAllowed.invite ? (
-          <button
-            className="ak-btn ak-btn--plain w-full justify-start"
-            data-team-space-invite-teammates
-            disabled={mutationPending}
-            onClick={openInvite}
-            type="button"
-          >
-            <Plus aria-hidden className="ak-icon ak-icon--sm" />
-            {teamCopy.inviteTeammates}
-          </button>
-        ) : undefined}
-        header={
-          <div className="flex min-w-0 items-center gap-1 px-1" data-matrix-company-title>
+        footer={
+          // The left panel's foot (layout r2 E, owner 2026-11-24): the company switcher (it opens upward),
+          // Add people, then the gear.
+          <div className="atum-panel-foot" data-matrix-company-title data-team-space-foot>
             {orderedCompanies.length > 0 ? (
               <CompanyMenu
                 allowed={menuAllowed}
@@ -2942,26 +2997,26 @@ export function MatrixCompanyWorkspace({ accountKey, activeRoomId, activity: syn
                 onSettings={() => openOverview('settings')}
                 onSwitch={companyId => selectCompany(companyId)}
                 onWallet={() => setWalletOpen(true)}
+                side="top"
               >
-                {/* Atum Kit (FlowTeamSpace): the company's app tile, its name at headline size and an
-                    up-down chevron at the row's end, as a Mac sidebar's account switcher. */}
-                <button className="flex w-full min-w-0 flex-1 items-center gap-2.5 rounded-(--atum-r-control) px-2 py-1.5 text-start hover:bg-(--ak-fill-hover)"
+                {/* As a Mac sidebar's account switcher: the company's app tile, its name and an up-down chevron. */}
+                <button className="atum-panel-foot-action !text-(--atum-ink)"
                   data-matrix-company-menu-trigger ref={overviewButtonRef} type="button">
                   {companyAvatarUrl ? (
-                    <img alt="" className="atum-avatar size-7 shrink-0 object-cover" data-face="app" src={companyAvatarUrl} />
+                    <img alt="" className="atum-avatar size-6 shrink-0 object-cover" data-face="app" src={companyAvatarUrl} />
                   ) : (
-                    <span aria-hidden className="atum-avatar grid size-7 shrink-0 place-items-center bg-(--ak-ink) text-[0.75rem] font-semibold text-(--ak-on-ink)" data-face="app">
+                    <span aria-hidden className="atum-avatar grid size-6 shrink-0 place-items-center bg-(--ak-ink) text-[0.6875rem] font-semibold text-(--ak-on-ink)" data-face="app">
                       {companyInitials(companyTitle, locale)}
                     </span>
                   )}
-                  {titleHeading}
+                  <h1 className="min-w-0 truncate text-(length:--atum-t-ui) font-medium">{companyTitle}</h1>
                   <ChevronUpDown aria-hidden className="size-4 shrink-0 text-(--ak-ink-3)" />
                 </button>
               </CompanyMenu>
             ) : (
-              <button aria-label={copy.companyOverview} className="min-w-0 rounded-(--atum-r-control) text-start"
-                disabled ref={overviewButtonRef} type="button">
-                {titleHeading}
+              <button aria-label={copy.companyOverview} className="atum-panel-foot-action !text-(--atum-ink)" disabled
+                ref={overviewButtonRef} type="button">
+                <h1 className="min-w-0 truncate text-(length:--atum-t-ui) font-medium">{companyTitle}</h1>
               </button>
             )}
             {selectedCompanyId && (
@@ -2972,12 +3027,29 @@ export function MatrixCompanyWorkspace({ accountKey, activeRoomId, activity: syn
                 selected={showingActivity}
               />
             )}
+            {menuAllowed.invite && (
+              <Tip label={plusCopy.addPeople}>
+                <button aria-label={plusCopy.addPeople} className="ak-iconbtn ak-iconbtn--sm" data-team-space-invite-teammates
+                  disabled={mutationPending} onClick={openInvite} type="button">
+                  <UserPlus aria-hidden className="ak-icon" />
+                </button>
+              </Tip>
+            )}
+            {selectedCompanyId && (
+              <Tip label={plusCopy.settings}>
+                <button aria-label={plusCopy.settings} className="ak-iconbtn ak-iconbtn--sm" data-team-space-settings
+                  onClick={() => openOverview(menuAllowed.settings ? 'settings' : undefined)} type="button">
+                  <Settings aria-hidden className="ak-icon" />
+                </button>
+              </Tip>
+            )}
           </div>
         }
         hidden={compact && compactPane === 'content'} label={copy.channels} resizeLabel={copy.resizeSidebar}
         scope={accountKey}>
         <div className="grid gap-(--ak-s1) px-(--ak-s2)" data-matrix-company-sidebar-search>
-          <label className="ak-field ak-field--search">
+          <div className="flex min-w-0 items-center gap-1.5">
+          <label className="ak-field ak-field--search min-w-0 flex-1">
             <SearchIcon aria-hidden className="ak-icon ak-icon--sm" />
             <input
               aria-label={teamCopy.sidebarSearch(companyTitle)}
@@ -2996,6 +3068,15 @@ export function MatrixCompanyWorkspace({ accountKey, activeRoomId, activity: syn
               value={sidebarQuery}
             />
           </label>
+          {/* New, as a plus menu (layout r2 §4): only what this person can make here. */}
+          <MatrixPlusMenu
+            disabled={mutationPending}
+            items={teamSpacePlusItems}
+            label={plusCopy.newMenu}
+            primary="message"
+            screen="team-space"
+          />
+          </div>
           {messageSearchReady && [...sidebarQuery.trim()].length >= 2 && (
             <TeamSpaceSidebarRow
               ariaLabel={revampCopy.searchMessagesFor(sidebarQuery.trim())}
@@ -3559,6 +3640,16 @@ export function MatrixCompanyWorkspace({ accountKey, activeRoomId, activity: syn
 
           </CompanyOverviewFrame>}
         </div>
+        {neutralChannel && (
+          <TeamSpaceChannelOverview
+            channel={neutralChannel}
+            chief={sharedChief?.enabled ? { name: boardCopy.chiefOfStaff } : undefined}
+            onAddPeople={neutralChannel.wire === '1.4' ? () => setDialog({ kind: 'members', channelId: neutralChannel.id }) : (menuAllowed.invite ? openInvite : undefined)}
+            onAskChief={privateCosState ? () => void openPrivateCos() : undefined}
+            onClose={() => setMatrixRightPanel('workplace', false)}
+            onOpenBoard={() => patchCompanySpacePreferences(activeCompanyScope, { tab: 'board' })}
+          />
+        )}
         {activeCompanyTab === 'board' && selectedCompanyId && visibleSnapshot && (
           <div className="flex min-h-0 min-w-0 flex-1" id="company-page-board" role="tabpanel">
             <CompanyBoard

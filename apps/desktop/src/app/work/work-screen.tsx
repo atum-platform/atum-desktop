@@ -145,14 +145,14 @@ export function WorkScreen({
       {projection.view === 'ready' && (
         <WorkRelaySharedContextLine names={workRelaySharedContext(relayChats ?? []).map(names.name)} />
       )}
-      {/* Spec §1: the host is the whole region right of the rail under the band, with no card: the
-          view is transparent and paints T3's thread list, thread and right panel as Atum's roster
-          panel, main card and side panel, with the frame showing through the gaps (the Work theme).
-          While the view is away the quiet state sits on a plain card. */}
+      {/* The shared panel frame (owner, 2026-11-24): the host sits where every screen's panels sit, with
+          the panel radius, and main rounds the native view to it (electron-view.ts). Inside, T3's own
+          inset layout paints its thread list on the chrome ground and the thread as a rounded card.
+          While the view is away the quiet state sits on the same card. */}
       <div
         className={
           projection.view === 'ready'
-            ? 'relative min-h-0 flex-1 overflow-hidden'
+            ? 'relative me-(--atum-panel-gap) mb-(--atum-panel-inset) min-h-0 flex-1 overflow-hidden rounded-(--atum-r-panel)'
             : 'relative me-(--atum-panel-gap) mb-(--atum-panel-inset) min-h-0 flex-1 overflow-hidden rounded-(--atum-r-panel) bg-(--atum-main-bg) shadow-(--atum-main-edge)'
         }
         data-atum-work-host

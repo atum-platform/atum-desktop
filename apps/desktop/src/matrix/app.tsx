@@ -210,7 +210,12 @@ import {
 } from './assistant-card'
 import { useAssistantCardCopy } from './assistant-card/copy'
 import { matrixComposerHint, useAttentionCopy } from './attention-copy'
-import { MatrixAttentionIndicator, useMatrixApprovalSheet } from './attention-indicator'
+import {
+  MatrixAttentionAnnouncer,
+  MatrixAttentionSection,
+  useMatrixApprovalSheet,
+  useMatrixAttentionSummary
+} from './attention-indicator'
 import { useChatCopy } from './chat-copy'
 import {
   aboutAppBot,
@@ -299,6 +304,7 @@ import { focusDialogField, MatrixDialogHeader } from './dialog-header'
 import { DocumentLink } from './document-link'
 import { MatrixDrive, type MatrixDriveDestination, MatrixDriveSidebar, MatrixDriveTitle } from './drive'
 import { matrixDriveCopy } from './drive-copy'
+import { $matrixDriveLocation, currentDrivePlace, requestMatrixDriveIntent } from './drive-finder'
 import {
   $matrixDriveTaskSelection,
   clearMatrixDriveTaskSelections,
@@ -393,6 +399,14 @@ import { mobileChatCopy, useMobileCopy } from './mobile-copy'
 import { MatrixMobileSetup } from './mobile-setup'
 import { MatrixModelPicker } from './model-picker'
 import { matrixNativeApproval, MatrixNativeApprovalCard } from './native-command-approval'
+import { MatrixNavArrows } from './nav-arrows'
+import {
+  type MatrixNavEntry,
+  type MatrixNavScreen,
+  recordMatrixNav,
+  resetMatrixNav,
+  setMatrixNavHandler
+} from './navigation-history'
 import { MatrixNoReplyBanner, matrixUnansweredOwnerMessage } from './no-reply-banner'
 import { MatrixNotificationLevelMenu } from './notification-level-menu'
 import {
@@ -421,18 +435,34 @@ import { matrixConversationInfo } from './person-info-model'
 import { MatrixPersonInfoPanel } from './person-info-panel'
 import { matrixPersonLine } from './person-name'
 import { MatrixAgentPet } from './pet'
+import { $matrixScreenNew } from './plus-menu'
 import { bindMatrixPresenceSnapshot, clearMatrixPresence } from './presence-store'
 import { privateCosGreetingMarkdown } from './private-cos-greeting'
 import { MatrixProfileAvatar } from './profile-avatar'
 import { MatrixProfileEditor } from './profile-editor'
 import { MatrixRailAccount, OwnAvatar, useOwnName } from './rail-account'
 import { useRailBadgeCopy } from './rail-badge-copy'
-import { matrixChatRailBadge, matrixDriveRailBadge, useMatrixDriveRailView } from './rail-badges'
+import {
+  matrixChatRailBadge,
+  matrixDriveRailBadge,
+  matrixStoreRailBadge,
+  matrixWorkRailBadge,
+  useMatrixDriveRailView,
+  useMatrixStoreSeen,
+  useMatrixWorkAttention
+} from './rail-badges'
 import { railSurfaceState } from './rail-surfaces'
 import { useMatrixReadAttention } from './read-attention'
 import { matrixFirstUnreadMessageId } from './read-marker'
 import { matrixReadinessCopy, matrixSetupCooldown } from './readiness-copy'
 import { ResultRecoveryOutcome, useResultRecovery } from './result-recovery'
+import {
+  $matrixRightPanel,
+  MATRIX_RIGHT_PANEL_MIN_WINDOW,
+  type MatrixRightPanelScreen,
+  rightPanelToggleCopy,
+  setMatrixRightPanel
+} from './right-panel'
 import { anyAgentPrompts, assistantTarget, primaryAgent, snapshotForRoom } from './room-agent'
 import { sortConversations } from './room-navigation'
 import { MatrixRosterConversations } from './roster-conversations'
@@ -6539,6 +6569,7 @@ function MatrixRoster({
   // A cloud-only default (the first sign-up assistant) never runs local setup: no local
   // identity or setup state is expected, so it is never asked to set up on this Mac.
   const primaryAgent = snapshot.agents?.find(agent => agent.isDefault)
+
   const localSetupRequired = snapshot.agentRoster?.state === 'ready' &&
     (!primaryAgent || matrixAgentNeedsLocalSetup(primaryAgent, cloudOnly))
 
@@ -6667,6 +6698,7 @@ function MatrixRoster({
 
   const openAssistant = async (fresh = false, agentId?: string, preferredRoomId?: string) => {
     agentId = assistantTarget(snapshot, agentId, preferredRoomId)
+
     if (!agentId || !snapshot.identity || assistantOpening) {
       return
     }
@@ -7135,7 +7167,6 @@ function MatrixAccountView({
 }) {
   const work = useStore($work)
   const workActive = useStore($workActive)
-  const [attentionOpen, setAttentionOpen] = useState(false)
 
   // Work's projection from main: the rail shows Work only while there is one for this account.
   useEffect(() => {
@@ -7908,8 +7939,37 @@ function MatrixAccountView({
   const conversationInfo =
     !founderDraftShown && !driveActive && !appDestination ? matrixConversationInfo(room, snapshot) : null
 
-  const openSidePanel = () => openWorkspace(conversationInfo ? 'info' : 'workbench')
+  const openSidePanel = () => {
+    if (conversationInfo) {
+      setMatrixRightPanel('chat', true)
+    }
+
+    openWorkspace(conversationInfo ? 'info' : 'workbench')
+  }
+
   const infoShown = Boolean(workspaceOpen && workspaceKind === 'info' && conversationInfo && room)
+
+  // Chat's right panel is open by default and remembered (layout r2 §2): each conversation opens with
+  // the person's or assistant's card beside it, unless the person closed it or the window is narrow.
+  const chatPanelWanted = useStore($matrixRightPanel).chat
+  const chatPanelScope = useRef<string | null>(null)
+
+  useEffect(() => {
+    const scope = conversationInfo && room && !workplaceActive && !driveActive && !workActive ? currentWorkspaceScope : null
+
+    if (scope === chatPanelScope.current) {
+      return
+    }
+
+    chatPanelScope.current = scope
+
+    if (scope && chatPanelWanted && !compact && !workspaceOpen && window.innerWidth >= MATRIX_RIGHT_PANEL_MIN_WINDOW) {
+      setWorkspaceKind('info')
+      setWorkspaceScope(scope)
+      setWorkspaceExpanded(false)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- a new conversation is the only trigger.
+  }, [currentWorkspaceScope, Boolean(conversationInfo), workplaceActive, driveActive, workActive])
 
   const revealDocument = () => {
     openWorkspace()
@@ -8113,6 +8173,8 @@ function MatrixAccountView({
   const attentionItems = matrixAttentionItems(snapshot, attentionNow)
   const railCopy = useRailBadgeCopy()
   const driveRailView = useMatrixDriveRailView(window.atumMatrix?.drive)
+  const workAttention = useMatrixWorkAttention(window.atumMatrix?.work)
+  const storeSeenAt = useMatrixStoreSeen(snapshot.identity?.userId ?? '', storeOpen)
 
   const railBadges = {
     home: matrixChatRailBadge(
@@ -8120,13 +8182,138 @@ function MatrixAccountView({
       attentionItems.filter(item => item.kind === 'agent' || item.kind === 'plan_sign_in').length,
       railCopy
     ),
-    drive: matrixDriveRailBadge(driveRailView, railCopy.driveProblem)
+    drive: matrixDriveRailBadge(driveRailView, railCopy.driveProblem),
+    discover: matrixStoreRailBadge(snapshot.store, storeSeenAt, railCopy.storeArrived)
   }
 
-  // The quiet bell is gone (layout r1/r2). Its list still holds what the rail can't act on yet (another
-  // device asking for approval, a sign-in elsewhere, the room an assistant's listening stopped in), so it
-  // shows only while it holds an item (owner question in docs/kit-t3-step3-1124.md).
+  const workRailBadge = matrixWorkRailBadge(workAttention, railCopy)
+
+  // The bell is gone (owner, 2026-11-24): what only it could act on (another device asking for approval,
+  // a sign-in elsewhere, a damaged device, the room an assistant's listening stopped in) sits at the top of
+  // the rail's account face, which wears a red dot while an item waits.
   const attentionShown = attentionItems.length > 0
+
+  const attentionSummary = useMatrixAttentionSummary(snapshot, principal => {
+    const agent = snapshot.agents?.find(each => each.principal === principal)
+
+    return agent ? matrixRosterAgentName(agent, shell.assistantName) : shell.assistantName
+  })
+
+  // The rail's destination change, shared by the rail and the title bar's ← →.
+  const changeDestination = (destination: AtumShellDestination) => {
+    setWorkActive(destination === 'work')
+    setSettingsTrip(undefined)
+    setWorkplacePage(undefined)
+    setDriveActive(destination === 'drive')
+
+    if (destination === 'chat' && room && isTeamSpaceRoom(room)) {
+      homeEscapeRoomId.current = room.id
+    }
+
+    setWorkplaceActive(destination === 'workplace')
+
+    if (destination === 'discover' && snapshot.apps) {
+      void runMatrixCommand({ kind: 'discoverApps' }).catch(fail)
+    } else if (destination === 'chat') {
+      selectDefaultConversation()
+    }
+  }
+
+  // The window's history (layout r2 §1): the screen on the rail and what is open on it.
+  const railDestination: MatrixNavScreen = workOnScreen
+    ? 'work'
+    : driveActive
+      ? 'drive'
+      : workplaceOnScreen
+        ? 'workplace'
+        : // An open app is one of the store's: the rail keeps that place, not Home.
+          snapshot.destination?.kind === 'discover' || (snapshot.apps && snapshot.destination?.kind === 'app')
+          ? 'discover'
+          : 'chat'
+
+  // The neutral right panel's screen and whether it is open (layout r2 §2), remembered per screen.
+  const rightPanels = useStore($matrixRightPanel)
+
+  const neutralPanelScreen: MatrixRightPanelScreen | null =
+    railDestination === 'workplace' || railDestination === 'drive' || railDestination === 'discover'
+      ? railDestination
+      : null
+
+  const neutralPanelOpen = Boolean(neutralPanelScreen && rightPanels[neutralPanelScreen])
+
+  const driveLocation = useStore($matrixDriveLocation)
+  // A folder inside a place is Drive's own history (its ← → step it first); the window keeps the place.
+  const lastDrivePlace = useRef<ReturnType<typeof currentDrivePlace>>(null)
+  const drivePlace = currentDrivePlace(driveDestination, driveLocation) ?? lastDrivePlace.current
+  lastDrivePlace.current = drivePlace
+
+  const navEntry: MatrixNavEntry | null = !snapshot.identity
+    ? null
+    : railDestination === 'chat'
+      ? { screen: 'chat', ...(room && !isTeamSpaceRoom(room) ? { roomId: room.id } : {}) }
+      : railDestination === 'workplace'
+        ? { screen: 'workplace', ...(room && isTeamSpaceRoom(room) ? { roomId: room.id } : {}) }
+        : railDestination === 'discover'
+          ? { screen: 'discover', shelf: storeShelf }
+          : railDestination === 'drive'
+            ? {
+                screen: 'drive',
+                ...(drivePlace
+                  ? { place: drivePlace.kind === 'folder' ? `folder:${drivePlace.name}` : drivePlace.kind }
+                  : {})
+              }
+            : { screen: 'work' }
+
+  const navKey = navEntry ? JSON.stringify(navEntry) : ''
+
+  useEffect(() => {
+    if (navEntry) {
+      recordMatrixNav(navEntry)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `navKey` is the entry's identity.
+  }, [navKey])
+
+  // A new account starts a new history: the old one names rooms this account can't open.
+  useEffect(() => resetMatrixNav(), [snapshot.identity?.userId])
+
+  const goToNav = (entry: MatrixNavEntry) => {
+    if (entry.screen !== railDestination) {
+      changeDestination(entry.screen === 'chat' && entry.roomId ? 'chat' : entry.screen)
+    }
+
+    if ((entry.screen === 'chat' || entry.screen === 'workplace') && entry.roomId && entry.roomId !== snapshot.roomId) {
+      const target = snapshot.rooms.find(each => each.id === entry.roomId && each.membership === 'join')
+
+      if (target) {
+        void runMatrixCommand({ kind: 'select', roomId: target.id }).catch(fail)
+      }
+    }
+
+    if (entry.screen === 'discover' && entry.shelf) {
+      setStoreShelf(entry.shelf as typeof storeShelf)
+    }
+
+    if (entry.screen === 'drive' && entry.place) {
+      if (entry.place === 'recents') {
+        setDriveDestination('recents')
+        requestMatrixDriveIntent({ kind: 'root' })
+      } else {
+        setDriveDestination('all')
+        requestMatrixDriveIntent(
+          entry.place.startsWith('folder:') ? { kind: 'folder', name: entry.place.slice(7) } : { kind: 'root' }
+        )
+      }
+    }
+  }
+
+  const goToNavRef = useRef(goToNav)
+  goToNavRef.current = goToNav
+
+  useEffect(() => {
+    setMatrixNavHandler(entry => goToNavRef.current(entry))
+
+    return () => setMatrixNavHandler(null)
+  }, [])
 
   // Unread and mentions across the company's channels, for the rail's Workplace icon.
   const roomsBadge = companyRoomsBadge(snapshot.rooms)
@@ -8184,7 +8371,20 @@ function MatrixAccountView({
           ...companyShortcutHandlers()
         }
       : {}),
-    ...(snapshot.assistant && snapshot.state === 'ready' ? { 'session.new': newMessage } : {}),
+    ...(snapshot.assistant && snapshot.state === 'ready'
+      ? {
+          // ⌘N runs the open screen's first New item (layout r2 §4); Chat's New message otherwise.
+          'session.new': () => {
+            const own = (workplaceOnScreen || driveActive) && $matrixScreenNew.get()
+
+            if (own) {
+              own()
+            } else {
+              newMessage()
+            }
+          }
+        }
+      : {}),
     ...(chatShown ? { 'chat.find': () => chatSearchOpen.current?.() } : {})
   }
 
@@ -8374,26 +8574,28 @@ function MatrixAccountView({
     )
   }
 
-  // The one place the window asks the person to act (agent-attention.ts): a bell at the left of the
-  // title bar, with the window controls. One at a time: on the roster's top row while the roster
-  // leads the row, on the main header's otherwise (owner, 2026-11-13).
+  // Whether the title bar's leading cluster sits in the main header (no left panel beside it) or
+  // on the left panel's own top row (owner, 2026-11-13).
   const titleBarLeads = compact || !sidebarShowing || workplaceOnScreen || workOnScreen
   const workBand = workCopy(locale).band
 
-  const attentionBell = snapshot.identity && attentionShown ? (
-    <MatrixAttentionIndicator
-      agentName={principal => {
-        const agent = snapshot.agents?.find(each => each.principal === principal)
+  // The bell is gone (owner, 2026-11-24). What waits for the person sits at the top of the rail's
+  // account face, which wears a red dot meanwhile (attention-indicator.tsx).
+  const attentionAgentName = (principal: string) => {
+    const agent = snapshot.agents?.find(each => each.principal === principal)
 
-        return agent ? matrixRosterAgentName(agent, shell.assistantName) : shell.assistantName
-      }}
+    return agent ? matrixRosterAgentName(agent, shell.assistantName) : shell.assistantName
+  }
+
+  const attentionSection = attentionShown ? (
+    <MatrixAttentionSection
+      agentName={attentionAgentName}
+      onDone={() => setAccountMenuOpen(false)}
       onOpen={openAttention}
-      onOpenChange={setAttentionOpen}
       snapshot={snapshot}
     />
-  ) : null
+  ) : undefined
 
-  const sidebarBell = titleBarLeads ? null : attentionBell
 
   const conversationRoster = (
     <MatrixRoster
@@ -8428,13 +8630,17 @@ function MatrixAccountView({
       onToggle={toggle}
       openRef={rosterOpen}
       snapshot={snapshot}
-      titleBarAction={sidebarBell}
+      titleBarAction={titleBarLeads ? null : <MatrixNavArrows />}
     />
   )
 
   const roster = storeOpen ? (
     <MatrixStoreSidebar
       compact={compact}
+      onOpenSettings={() => {
+        setSettingsPane('protons')
+        setSettingsOpen(true)
+      }}
       onQueryChange={setStoreQuery}
       onShelfChange={next => {
         setStoreShelf(next)
@@ -8443,9 +8649,10 @@ function MatrixAccountView({
           setDrawerOpen(false)
         }
       }}
+      onTopUp={snapshot.checkout ? openTopUp : undefined}
       query={storeQuery}
       shelf={storeShelf}
-      titleBarAction={sidebarBell}
+      titleBarAction={titleBarLeads ? null : <MatrixNavArrows />}
       windowControls={
         <AtumWindowControlsSurface
           onToggleSidebar={toggle}
@@ -8462,8 +8669,12 @@ function MatrixAccountView({
     <MatrixDriveSidebar
       compact={compact}
       current={driveDestination}
+      onOpenSettings={() => {
+        setSettingsPane('general')
+        setSettingsOpen(true)
+      }}
       onSelect={setDriveDestination}
-      titleBarAction={sidebarBell}
+      titleBarAction={titleBarLeads ? null : <MatrixNavArrows />}
       windowControls={
         <AtumWindowControlsSurface
           onToggleSidebar={toggle}
@@ -8748,8 +8959,6 @@ function MatrixAccountView({
                 obstructed={
                   overlaid ||
                   drawerOpen ||
-                  // The attention list drops over the page; the native view would cover it.
-                  attentionOpen ||
                   anyAgentPrompts(snapshot) ||
                   isMatrixVerificationPending(snapshot.security?.verification)
                 }
@@ -8759,7 +8968,7 @@ function MatrixAccountView({
                 reserveOverlay={facts.overlayWidth > 0}
                 windowControls={
                   // Every page's title bar leads the same way: the lights, the hide-left-panel
-                  // button, then the bell at the left panel's far edge. Here the panel is the
+                  // button, then ← → at the left panel's far edge. Here the panel is the
                   // view's own thread list, whose edge the view reports (styles.css).
                   <div className="flex flex-1 items-center gap-2" data-atum-leading-cluster>
                     <AtumWindowControlsSurface
@@ -8769,7 +8978,7 @@ function MatrixAccountView({
                       sidebarLabel={workBand.toggleSidebar}
                     />
                     <span className="flex-1" />
-                    {attentionBell}
+                    <MatrixNavArrows />
                   </div>
                 }
               />
@@ -8854,7 +9063,23 @@ function MatrixAccountView({
                         threadsOpen={Boolean(currentThreadView)}
                       />
                     )}
-                    {!workspaceOpen && (
+                    {neutralPanelScreen && !workspaceOpen ? (
+                      // Team Space, Store and Drive: the C toggle shows or hides the screen's neutral panel,
+                      // remembered per screen (layout r2 §2).
+                      <Tip label={neutralPanelOpen ? rightPanelToggleCopy(locale).hide : rightPanelToggleCopy(locale).show}>
+                        <button
+                          aria-label={neutralPanelOpen ? rightPanelToggleCopy(locale).hide : rightPanelToggleCopy(locale).show}
+                          aria-pressed={neutralPanelOpen}
+                          className="atum-icon-btn relative size-7"
+                          data-matrix-side-panel-opens="neutral"
+                          onClick={() => setMatrixRightPanel(neutralPanelScreen, !neutralPanelOpen)}
+                          ref={workspaceOpener}
+                          type="button"
+                        >
+                          <LayoutSidebarRight aria-hidden className="size-[1.0625rem]" strokeWidth={1.6} />
+                        </button>
+                      </Tip>
+                    ) : !workspaceOpen ? (
                       // The glyph that closes the panel opens it; a boxed plus read as "new chat".
                       <Tip label={conversationInfo ? personInfoCopy.showInfo : workbenchCopy.showPanel}>
                         <button
@@ -8878,7 +9103,7 @@ function MatrixAccountView({
                           )}
                         </button>
                       </Tip>
-                    )}
+                    ) : null}
                   </>
                 }
                 className={conversationLook?.ground ? (lookAppearance === 'dark' ? 'ak-dark' : 'ak-light') : undefined}
@@ -8886,8 +9111,8 @@ function MatrixAccountView({
                 reserveOverlay={facts.overlayWidth > 0}
                 windowControls={
                   // As the chat roster's own top row: the lights and the hide-left-panel button,
-                  // then the bell at the left panel's far edge (Team Space's sidebar width, from
-                  // styles.css); with no panel beside it the bell follows the button.
+                  // then ← → at the left panel's far edge (Team Space's sidebar width, from
+                  // styles.css); with no panel beside them they follow the button (layout r2 §1).
                   <div className="flex flex-1 items-center gap-2" data-atum-leading-cluster>
                     <AtumWindowControlsSurface
                       onToggleSidebar={workplaceOnScreen ? toggleTeamSpaceSidebar : toggle}
@@ -8902,7 +9127,7 @@ function MatrixAccountView({
                       }
                     />
                     <span className="flex-1" />
-                    {attentionBell}
+                    <MatrixNavArrows />
                   </div>
                 }
               >
@@ -9283,52 +9508,25 @@ function MatrixAccountView({
               <AtumNavSwitchSurface
                 ariaLabel={shell.navigation}
                 badges={railBadges}
-                destination={
-                  workOnScreen
-                    ? 'work'
-                    : driveActive
-                    ? 'drive'
-                    : workplaceOnScreen
-                      ? 'workplace'
-                      : // An open app is one of the store's: the rail keeps that place, not Home.
-                        snapshot.destination?.kind === 'discover' ||
-                          (snapshot.apps && snapshot.destination?.kind === 'app')
-                        ? 'discover'
-                        : 'chat'
-                }
+                destination={railDestination}
                 disabledDiscoverLabel={
                   railSurfaceState('discover', surfaces) === 'coming_soon' ? shell.discoverUnavailable : undefined
                 }
                 discoverLabel={shell.discover}
                 driveLabel={shell.drive}
                 homeLabel={shell.home}
-                onDestinationChange={(destination: AtumShellDestination) => {
-                  setWorkActive(destination === 'work')
-                  setSettingsTrip(undefined)
-                  setWorkplacePage(undefined)
-                  setDriveActive(destination === 'drive')
-
-                  if (destination === 'chat' && room && isTeamSpaceRoom(room)) {
-                    homeEscapeRoomId.current = room.id
-                  }
-
-                  setWorkplaceActive(destination === 'workplace')
-
-                  if (destination === 'discover' && snapshot.apps) {
-                    void runMatrixCommand({ kind: 'discoverApps' }).catch(fail)
-                  } else if (destination === 'chat') {
-                    selectDefaultConversation()
-                  }
-                }}
+                onDestinationChange={changeDestination}
                 surfaceCopy={t.surfaces}
                 surfaces={surfaces}
                 tray
+                workBadge={workRailBadge}
                 workLabel={workOnRail(work) ? workCopy(locale).rail : undefined}
                 workplaceAvailable={workplaceOnRail}
                 workplaceBadge={workplaceBadge}
                 workplaceLabel={shell.workplace}
               />
               <div className="atum-rail-foot" data-matrix-rail-foot>
+                <MatrixAttentionAnnouncer agentName={attentionAgentName} snapshot={snapshot} />
                 <MatrixUpdateFooter
                   onOpenUpdates={() => {
                     setSettingsPane('help')
@@ -9336,6 +9534,9 @@ function MatrixAccountView({
                   }}
                 />
                 <MatrixRailAccount
+                  attention={attentionSection}
+                  attentionLabel={attentionSummary.label}
+                  attentionMarker={attentionSummary.marker}
                   balance={snapshot.wallet}
                   fail={fail}
                   onOpenChange={setAccountMenuOpen}
@@ -9373,7 +9574,10 @@ function MatrixAccountView({
                   hidden={false}
                   info={conversationInfo}
                   motion={motion}
-                  onClose={closeWorkspace}
+                  onClose={() => {
+                    setMatrixRightPanel('chat', false)
+                    closeWorkspace()
+                  }}
                   onExpand={setWorkspaceExpanded}
                   onPercentChange={setWorkspacePercent}
                   percent={workspacePercent}
