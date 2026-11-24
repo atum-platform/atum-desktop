@@ -351,6 +351,9 @@ class MCPOAuthManager:
         if not _OAUTH_AVAILABLE:
             return None
         cfg, storage = prepare_oauth_config(server_name, entry.server_url, entry.oauth_config)
+        if cfg.get("grant_type") == "client_credentials":
+            from tools.mcp_oauth_client_credentials import build_client_credentials_provider
+            return build_client_credentials_provider(entry.server_url, cfg, storage)
         if get_dashboard_oauth_flow() is None and not _is_interactive() and not storage.has_cached_tokens():
             raise OAuthNonInteractiveError(
                 f"MCP OAuth for '{server_name}': non-interactive environment and no cached tokens found. "
