@@ -115,7 +115,7 @@ function ConnectionCard({ manage }: UtilityConnectionCardProps) {
       {status && (
         <div className={`flex flex-wrap gap-2 ${manage ? 'mt-3' : ''}`}>
           <Button
-            className="rounded-full px-3 py-2"
+            className="rounded-(--control-radius) px-3 py-2"
             disabled={busy || !status.available.google || (!manage && emailConnected)}
             onClick={() => showGoogleDisclosure('google')}
             type="button"
@@ -128,7 +128,7 @@ function ConnectionCard({ manage }: UtilityConnectionCardProps) {
           </Button>
           <Button
             aria-expanded={picker}
-            className="rounded-full px-3 py-2"
+            className="rounded-(--control-radius) px-3 py-2"
             disabled={busy || (!manage && calendarConnected)}
             onClick={() => {
               setDisclosure(null)
@@ -141,7 +141,7 @@ function ConnectionCard({ manage }: UtilityConnectionCardProps) {
             <span>{!manage && calendarConnected ? `${copy.calendarLabel} · ${copy.connected}` : copy.calendar}</span>
           </Button>
           <Button
-            className="rounded-full px-3 py-2"
+            className="rounded-(--control-radius) px-3 py-2"
             disabled={busy || !status.available.google || (!manage && driveConnected)}
             onClick={() => showGoogleDisclosure('drive')}
             type="button"

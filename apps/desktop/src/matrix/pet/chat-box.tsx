@@ -156,12 +156,13 @@ export function PetChatBox({
           }
         }}
       >
-        <div className="rounded-(--ak-r-xl)" data-matrix-kit-composer>
+        {/* T3's composer recipe, as in Chat (owner 2026-11-24, option B). */}
+        <div className="rounded-[1rem]" data-composer-recipe="t3" data-matrix-kit-composer>
           <ComposerSurface
             actions={
               <button
                 aria-label={copy.send}
-                className="ak-iconbtn ak-iconbtn--sm ak-iconbtn--primary disabled:opacity-30"
+                className="atum-composer-send"
                 disabled={!canSend}
                 type="submit"
               >
@@ -185,6 +186,7 @@ export function PetChatBox({
                 value={draft}
               />
             }
+            recipe="t3"
           />
         </div>
       </form>
@@ -358,7 +360,7 @@ function PetChatInput({ ref, value, ...props }: React.ComponentProps<'textarea'>
 
   return (
     <textarea
-      className="block max-h-24 min-h-[1.625rem] w-full resize-none bg-transparent px-1 py-0.5 [font:var(--ak-t-chat)] text-(--ak-ink) outline-none placeholder:text-(--ak-ink-3) disabled:opacity-50"
+      className="block max-h-24 w-full resize-none bg-transparent text-(--ak-ink) outline-none placeholder:text-(--ak-ink-3) disabled:opacity-50"
       data-pet-chat-input
       maxLength={ATUM_PET_CHAT_MESSAGE_MAX}
       ref={element => {

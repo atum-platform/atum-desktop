@@ -45,7 +45,7 @@ function SkillPill({ onClick, row }: { onClick: () => void; row: ReturnType<type
   return (
     <button
       aria-busy={busy || undefined}
-      className={`shrink-0 rounded-full px-3.5 py-[7px] text-(length:--atum-t-control) font-medium disabled:opacity-60 ${installed ? 'bg-(--atum-hover) text-(--atum-ink) hover:bg-(--atum-pressed)' : 'bg-(--atum-ink) text-(--atum-on-accent)'}`}
+      className={`shrink-0 rounded-(--control-radius) px-3.5 py-[7px] text-(length:--atum-t-control) font-medium disabled:opacity-60 ${installed ? 'bg-(--atum-hover) text-(--atum-ink) hover:bg-(--atum-pressed)' : 'bg-(--atum-ink) text-(--atum-on-accent)'}`}
       disabled={busy || !offerable}
       onClick={event => { event.stopPropagation(); onClick() }}
       type="button"
@@ -149,7 +149,7 @@ export function DiscoverSkillsSection({ part }: DiscoverSkillsSectionProps) {
               entitlement exists, and the chip narrows the shelf to exactly that. */}
           <button
             aria-pressed={ownedOnly}
-            className={`rounded-full px-3.5 py-[7px] text-(length:--atum-t-control) font-medium transition-colors ${ownedOnly ? 'bg-(--atum-ink) text-(--atum-on-accent)' : 'bg-(--atum-hover) text-(--atum-ink) hover:bg-(--atum-pressed)'}`}
+            className={`rounded-(--control-radius) px-3.5 py-[7px] text-(length:--atum-t-control) font-medium transition-colors ${ownedOnly ? 'bg-(--atum-ink) text-(--atum-on-accent)' : 'bg-(--atum-hover) text-(--atum-ink) hover:bg-(--atum-pressed)'}`}
             data-atum-owned-filter
             onClick={() => setOwnedOnly(current => !current)}
             type="button"

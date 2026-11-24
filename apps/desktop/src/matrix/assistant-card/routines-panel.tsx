@@ -940,8 +940,8 @@ export function RoutinesRow({
                       aria-checked={on}
                       className={
                         on
-                          ? 'rounded-full bg-(--atum-ink) px-2.5 py-1 text-(length:--atum-t-caption) text-(--atum-paper)'
-                          : 'rounded-full border border-(--atum-line) px-2.5 py-1 text-(length:--atum-t-caption) text-(--atum-ink-muted)'
+                          ? 'rounded-(--control-radius) bg-(--atum-ink) px-2.5 py-1 text-(length:--atum-t-caption) text-(--atum-paper)'
+                          : 'rounded-(--control-radius) border border-(--atum-line) px-2.5 py-1 text-(length:--atum-t-caption) text-(--atum-ink-muted)'
                       }
                       data-routine-weekday={day}
                       key={day}

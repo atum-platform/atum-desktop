@@ -1,7 +1,7 @@
 /* Atum Kit v0.1 — the one token and component layer for desktop and web.
  * The phone mirrors these values in SwiftUI (AtumKit.swift).
  * Rules:
- *  - Actions are capsules; inputs and containers are rounded rectangles.
+ *  - Controls are T3's 8px rounded rectangles; inputs and containers are rounded rectangles.
  *  - Nested corners are concentric: inner radius = outer radius - padding.
  *  - Colour is rare. Ink carries everything. Red marks danger, failures and mentions;
  *    amber marks a warning, on its icon only. No green, no tinted panels.
@@ -9,6 +9,10 @@
  *  - Glass is frosted, for floating chrome only (bars, menus, popovers, toasts). Content stays opaque.
  *  - Focus rings appear for keyboard focus only (:focus-visible).
  *  - The cursor stays an arrow on controls (Mac convention); links in text get the hand.
+ *
+ * Amended 2026-11-24 with the owner's approval ("we take the middle path first - option B";
+ * "T3's 8 px controls in place of capsules, and UI text at 14 px (chat stays 15/23, Vietnamese line
+ * heights stay)"): controls take the 8px radius, desktop body text is 14/20.
  */
 
 /* ---------- Tokens ---------- */
@@ -109,8 +113,8 @@
   --ak-t-title: 600 20px/26px var(--ak-font-display);
   --ak-t-headline: 600 15px/20px var(--ak-font);
   --ak-t-chat: 400 15px/23px var(--ak-font);
-  --ak-t-body: 400 13px/18px var(--ak-font);
-  --ak-t-body-strong: 600 13px/18px var(--ak-font);
+  --ak-t-body: 400 14px/20px var(--ak-font);
+  --ak-t-body-strong: 600 14px/20px var(--ak-font);
   --ak-t-callout: 400 12px/16px var(--ak-font);
   --ak-t-caption: 500 11px/14px var(--ak-font);
   /* Space: 4-point grid. */
@@ -147,11 +151,11 @@
 }
 .ak-text-2 { color: var(--ak-ink-2); } .ak-text-3 { color: var(--ak-ink-3); }
 
-/* ---------- Buttons (capsules) ---------- */
+/* ---------- Buttons (T3's 8px controls, owner 2026-11-24) ---------- */
 .ak-btn {
   appearance: none; border: 0; margin: 0; cursor: default; user-select: none;
   display: inline-flex; align-items: center; justify-content: center; gap: 6px;
-  height: var(--ak-h-md); padding: 0 14px; border-radius: var(--ak-r-full);
+  height: var(--ak-h-md); padding: 0 14px; border-radius: var(--ak-r-sm);
   font: var(--ak-t-body-strong); white-space: nowrap;
   background: var(--ak-fill-quiet); color: var(--ak-ink);
   transition: background-color var(--ak-dur-1) var(--ak-ease), color var(--ak-dur-1) var(--ak-ease), transform var(--ak-dur-1) var(--ak-ease);
@@ -175,7 +179,7 @@
 
 .ak-iconbtn {
   appearance: none; border: 0; margin: 0; padding: 0; cursor: default;
-  width: var(--ak-h-md); height: var(--ak-h-md); border-radius: var(--ak-r-full);
+  width: var(--ak-h-md); height: var(--ak-h-md); border-radius: var(--ak-r-sm);
   display: inline-flex; align-items: center; justify-content: center;
   background: transparent; color: var(--ak-ink-2);
   transition: background-color var(--ak-dur-1) var(--ak-ease), color var(--ak-dur-1) var(--ak-ease);
@@ -197,7 +201,7 @@
 .ak-field input, .ak-field textarea { all: unset; flex: 1; min-width: 0; font: var(--ak-t-body); color: var(--ak-ink); }
 .ak-field .ak-placeholder, .ak-field input::placeholder { color: var(--ak-ink-3); }
 .ak-field--error { box-shadow: inset 0 0 0 1px var(--ak-danger); }
-.ak-field--search { border-radius: var(--ak-r-full); background: var(--ak-fill-quiet); box-shadow: none; color: var(--ak-ink-3); }
+.ak-field--search { border-radius: var(--ak-r-sm); background: var(--ak-fill-quiet); box-shadow: none; color: var(--ak-ink-3); }
 .ak-field-label { font: var(--ak-t-body-strong); color: var(--ak-ink); margin-bottom: 6px; display: block; }
 .ak-field-help { font: var(--ak-t-callout); color: var(--ak-ink-3); margin-top: 6px; }
 .ak-field-help--error { color: var(--ak-danger); }
@@ -223,8 +227,8 @@
 .ak-radio { width: 16px; height: 16px; border-radius: 50%; box-shadow: inset 0 0 0 1px var(--ak-line-2); background: var(--ak-surface); flex: none; }
 .ak-radio.is-on { box-shadow: inset 0 0 0 5px var(--ak-ink); }
 
-.ak-seg { display: inline-flex; padding: 2px; border-radius: var(--ak-r-full); background: var(--ak-fill-quiet); gap: 2px; }
-.ak-seg > * { appearance: none; border: 0; cursor: default; height: 26px; padding: 0 12px; border-radius: var(--ak-r-full); background: transparent; font: var(--ak-t-body); color: var(--ak-ink-2); display: inline-flex; align-items: center; gap: 6px; }
+.ak-seg { display: inline-flex; padding: 2px; border-radius: var(--ak-r-sm); background: var(--ak-fill-quiet); gap: 2px; }
+.ak-seg > * { appearance: none; border: 0; cursor: default; height: 26px; padding: 0 12px; border-radius: var(--ak-r-xs); background: transparent; font: var(--ak-t-body); color: var(--ak-ink-2); display: inline-flex; align-items: center; gap: 6px; }
 .ak-seg > .is-selected { background: var(--ak-surface); color: var(--ak-ink); font-weight: 600; box-shadow: var(--ak-shadow-1); }
 .ak-dark .ak-seg > .is-selected { background: var(--ak-raised); }
 
@@ -310,7 +314,7 @@
 .ak-ask-list > div { display: flex; gap: 8px; align-items: center; }
 .ak-ask-list .ak-icon { width: 16px; height: 16px; color: var(--ak-ink-3); }
 .ak-ask-actions { display: flex; gap: 8px; padding-left: 44px; }
-.ak-ask-line { display: inline-flex; align-items: center; gap: 8px; height: 32px; padding: 0 12px 0 10px; border-radius: var(--ak-r-full); background: var(--ak-fill-quiet); font: var(--ak-t-body); color: var(--ak-ink-2); }
+.ak-ask-line { display: inline-flex; align-items: center; gap: 8px; height: 32px; padding: 0 12px 0 10px; border-radius: var(--ak-r-sm); background: var(--ak-fill-quiet); font: var(--ak-t-body); color: var(--ak-ink-2); }
 .ak-ask-line .ak-icon { width: 16px; height: 16px; }
 .ak-ask-line--ok .ak-icon { color: var(--ak-ink); }
 

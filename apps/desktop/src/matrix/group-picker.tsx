@@ -300,7 +300,7 @@ export function GroupPicker({
       >
         <SearchField
           aria-label={copy.search}
-          containerClassName="h-9 w-full min-w-0 rounded-full border-none bg-(--atum-sunk) px-3 text-[0.8125rem] !opacity-100 transition-colors focus-within:bg-(--atum-hover)"
+          containerClassName="h-9 w-full min-w-0 rounded-(--control-radius) border-none bg-(--atum-sunk) px-3 text-[0.8125rem] !opacity-100 transition-colors focus-within:bg-(--atum-hover)"
           inputClassName="min-w-0 flex-1 text-(--atum-ink) placeholder:text-(--atum-ink-faint)"
           inputRef={searchRef}
           onChange={onQueryChange}
@@ -313,7 +313,7 @@ export function GroupPicker({
           <button
             aria-pressed={filter === value}
             className={cn(
-              'h-7 rounded-full px-3 text-(length:--atum-t-caption) font-medium transition-colors',
+              'h-7 rounded-(--control-radius) px-3 text-(length:--atum-t-caption) font-medium transition-colors',
               filter === value
                 ? 'bg-(--atum-ink) text-(--atum-on-accent)'
                 : 'bg-(--atum-sunk) text-(--atum-ink-muted) hover:bg-(--atum-hover) hover:text-(--atum-ink)'

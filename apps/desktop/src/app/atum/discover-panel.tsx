@@ -316,7 +316,7 @@ export function AtumDiscoverPanel() {
                   <button
                     aria-disabled="true"
                     aria-label={tab.label}
-                    className="cursor-default rounded-full bg-(--atum-hover) px-3.5 py-[7px] text-(length:--atum-t-control) font-medium text-(--atum-ink) opacity-70"
+                    className="cursor-default rounded-(--control-radius) bg-(--atum-hover) px-3.5 py-[7px] text-(length:--atum-t-control) font-medium text-(--atum-ink) opacity-70"
                     data-atum-shelf={tab.id}
                     type="button"
                   >
@@ -330,7 +330,7 @@ export function AtumDiscoverPanel() {
               <button
                 aria-current={shelf === tab.id ? 'page' : undefined}
                 className={cn(
-                  'rounded-full px-3.5 py-[7px] text-(length:--atum-t-control) font-medium transition-colors',
+                  'rounded-(--control-radius) px-3.5 py-[7px] text-(length:--atum-t-control) font-medium transition-colors',
                   shelf === tab.id
                     ? 'bg-(--atum-ink) text-(--atum-on-accent)'
                     : 'bg-(--atum-hover) text-(--atum-ink) hover:bg-(--atum-pressed)'
@@ -483,7 +483,7 @@ export function AtumDiscoverPanel() {
                 )}
                 {remoteState === 'idle' && queryIsSearchable && (
                   <button
-                    className="rounded-full bg-(--atum-hover) px-3.5 py-[7px] text-left text-(length:--atum-t-control) font-medium text-(--atum-ink) hover:bg-(--atum-pressed)"
+                    className="rounded-(--control-radius) bg-(--atum-hover) px-3.5 py-[7px] text-left text-(length:--atum-t-control) font-medium text-(--atum-ink) hover:bg-(--atum-pressed)"
                     onClick={() => void searchRemote()}
                     type="button"
                   >
@@ -532,7 +532,7 @@ export function AtumDiscoverPanel() {
                       </span>
                     </span>
                     <button
-                      className="shrink-0 rounded-full bg-(--atum-ink) px-3.5 py-[7px] text-(length:--atum-t-control) font-medium text-(--atum-on-accent) hover:bg-(--atum-ink-soft)"
+                      className="shrink-0 rounded-(--control-radius) bg-(--atum-ink) px-3.5 py-[7px] text-(length:--atum-t-control) font-medium text-(--atum-on-accent) hover:bg-(--atum-ink-soft)"
                       onClick={() => void actOnPerson(remotePerson)}
                       type="button"
                     >

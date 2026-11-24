@@ -201,7 +201,7 @@ export function Intro({ personality, seed }: IntroProps) {
           <div className="mt-[calc(var(--composer-measured-height,3.5rem)+0.875rem)] flex flex-wrap justify-center gap-2" data-atum-empty-chips>
             {pills.map(pill => (
               <button
-                className="pointer-events-auto rounded-full bg-(--atum-sunk) px-3.5 py-[7px] text-(length:--atum-t-control) text-(--atum-ink-muted) transition-colors hover:bg-(--atum-hover) hover:text-(--atum-ink)"
+                className="pointer-events-auto rounded-(--control-radius) bg-(--atum-sunk) px-3.5 py-[7px] text-(length:--atum-t-control) text-(--atum-ink-muted) transition-colors hover:bg-(--atum-hover) hover:text-(--atum-ink)"
                 key={pill.label}
                 onClick={() => void pill.run()}
                 type="button"

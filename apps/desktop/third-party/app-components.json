@@ -53,6 +53,18 @@
         "licenseFiles": ["texts/MIT.txt", "app/t3code-LICENSE.txt"]
       },
       {
+        "id": "t3code-design-system",
+        "name": "T3 Code design layer (tokens, theme roles, composer and control recipes) as the Atum Kit base",
+        "version": "tag v0.1.11 (commit 59651c1761f6c63e9b6056839067066968e6a406)",
+        "license": "MIT",
+        "copyright": ["Copyright (c) 2026 T3 Tools Inc."],
+        "source": "https://github.com/pingdotgg/t3code/tree/59651c1761f6c63e9b6056839067066968e6a406",
+        "notes": [
+          "Atum vendors apps/web/src/index.css, themePalette.ts, appearanceContrast.ts, panelAnimations.ts, components/chat/ComposerSurface.tsx and components/ui/button.tsx, menu.tsx and dialog.tsx byte for byte into packages/atum-kit/t3/upstream/ (PIN.json), reads T3's control radius, glass values and theme-role variables from them into the Atum Kit stylesheet, and adopts T3's composer recipe in the desktop composer, with Atum's palette, Phosphor icons and type."
+        ],
+        "licenseFiles": ["texts/MIT.txt", "app/t3code-LICENSE.txt"]
+      },
+      {
         "id": "simple-icons-model-picker-provider-marks",
         "name": "Simple Icons provider marks bundled in the Atum model picker",
         "version": "commit 90646e4bf7f3b89df6c37e65baf3e7bc759a517c",

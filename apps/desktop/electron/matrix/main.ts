@@ -18749,6 +18749,17 @@ async function start() {
     engine: driveEngine,
     store: new EncryptedStore(path.join(app.getPath('userData'), 'drive.json'), safeStorage),
     userData: app.getPath('userData'),
+    chooseUpload: async kind => {
+      if (!ui || ui.isDestroyed()) {
+        return undefined
+      }
+
+      const selected = await dialog.showOpenDialog(ui, {
+        properties: kind === 'folder' ? ['openDirectory'] : ['openFile', 'multiSelections']
+      })
+
+      return selected.canceled ? undefined : selected.filePaths
+    },
     chooseFolder: async () => {
       if (!ui || ui.isDestroyed()) {
         return undefined

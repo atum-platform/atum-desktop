@@ -1,11 +1,11 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { I18nProvider } from '@/i18n'
+import { I18nProvider, type Locale } from '@/i18n'
 
 import type { MatrixSnapshot } from '../../shared/matrix'
 
-import { MatrixAttentionIndicator } from './attention-indicator'
+import { MatrixAttentionSection, useMatrixAttentionSummary } from './attention-indicator'
 
 const base: MatrixSnapshot = {
   state: 'ready',
@@ -17,13 +17,23 @@ const base: MatrixSnapshot = {
   agents: []
 }
 
-function draw(snapshot: MatrixSnapshot) {
+/** The account face's red dot and its words, as the rail draws them. */
+function Summary({ snapshot }: { snapshot: MatrixSnapshot }) {
+  const summary = useMatrixAttentionSummary(snapshot, () => 'Moon')
+
+  return <span data-count={summary.count}>{summary.label ?? ''}</span>
+}
+
+function draw(snapshot: MatrixSnapshot, onOpen = vi.fn(), onDone = vi.fn(), locale: Locale = 'en') {
   return render(
-    <I18nProvider configClient={null} initialLocale="en">
-      <MatrixAttentionIndicator agentName={() => 'Moon'} onOpen={vi.fn()} snapshot={snapshot} />
+    <I18nProvider configClient={null} initialLocale={locale}>
+      <Summary snapshot={snapshot} />
+      <MatrixAttentionSection agentName={() => 'Moon'} onDone={onDone} onOpen={onOpen} snapshot={snapshot} />
     </I18nProvider>
   )
 }
+
+const summary = () => window.document.querySelector<HTMLElement>('[data-count]')!
 
 beforeEach(() => {
   vi.stubGlobal(
@@ -42,130 +52,94 @@ afterEach(() => {
   window.localStorage.clear()
 })
 
-// 2026-10-06 check, now at every width (Atum Kit): the mark is only its dot, so its words must still be one
-// hover or focus away (colour is never the only cue), for every kind of item it can hold.
-describe('the indicator is a dot at every width', () => {
+// The bell is gone (owner, 2026-11-24): its items sit at the top of the rail's account face, which
+// wears a red dot whose words are said to assistive tech (colour is never the only cue).
+describe('the account face says what waits', () => {
   it.each([
     [
       'several items',
       {
-        disk: { state: 'low', freeGb: 8 },
+        deviceDamaged: true,
         security: { recovery: 'idle', approval: { role: 'approve', state: 'asked', since: Date.now() } }
       },
       '2 things need you'
     ],
-    ['a disk item', { disk: { state: 'low', freeGb: 8 } }, 'Mac almost full'],
     ['a damaged device', { deviceDamaged: true }, 'Sign in again on this Mac'],
     [
       'one item that opens its place',
       { security: { recovery: 'idle', approval: { role: 'approve', state: 'asked', since: Date.now() } } },
       'Confirm new device'
     ]
-  ] as const)('names %s in a tip, not by colour alone', async (_, extra, label) => {
+  ] as const)('names %s', (_, extra, label) => {
     draw({ ...base, ...(extra as Partial<MatrixSnapshot>) })
 
-    const pill = screen.getByRole('button', { name: `Needs you: ${label}` })
-    expect(pill.textContent).toBe('')
-    fireEvent.pointerMove(pill, { pointerType: 'mouse' })
-    expect((await screen.findByRole('tooltip')).textContent).toContain(label)
+    expect(summary().textContent).toBe(`Needs you: ${label}`)
+    expect(screen.getByRole('region', { name: 'Notifications' })).toBeTruthy()
   })
 
-  it('still opens its list from the tip’s trigger', async () => {
-    draw({
-      ...base,
-      disk: { state: 'low', freeGb: 8 },
-      security: { recovery: 'idle', approval: { role: 'approve', state: 'asked', since: Date.now() } }
-    })
+  it('is quiet with nothing waiting: no words, no list', () => {
+    draw(base)
 
-    const pill = screen.getByRole('button', { name: 'Needs you: 2 things need you' })
-    fireEvent.pointerDown(pill, { button: 0, ctrlKey: false, pointerType: 'mouse' })
-    fireEvent.click(pill)
-    expect(await screen.findByRole('button', { name: /Confirm new device/ })).toBeTruthy()
+    expect(summary().textContent).toBe('')
+    expect(window.document.querySelector('[data-matrix-attention-list]')).toBeNull()
   })
 })
 
-// Preserve user-visible identity, state and recovery behavior across connection changes.
-// a "Storage critical" pill there that broke the panel and stayed after it was dismissed).
-describe('a nearly full disk', () => {
-  afterEach(() => {
-    Reflect.deleteProperty(window, 'atumMatrix')
-  })
-
-  it('is the indicator’s item, and its popover says so with the Storage action', async () => {
-    const openStorageSettings = vi.fn(async () => {})
-    Object.defineProperty(window, 'atumMatrix', { configurable: true, value: { openStorageSettings } })
+describe('a nearly full disk (layout r1/r2, owner 2026-11-24: the "Mac is full" alert goes)', () => {
+  it('is not an item', () => {
     draw({ ...base, disk: { state: 'critical', freeGb: 1.6 } })
 
-    const pill = screen.getByRole('button', { name: /Mac is out of space/ })
-    fireEvent.pointerDown(pill, { button: 0, ctrlKey: false, pointerType: 'mouse' })
-    fireEvent.click(pill)
-
-    expect(await screen.findByText(/Your Mac is nearly out of space \(1\.6 GB free\)/)).toBeTruthy()
-    fireEvent.click(screen.getByRole('button', { name: 'Open Storage settings' }))
-    await waitFor(() => expect(openStorageSettings).toHaveBeenCalledOnce())
+    expect(summary().getAttribute('data-count')).toBe('0')
   })
 })
 
-// Owner finding 1a (2026-10-06) added a reminder to verify the person's devices; in 0.20 chats are
-// plain, nobody refuses a device there, and the reminder's words would be false (no pill at all).
+// In 0.20 chats are plain and nobody refuses a device: the old "verify your device" reminder raises nothing.
 describe('a device of the person’s that isn’t verified (0.20)', () => {
   it('raises nothing, even when a snapshot lists one', () => {
     const phone = { deviceId: 'PHONE', name: 'iPhone 16 Pro', lastSeenAt: Date.now() - 60_000 }
 
-    render(
-      <I18nProvider configClient={null} initialLocale="en">
-        <MatrixAttentionIndicator
-          agentName={() => 'Moon'}
-          onOpen={vi.fn()}
-          snapshot={{ ...base, security: { recovery: 'idle', unverifiedDevices: [phone] } }}
-        />
-      </I18nProvider>
-    )
+    draw({ ...base, security: { recovery: 'idle', unverifiedDevices: [phone] } })
 
-    expect(screen.queryByRole('button', { name: /Needs you/ })).toBeNull()
-    expect(screen.getByRole('button', { name: 'Notifications' })).toBeTruthy()
+    expect(summary().getAttribute('data-count')).toBe('0')
   })
 })
 
 describe('an assistant whose ChatGPT sign-in ended', () => {
-  it('says so by name and opens that sign-in from its row', async () => {
+  it('says so by name and opens that sign-in from its row, closing the face', () => {
     const onOpen = vi.fn()
+    const onDone = vi.fn()
 
-    render(
-      <I18nProvider configClient={null} initialLocale="en">
-        <MatrixAttentionIndicator
-          agentName={() => 'Moon'}
-          onOpen={onOpen}
-          snapshot={{
-            ...base,
-            agents: [
-              {
-                principal: 'moon',
-                userId: '@moon:test',
-                isDefault: false,
-                ready: false,
-                hermes: 'ready',
-                atumModel: false,
-                setup: 'failed',
-                readiness: { phase: 'blocked', step: 'assistant', code: 'plan_sign_in', since: 1 }
-              }
-            ]
-          }}
-        />
-      </I18nProvider>
+    draw(
+      {
+        ...base,
+        agents: [
+          {
+            principal: 'moon',
+            userId: '@moon:test',
+            isDefault: false,
+            ready: false,
+            hermes: 'ready',
+            atumModel: false,
+            setup: 'failed',
+            readiness: { phase: 'blocked', step: 'assistant', code: 'plan_sign_in', since: 1 }
+          }
+        ]
+      },
+      onOpen,
+      onDone
     )
 
-    fireEvent.click(screen.getByRole('button', { name: 'Needs you: Moon: connect ChatGPT' }))
-    fireEvent.click(await screen.findByRole('button', { name: /^Moon: connect ChatGPT/ }))
+    expect(summary().textContent).toBe('Needs you: Moon: connect ChatGPT')
+    fireEvent.click(screen.getByRole('button', { name: /^Moon: connect ChatGPT/ }))
     expect(onOpen).toHaveBeenCalledWith({ kind: 'plan_sign_in', principal: 'moon', tone: 'warn' })
+    expect(onDone).toHaveBeenCalledOnce()
   })
 })
 
-it('routes the damaged-device popover to owner repair without signing out', async () => {
+it('routes the damaged-device item to owner repair without signing out', async () => {
   const native = { repairOwnerDevice: vi.fn(async () => ({ state: 'repaired' })), signOut: vi.fn(), signIn: vi.fn() }
   Object.defineProperty(window, 'atumMatrix', { configurable: true, value: native })
   draw({ ...base, deviceDamaged: true })
-  fireEvent.click(screen.getByRole('button', { name: 'Needs you: Sign in again on this Mac' }))
   fireEvent.click(await screen.findByRole('button', { name: 'Re-verify' }))
   await waitFor(() => expect(native.repairOwnerDevice).toHaveBeenCalledOnce())
   expect(native.signOut).not.toHaveBeenCalled()
@@ -173,8 +147,6 @@ it('routes the damaged-device popover to owner repair without signing out', asyn
   Reflect.deleteProperty(window, 'atumMatrix')
 })
 
-// Preserve user-visible identity, state and recovery behavior across connection changes.
-// down. It is the indicator's item now: a dot in the title bar, its line a click away.
 describe('a new sign-in on another device', () => {
   const dismissNewSignIn = vi.fn(async () => {})
   const endDeviceSession = vi.fn(async () => {})
@@ -194,18 +166,11 @@ describe('a new sign-in on another device', () => {
 
   const signIn = { deviceId: 'PHONE', name: 'Atum for iPhone on Unknown device' }
 
-  it('is one bell, its words in a tip, and its popover answers for that device', async () => {
+  it('answers for that device from its row', async () => {
     draw({ ...base, newSignIn: signIn })
 
-    const pill = screen.getByRole('button', { name: 'Needs you: New sign-in on an iPhone' })
-    expect(pill.textContent).toBe('')
-    expect(screen.queryByText(/Was this you/)).toBeNull()
-
-    fireEvent.pointerDown(pill, { button: 0, ctrlKey: false, pointerType: 'mouse' })
-    fireEvent.click(pill)
-
-    // Under its own label in the bell's list, as in a list of several.
-    expect(await screen.findByText('New sign-in on an iPhone')).toBeTruthy()
+    expect(summary().textContent).toBe('Needs you: New sign-in on an iPhone')
+    expect(screen.getByText('New sign-in on an iPhone')).toBeTruthy()
     expect(screen.getByText('Was this you?')).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: 'Sign it out' }))
     await waitFor(() => expect(endDeviceSession).toHaveBeenCalledExactlyOnceWith('PHONE'))
@@ -214,106 +179,42 @@ describe('a new sign-in on another device', () => {
     await waitFor(() => expect(dismissNewSignIn).toHaveBeenCalledExactlyOnceWith('PHONE'))
   })
 
-  it('says its label once in a list of several', async () => {
-    draw({ ...base, newSignIn: signIn, disk: { state: 'low', freeGb: 8 } })
+  it('says its label once in a list of several', () => {
+    draw({ ...base, newSignIn: signIn, deviceDamaged: true })
 
-    const pill = screen.getByRole('button', { name: 'Needs you: 2 things need you' })
-    fireEvent.pointerDown(pill, { button: 0, ctrlKey: false, pointerType: 'mouse' })
-    fireEvent.click(pill)
-
-    expect(await screen.findByText('New sign-in on an iPhone')).toBeTruthy()
+    expect(screen.getByText('New sign-in on an iPhone')).toBeTruthy()
     expect(screen.getByText('Was this you?')).toBeTruthy()
     expect(screen.queryByText('New sign-in on an iPhone. Was this you?')).toBeNull()
   })
 
   it('goes away when main has accounted for the device', () => {
     const { rerender } = draw({ ...base, newSignIn: signIn })
-    expect(screen.getByRole('button', { name: /New sign-in/ })).toBeTruthy()
+    expect(screen.getByText('New sign-in on an iPhone')).toBeTruthy()
 
     rerender(
       <I18nProvider configClient={null} initialLocale="en">
-        <MatrixAttentionIndicator agentName={() => 'Moon'} onOpen={vi.fn()} snapshot={base} />
+        <Summary snapshot={base} />
+        <MatrixAttentionSection agentName={() => 'Moon'} onOpen={vi.fn()} snapshot={base} />
       </I18nProvider>
     )
-    expect(screen.queryByRole('button', { name: /Needs you/ })).toBeNull()
+    expect(screen.queryByText('New sign-in on an iPhone')).toBeNull()
+    expect(summary().textContent).toBe('')
   })
 })
 
-// Owner, 2026-11-13: the mark is a bell in the title bar's left side, quiet with nothing to say, a
-// small badge while something needs the person, and its popover lists the same items.
-describe('the notification bell', () => {
-  it('is a quiet bell with no badge while nothing needs the person, its popover says so', async () => {
-    draw(base)
-
-    const bell = screen.getByRole('button', { name: 'Notifications' })
-    expect(bell.querySelector('[data-matrix-attention-badge]')).toBeNull()
-    expect(bell.hasAttribute('data-matrix-attention')).toBe(false)
-
-    fireEvent.click(bell)
-    expect(await screen.findByText('Nothing needs you right now')).toBeTruthy()
-  })
-
-  it('wears a badge in the item’s tone while something needs the person', () => {
-    draw({ ...base, disk: { state: 'critical', freeGb: 1 } })
-
-    const badge = screen.getByRole('button', { name: /Needs you/ }).querySelector('[data-matrix-attention-badge]')
-    expect(badge?.getAttribute('data-matrix-attention-badge')).toBe('danger')
-  })
-
-  it('lists even a single item, which acts only from its own row', async () => {
+describe('another device asking to be approved', () => {
+  it('opens the approval from its own row', () => {
     const onOpen = vi.fn()
 
-    render(
-      <I18nProvider configClient={null} initialLocale="vi">
-        <MatrixAttentionIndicator
-          agentName={() => 'Moon'}
-          onOpen={onOpen}
-          snapshot={{
-            ...base,
-            security: { recovery: 'idle', approval: { role: 'approve', state: 'asked', since: Date.now() } }
-          }}
-        />
-      </I18nProvider>
+    draw(
+      { ...base, security: { recovery: 'idle', approval: { role: 'approve', state: 'asked', since: Date.now() } } },
+      onOpen,
+      vi.fn(),
+      'vi'
     )
 
-    fireEvent.click(screen.getByRole('button', { name: 'Cần bạn: Xác nhận máy mới' }))
     expect(onOpen).not.toHaveBeenCalled()
-    expect(await screen.findByText('Thông báo')).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: /^Xác nhận máy mới/ }))
     expect(onOpen).toHaveBeenCalledWith({ kind: 'approval', tone: 'warn' })
-  })
-})
-
-// The Work page paints a native view over the page; the list drops over the same area, so the page needs to know
-// when it is open (and that it is closed again after the item is used or the bell is closed).
-describe('the list tells the page when it is open', () => {
-  it('reports open, then closed, and closed again when the bell goes away', async () => {
-    const seen: boolean[] = []
-
-    const view = render(
-      <I18nProvider configClient={null} initialLocale="en">
-        <MatrixAttentionIndicator
-          agentName={() => 'Moon'}
-          onOpen={vi.fn()}
-          onOpenChange={open => void seen.push(open)}
-          snapshot={{ ...base, disk: { state: 'low', freeGb: 8 } }}
-        />
-      </I18nProvider>
-    )
-
-    expect(seen.at(-1)).toBe(false)
-    const bell = screen.getByRole('button', { name: /Needs you/ })
-    fireEvent.pointerDown(bell, { button: 0, ctrlKey: false, pointerType: 'mouse' })
-    fireEvent.click(bell)
-    await waitFor(() => expect(seen.at(-1)).toBe(true))
-
-    fireEvent.keyDown(document.activeElement ?? document.body, { key: 'Escape' })
-    await waitFor(() => expect(seen.at(-1)).toBe(false))
-
-    fireEvent.pointerDown(bell, { button: 0, ctrlKey: false, pointerType: 'mouse' })
-    fireEvent.click(bell)
-    await waitFor(() => expect(seen.at(-1)).toBe(true))
-    view.unmount()
-    expect(seen.at(-1)).toBe(false)
   })
 })

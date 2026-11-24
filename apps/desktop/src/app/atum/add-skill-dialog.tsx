@@ -260,7 +260,7 @@ export function AddSkillDialog({ entry, onOpenChange, open, preselect = null, tr
             </StoreOfferCard>
             <DialogFooter>
               <button
-                className="rounded-full px-4 py-2 text-(length:--atum-t-control) font-medium text-(--atum-ink-muted) hover:bg-(--atum-hover)"
+                className="rounded-(--control-radius) px-4 py-2 text-(length:--atum-t-control) font-medium text-(--atum-ink-muted) hover:bg-(--atum-hover)"
                 disabled={purchaseBusy}
                 onClick={() => setPhase('choose')}
                 type="button"
@@ -344,7 +344,7 @@ export function AddSkillDialog({ entry, onOpenChange, open, preselect = null, tr
 
         <DialogFooter>
           <button
-            className="rounded-full px-4 py-2 text-(length:--atum-t-control) font-medium text-(--atum-ink-muted) hover:bg-(--atum-hover)"
+            className="rounded-(--control-radius) px-4 py-2 text-(length:--atum-t-control) font-medium text-(--atum-ink-muted) hover:bg-(--atum-hover)"
             onClick={() => onOpenChange(false)}
             type="button"
           >
@@ -352,7 +352,7 @@ export function AddSkillDialog({ entry, onOpenChange, open, preselect = null, tr
           </button>
           {completed ? (
             <button
-              className="rounded-full bg-(--atum-ink) px-4 py-2 text-(length:--atum-t-control) font-medium text-(--atum-on-accent) disabled:opacity-50"
+              className="rounded-(--control-radius) bg-(--atum-ink) px-4 py-2 text-(length:--atum-t-control) font-medium text-(--atum-on-accent) disabled:opacity-50"
               disabled={chooseTryTarget && !tryTarget}
               onClick={actTry}
               type="button"
@@ -362,7 +362,7 @@ export function AddSkillDialog({ entry, onOpenChange, open, preselect = null, tr
           ) : (
             <button
               aria-busy={installing || purchaseBusy || undefined}
-              className="rounded-full bg-(--atum-ink) px-4 py-2 text-(length:--atum-t-control) font-medium text-(--atum-on-accent) disabled:opacity-50"
+              className="rounded-(--control-radius) bg-(--atum-ink) px-4 py-2 text-(length:--atum-t-control) font-medium text-(--atum-on-accent) disabled:opacity-50"
               disabled={installing || purchaseBusy || !targetAssistantId || targetAgent?.localProfileId === null || selectableIds.length === 0 || (!entitled && !offer)}
               onClick={confirmAdd}
               type="button"

@@ -6,3 +6,6 @@ the requested a7a097bb23 plus its main merge); merged without conflicts.
 Kit foundation and Work runtime 0.1.16 follow in this branch. Existing native
 connector, runtime manifest, and local build scripts remain the integration
 seams; no parallel relay implementation is added. No push, CI, release or deploy.
+
+Kit 783600a72f merge: combined native assertion and Kit attention IPC handler
+expectations in host.test.ts, and retained Kit railBadges in app.tsx.

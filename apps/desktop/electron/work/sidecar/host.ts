@@ -5,8 +5,10 @@ import { ipcMain, type IpcMainInvokeEvent, type WebContents } from 'electron'
 
 import {
   MATRIX_WORK_IPC,
+  parseWorkAttention,
   parseWorkSidebar,
   WORK_BAND_COMMANDS,
+  type WorkAttentionSnapshot,
   type WorkBandCommand,
   type WorkSidebarSnapshot,
   type WorkSurfaceModeSnapshot
@@ -33,6 +35,7 @@ interface WorkHostOptions {
   resources: string
   surfaceModeChanged?(snapshot: WorkSurfaceModeSnapshot | null): void
   sidebarChanged?(snapshot: WorkSidebarSnapshot | null): void
+  attentionChanged?(snapshot: WorkAttentionSnapshot | null): void
   prepare?(signal: AbortSignal): Promise<void>
   account(): Account | undefined
   gatewayEnvironment(): Record<string, string>
@@ -61,6 +64,7 @@ export class WorkHost {
   private closing?: Promise<void>
   /** The live view's last thread-list report, for a band that mounts after it (the view reports changes only). */
   private lastSidebar?: { view: NonNullable<WorkHost['view']>; snapshot: WorkSidebarSnapshot }
+  private lastAttention?: { view: NonNullable<WorkHost['view']>; snapshot: WorkAttentionSnapshot }
 
   constructor(private readonly options: WorkHostOptions) {}
 
@@ -137,6 +141,7 @@ export class WorkHost {
     this.view = undefined
     this.options.surfaceModeChanged?.(null)
     this.options.sidebarChanged?.(null)
+    this.options.attentionChanged?.(null)
 
     if (this.closing) {
       return this.closing
@@ -199,6 +204,7 @@ export class WorkHost {
         this.view = undefined
         this.options.surfaceModeChanged?.(null)
         this.options.sidebarChanged?.(null)
+        this.options.attentionChanged?.(null)
       }
     }
 
@@ -233,6 +239,12 @@ export class WorkHost {
     } catch {
       return 'unavailable'
     }
+  }
+
+  attention(): WorkAttentionSnapshot | null {
+    const last = this.lastAttention
+
+    return last && last.view === this.view && this.current() === last.view.incarnation ? last.snapshot : null
   }
 
   sidebar(): WorkSidebarSnapshot | null {
@@ -338,6 +350,17 @@ export class WorkHost {
 
       this.lastSidebar = { view, snapshot }
       this.options.sidebarChanged?.(snapshot)
+    })
+    ipcMain.handle(MATRIX_WORK_IPC.attentionChanged, (event, value: unknown) => {
+      const view = this.ownerCaller(event)
+      const snapshot = parseWorkAttention(value)
+
+      if (!view || !snapshot) {
+        return
+      }
+
+      this.lastAttention = { view, snapshot }
+      this.options.attentionChanged?.(snapshot)
     })
     ipcMain.handle(WORK_ACCESS_CHANNEL, async event => {
       const view = this.ownerCaller(event)

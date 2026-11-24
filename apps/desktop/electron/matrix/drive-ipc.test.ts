@@ -210,3 +210,28 @@ it('admits Choose another folder and Cancel as bare requests from the UI only, n
   expect(drive.chooseFolder).toHaveBeenCalledOnce()
   expect(drive.cancelSignIn).toHaveBeenCalledOnce()
 })
+
+it('plus menu: a folder or document takes one plain name, and an upload never takes a path from the window', async () => {
+  let handler!: (event: IpcMainInvokeEvent, value: unknown) => Promise<unknown>
+  const ipc = { handle: vi.fn((_channel, callback) => (handler = callback)) }
+  const drive = { create: vi.fn(), upload: vi.fn() }
+  registerMatrixDriveIpc(ipc, drive as unknown as MatrixDrive, vi.fn())
+  const event = {} as IpcMainInvokeEvent
+
+  await handler(event, { kind: 'create', entry: 'folder', name: 'untitled folder' })
+  await handler(event, { kind: 'create', entry: 'document', name: 'Tài liệu mới' })
+  await handler(event, { kind: 'upload', entry: 'files' })
+  expect(drive.create.mock.calls).toEqual([['folder', 'untitled folder'], ['document', 'Tài liệu mới']])
+  expect(drive.upload).toHaveBeenCalledExactlyOnceWith('files')
+
+  for (const invalid of [
+    { kind: 'create', entry: 'folder', name: '../outside' }, { kind: 'create', entry: 'folder', name: 'a/b' },
+    { kind: 'create', entry: 'folder', name: '.hidden' }, { kind: 'create', entry: 'folder', name: 'a\u0000b' },
+    { kind: 'create', entry: 'folder', name: 'x'.repeat(81) }, { kind: 'create', entry: 'script', name: 'x' },
+    { kind: 'create', entry: 'folder', name: 'x', path: '/tmp' }, { kind: 'upload', entry: 'files', paths: ['/etc/passwd'] },
+    { kind: 'upload', entry: 'disk' }
+  ]) {await expect(handler(event, invalid)).rejects.toThrow('invalid')}
+
+  expect(drive.create).toHaveBeenCalledTimes(2)
+  expect(drive.upload).toHaveBeenCalledOnce()
+})

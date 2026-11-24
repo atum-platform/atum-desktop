@@ -5,7 +5,7 @@ import { join } from 'node:path'
 
 import type { BrowserWindow, IpcMain, IpcMainInvokeEvent, Session } from 'electron'
 
-import type { WorkSidebarSnapshot, WorkSurfaceModeSnapshot } from "../../shared/matrix-work"
+import type { WorkAttentionSnapshot, WorkSidebarSnapshot, WorkSurfaceModeSnapshot } from "../../shared/matrix-work"
 import { MATRIX_WORK_IPC, type MatrixWorkProjection } from '../../shared/matrix-work'
 import type { SafeStorageLike } from '../encrypted-store'
 import { admitConnector } from '../work/connector/admission'
@@ -51,6 +51,9 @@ import { createOwnerRelay } from '../work/surface/relay'
 
 import type { MatrixAgentDefinitionSnapshot } from './agent-definition'
 import { MatrixWorkLifecycle, workAccountFor } from './work-lifecycle'
+
+/** Atum's panel radius (`--atum-r-panel`, styles.css): Work's native view is rounded to it. */
+export const WORK_VIEW_RADIUS = 14
 
 // The Matrix composition's Work (self-work slice A, lane W). Everything Work needs from the Matrix window is a port
 // here, so this file holds no account logic of its own: it builds the app-wide objects once (host, session, mount,
@@ -119,7 +122,7 @@ export interface MatrixWorkDeps {
   nativeRequest?(agent: string, path: NativePath, method: 'GET' | 'POST', body?: unknown): Promise<unknown>
   /** The owner's top-up page (what `openTopUp` opens). */
   openProtons(): Promise<void>
-  publish(channel: string, payload: MatrixWorkProjection | WorkSurfaceModeSnapshot | WorkSidebarSnapshot | null): void
+  publish(channel: string, payload: MatrixWorkProjection | WorkSurfaceModeSnapshot | WorkSidebarSnapshot | WorkAttentionSnapshot | null): void
   /** Main's `closing`: nothing starts while the app quits. */
   closing(): boolean
   log(line: string): void
@@ -434,6 +437,7 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
     log: (phase, ms) => deps.log(`[atum-work] startup phase=${phase} ms=${ms} at=${Date.now()}`),
     surfaceModeChanged: snapshot => deps.publish(MATRIX_WORK_IPC.surfaceModeChanged, snapshot),
     sidebarChanged: snapshot => deps.publish(MATRIX_WORK_IPC.sidebarChanged, snapshot),
+    attentionChanged: snapshot => deps.publish(MATRIX_WORK_IPC.attentionChanged, snapshot),
     prepare: prepareConnector,
     resources: deps.resources,
     account,
@@ -608,6 +612,7 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
     canPrewarm: () => loadavg()[0] < availableParallelism(),
     getSurfaceMode: () => host.getSurfaceMode(),
     getSidebar: () => host.sidebar(),
+    getAttention: () => host.attention(),
     runCommand: command => host.runCommand(command),
     setSurfaceMode: (projectId, mode) => host.setSurfaceMode(projectId, mode),
     createView: createWorkViewFactory({
@@ -615,7 +620,8 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
       preload: deps.workPreload,
       zoomFactor: deps.zoomFactor,
       log: (phase, ms) => deps.log(`[atum-work] startup phase=${phase} ms=${ms} at=${Date.now()}`),
-      radius: 0,
+      // The panel radius (--atum-r-panel): the view sits in the shared panel frame like every screen.
+      radius: WORK_VIEW_RADIUS,
       onBlocked: (kind, origin) => deps.log(`[atum-work] view_blocked ${kind} ${origin}`)
     }),
     publish: projection => {

@@ -3,9 +3,17 @@ import { type ReactNode, useEffect, useRef, useState } from 'react'
 import { AppCatalogAvatar } from '@/app/atum/app-catalog-presentation'
 import { AtumAssistantAvatar } from '@/app/atum/assistant-avatar'
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuShortcut,
+  DropdownMenuTrigger
+} from '@/components/ui/dropdown-menu'
 import { Tip } from '@/components/ui/tooltip'
 import { useI18n } from '@/i18n'
-import { Plus, Search, Users, X } from '@/lib/icons'
+import { MessageCircle, Plus, Search, Sparkles, UserPlus, Users, X } from '@/lib/icons'
 
 import { appLocalizedCopy } from '../../shared/app-catalog'
 import type { MatrixAgentView, MatrixSnapshot } from '../../shared/matrix'
@@ -22,24 +30,66 @@ import { MatrixProfileAvatar } from './profile-avatar'
 import { useRosterCreateCopy } from './roster-create-copy'
 import { matrixRosterAgentName, projectMatrixRoster } from './roster-model'
 
-/** New chat, the kit's plus to the right of the roster's search: one question, who do you want to talk to? */
-export function MatrixStartChatButton({ disabled, onClick }: { disabled?: boolean; onClick(): void }) {
+/**
+ * New, the plus to the right of the roster's search (layout r2 §4, owner 2026-11-24): a menu of what
+ * Chat can make. New chat (⌘N runs it without the menu) is the "who do you want to talk to?" sheet;
+ * then a group, a friend, and an assistant where the account can make one. T3's MenuPopup recipe.
+ */
+export function MatrixStartChatButton({
+  canCreateAssistant,
+  canFindPeople,
+  disabled,
+  onCreate
+}: {
+  canCreateAssistant: boolean
+  canFindPeople: boolean
+  disabled?: boolean
+  onCreate(kind: 'start' | 'group' | 'friend' | 'assistant'): void
+}) {
   const copy = useRosterCreateCopy()
 
   return (
-    <Tip label={copy.newMenu}>
-      <button
-        aria-label={copy.newMenu}
-        className="ak-iconbtn shrink-0 disabled:opacity-45"
-        data-atum-create-menu
-        data-icon-only
-        disabled={disabled}
-        onClick={onClick}
-        type="button"
-      >
-        <Plus aria-hidden className="ak-icon" />
-      </button>
-    </Tip>
+    <DropdownMenu modal={false}>
+      <Tip label={copy.newMenu}>
+        <DropdownMenuTrigger asChild disabled={disabled}>
+          <button
+            aria-label={copy.newMenu}
+            className="ak-iconbtn shrink-0 disabled:opacity-45"
+            data-atum-create-menu
+            data-icon-only
+            type="button"
+          >
+            <Plus aria-hidden className="ak-icon" />
+          </button>
+        </DropdownMenuTrigger>
+      </Tip>
+      <DropdownMenuContent align="end" className="min-w-48" data-atum-create-menu-content>
+        <DropdownMenuItem onSelect={() => onCreate('start')}>
+          <MessageCircle aria-hidden />
+          {copy.newChat}
+          <DropdownMenuShortcut>⌘N</DropdownMenuShortcut>
+        </DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => onCreate('group')}>
+          <Users aria-hidden />
+          {copy.newGroup}
+        </DropdownMenuItem>
+        {canFindPeople && (
+          <DropdownMenuItem onSelect={() => onCreate('friend')}>
+            <UserPlus aria-hidden />
+            {copy.addFriendTitle}
+          </DropdownMenuItem>
+        )}
+        {canCreateAssistant && (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onSelect={() => onCreate('assistant')}>
+              <Sparkles aria-hidden />
+              {copy.newAssistant}
+            </DropdownMenuItem>
+          </>
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }
 
