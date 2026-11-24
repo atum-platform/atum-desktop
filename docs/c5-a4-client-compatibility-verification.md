@@ -30,6 +30,11 @@ Local checks:
 - Public guard must run against the committed head, unpiped; final exit and
   typecheck evidence are retained in the handoff below.
 
+Committed-head public guard: `python3 scripts/public_guard.py --base origin/main
+--head HEAD` at 1093d163: exit 0, PASS (three new commits), no leaks. Ran
+unpiped. Source checks completed before deleting task-owned node_modules,
+Next output and TypeScript build metadata with Python shutil.rmtree/unlink.
+
 Environment repair: npm ci fails because existing lockfile lacks undici@6.29.0.
 Installed with `npm install --ignore-scripts --package-lock=false --legacy-peer-deps
 --workspace apps/desktop --include-workspace-root --no-audit --no-fund`; no lock
