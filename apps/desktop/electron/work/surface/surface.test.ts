@@ -151,7 +151,7 @@ describe('gate 4a and 4b-2 projections', () => {
 
 const INCARNATION = { id: 'i1', accountKey: 'acct', origin: 'http://127.0.0.1:1' } as WorkIncarnation
 
-function harness(overrides: Partial<WorkSurfaceParts> = {}, open?: () => Promise<OpenOwnerView>) {
+function harness(overrides: Partial<WorkSurfaceParts> = {}, open?: () => Promise<OpenOwnerView>, canPrewarm?: () => boolean) {
   const published: (MatrixWorkProjection | null)[] = []
   const placed: (MatrixWorkRect | null)[] = []
   const closed: string[] = []
@@ -206,6 +206,7 @@ function harness(overrides: Partial<WorkSurfaceParts> = {}, open?: () => Promise
 
   const surface = new WorkSurface({
     createView,
+    canPrewarm,
     runCommand: async command => {
       calls.push(`run:${command}`)
 
@@ -244,6 +245,65 @@ describe('WorkSurface', () => {
     const { surface } = harness()
 
     expect(await surface.read()).toBeNull()
+  })
+
+  it('preloads one hidden view after launch and reuses it on open', async () => {
+    vi.useFakeTimers()
+
+    try {
+      const { surface, parts, session, placed } = harness()
+      surface.attach(parts)
+      expect(session.openOwnerView).not.toHaveBeenCalled()
+      await vi.advanceTimersByTimeAsync(2_000)
+      expect(session.openOwnerView).toHaveBeenCalledTimes(1)
+      expect(placed.at(-1)).toBeNull()
+      await surface.show(RECT)
+      await surface.show(RECT)
+      expect(session.openOwnerView).toHaveBeenCalledTimes(1)
+      expect(placed.at(-1)).toEqual(RECT)
+      surface.attach(undefined)
+    } finally {vi.useRealTimers()}
+  })
+
+  it('yields warm-up on a busy host but opens immediately on demand', async () => {
+    vi.useFakeTimers()
+
+    try {
+      const rig = harness({}, undefined, () => false)
+      rig.surface.attach(rig.parts)
+      await vi.advanceTimersByTimeAsync(4000)
+      expect(rig.session.openOwnerView).not.toHaveBeenCalled()
+      await rig.surface.show(RECT)
+      expect(rig.session.openOwnerView).toHaveBeenCalledTimes(1)
+      rig.surface.attach(undefined)
+    } finally {vi.useRealTimers()}
+  })
+
+  it('cancels pending warm-up on retirement and Work off', async () => {
+    vi.useFakeTimers()
+
+    try {
+      const { surface, parts, session } = harness()
+      surface.attach(parts)
+      surface.attach(undefined)
+      await vi.advanceTimersByTimeAsync(2_000)
+      expect(session.openOwnerView).not.toHaveBeenCalled()
+      surface.attach(parts)
+      await surface.setWork(false)
+      await vi.advanceTimersByTimeAsync(2_000)
+      expect(session.openOwnerView).not.toHaveBeenCalled()
+    } finally {vi.useRealTimers()}
+  })
+
+  it('opens without waiting for enrollment or balance', async () => {
+    const { surface, parts } = harness({
+      wantServer: () => new Promise(() => {}), readAccess: () => new Promise(() => {})
+    })
+
+    surface.attach(parts)
+    await surface.show(RECT)
+    expect(surface.projection()?.view).toBe('ready')
+    surface.attach(undefined)
   })
 
   it('first use asks main to start the server and the gate BEFORE the owner view opens, and a failed ask does not stop the open', async () => {
@@ -312,6 +372,30 @@ describe('WorkSurface', () => {
     finish()
     await opening
     expect(placed.at(-1)).toBeNull()
+  })
+
+  it('recovers a preloaded sidecar while its view is hidden', async () => {
+    vi.useFakeTimers()
+
+    try {
+      let exit!: (unexpected: boolean) => void
+      const unexpectedExit = new Promise<boolean>(resolve => { exit = resolve })
+      const rig = harness()
+      const incarnation = { ...INCARNATION, unexpectedExit }
+      rig.session.openOwnerView.mockImplementationOnce(async factory => ({
+        state: 'paired', incarnation, view: factory(incarnation)
+      }))
+      rig.surface.attach(rig.parts)
+      await vi.advanceTimersByTimeAsync(2000)
+      expect(rig.session.openOwnerView).toHaveBeenCalledTimes(1)
+      exit(true)
+      await vi.advanceTimersByTimeAsync(1000)
+      expect(rig.session.openOwnerView).toHaveBeenCalledTimes(2)
+      expect(rig.placed.at(-1)).toBeNull()
+      await rig.surface.show(RECT)
+      expect(rig.session.openOwnerView).toHaveBeenCalledTimes(2)
+      rig.surface.attach(undefined)
+    } finally {vi.useRealTimers()}
   })
 
   it('automatically reopens a dead sidecar and cancels recovery on detach', async () => {

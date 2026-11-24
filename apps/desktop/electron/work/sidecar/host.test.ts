@@ -70,7 +70,10 @@ function lab() {
   const surfaceModeChanged = vi.fn()
   const sidebarChanged = vi.fn()
 
+  const log = vi.fn()
+
   const host = new WorkHost({
+    log,
     surfaceModeChanged,
     sidebarChanged,
     resources: '/bundled',
@@ -83,17 +86,39 @@ function lab() {
 
   host.registerOwnerPreload()
 
-  return { host, openProtons, sidebarChanged, surfaceModeChanged }
+  return { host, log, openProtons, sidebarChanged, surfaceModeChanged }
 }
 
 function sender() {
-  return Object.assign(new EventEmitter(), { isDestroyed: () => false }) as unknown as WebContents
+  return Object.assign(new EventEmitter(), { isDestroyed: () => false, setBackgroundThrottling: vi.fn() }) as unknown as WebContents
 }
 
 describe.skipIf(process.platform !== 'darwin' || process.arch !== 'arm64')('Work owner preload', () => {
   beforeEach(() => {
     handlers.clear()
     starts.mockClear()
+  })
+
+  it('accepts only fixed startup phases from the owner and reports each once', async () => {
+    const { host, log } = lab()
+    const incarnation = await host.start({ continuation: false })
+    const contents = sender()
+    host.bindOwnerView(incarnation, contents)
+    const event = { sender: contents, senderFrame: { parent: null, detached: false, url: incarnation.origin + '/' } } as unknown as IpcMainInvokeEvent
+    const report = handlers.get('atum:work:startup-phase')! as (event: IpcMainInvokeEvent, value: unknown) => Promise<unknown>
+    await report({ ...event, sender: sender() }, 'ws-connected')
+    await report(event, 'token=private')
+    expect(log).not.toHaveBeenCalled()
+    await report(event, 'ws-connected')
+    await report(event, 'ws-connected')
+    expect(log).toHaveBeenCalledTimes(1)
+    expect(log).toHaveBeenCalledWith('ws-connected', expect.any(Number))
+    await report(event, 'threads-painted')
+    expect(contents.setBackgroundThrottling).toHaveBeenCalledWith(true)
+    expect(log).toHaveBeenCalledTimes(2)
+    await host.stop()
+    await report(event, 'providers-ready')
+    expect(log).toHaveBeenCalledTimes(2)
   })
 
   it('only opens top-up for the current bound top-level Work origin', async () => {
@@ -161,10 +186,12 @@ describe.skipIf(process.platform !== 'darwin' || process.arch !== 'arm64')('Work
     const { host } = lab()
     const incarnation = await host.start({ continuation: false })
     const order: string[] = []
+
     const contents = Object.assign(sender(), {
       focus: vi.fn(() => order.push('focus')),
       executeJavaScript: vi.fn(async () => (order.push('run'), true))
     }) as unknown as WebContents
+
     host.bindOwnerView(incarnation, contents)
 
     expect(await host.runCommand('chat.new')).toBe(true)
@@ -194,7 +221,7 @@ describe.skipIf(process.platform !== 'darwin' || process.arch !== 'arm64')('Work
     await target.start({ continuation: false })
 
     expect(starts.mock.calls).toEqual([['/bundled'], ['/target'], ['/target']])
-    expect([...handlers.keys()]).toEqual([MATRIX_WORK_IPC.surfaceModeChanged, MATRIX_WORK_IPC.sidebarChanged, WORK_ACCESS_CHANNEL, WORK_OPEN_PROTONS_CHANNEL])
+    expect([...handlers.keys()]).toEqual(['atum:work:startup-phase', MATRIX_WORK_IPC.surfaceModeChanged, MATRIX_WORK_IPC.sidebarChanged, WORK_ACCESS_CHANNEL, WORK_OPEN_PROTONS_CHANNEL])
   })
 })
 

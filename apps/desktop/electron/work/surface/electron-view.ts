@@ -11,6 +11,7 @@ import type { WorkViewHandle } from './surface'
  * isolated preload, painted over the Work page's host region of the Matrix window.
  */
 export function createWorkViewFactory(input: {
+  log?(phase: string, ms: number): void
   window: () => BrowserWindow | null
   /** S's isolated `dist/electron-work-preload.js`. */
   preload: string
@@ -20,12 +21,15 @@ export function createWorkViewFactory(input: {
   onBlocked?: (kind: string, origin: string) => void
 }): (incarnation: WorkIncarnation) => WorkViewHandle {
   return incarnation => {
+    const startedAt = Date.now()
     const partition = partitionFor(incarnation.accountKey)
     const session = electronSession.fromPartition(partition)
 
     const view = new WebContentsView({
       webPreferences: {
         partition,
+        // Pairing and client hydration must run at foreground speed while the view is detached.
+        backgroundThrottling: false,
         preload: input.preload,
         sandbox: true,
         contextIsolation: true,
@@ -33,6 +37,21 @@ export function createWorkViewFactory(input: {
         webviewTag: false
       }
     })
+
+    const throttle = setTimeout(() => {
+      if (!view.webContents.isDestroyed()) {view.webContents.setBackgroundThrottling(true)}
+    }, 15_000)
+
+    throttle.unref?.()
+
+    input.log?.('view-created', Date.now() - startedAt)
+    view.webContents.on('dom-ready', () => input.log?.('page-dom-ready', Date.now() - startedAt))
+    view.webContents.on('did-finish-load', () => input.log?.('page-load', Date.now() - startedAt))
+
+    // A detached preload still needs a desktop viewport, rather than a zero-width mobile layout.
+    const bounds = input.window()?.getContentBounds()
+
+    if (bounds) {view.setBounds({ x: 0, y: 0, width: bounds.width, height: bounds.height })}
 
     // Transparent, so the window's frame (and its vibrancy) shows in the gaps between T3's panels.
     view.setBackgroundColor('#00000000')
@@ -78,6 +97,7 @@ export function createWorkViewFactory(input: {
     }
 
     view.webContents.once('destroyed', () => {
+      clearTimeout(throttle)
       disposePolicy()
       place(null)
     })

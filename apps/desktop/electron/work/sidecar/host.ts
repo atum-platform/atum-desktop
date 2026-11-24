@@ -54,6 +54,8 @@ export class WorkHost {
   private binding?: WorkBinding
   private backendToken?: string
   private view?: { contents: WebContents; incarnation: WorkIncarnation }
+  private viewStartedAt = 0
+  private readonly startupPhases = new Set<string>()
   private closing?: Promise<void>
   /** The live view's last thread-list report, for a band that mounts after it (the view reports changes only). */
   private lastSidebar?: { view: NonNullable<WorkHost['view']>; snapshot: WorkSidebarSnapshot }
@@ -187,6 +189,8 @@ export class WorkHost {
 
     const view = { contents, incarnation }
     this.view = view
+    this.viewStartedAt = Date.now()
+    this.startupPhases.clear()
 
     const detach = () => {
       if (this.view === view) {
@@ -291,6 +295,14 @@ export class WorkHost {
   }
 
   registerOwnerPreload(): void {
+    ipcMain.handle('atum:work:startup-phase', (event, phase: unknown) => {
+      if (!this.ownerCaller(event) || typeof phase !== 'string' ||
+        !['ws-connected', 'providers-ready', 'threads-painted'].includes(phase) || this.startupPhases.has(phase)) {return}
+
+      if (phase === 'threads-painted') {event.sender.setBackgroundThrottling(true)}
+      this.startupPhases.add(phase)
+      this.options.log?.(phase, Date.now() - this.viewStartedAt)
+    })
     ipcMain.handle(MATRIX_WORK_IPC.surfaceModeChanged, (event, value: unknown) => {
       if (!this.ownerCaller(event)) {
         return

@@ -1,5 +1,6 @@
 import { randomBytes } from 'node:crypto'
 import { existsSync, readFileSync } from 'node:fs'
+import { availableParallelism, loadavg } from 'node:os'
 import { join } from 'node:path'
 
 import type { BrowserWindow, IpcMain, IpcMainInvokeEvent, Session } from 'electron'
@@ -412,7 +413,7 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
   }
 
   const host = new WorkHost({
-    log: (phase, ms) => deps.log(`[atum-work] startup phase=${phase} ms=${ms}`),
+    log: (phase, ms) => deps.log(`[atum-work] startup phase=${phase} ms=${ms} at=${Date.now()}`),
     surfaceModeChanged: snapshot => deps.publish(MATRIX_WORK_IPC.surfaceModeChanged, snapshot),
     sidebarChanged: snapshot => deps.publish(MATRIX_WORK_IPC.sidebarChanged, snapshot),
     prepare: prepareConnector,
@@ -586,6 +587,7 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
   })
 
   surface = new WorkSurface({
+    canPrewarm: () => loadavg()[0] < availableParallelism(),
     getSurfaceMode: () => host.getSurfaceMode(),
     getSidebar: () => host.sidebar(),
     runCommand: command => host.runCommand(command),
@@ -594,6 +596,7 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
       window: () => deps.ui() ?? null,
       preload: deps.workPreload,
       zoomFactor: deps.zoomFactor,
+      log: (phase, ms) => deps.log(`[atum-work] startup phase=${phase} ms=${ms} at=${Date.now()}`),
       radius: 0,
       onBlocked: (kind, origin) => deps.log(`[atum-work] view_blocked ${kind} ${origin}`)
     }),
@@ -727,10 +730,7 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
 
       await lifecycle.activate()
 
-      // Recover/update through WorkSession before warming the account's native server.
-      if (host.enabled() && !session.held()) {
-        void session.start().catch(() => deps.log('[atum-work] background_start_failed'))
-      }
+      // WorkSurface preloads one hidden view after launch, through WorkSession's recovery door.
     },
     retire: async () => {
       modelKeys.forget()

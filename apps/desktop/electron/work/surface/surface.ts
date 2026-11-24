@@ -73,6 +73,8 @@ export interface WorkSurfaceParts {
 }
 
 export interface WorkSurfaceOptions {
+  /** Defer speculative work while the host is busy; foreground opens never wait for this. */
+  canPrewarm?(): boolean
   getSurfaceMode?(): Promise<WorkSurfaceModeSnapshot | null>
   getSidebar?(): WorkSidebarSnapshot | null
   runCommand?(command: WorkBandCommand): Promise<boolean>
@@ -104,6 +106,8 @@ export class WorkSurface {
   private parts: WorkSurfaceParts | undefined
   private detachGate: (() => void) | undefined
   private handle: WorkViewHandle | undefined
+  private prewarmTimer?: ReturnType<typeof setTimeout>
+  private warmed = false
   private recoveryTimer?: ReturnType<typeof setTimeout>
   private recovering = false
   private recoveryFailures = 0
@@ -123,6 +127,8 @@ export class WorkSurface {
 
   /** Main calls this when an account's Work is built (parts) or torn down (undefined): sign-out, switch. */
   attach(parts: WorkSurfaceParts | undefined): void {
+    clearTimeout(this.prewarmTimer)
+    this.warmed = false
     this.planLimit = undefined
     this.planLimits = undefined
     this.cancelRecovery()
@@ -136,6 +142,26 @@ export class WorkSurface {
     this.protons = 'unknown'
     this.detachGate = parts?.gate?.on(() => this.publish())
     this.publish()
+
+    if (parts) {this.schedulePrewarm()}
+  }
+
+  /** One hidden owner view, using the same pairing, account teardown and crash recovery as a visible open. */
+  private schedulePrewarm(): void {
+    clearTimeout(this.prewarmTimer)
+    this.prewarmTimer = setTimeout(() => {
+      if (!this.parts?.enabled()) {return}
+
+      if (this.holds > 0 || this.options.canPrewarm?.() === false) {
+        this.schedulePrewarm()
+
+        return
+      }
+
+      this.warmed = true
+      void this.open()
+    }, 2_000)
+    this.prewarmTimer.unref?.()
   }
 
   projection(): MatrixWorkProjection | null {
@@ -205,6 +231,8 @@ export class WorkSurface {
   }
 
   async show(rect: MatrixWorkRect): Promise<void> {
+    if (!this.rect) {this.options.log?.('[atum-work] startup phase=click ms=0 at=' + Date.now())}
+    clearTimeout(this.prewarmTimer)
     this.rect = rect
 
     if (this.holds > 0) {
@@ -217,7 +245,7 @@ export class WorkSurface {
       return
     }
 
-    if (this.phase === 'idle' || this.recovering) {
+    if (this.phase === 'idle' || this.phase === 'starting' || this.recovering) {
       await this.open()
     }
   }
@@ -244,7 +272,7 @@ export class WorkSurface {
     } finally {
       this.holds--
 
-      if (this.holds === 0 && this.rect && this.parts?.enabled()) {
+      if (this.holds === 0 && (this.rect || this.warmed) && this.parts?.enabled()) {
         void this.open()
       }
     }
@@ -387,6 +415,8 @@ export class WorkSurface {
     }
 
     if (!on) {
+      clearTimeout(this.prewarmTimer)
+      this.warmed = false
       this.cancelRecovery()
       this.closeView()
       this.phase = 'idle'
@@ -468,14 +498,18 @@ export class WorkSurface {
   }
 
   private async openOnce(parts: WorkSurfaceParts, generation: number): Promise<void> {
+    const startedAt = Date.now()
+    this.options.log?.(`[atum-work] startup phase=view-start ms=0 at=${startedAt}`)
     this.phase = 'starting'
     this.publish()
 
     let outcome: OpenOwnerView
 
     try {
-      await parts.wantServer?.().catch(() => undefined)
+      // Enrollment is independent of the owner view. WorkSession itself serializes server startup.
+      void parts.wantServer?.().catch(() => undefined)
       outcome = await parts.session.openOwnerView(incarnation => {
+        if (generation !== this.generation || this.holds > 0 || !parts.enabled()) {throw new Error('work_open_cancelled')}
         const handle = this.options.createView(incarnation)
         this.handle = handle
 
@@ -529,8 +563,9 @@ export class WorkSurface {
       }
     })
     handle?.place(this.rect)
-    await this.refreshProtons()
+    this.options.log?.(`[atum-work] startup phase=view-ready ms=${Date.now() - startedAt} at=${Date.now()}`)
     this.publish()
+    void this.refreshProtons().then(() => {if (generation === this.generation) {this.publish()}})
     await this.followPendingPath()
   }
 
@@ -543,7 +578,7 @@ export class WorkSurface {
   private scheduleRecovery(generation: number): void {
     clearTimeout(this.recoveryTimer)
     this.recoveryTimer = setTimeout(() => {
-      if (generation === this.generation && this.recovering && this.rect && this.parts?.enabled() && this.holds === 0) {
+      if (generation === this.generation && this.recovering && (this.rect || this.warmed) && this.parts?.enabled() && this.holds === 0) {
         void this.retry()
       }
     }, Math.min(30_000, 1_000 * 2 ** Math.min(this.recoveryFailures++, 5)))
@@ -559,15 +594,18 @@ export class WorkSurface {
 
   private async refreshProtons(): Promise<void> {
     const read = this.parts?.readAccess
+    const generation = this.generation
 
     if (!read || this.phase !== 'ready') {
       return
     }
 
     try {
-      this.protons = PROTONS[await read()]
+      const access = await read()
+
+      if (generation === this.generation) {this.protons = PROTONS[access]}
     } catch {
-      this.protons = 'unknown'
+      if (generation === this.generation) {this.protons = 'unknown'}
     }
   }
 
