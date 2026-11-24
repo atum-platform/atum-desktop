@@ -1,11 +1,12 @@
 import { execFile } from 'node:child_process'
-import { randomUUID } from 'node:crypto'
-import { access, chmod, lstat, mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises'
+import { createHash, randomUUID } from 'node:crypto'
+import { access, chmod, lstat, mkdir, readdir, readFile, rename, rm, writeFile } from 'node:fs/promises'
 import { homedir, userInfo } from 'node:os'
 import path from 'node:path'
 import { promisify } from 'node:util'
 
 import { managedKeys, type NativeSshSystem } from './native-ssh'
+import { nativeSshSession } from './native-ssh-session'
 
 const exec = promisify(execFile)
 const LABEL = 'com.atum.desktop.native-ssh'
@@ -59,12 +60,56 @@ export function createNativeSshSystem(options: NativeSshSystemOptions = {}): Nat
     run = options.run ?? exec
 
   const root = path.join(home, 'Library', 'Application Support', 'Atum', 'native-ssh')
+  const markers = path.join(root, 'sessions')
+  const sessionScript = path.join(root, 'session.pl')
+  const quote = (value: string) => `'${value.replace(/'/g, "'\"'\"'")}'`
+
+  const clearMarkers = async (keep = new Set<string>()) => {
+    await noSymlink(root)
+    await noSymlink(markers)
+
+    for (const file of await readdir(markers).catch(error => {
+      if (error.code === 'ENOENT') {
+        return []
+      }
+
+      throw error
+    })) {
+      if (/^[a-f0-9]{64}$/.test(file) && !keep.has(file)) {
+        await rm(path.join(markers, file), { force: true })
+      }
+    }
+  }
+
   const plist = path.join(home, 'Library', 'LaunchAgents', `${LABEL}.plist`)
   const tokenFile = (id: string) => path.join(root, `${id}.token`)
   const domain = `gui/${process.getuid!()}`
 
   const command = async (file: string, args: string[]) =>
     (await run(file, args, { timeout: 15_000, maxBuffer: 65536 })).stdout.toString()
+
+  const stopTunnel = async () => {
+    try {
+      await command('/bin/launchctl', ['bootout', `${domain}/${LABEL}`])
+    } catch {
+      // An absent job is already stopped; a present job that cannot stop is an error.
+      let present = false
+
+      try {
+        await command('/bin/launchctl', ['print', `${domain}/${LABEL}`])
+        present = true
+      } catch {
+        /* absent */
+      }
+
+      if (present) {
+        throw new Error('tunnel_stop_failed')
+      }
+    }
+
+    await rm(plist, { force: true })
+    await rm(path.join(root, 'run.sh'), { force: true })
+  }
 
   return {
     async ready() {
@@ -104,6 +149,33 @@ export function createNativeSshSystem(options: NativeSshSystemOptions = {}): Nat
       })
     },
     async keys(keys) {
+      const hashes = keys.map(key => createHash('sha256').update(key).digest('hex'))
+      await clearMarkers(new Set(hashes))
+      const commands = new Map<string, string>()
+
+      if (keys.length) {
+        await access('/usr/bin/perl')
+        await noSymlink(root)
+        await mkdir(root, { recursive: true, mode: 0o700 })
+        await chmod(root, 0o700)
+        await mkdir(markers, { recursive: true, mode: 0o700 })
+        await chmod(markers, 0o700)
+        await atomic(sessionScript, nativeSshSession, 0o600)
+
+        for (const [index, key] of keys.entries()) {
+          const marker = path.join(markers, hashes[index])
+          await noSymlink(marker)
+          const saved = await readFile(marker, 'utf8').catch(absent)
+          const epoch = /^[a-f0-9-]{36}$/.test(saved) ? saved : randomUUID()
+
+          if (saved !== epoch) {
+            await atomic(marker, epoch, 0o600)
+          }
+
+          commands.set(key, `/usr/bin/perl ${quote(sessionScript)} ${quote(marker)} ${quote(epoch)}`)
+        }
+      }
+
       const dir = path.join(home, '.ssh'),
         file = path.join(dir, 'authorized_keys')
 
@@ -117,7 +189,11 @@ export function createNativeSshSystem(options: NativeSshSystemOptions = {}): Nat
 
       await mkdir(dir, { recursive: true, mode: 0o700 })
       await chmod(dir, 0o700)
-      await atomic(file, managedKeys(current, keys), 0o600)
+      await atomic(
+        file,
+        managedKeys(current, keys, key => commands.get(key)!),
+        0o600
+      )
     },
     async start(id) {
       const binary = options.helper
@@ -147,31 +223,17 @@ export function createNativeSshSystem(options: NativeSshSystemOptions = {}): Nat
         }
       }
 
-      await this.stop()
+      // Replacing a tunnel job is transport recovery, not an authority withdrawal.
+      await stopTunnel()
       await atomic(plist, content, 0o600)
       await command('/bin/launchctl', ['bootstrap', domain, plist])
     },
     async stop() {
-      try {
-        await command('/bin/launchctl', ['bootout', `${domain}/${LABEL}`])
-      } catch {
-        // An absent job is already stopped; a present job that cannot stop is an error.
-        let present = false
+      const results = await Promise.allSettled([clearMarkers(), stopTunnel()])
 
-        try {
-          await command('/bin/launchctl', ['print', `${domain}/${LABEL}`])
-          present = true
-        } catch {
-          /* absent */
-        }
-
-        if (present) {
-          throw new Error('tunnel_stop_failed')
-        }
+      if (results.some(result => result.status === 'rejected')) {
+        throw new Error('native_ssh_cleanup_pending')
       }
-
-      await rm(plist, { force: true })
-      await rm(path.join(root, 'run.sh'), { force: true })
     }
   }
 }
