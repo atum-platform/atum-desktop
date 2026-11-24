@@ -1,5 +1,5 @@
 export const PLAN_PROVIDER_DEFAULTS = {
-  codex: { driver: 'codex', enabled: true, config: { setupMode: 'managed' } },
+  codex: { driver: 'codex', enabled: true, config: { setupMode: 'existing' } },
   claudeAgent: { driver: 'claudeAgent', enabled: true },
   antigravity: { driver: 'antigravity', enabled: true }
 }

@@ -160,7 +160,8 @@ def run(spec, children, channel):
     for env in spec["gateways"]:
         child = children.start([sys.executable, "-P", "-B", "-X", "utf8", "-m",
                                 "hermes_cli.main", "gateway", "run"], env, spec["cwd"])
-        wait_for_gateway(env["HERMES_HOME"], child, children)
+        # Gateway discovery belongs to ACP session startup; provider setup and the
+        # owner view can boot concurrently with both gateways.
     env = spec["environment"]
     if channel:
         env = {**env, **channel, "T3_SERVICE_LAUNCHER_CONTEXT": json.dumps(spec["trial"])}
@@ -215,6 +216,8 @@ def work_provider_instances(saved, defaults, brokers):
         instance = saved.get(instance_id)
         if isinstance(instance, dict) and instance.get("driver") == default["driver"]:
             config = instance.get("config")
+            if instance_id == "codex" and config == {"setupMode": "managed"}:
+                instance = {**instance, "config": {"setupMode": "existing"}}
             blocked = isinstance(config, dict) and config.get("binaryPath") == "/usr/bin/false"
             if not blocked:
                 instances[instance_id] = instance

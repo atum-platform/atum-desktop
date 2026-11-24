@@ -153,3 +153,35 @@ bystander.kill()
     expect(result.stdout.trim()).toBe('NOT_OWNED')
   })
 })
+
+
+it.skipIf(!python)('starts the native server without waiting on either gateway', () => {
+  const result = execFileSync(python!, ['-I', '-c', `
+import importlib.util, io, os, sys
+module = importlib.util.spec_from_file_location("supervisor", sys.argv[1])
+sup = importlib.util.module_from_spec(module); module.loader.exec_module(sup)
+class Child:
+    pid = 123
+    stdout = io.BytesIO()
+    def poll(self): return None
+class Children:
+    leaders = []
+    seen = {}
+    calls = []
+    def start(self, argv, *args):
+        self.calls.append(argv)
+        return Child()
+    def scan(self): return 0
+children = Children()
+def no_wait(*args): raise AssertionError("gateway readiness blocked the native server")
+sup.wait_for_gateway = no_wait
+sup.publish = lambda *args, **kw: None
+sup.select.select = lambda *args: ([0], [], [])
+sup.run(dict(gateways=[{}, {}], environment={}, executable="t3", cwd=os.getcwd()), children, {})
+assert len(children.calls) == 3
+assert children.calls[-1][0] == "t3"
+print("ok")
+`, supervisor], { encoding: 'utf8' })
+
+  expect(result.trim()).toBe('ok')
+})

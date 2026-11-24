@@ -83,8 +83,16 @@ export function buildEnvironmentCaptureCommand(shell: string, names: ReadonlyArr
   return DEBUG_TRAP_SHELLS.has(executableName) ? `(trap - DEBUG) 2>/dev/null && trap - DEBUG; ${command}` : command
 }
 
-/** Resolve before substituting Work's isolated HOME; never inherit shell credentials. */
-export async function loginShellPath(env: NodeJS.ProcessEnv = process.env): Promise<string> {
+let cachedPath: Promise<string> | undefined
+
+/** One capture per app run, shared by concurrent starts and account switches. */
+export function loginShellPath(env: NodeJS.ProcessEnv = process.env): Promise<string> {
+  if (env !== process.env) {return captureLoginShellPath(env)}
+
+  return cachedPath ??= captureLoginShellPath(env)
+}
+
+async function captureLoginShellPath(env: NodeJS.ProcessEnv): Promise<string> {
   let userShell: string | undefined
 
   try {

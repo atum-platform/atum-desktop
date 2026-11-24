@@ -89,7 +89,7 @@ actual.main()
 `)
       const blocked = (driver: string) => ({ driver, enabled: false, config: { binaryPath: '/usr/bin/false' } })
       await writeFile(settingsPath, JSON.stringify({
-        providerInstances: { codex: blocked('codex'), claudeAgent: blocked('claudeAgent') }
+        providerInstances: { codex: { driver: 'codex', enabled: true, config: { setupMode: 'managed' } }, claudeAgent: blocked('claudeAgent') }
       }))
 
       await sidecar.start({ continuation: false })
@@ -98,7 +98,7 @@ actual.main()
       expect(settings.textGenerationModelSelection).toEqual(settings.defaultModelSelection)
       const defaultProfile = ['nguyet-thuc', { provider: 'atum-managed', default: 'nguyet-thuc' }]
       expect(JSON.parse(await readFile(observed, 'utf8'))).toEqual([defaultProfile, defaultProfile])
-      expect(settings.providerInstances.codex).toEqual({ driver: 'codex', enabled: true, config: { setupMode: 'managed' } })
+      expect(settings.providerInstances.codex).toEqual({ driver: 'codex', enabled: true, config: { setupMode: 'existing' } })
       expect(settings.providerInstances.claudeAgent).toEqual({ driver: 'claudeAgent', enabled: true })
       expect(settings.providerInstances.antigravity).toEqual({ driver: 'antigravity', enabled: true })
       expect(settings.providerInstances['atum-managed-delegated']).toMatchObject({ enabled: true, showInPicker: false })

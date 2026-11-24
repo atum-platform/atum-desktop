@@ -396,3 +396,12 @@ describe('update through the session', () => {
     expect(host.starts).toBe(1)
   })
 })
+
+it('shares recovery and pin setup when background warmup overlaps first open', async () => {
+  const { session } = lab()
+  const first = session.start()
+  const second = session.start()
+  expect(second).toBe(first)
+  const [a, b] = await Promise.all([first, second])
+  expect(a).toBe(b)
+})
