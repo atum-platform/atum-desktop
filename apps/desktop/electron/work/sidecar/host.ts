@@ -243,6 +243,12 @@ export class WorkHost {
       return false
     }
 
+    // The press landed in the band, outside the view: without keyboard focus the view cannot take
+    // the caret New thread puts in its composer, so on an empty draft the button looked dead.
+    if (command === 'chat.new') {
+      view.contents.focus()
+    }
+
     const ran: unknown = await view.contents.executeJavaScript(`window.atumWorkCommands?.run(${JSON.stringify(command)}) ?? false`)
 
     return this.view === view && ran === true

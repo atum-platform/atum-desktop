@@ -2723,6 +2723,8 @@ html[data-atum-vibrancy] [data-atum-main][data-atum-team-roster] [data-matrix-co
 
 [data-atum-main][data-atum-team-roster] [data-atum-main-split] > [data-atum-chat] > [data-atum-main-header] > :first-child {
   min-width: calc(var(--atum-team-roster) + var(--atum-panel-gap) - 0.75rem);
+  /* The bell ends where the chat roster's does: one header inset inside the panel's edge. */
+  padding-inline-end: calc(var(--atum-panel-gap) + 0.75rem);
 }
 
 [data-atum-shell][data-atum-rail]:not([data-atum-roster-flow]) {

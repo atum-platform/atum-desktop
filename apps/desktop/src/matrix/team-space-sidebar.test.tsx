@@ -1,18 +1,22 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act } from 'react'
 import { afterEach, expect, it, vi } from 'vitest'
 
 import {
+  $teamSpaceSidebarHidden,
   TEAM_SPACE_SIDEBAR_DEFAULT_WIDTH,
   TEAM_SPACE_SIDEBAR_MAX_WIDTH,
   TEAM_SPACE_SIDEBAR_MIN_WIDTH,
   TeamSpaceSidebar,
   TeamSpaceSidebarRow,
-  TeamSpaceSidebarSection
+  TeamSpaceSidebarSection,
+  toggleTeamSpaceSidebar
 } from './team-space-sidebar'
 
 afterEach(() => {
   cleanup()
   window.localStorage.clear()
+  $teamSpaceSidebarHidden.set(false)
 })
 
 function mount(scope = 'account-a') {
@@ -65,6 +69,7 @@ it('removes the resize handle from compact focus order and restores width after 
       <span>launch</span>
     </TeamSpaceSidebar>
   )
+
   expect(screen.queryByRole('separator', { name: 'Resize sidebar' })).toBeNull()
   compact.unmount()
 
@@ -101,4 +106,24 @@ it('collapses sections and exposes the selected row as the current page', () => 
   fireEvent.click(toggle)
   expect(toggle.getAttribute('aria-expanded')).toBe('false')
   expect(screen.queryByRole('button', { name: 'Open # launch' })).toBeNull()
+})
+
+it('hides and returns with the title bar button, but a compact window keeps its one pane', () => {
+  mount()
+  const panel = () => window.document.querySelector<HTMLElement>('[data-matrix-company-sidebar]')
+
+  act(() => toggleTeamSpaceSidebar())
+  expect(panel()?.hidden).toBe(true)
+  expect(screen.queryByRole('separator', { name: 'Resize sidebar' })).toBeNull()
+  act(() => toggleTeamSpaceSidebar())
+  expect(panel()?.hidden).toBe(false)
+
+  cleanup()
+  act(() => toggleTeamSpaceSidebar())
+  render(
+    <TeamSpaceSidebar compactFull label="Channels" resizeLabel="Resize sidebar" scope="account-a">
+      <span />
+    </TeamSpaceSidebar>
+  )
+  expect(panel()?.hidden).toBe(false)
 })

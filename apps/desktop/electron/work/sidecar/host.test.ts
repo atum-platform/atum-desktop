@@ -144,6 +144,23 @@ describe.skipIf(process.platform !== 'darwin' || process.arch !== 'arm64')('Work
     await expect(host.setSurfaceMode('project-a', 'code')).rejects.toThrow('work_unavailable')
   })
 
+  it('gives the owner view keyboard focus before New thread runs in it', async () => {
+    const { host } = lab()
+    const incarnation = await host.start({ continuation: false })
+    const order: string[] = []
+    const contents = Object.assign(sender(), {
+      focus: vi.fn(() => order.push('focus')),
+      executeJavaScript: vi.fn(async () => (order.push('run'), true))
+    }) as unknown as WebContents
+    host.bindOwnerView(incarnation, contents)
+
+    expect(await host.runCommand('chat.new')).toBe(true)
+    expect(order).toEqual(['focus', 'run'])
+    expect(await host.runCommand('sidebar.toggle')).toBe(true)
+    expect(order).toEqual(['focus', 'run', 'run'])
+    await host.stop()
+  })
+
   it('selects resources for each pin while keeping a single owner IPC registration', async () => {
     const { host } = lab()
     const packaged = host.forResources('/bundled')

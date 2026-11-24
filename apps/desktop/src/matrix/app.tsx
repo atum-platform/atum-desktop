@@ -443,6 +443,7 @@ import { $matrixStoreDraft, MatrixStoreDraftSeed } from './store/store-try'
 import { $matrixStoreHubRequest, $matrixStoreShelfRequest, matrixInAppTopUp, openMatrixTopUp } from './store/top-up'
 import { GoogleSwitchLine, SubscriptionFallbackLine } from './subscription-fallback-line'
 import { useMatrixSurfaces } from './surface-sources'
+import { $teamSpaceSidebarHidden, toggleTeamSpaceSidebar } from './team-space-sidebar'
 import {
   ArchivedChannelBanner,
   ChannelGlyphFor,
@@ -7152,6 +7153,7 @@ function MatrixAccountView({
   const [failureSubject, setFailureSubject] = useState<string>()
   const [failureRetry, setFailureRetry] = useState<{ run: () => void } | null>(null)
   const [sidebarShowing, setSidebarShowing] = useState(true)
+  const teamSpaceSidebarHidden = useStore($teamSpaceSidebarHidden)
   const [drawerOpen, setDrawerOpen] = useState(false)
   const storeOpen = snapshot.destination?.kind === 'discover'
 
@@ -8294,6 +8296,7 @@ function MatrixAccountView({
   // title bar, with the window controls. One at a time: on the roster's top row while the roster
   // leads the row, on the main header's otherwise (owner, 2026-11-13).
   const titleBarLeads = compact || !sidebarShowing || workplaceOnScreen || workOnScreen
+  const workBand = workCopy(locale).band
 
   const attentionBell = snapshot.identity ? (
     <MatrixAttentionIndicator
@@ -8677,12 +8680,14 @@ function MatrixAccountView({
                 relayChats={work.relayChats}
                 reserveOverlay={facts.overlayWidth > 0}
                 windowControls={
-                  <div className="flex items-center gap-2">
+                  // Every page's title bar leads the same way: the lights, the hide-left-panel
+                  // button, then the bell. Here the left panel is the view's own thread list.
+                  <div className="flex items-center gap-2" data-atum-leading-cluster>
                     <AtumWindowControlsSurface
-                      onToggleSidebar={toggle}
+                      onToggleSidebar={() => void window.atumMatrix.work?.runCommand?.('sidebar.toggle').catch(() => false)}
                       reserveLights={!facts.isFullscreen && Boolean(facts.windowButtonPosition)}
-                      showSidebarToggle={false}
-                      sidebarLabel={sidebarToggleLabel}
+                      showSidebarToggle={work.view === 'ready' && Boolean(window.atumMatrix.work.runCommand)}
+                      sidebarLabel={workBand.toggleSidebar}
                     />
                     {attentionBell}
                   </div>
@@ -8800,13 +8805,23 @@ function MatrixAccountView({
                 leadsRow={titleBarLeads}
                 reserveOverlay={facts.overlayWidth > 0}
                 windowControls={
-                  <div className="flex items-center gap-2">
+                  // As the chat roster's own top row: the lights and the hide-left-panel button,
+                  // then the bell at the left panel's far edge (Team Space's sidebar width, from
+                  // styles.css); with no panel beside it the bell follows the button.
+                  <div className="flex flex-1 items-center gap-2" data-atum-leading-cluster>
                     <AtumWindowControlsSurface
-                      onToggleSidebar={toggle}
+                      onToggleSidebar={workplaceOnScreen ? toggleTeamSpaceSidebar : toggle}
                       reserveLights={!facts.isFullscreen && Boolean(facts.windowButtonPosition)}
-                      showSidebarToggle={!workplaceOnScreen}
-                      sidebarLabel={sidebarToggleLabel}
+                      showSidebarToggle={!workplaceOnScreen || !compact}
+                      sidebarLabel={
+                        workplaceOnScreen
+                          ? teamSpaceSidebarHidden
+                            ? t.atum.chat.openSidebar
+                            : t.atum.chat.closeSidebar
+                          : sidebarToggleLabel
+                      }
                     />
+                    <span className="flex-1" />
                     {attentionBell}
                   </div>
                 }
