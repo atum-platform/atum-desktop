@@ -92,7 +92,7 @@ export function workPairingOrigin(url: string): string | undefined {
   }
 }
 
-function provider(python: string, home: string, label: string, showInPicker: boolean) {
+export function workProvider(python: string, home: string, label: string, showInPicker: boolean, delegated = false) {
   return {
     driver: 'acpRegistry',
     displayName: label,
@@ -103,7 +103,22 @@ function provider(python: string, home: string, label: string, showInPicker: boo
       commandPath: python,
       commandArgs: ['-P', '-B', '-X', 'utf8', '-m', 'acp_adapter.managed']
     },
-    environment: [{ name: 'HERMES_HOME', value: home, sensitive: false }]
+    environment: [
+      { name: 'HERMES_HOME', value: home, sensitive: false },
+      ...(delegated ? Object.entries(workDelegatedEnvironment(home)).map(([name, value]) => ({ name, value, sensitive: false })) : [])
+    ]
+  }
+}
+
+// Cloud-initiated tools retain their account home, including explicit config roots.
+export function workDelegatedEnvironment(home: string): Record<string, string> {
+  return {
+    HOME: home,
+    XDG_CONFIG_HOME: join(home, '.config'),
+    XDG_CACHE_HOME: join(home, '.cache'),
+    XDG_DATA_HOME: join(home, '.local', 'share'),
+    CODEX_HOME: join(home, '.codex'),
+    CLAUDE_CONFIG_DIR: join(home, '.claude')
   }
 }
 
@@ -147,7 +162,7 @@ async function startProcess(options: WorkProcessOptions, { continuation, trial }
   const managedModel = { instanceId: ATUM_WORK_PROVIDER, model: ATUM_WORK_MODEL }
 
   const providerInstances = Object.fromEntries(BROKER_PROFILES.map(({ directory, instance, label, showInPicker }) => [
-    instance, provider(python, join(root, directory), label, showInPicker)
+    instance, workProvider(python, join(root, directory), label, showInPicker, instance === ATUM_WORK_DELEGATED_PROVIDER)
   ]))
 
   if (signal.aborted || !options.current()) {
@@ -193,8 +208,9 @@ async function startProcess(options: WorkProcessOptions, { continuation, trial }
     profileSource,
     managedModelAlias: ATUM_WORK_DEFAULT_ALIAS,
     managedProvider: ATUM_WORK_PROVIDER,
-    gateways: profiles.map(profile => ({
+    gateways: profiles.map((profile, index) => ({
       ...environment,
+      ...(index === 1 ? workDelegatedEnvironment(profile) : {}),
       ...Object.fromEntries(Object.entries(credentials).filter(([key]) => !key.startsWith('ATUM_WORK_CONNECTOR_'))),
       ATUM_MANAGED_MODEL_DEFAULT: ATUM_WORK_DEFAULT_ALIAS,
       HERMES_HOME: profile

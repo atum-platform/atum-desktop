@@ -386,7 +386,7 @@ function identity(
     signerFor?: NonNullable<MacDeviceIdentityOptions['signerFor']>
     owner?: MacDeviceIdentityOptions['owner']
     helper?: string | null
-    hubRequired?: () => boolean
+    hubRequired?: () => boolean | undefined
     directory?: string
     onEnrolled?: NonNullable<MacDeviceIdentityOptions['onEnrolled']>
   } = {}
@@ -1519,5 +1519,17 @@ it('keeps S2 registration without dialing the hub, then resumes for a legacy acc
   subject.connection()?.start()
   expect(subject.connection()?.state()).toBe('closed')
   subject.resume()
+  expect(sockets).toHaveLength(1)
+})
+
+it('keeps the legacy hub link while the roster is stale', async () => {
+  let legacy: boolean | undefined = true
+  const { subject, sockets } = identity({ hubRequired: () => legacy })
+  await subject.activate()
+  const connection = subject.connection()
+  const before = connection?.state()
+  legacy = undefined
+  connection?.start()
+  expect(connection?.state()).toBe(before)
   expect(sockets).toHaveLength(1)
 })

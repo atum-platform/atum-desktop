@@ -11565,12 +11565,13 @@ function agentPlacementKnown(agent: MatrixAgentRuntime): boolean {
 }
 
 /** S2 uses native SSH/Work; only legacy roster agents need the controller hub. Unknown waits. */
-function controllerHubRequired(): boolean {
+function controllerHubRequired(): boolean | undefined {
   const scope = account?.appScope()
 
-  return Boolean(scope && hireRoster && hireRoster.scope.accountKey === scope.accountKey &&
-    hireRoster.scope.generation === scope.generation &&
-    hireRoster.roster.some(row => row.status === 'active' && row.runtime !== 'hermes'))
+  if (!scope || !hireRoster || hireRoster.scope.accountKey !== scope.accountKey ||
+    hireRoster.scope.generation !== scope.generation) {return undefined}
+
+  return hireRoster.roster.some(row => row.status === 'active' && row.runtime !== 'hermes')
 }
 
 /** Unknown (undefined) until a roster is read for the signed-in account and generation. */

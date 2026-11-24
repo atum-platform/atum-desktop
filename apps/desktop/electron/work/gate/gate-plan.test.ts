@@ -200,8 +200,8 @@ describe('a passing plan launch', () => {
     const answer = await plan()
 
     expect(answer).toMatchObject({ class: 'accepted', receipt: 'launched' })
-    expect(launchedCall().modelSelection).toEqual({ instanceId: 'codex', model: 'codex-model-1' })
-    expect(Object.values(WORK_RELAY_PROVIDER).map(plan => plan.instanceId)).toEqual(['codex', 'claudeAgent', 'antigravity'])
+    expect(launchedCall().modelSelection).toEqual({ instanceId: 'atum-relay-codex', model: 'codex-model-1' })
+    expect(Object.values(WORK_RELAY_PROVIDER).map(plan => plan.instanceId)).toEqual(['atum-relay-codex', 'claudeAgent', 'antigravity'])
     expect(h.ledger.receipt(LUNA, REQ_1)).toMatchObject({ plan: 'codex', state: 'launched' })
     expect(h.ledger.eventClaimed(EVENT_A)).toBe(true)
   })
@@ -293,7 +293,7 @@ describe('the fence at the handoff: the plan rule is checked again at the moment
     await h.gate.launch(h.ctx(LUNA), h.args(REQ_1, EVENT_A))
     const call = JSON.parse(h.ledger.receipt(LUNA, REQ_1)?.callJson as string)
 
-    call.modelSelection = { instanceId: 'codex', model: 'x' }
+    call.modelSelection = { instanceId: 'atum-relay-codex', model: 'x' }
     h.ledger.update(LUNA, REQ_1, { call_json: JSON.stringify(call), forwarded: 0, forward_count: 0 })
     h.t3.threads.clear()
     h.t3.calls.length = 0

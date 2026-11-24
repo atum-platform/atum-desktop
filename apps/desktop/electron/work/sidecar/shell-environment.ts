@@ -85,14 +85,18 @@ export function buildEnvironmentCaptureCommand(shell: string, names: ReadonlyArr
 
 let cachedPath: Promise<string> | undefined
 
-/** One capture per app run, shared by concurrent starts and account switches. */
+/** Share concurrent captures; retain only successful captures across starts. */
 export function loginShellPath(env: NodeJS.ProcessEnv = process.env): Promise<string> {
-  if (env !== process.env) {return captureLoginShellPath(env)}
+  if (env !== process.env) {return captureLoginShellPath(env).then(result => result.path)}
 
-  return cachedPath ??= captureLoginShellPath(env)
+  return cachedPath ??= captureLoginShellPath(env).then(result => {
+    if (!result.captured) {cachedPath = undefined}
+
+    return result.path
+  })
 }
 
-async function captureLoginShellPath(env: NodeJS.ProcessEnv): Promise<string> {
+async function captureLoginShellPath(env: NodeJS.ProcessEnv): Promise<{ path: string; captured: boolean }> {
   let userShell: string | undefined
 
   try {
@@ -127,9 +131,9 @@ async function captureLoginShellPath(env: NodeJS.ProcessEnv): Promise<string> {
       start >= 0 && end > start ? output.slice(start + '__T3CODE_ENV_PATH_START__\n'.length, end).trim() : ''
 
     if (captured) {
-      return [captured, env.PATH].filter(Boolean).join(':')
+      return { path: [captured, env.PATH].filter(Boolean).join(':'), captured: true }
     }
   }
 
-  return env.PATH ?? ''
+  return { path: env.PATH ?? '', captured: false }
 }

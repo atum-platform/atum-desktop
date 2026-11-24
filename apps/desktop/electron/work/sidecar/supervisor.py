@@ -5,11 +5,15 @@ import json
 import os
 from pathlib import Path
 import resource
+import re
 import secrets
 import select
 import signal
 import subprocess
 import sys
+import threading
+import shlex
+import tomllib
 import time
 
 
@@ -142,7 +146,6 @@ def wait_for_gateway(home, gateway, children):
     while time.monotonic() < deadline:
         if select.select([0], [], [], 0.1)[0] or gateway.poll() is not None:
             raise RuntimeError("gateway_stopped")
-        children.scan()
         ready = discover_gateway_endpoint(home, timeout=0.4)
         if ready.state == "ready" and ready.endpoint and ready.endpoint.control_home in (None, home):
             lock = json.loads((Path(home) / "gateway.lock").read_text())
@@ -157,11 +160,21 @@ def run(spec, children, channel):
     for limit, soft in [(resource.RLIMIT_CORE, 0), (resource.RLIMIT_NOFILE, 2048)]:
         _, hard = resource.getrlimit(limit)
         resource.setrlimit(limit, (soft if hard < 0 else min(soft, hard), hard))
+    gateways = []
+    ready_file = Path(spec["settingsPath"]).with_name("delegated-gateway-ready")
+    ready_file.unlink(missing_ok=True)
     for env in spec["gateways"]:
         child = children.start([sys.executable, "-P", "-B", "-X", "utf8", "-m",
                                 "hermes_cli.main", "gateway", "run"], env, spec["cwd"])
-        # Gateway discovery belongs to ACP session startup; provider setup and the
-        # owner view can boot concurrently with both gateways.
+        gateways.append((env, child))
+    # Discovery runs alongside the server; delegated admission waits for this incarnation.
+    def discover():
+        try:
+            env, child = gateways[1]
+            wait_for_gateway(env["HERMES_HOME"], child, children)
+            ready_file.write_text(str(sidecar.pid), encoding="ascii")
+        except Exception:
+            pass
     env = spec["environment"]
     if channel:
         env = {**env, **channel, "T3_SERVICE_LAUNCHER_CONTEXT": json.dumps(spec["trial"])}
@@ -183,6 +196,8 @@ def run(spec, children, channel):
     finally:
         for fd in passed:
             os.close(fd)
+    if len(gateways) > 1:
+        threading.Thread(target=discover, daemon=True).start()
     publish("spawned", pid=sidecar.pid)
     assert sidecar.stdout is not None
     line_buffer = b""
@@ -226,6 +241,45 @@ def work_provider_instances(saved, defaults, brokers):
     return instances
 
 
+def _relay_codex_instance(owner):
+    """Native Codex overrides disable user MCPs only in the hidden relay instance."""
+    config = dict(owner.get("config", {}))
+    environment = {entry["name"]: entry.get("value") for entry in owner.get("environment", [])
+                   if entry.get("name") in ("HOME", "CODEX_HOME")}
+    source_home = config.get("homePath") or environment.get("CODEX_HOME") or os.environ.get("CODEX_HOME")
+    home = Path(source_home or Path(environment.get("HOME") or Path.home()) / ".codex").expanduser()
+    # Shadow homes can retain a different config; refuse an unknown source rather than
+    # accidentally enumerate the owner's default file while Codex reads another.
+    if config.get("shadowHomePath"):
+        raise RuntimeError("relay_codex_shadow_home")
+    try:
+        data = tomllib.loads((home / "config.toml").read_text())
+    except FileNotFoundError:
+        data = {}
+    servers = set(data.get("mcp_servers", {}))
+    for profile in data.get("profiles", {}).values():
+        servers.update(profile.get("mcp_servers", {}))
+    args = shlex.split(config.get("launchArgs", ""))
+    for arg in args:
+        if re.search(r"(?:^|=|\s)mcp_servers(?:[.\s=]|$)", arg):
+            # Quoted names and table overrides in arbitrary launch args cannot be
+            # safely enumerated here. Fail closed rather than pass them to a relay.
+            raise RuntimeError("relay_codex_mcp_launch_override")
+    # Native table override handles quoted/dotted server names (mcp_servers={} alone merges).
+    table = ",".join(f"{json.dumps(name)}={{enabled=false}}" for name in sorted(servers))
+    overrides = ["--config", "mcp_servers={" + table + "}"] if servers else []
+    return {**owner, "showInPicker": False, "displayName": "ChatGPT (assistant relay)",
+            "config": {**config, "launchArgs": shlex.join([*args, *overrides])}}
+
+
+def relay_codex_instance(owner):
+    try:
+        return _relay_codex_instance(owner)
+    except (OSError, ValueError, TypeError, RuntimeError):
+        # A relay with unknown config is disabled without blocking the owner's Work.
+        return {**owner, "enabled": False, "showInPicker": False}
+
+
 def main():
     spec = json.loads(sys.stdin.buffer.readline(262144))
     # Electron created the Node IPC channel. Only the T3 trial inherits it.
@@ -261,6 +315,7 @@ def main():
                 settings.get("providerInstances", {}), spec["planProviderDefaults"],
                 spec["settings"]["providerInstances"],
             )
+            instances["atum-relay-codex"] = relay_codex_instance(instances["codex"])
             settings.update(spec["settings"])
             settings["providerInstances"] = instances
             settings["textGenerators"] = {}

@@ -27,8 +27,10 @@ Setup establishes/reads the domain grant first, then reads authenticated placeme
 before enrolling any executor. Placement is scoped to account and grant generation;
 unknown never authorizes enrollment, even through alternate enrollment entry points.
 A failed discovery remains pending, with no setup-failed banner. Named agents have
-the same placement guard. The existing launch stays visible until the roster has
-reconciled; failed reads use its existing platform-unavailable retry state. Retry
+the same placement guard. The existing launch waits at most the normal 20-second assistant timeout for the
+roster, including failed or absent reads. It then opens human chats while setup
+notices stay suppressed until placement is known. Failed reads use the existing
+platform-unavailable retry state during the wait. Retry
 explicitly requests another roster read even if the unused physical root is idle.
 Known assistants retain the existing bounded launch wait for optional local setup.
 Header and setup notices wait for roster convergence. Selecting the primary uses

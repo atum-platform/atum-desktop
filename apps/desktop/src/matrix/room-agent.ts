@@ -1,5 +1,5 @@
 import type { MatrixAgentView, MatrixSnapshot } from '../../shared/matrix'
-import { matrixPrimaryAgent } from '../../shared/matrix-assistant-room'
+import { isAssistantRoom, matrixPrimaryAgent } from '../../shared/matrix-assistant-room'
 
 import { resolveProjectedConversation } from './conversation-marker'
 
@@ -66,4 +66,16 @@ export function anyAgentPrompts(snapshot: MatrixSnapshot): boolean {
   return Boolean(
     snapshot.hermesPrompts?.prompts.length || snapshot.agentTurns?.some(turn => Boolean(turn.prompts?.length))
   )
+}
+
+/** A room nudge follows that room's assistant even after Main changes. */
+export function assistantTarget(snapshot: MatrixSnapshot, agentId?: string, roomId?: string): string | undefined {
+  if (!roomId) {return agentId ?? primaryAgent(snapshot)?.userId ?? snapshot.assistant?.userId}
+  const room = snapshot.rooms.find(value => value.id === roomId)
+  const agent = snapshot.agents?.find(value => room?.agentPrincipal === value.principal) ??
+    snapshot.agents?.find(value => room && isAssistantRoom(room, snapshot.identity?.userId, value.userId))
+
+  const target = agent?.userId ?? snapshot.assistant?.userId
+
+  return room && isAssistantRoom(room, snapshot.identity?.userId, target) ? target : undefined
 }

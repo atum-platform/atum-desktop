@@ -191,8 +191,8 @@ export function matrixLaunchAgents(snapshot: MatrixSnapshot): MatrixLaunchPrepar
     ]
   }
 
-  // A failed read has no placement authority. Keep the existing launch and its retry action;
-  // opening the shell here would misrepresent cloud assistants as unconfigured local chats.
+  // A failed read has no placement authority. During the bounded launch wait it keeps
+  // the retry action; the shell suppresses setup notices until placement becomes known.
   if (roster.state !== 'ready') {
     return [{ roster: true, readiness: { phase: 'blocked', step: 'assistant', code: 'agent_roster_unavailable', since: roster.since } }]
   }
@@ -246,7 +246,7 @@ export function matrixStartupBlocking(snapshot: MatrixSnapshot, waitedMs = 0): b
     return (
       !matrixChatReady(snapshot) ||
       matrixLaunchAccountStep(snapshot) !== null ||
-      snapshot.agentRoster?.state !== 'ready' ||
+      (snapshot.agentRoster?.state !== 'ready' && waitedMs < MATRIX_LAUNCH_START_WAIT_MS) ||
       (Boolean(matrixLaunchPreparation(snapshot)) && waitedMs < MATRIX_LAUNCH_START_WAIT_MS)
     )
   }

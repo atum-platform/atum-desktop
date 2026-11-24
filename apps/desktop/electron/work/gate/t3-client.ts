@@ -14,6 +14,7 @@ export interface T3ClientOptions {
   settingsFile: string
   delegated: { instanceId: string; model: string }
   fetch?: typeof fetch
+  delegatedGatewayReady?(): boolean
   /**
    * Gate 4b-1: the plan instance, compiled in by main (Codex only; `PLAN_INSTANCE_IDS`). Absent: no plan launch is ever built.
    * `model` is the one T3 advertises first for the instance when it is connected; this names only which instance.
@@ -206,7 +207,7 @@ export function createT3Client(options: T3ClientOptions): T3Port {
       constraints?: unknown
     }[]
 
-    const found = providers.find(item => item.providerInstanceId === instanceId && item.driverKind === instanceId)
+    const found = providers.find(item => item.providerInstanceId === instanceId && item.driverKind === (instanceId === 'atum-relay-codex' ? 'codex' : instanceId))
     const models = [...new Set((found?.models ?? []).flatMap(model => (typeof model.id === 'string' && model.id.length > 0 && model.id.length <= 200 ? [model.id] : [])))].slice(0, 64)
 
     const constraints = Array.isArray(found?.constraints)
@@ -230,6 +231,7 @@ export function createT3Client(options: T3ClientOptions): T3Port {
     read,
     pendingQuestion: (token, threadId, input) => call(token, 't3_pending_request', { threadId, ...input }, {}, 10_000, input.action !== 'respond'),
     async providerReady(token) {
+      if (options.delegatedGatewayReady && !options.delegatedGatewayReady()) {return false}
       const reply = await call(token, 'orchestrator_capabilities', {}, {}, 20_000, true)
       const providers = (reply.data?.providers ?? []) as { providerInstanceId?: string; models?: { id?: string }[] }[]
 

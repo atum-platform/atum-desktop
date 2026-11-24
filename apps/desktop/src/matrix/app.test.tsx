@@ -1007,8 +1007,8 @@ function fixture(
           // Current native hosts publish an authoritative roster with a ready session.
           // Individual startup tests override this when exercising loading or failure.
           agentRoster:
-            state.agentRoster ??
-            (state.state === 'ready' ? { state: 'ready', since: state.readiness?.since ?? 0 } : undefined),
+            (Object.hasOwn(state, 'agentRoster') ? state.agentRoster :
+            (state.state === 'ready' ? { state: 'ready', since: state.readiness?.since ?? 0 } : undefined)),
           agents: state.agents?.map(agent =>
             agent.readiness || !agent.ready || agent.hermes !== 'ready'
               ? agent
@@ -9200,6 +9200,44 @@ describe('cold-start preparation screen', () => {
     )
     expect(bridge.connectHermes).toHaveBeenCalledWith('!assistant:test')
   })
+
+  it('lands automatically on the roster cloud primary without a local assistant', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    const { bridge, emit } = fixture(async () => ({ ...signedOut, state: 'connecting', identity: owner }))
+    await waitFor(() => expect(plate()).not.toBeNull())
+    emit({
+      ...preparing, assistant: undefined, startup: undefined,
+      readiness: { phase: 'ready', since: 1 }, rooms: [],
+      agents: [{
+        principal: 'cloud-main', userId: '@cloud:test', isDefault: true,
+        ready: true, hermes: 'unavailable', atumModel: true, answering: 'cloud'
+      }]
+    })
+    vi.mocked(bridge.command).mockResolvedValueOnce('!cloud:test')
+    await passLaunch()
+    await waitFor(() => expect(plate()).toBeNull(), LAUNCH_OPENS)
+    await waitFor(() => expect(bridge.command).toHaveBeenCalledWith({
+      kind: 'create', name: '', invite: ['@cloud:test'], direct: true
+    }))
+    expect(bridge.connectHermes).not.toHaveBeenCalled()
+  })
+
+  it.each([undefined, { state: 'unavailable' as const, since: 1 }])(
+    'opens the shell after the roster timeout with setup notices suppressed (%s)', async agentRoster => {
+      vi.useFakeTimers({ shouldAdvanceTime: true })
+      const { view } = fixture(async () => ({
+        ...preparing, assistant: undefined, startup: undefined, agents: undefined, agentRoster,
+        readiness: { phase: 'ready', since: 1 }
+      }))
+      await waitFor(() => expect(plate()).not.toBeNull())
+      await act(async () => { await vi.advanceTimersByTimeAsync(21_000) })
+      await passLaunch()
+      await waitFor(() => expect(plate()).toBeNull(), LAUNCH_OPENS)
+      expect(view.container.querySelector('[data-matrix-setup-card]')).toBeNull()
+      expect(view.container.querySelector('[data-matrix-launch-notice]')).toBeNull()
+      expect(screen.queryByText('Atum isn’t set up on this Mac yet.')).toBeNull()
+    }
+  )
   it('opens the product window for the launch the moment a sign-in lands, and keeps it', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true })
     const { bridge, emit } = fixture()

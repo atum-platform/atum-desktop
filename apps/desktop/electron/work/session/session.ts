@@ -166,6 +166,7 @@ export class WorkSession {
    */
   async restart(reason: 'pairing-failed' | 'sign-out' = 'pairing-failed'): Promise<WorkIncarnation> {
     const state = this.state()
+    await this.starting.get(state.paths.home)?.catch(() => undefined)
     this.closeViews(state)
     await this.host.stop()
     await state.coordinator.reset(reason)
@@ -248,6 +249,8 @@ export class WorkSession {
     if (!state.driver) {
       throw new WorkSessionError('work_update_unavailable')
     }
+
+    await this.starting.get(state.paths.home)?.catch(() => undefined)
 
     // A refusal that can be known up front (a stop owed above all) is answered before a view is closed, the partition cleared or
     // anything restarted: the running home keeps serving exactly as it was.

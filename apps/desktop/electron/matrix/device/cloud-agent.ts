@@ -901,7 +901,7 @@ export interface MacDeviceIdentityOptions {
   /** The Secure Enclave helper, or null when this build has none. */
   helper: string | null
   hubUrl: string
-  hubRequired?(): boolean
+  hubRequired?(): boolean | undefined
   /** S1 owner routes, with the owner's native grant (the controller keys need none). */
   call: S1Call
   /** The owner's Matrix device on this Mac, with its fingerprint; null while signed out, or why it

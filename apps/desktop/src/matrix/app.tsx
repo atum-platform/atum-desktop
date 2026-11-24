@@ -423,7 +423,7 @@ import { useMatrixReadAttention } from './read-attention'
 import { matrixFirstUnreadMessageId } from './read-marker'
 import { matrixReadinessCopy, matrixSetupCooldown } from './readiness-copy'
 import { ResultRecoveryOutcome, useResultRecovery } from './result-recovery'
-import { anyAgentPrompts, primaryAgent, snapshotForRoom } from './room-agent'
+import { anyAgentPrompts, assistantTarget, primaryAgent, snapshotForRoom } from './room-agent'
 import { sortConversations } from './room-navigation'
 import { MatrixRosterConversations } from './roster-conversations'
 import { useRosterCopy } from './roster-copy'
@@ -6646,7 +6646,8 @@ function MatrixRoster({
     closeDrawer()
   }
 
-  const openAssistant = async (fresh = false, agentId = primaryAgent?.userId ?? snapshot.assistant?.userId, preferredRoomId?: string) => {
+  const openAssistant = async (fresh = false, agentId?: string, preferredRoomId?: string) => {
+    agentId = assistantTarget(snapshot, agentId, preferredRoomId)
     if (!agentId || !snapshot.identity || assistantOpening) {
       return
     }
@@ -6744,7 +6745,7 @@ function MatrixRoster({
   // compact drawer stays shut. While the assistant is still getting ready, its
   // existing chat is only opened (it says so there); connecting waits for it.
   useEffect(() => {
-    if (landed.current || !sawStartup.current || snapshot.state !== 'ready' || gating || !snapshot.assistant) {
+    if (landed.current || !sawStartup.current || snapshot.state !== 'ready' || gating || (!snapshot.assistant && primaryAgent?.answering !== 'cloud')) {
       return
     }
 
@@ -6777,6 +6778,7 @@ function MatrixRoster({
     compact,
     gating,
     placed,
+    primaryAgent,
     snapshot.assistant,
     snapshot.startup,
     snapshot.state

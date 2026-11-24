@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import type { MatrixAgentView, MatrixSnapshot } from '../../shared/matrix'
 
 import { agentStatus } from './agent-roster'
-import { agentRoomId, anyAgentPrompts, otherAgents, primaryAgent, snapshotForRoom } from './room-agent'
+import { agentRoomId, anyAgentPrompts, assistantTarget, otherAgents, primaryAgent, snapshotForRoom } from './room-agent'
 
 const readiness = { phase: 'ready' as const, since: 1 }
 
@@ -165,4 +165,23 @@ describe("the selected room's agent", () => {
       )
     ).toBeUndefined()
   })
+})
+
+it('routes a room nudge to its assistant after Main is reassigned', () => {
+  const state: MatrixSnapshot = {
+    ...snapshot,
+    identity: { userId: '@owner:test', deviceId: 'D' },
+    agents: [agent('old', { isDefault: false }), agent('new', { isDefault: true })],
+    rooms: [{
+      id: '!old:test', name: 'Old', membership: 'join', encrypted: true,
+      roomType: 'io.atum.assistant', agentPrincipal: 'old',
+      participants: [
+        { userId: '@owner:test', membership: 'join' },
+        { userId: '@old:test', membership: 'join' }
+      ]
+    }]
+  }
+  expect(assistantTarget(state, undefined, '!old:test')).toBe('@old:test')
+  expect(assistantTarget(state)).toBe('@new:test')
+  expect(assistantTarget(state, undefined, '!missing:test')).toBeUndefined()
 })

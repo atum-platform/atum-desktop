@@ -1057,10 +1057,10 @@ describe('the launch’s motion, at the product window’s size', () => {
   })
 })
 
-it('holds the existing launch past its assistant timeout until the delayed roster converges', () => {
+it('opens the shell after the bounded roster wait', () => {
   const ready = { ...base, readiness: { phase: 'ready' as const, since: 1 } }
-  expect(matrixStartupBlocking({ ...ready, agentRoster: undefined }, 120_000)).toBe(true)
-  expect(matrixStartupBlocking({ ...ready, agentRoster: { state: 'loading', since: 1 } }, 120_000)).toBe(true)
+  expect(matrixStartupBlocking({ ...ready, agentRoster: undefined }, 120_000)).toBe(false)
+  expect(matrixStartupBlocking({ ...ready, agentRoster: { state: 'loading', since: 1 } }, 120_000)).toBe(false)
   expect(matrixStartupBlocking(ready, 120_000)).toBe(false)
 })
 
@@ -1069,5 +1069,5 @@ it('keeps a failed roster on the existing launch with a retry instead of claimin
   render(<I18nProvider configClient={null} initialLocale="en"><MatrixStartupScreen onDone={vi.fn()} snapshot={failed} /></I18nProvider>)
   expect(screen.getByRole('button', { name: 'Try again' })).toBeTruthy()
   expect(screen.queryByText(/isn.t set up/)).toBeNull()
-  expect(matrixStartupBlocking(failed, 120_000)).toBe(true)
+  expect(matrixStartupBlocking(failed, 120_000)).toBe(false)
 })
