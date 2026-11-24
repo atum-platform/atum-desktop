@@ -27,6 +27,7 @@ import {
 } from '../../shared/matrix-models'
 import type { MatrixSubscriptionFallback } from '../../shared/matrix-subscription-fallback'
 import type { MatrixChatGptTrainingStatus } from '../../shared/matrix-subscriptions'
+import type { WorkRelayRoomView } from '../../shared/matrix-work-relay'
 
 import { MatrixModelPicker, type MatrixModelPickerRelay } from './model-picker'
 import { readMatrixModelPickerPreferences, writeMatrixModelPickerPreferences } from './model-picker-preferences'
@@ -719,7 +720,7 @@ describe('the T3-layout conversation model picker', () => {
     const card = await open('Model: Nguyệt Thực 1.3')
 
     // The account's plans always have a rail entry; with none connected each mark is hollow and nothing of this Mac is listed.
-    expect(rail(card, 'openai-codex').className).toMatch(/opacity-45/u)
+    expect(rail(card, 'openai-codex').dataset.matrixModelRailSignedOut).toBe('true')
     expect(rowIds(card)).toEqual([NGUYET_THUC_ROUTE, NHAT_THUC_ROUTE, THAI_CUC_ROUTE])
     expect(selected(card)).toHaveLength(1)
     fireEvent.click(row(card, NHAT_THUC_ROUTE))
@@ -745,7 +746,7 @@ describe('the T3-layout conversation model picker', () => {
 
     const card = await open('Model: Nguyệt Thực 1.3')
 
-    expect(rail(card, 'openai-codex').className).toMatch(/opacity-45/u)
+    expect(rail(card, 'openai-codex').dataset.matrixModelRailSignedOut).toBe('true')
     expect(selected(card)).toHaveLength(1)
     fireEvent.click(row(card, NHAT_THUC_ROUTE))
     expect(model).toHaveBeenCalledWith('agent-luna', expect.objectContaining({ model: 'nhat-thuc' }))
@@ -850,7 +851,7 @@ describe('the T3-layout conversation model picker', () => {
     const card = await open('Model: ChatGPT · GPT-5.6 Luna')
 
     await waitFor(() => expect(rail(card, 'openai-codex')).toBeTruthy())
-    expect(rail(card, 'openai-codex').className).toMatch(/opacity-45/)
+    expect(rail(card, 'openai-codex').dataset.matrixModelRailSignedOut).toBe('true')
     expect(within(card).getByText('Sign in again for ChatGPT plan in Connections.')).toBeTruthy()
     expect(card.querySelector('[data-matrix-model-connect]')).toBeTruthy()
   })
@@ -996,8 +997,7 @@ describe('the thinking column only where a level can be chosen', () => {
 
     expect(rowIds(card)).toEqual([NGUYET_THUC_ROUTE, NHAT_THUC_ROUTE, THAI_CUC_ROUTE])
     expect(card.querySelector('[data-matrix-model-effort-column]')).toBeNull()
-    expect(card.className).toContain('w-[24rem]')
-    expect(card.className).not.toContain('w-[34rem]')
+    expect(card.className).not.toContain('--mp-effort-w')
   })
 
   it('offers a placed home’s advertised levels and saves the new one through the placement path', async () => {
@@ -1025,7 +1025,7 @@ describe('the thinking column only where a level can be chosen', () => {
         each.getAttribute('data-matrix-model-effort-level')
       )
     ).toEqual(['low', 'medium', 'high'])
-    expect(card.className).toContain('w-[34rem]')
+    expect(card.className).toContain('--mp-effort-w')
 
     fireEvent.click(column.querySelector<HTMLElement>('[data-matrix-model-effort-level="high"]')!)
     await waitFor(() =>
@@ -1152,7 +1152,7 @@ describe('account subscriptions in the model picker', () => {
     const openCodeRail = rail(card, 'opencode-go')
     expect(chatGptRail.querySelector('[data-provider-mark="openai"]')).toBeTruthy()
     expect(openCodeRail.querySelector('[data-provider-mark="opencode"]')).toBeTruthy()
-    expect(chatGptRail.className).not.toMatch(/opacity-45/u)
+    expect(chatGptRail.dataset.matrixModelRailSignedOut).toBeUndefined()
 
     fireEvent.click(chatGptRail)
     expect(rowIds(card)).toEqual([CHATGPT_ROUTE, SOL_ROUTE])
@@ -1237,7 +1237,7 @@ describe('account subscriptions in the model picker', () => {
     // Atum's own models stay choosable, and Atum's list carries no ChatGPT note.
     expect(row(card, NHAT_THUC_ROUTE).disabled).toBe(false)
     expect(card.querySelector('[data-matrix-model-note]')).toBeNull()
-    expect(rail(card, 'openai-codex').className).toMatch(/opacity-45/u)
+    expect(rail(card, 'openai-codex').dataset.matrixModelRailSignedOut).toBe('true')
 
     fireEvent.click(rail(card, 'openai-codex'))
     expect(card.querySelector('[data-matrix-model-note]')!.textContent).toBe('ChatGPT needs you to sign in again.')
@@ -1479,7 +1479,7 @@ describe('account subscriptions in the model picker', () => {
 
     // Opens on Atum, the provider that answers now; ChatGPT's entry is quiet until it is ready.
     expect(rowIds(card)).toEqual([NGUYET_THUC_ROUTE, NHAT_THUC_ROUTE, THAI_CUC_ROUTE])
-    expect(rail(card, 'openai-codex').className).toMatch(/opacity-45/u)
+    expect(rail(card, 'openai-codex').dataset.matrixModelRailSignedOut).toBe('true')
 
     fireEvent.click(rail(card, 'openai-codex'))
     expect(rowIds(card)).toEqual([CHATGPT_ROUTE, SOL_ROUTE])
@@ -1518,7 +1518,7 @@ describe('account subscriptions in the model picker', () => {
     expect(row(card, OPENROUTER_ROUTE)).toBeTruthy()
   })
 
-  it('lists every account plan in the rail: a connected plan the relay does not carry is greyed with one line; one connected nowhere is one Connect', async () => {
+  it('lists every account plan in the rail: a connected plan awaits its relay with neutral loading copy; one connected nowhere is one Connect', async () => {
     $accountConnections.set(ACCOUNT_CONNECTIONS_FIXTURE)
     picker(ROOM, { cloud: true, here: 'cloud', local: true, managed: true, cloudChoice: { offered: ['default'], current: 'default' } })
     const card = await open('Model: Nguyệt Thực 1.3')
@@ -1527,12 +1527,13 @@ describe('account subscriptions in the model picker', () => {
     const items = [...card.querySelectorAll('[data-matrix-model-rail-item]')].map(item => item.getAttribute('data-matrix-model-rail-item'))
     expect(items.indexOf('atum')).toBeLessThan(items.indexOf('claude-plan'))
     expect(items.indexOf('claude-plan')).toBeLessThan(items.indexOf('antigravity'))
-    expect(rail(card, 'antigravity').className).toMatch(/opacity-45/u)
+    expect(rail(card, 'antigravity').dataset.matrixModelRailSignedOut).toBe('true')
 
     fireEvent.click(rail(card, 'claude-plan'))
     const claude = card.querySelector<HTMLButtonElement>('[data-matrix-model-route="claude-plan:claude-sonnet-5-5"]')!
     expect(claude.disabled).toBe(true)
-    expect(card.textContent).toContain('Works in Work for now')
+    expect(card.textContent).toContain('Loading models…')
+    expect(card.textContent).not.toContain('Works in Work for now')
 
     fireEvent.click(rail(card, 'antigravity'))
     const connect = card.querySelector('[data-atum-picker-connect="antigravity"]')!
@@ -1541,6 +1542,36 @@ describe('account subscriptions in the model picker', () => {
     expect($accountConnect.get()).toEqual({ plan: 'antigravity', mode: 'connect' })
     // No price, limit, relay or Mac text in the picker.
     expect(card.textContent ?? '').not.toMatch(/relay|offline|Protons|% used/iu)
+  })
+
+  it('loads the assistant-card relay automatically and selects Claude through its native plan route', async () => {
+    $accountConnections.set(ACCOUNT_CONNECTIONS_FIXTURE)
+    const read = deferred<WorkRelayRoomView>()
+    const selectRelay = vi.fn(async () => ({ provider: 'atum-work' as const, plan: 'claude' as const, model: 'claude-sonnet-5-5', revision: 1 }))
+    picker({ ...ROOM, id: 'assistant-card:raymond:cloud' }, {
+      cloud: true, here: 'cloud', agentPrincipal: 'raymond', preferenceScope: 'account:test',
+      cloudChoice: { offered: ['default'], current: 'default' },
+      bridge: { work: { readRelay: vi.fn(() => read.promise), selectRelay } as unknown as NonNullable<MatrixUiBridge['work']> }
+    })
+    const card = await open(/Model:/)
+    fireEvent.click(rail(card, 'claude-plan'))
+    expect(card.textContent).toContain('Loading models…')
+    expect(card.textContent).not.toContain('Works in Work for now')
+    await act(async () => read.resolve({
+      account: { consent: { provider: 'claude', state: 'on', agents: [], devices: [], alsoWhenScheduled: true, revision: 1 },
+        facts: [{ provider: 'claude', deviceServiceId: 'mac', status: 'stale', models: ['claude-sonnet-5-5'] }] },
+      status: null, turns: []
+    }))
+
+    const model = await waitFor(() => {
+      const model = card.querySelector<HTMLButtonElement>('[data-matrix-model-route="claude-plan:claude-sonnet-5-5"]')!
+      expect(model.disabled).toBe(false)
+
+      return model
+    })
+
+    fireEvent.click(model)
+    await waitFor(() => expect(selectRelay).toHaveBeenCalledWith('raymond', 0, 'claude-sonnet-5-5', 'claude'))
   })
 
   it('labels a cloud current-model fallback as Cloud, never This Mac', async () => {
@@ -1587,7 +1618,7 @@ describe('account subscriptions in the model picker', () => {
     expect(rowIds(card)).toEqual([])
     fireEvent.click(rail(card, 'atum'))
     expect(card.querySelector('[data-matrix-model-route*="gpt-5.6-luna"]')).toBeNull()
-    expect(rail(card, 'openai-codex').className).toMatch(/opacity-45/u)
+    expect(rail(card, 'openai-codex').dataset.matrixModelRailSignedOut).toBe('true')
   })
 
   const OPENCODE_MODELS = [
@@ -1887,7 +1918,7 @@ describe('a plan that cannot answer now (owner 2026-11-11)', () => {
     const card = await open('Model: Nguyệt Thực 1.3')
     await waitFor(() => expect(rail(card, 'openai-codex')).toBeTruthy())
 
-    expect(rail(card, 'openai-codex').className).not.toMatch(/opacity-45/u)
+    expect(rail(card, 'openai-codex').dataset.matrixModelRailSignedOut).toBeUndefined()
     fireEvent.click(rail(card, 'openai-codex'))
     expect(row(card, SOL_ROUTE).disabled).toBe(false)
     expect(row(card, SOL_ROUTE).textContent).not.toContain('offline')
@@ -1906,7 +1937,7 @@ describe('a plan that cannot answer now (owner 2026-11-11)', () => {
       const card = await open(/^(Model|Mô hình): Nguyệt Thực 1\.3$/)
       await waitFor(() => expect(rail(card, 'openai-codex')).toBeTruthy())
 
-      expect(rail(card, 'openai-codex').className).toMatch(/opacity-45/u)
+      expect(rail(card, 'openai-codex').dataset.matrixModelRailSignedOut).toBe('true')
       fireEvent.click(rail(card, 'openai-codex'))
 
       for (const id of rowIds(card).filter((each): each is string => Boolean(each))) {

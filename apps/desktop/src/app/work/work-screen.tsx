@@ -1,4 +1,4 @@
-import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react'
+import { type CSSProperties, type ReactNode, useEffect, useMemo, useRef, useState } from 'react'
 
 import { AtumMainHeaderSurface } from '@/app/atum/shell-surface'
 import { AccountConnectProgress } from '@/app/connections/connect-sheet'
@@ -11,7 +11,7 @@ import { workCopy, type WorkWords } from './copy'
 import { WorkRelaySharedContextLine } from './relay-chrome'
 import { workRelaySharedContext } from './relay-view'
 import { useWorkViewPlacement } from './use-work-view-placement'
-import { WorkRosterControls, WorkTitle } from './work-band'
+import { useWorkSidebar, WorkRosterControls, WorkTitle } from './work-band'
 
 export interface WorkScreenProps {
   bridge: MatrixWorkBridge
@@ -93,6 +93,9 @@ export function WorkScreen({
   )
 
   useWorkViewPlacement(bridge, host, projection.view !== 'off' && projection.view !== 'unavailable' && !obstructed)
+  const sidebar = useWorkSidebar(bridge, projection.view === 'ready')
+  // The view fills this section from its left edge, so the list's edge in the view is its edge here.
+  const roster = sidebar?.open && sidebar.edge > 0 ? sidebar.edge : undefined
 
   // Coming back to the window re-reads the balance, so "Add Protons" leaves after a top-up.
   useEffect(() => {
@@ -103,7 +106,13 @@ export function WorkScreen({
   }, [bridge])
 
   return (
-    <section className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden" data-atum-work data-atum-work-view={projection.view}>
+    <section
+      className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
+      data-atum-work
+      data-atum-work-roster={roster === undefined ? undefined : ''}
+      data-atum-work-view={projection.view}
+      style={roster === undefined ? undefined : ({ '--atum-work-roster-edge': `${roster}px` } as CSSProperties)}
+    >
       <AtumMainHeaderSurface
         actions={
           <div className="flex min-w-0 items-center gap-1.5">

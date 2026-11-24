@@ -1,15 +1,16 @@
 import { useEffect, useState } from 'react'
 
 import { Tip } from '@/components/ui/tooltip'
-import { LayoutSidebar, MessagePlus } from '@/lib/icons'
+import { MessagePlus } from '@/lib/icons'
 
-import type { MatrixWorkBridge, WorkBandCommand, WorkSurfaceModeSnapshot } from '../../../shared/matrix-work'
+import type { MatrixWorkBridge, WorkBandCommand, WorkSidebarSnapshot, WorkSurfaceModeSnapshot } from '../../../shared/matrix-work'
 
 import type { WorkWords } from './copy'
 
 /**
- * Over the roster column: T3's own sidebar toggle and New thread, run in the owner view (the view's
- * brand row is hidden by the Work theme, so these are the only copies). Absent bridge: no buttons.
+ * T3's own New thread, run in the owner view (the view's brand row is hidden by the Work theme, so
+ * this is the only copy). The hide-threads button sits with the window controls, where every page
+ * keeps it. Absent bridge: no button.
  */
 export function WorkRosterControls({ bridge, copy }: { bridge: Pick<MatrixWorkBridge, 'runCommand'>; copy: WorkWords }) {
   if (!bridge.runCommand) {
@@ -19,17 +20,7 @@ export function WorkRosterControls({ bridge, copy }: { bridge: Pick<MatrixWorkBr
   const run = (command: WorkBandCommand) => void bridge.runCommand?.(command).catch(() => false)
 
   return (
-    <div className="flex shrink-0 items-center gap-0.5 [-webkit-app-region:no-drag]" data-atum-work-roster-controls>
-      <Tip label={copy.band.toggleSidebar}>
-        <button
-          aria-label={copy.band.toggleSidebar}
-          className="atum-icon-btn size-8"
-          onClick={() => run('sidebar.toggle')}
-          type="button"
-        >
-          <LayoutSidebar aria-hidden className="size-[1.125rem]" />
-        </button>
-      </Tip>
+    <div className="flex shrink-0 items-center [-webkit-app-region:no-drag]" data-atum-work-roster-controls>
       <Tip label={copy.band.newThread}>
         <button aria-label={copy.band.newThread} className="atum-icon-btn size-8" onClick={() => run('chat.new')} type="button">
           <MessagePlus aria-hidden className="size-[1.125rem]" />
@@ -65,6 +56,37 @@ export function useWorkSurfaceMode(bridge: Pick<MatrixWorkBridge, 'getSurfaceMod
   }, [bridge, ready])
 
   return [snapshot, setSnapshot] as const
+}
+
+/**
+ * The view's thread list as the view reports it, so the band can end the bell at its edge as the chat
+ * roster does; null while the view is away or has not reported (the bell then follows the button).
+ */
+export function useWorkSidebar(bridge: Pick<MatrixWorkBridge, 'getSidebar' | 'onSidebarChanged'>, ready: boolean) {
+  const [snapshot, setSnapshot] = useState<WorkSidebarSnapshot | null>(null)
+
+  // Another process: read the last report once, then follow changes.
+  useEffect(() => {
+    if (!ready || !bridge.onSidebarChanged) {
+      setSnapshot(null)
+
+      return
+    }
+
+    let live = true
+    const stop = bridge.onSidebarChanged(next => live && setSnapshot(next))
+    void bridge
+      .getSidebar?.()
+      .then(next => live && setSnapshot(next))
+      .catch(() => null)
+
+    return () => {
+      live = false
+      stop()
+    }
+  }, [bridge, ready])
+
+  return snapshot
 }
 
 /**

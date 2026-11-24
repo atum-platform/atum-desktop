@@ -110,6 +110,7 @@ export function playgroundWork(params: URLSearchParams): { work?: MatrixWorkBrid
   let consent = consentFixture(params.get('consent'))
   const listeners = new Set<(projection: MatrixWorkProjection | null) => void>()
   const shot = params.get('workShot')
+  const sidebarEdge = Number(params.get('workSidebar') ?? 0)
 
   const emit = (next: Partial<MatrixWorkProjection>) => {
     projection = { ...projection, ...next }
@@ -133,6 +134,11 @@ export function playgroundWork(params: URLSearchParams): { work?: MatrixWorkBrid
   return {
     work: {
       getSurfaceMode: async () => null,
+      // `workSidebar=<px>` stands in for the view's thread-list report (its right edge), so the band's
+      // bell can be judged against a `workShot`; `runCommand` lets the band show its buttons.
+      getSidebar: async () => (sidebarEdge > 0 ? { open: true, edge: sidebarEdge } : null),
+      onSidebarChanged: () => () => {},
+      runCommand: async () => true,
       setSurfaceMode: async () => {},
       onSurfaceModeChanged: () => () => {},
       read: async () => projection,

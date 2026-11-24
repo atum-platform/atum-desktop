@@ -3,6 +3,7 @@ import { createClient, EventType, MatrixEvent, Room } from 'matrix-js-sdk'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { resetAccountConnectionsForTest } from '@/app/connections/store'
+import { $work, resetWorkStoreForTests } from '@/app/work/store'
 import { $appViewOverlayCount } from '@/store/app-view-overlay'
 import { $bindings, resetAllBindings, setBinding } from '@/store/keybinds'
 
@@ -13570,6 +13571,7 @@ describe('the rail goes where it is clicked, the first time', () => {
       snapshot?: Partial<MatrixSnapshot>
       /** Main is busy: it takes the Store only once this settles. */
       busy?: Promise<void>
+      retainRoom?: boolean
     } = {}
   ) {
     vi.useFakeTimers({ shouldAdvanceTime: true })
@@ -13584,7 +13586,7 @@ describe('the rail goes where it is clicked, the first time', () => {
 
       if (input.kind === 'discoverApps') {
         await options.busy
-        current = { ...current, roomId: null, destination: { kind: 'discover' } }
+        current = { ...current, roomId: options.retainRoom ? current.roomId : null, destination: { kind: 'discover' } }
         emit(current)
       } else if (input.kind === 'select') {
         current = { ...current, roomId: input.roomId, destination: { kind: 'room', roomId: input.roomId } }
@@ -13639,6 +13641,49 @@ describe('the rail goes where it is clicked, the first time', () => {
     await waitFor(() => expect(command).toHaveBeenCalledWith({ kind: 'select', roomId: assistantRoom.id }))
     await settle()
     expect(place('Chats')).toBe('page')
+  })
+
+  it.each([false, true])('returns to the last Chat from every rail screen (retained room: %s)', async retainRoom => {
+    const personalRoom = { id: '!friend:test', name: 'Friend', membership: 'join' as const, direct: true, encrypted: true }
+    const { command, sync } = await launch({
+      drive: readyDrive(), pages: workplacePages(), companies: companyWorkspace(), retainRoom,
+      snapshot: { companyWorkspaceEnabled: true, rooms: [assistantRoom, personalRoom], roomId: personalRoom.id,
+        destination: { kind: 'room', roomId: personalRoom.id } }
+    })
+
+    act(() => $work.set({ view: 'off', assistants: 'off', agents: [], protons: 'ok' }))
+
+    const places = ['Chats', 'Store', 'Team space', 'Atum Drive', 'Work']
+    const click = async (name: string) => {
+      fireEvent.click(within(rail()).getByRole('button', { name }))
+      await settle()
+    }
+
+    try {
+      for (const from of places) {
+        for (const to of places) {
+          await click('Store')
+          await click(from)
+          command.mockClear()
+          await click(to)
+          sync()
+          await settle()
+          expect(place(to), `${from} → ${to}`).toBe('page')
+
+          for (const other of places.filter(name => name !== to)) {
+            expect(place(other), `${from} → ${to}: ${other}`).toBeNull()
+          }
+
+          if (to === 'Chats') {
+            expect(screen.getByRole('textbox', { name: COMPOSER })).toBeTruthy()
+            expect(command.mock.calls.filter(([input]) => input.kind === 'select')
+              .every(([input]) => input.kind === 'select' && input.roomId === personalRoom.id)).toBe(true)
+          }
+        }
+      }
+    } finally {
+      act(() => resetWorkStoreForTests())
+    }
   })
 
   it('opens Drive on the first click from Home and keeps it there as snapshots arrive', async () => {

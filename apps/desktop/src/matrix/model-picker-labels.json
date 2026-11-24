@@ -1,0 +1,71 @@
+{
+  "about": "The one model picker's words (owner 2026-11-24: one set of thinking labels in both pickers). The agent chats' picker and Work's (T3 Code's own) show a thinking level by these labels, keyed by the id the provider sends; the id itself is never changed. An id not listed here keeps its provider's label. `aliases` folds a provider's spelling onto one id. Quick / Balanced / Thorough everywhere, with Extra thorough and Maximum only where a model offers them. `lineup` and `taglines` are Atum's own models' one-line descriptions. atum-work keeps a byte-identical copy (atum-work/model-picker-labels.json); each repo's tests check both copies' digests against model-picker-digests.json.",
+  "thinking": {
+    "heading": {
+      "en": "Thinking",
+      "vi": "Mức suy nghĩ",
+      "ja": "思考の深さ",
+      "zh": "思考深度",
+      "zh-hant": "思考深度"
+    },
+    "aliases": { "off": "none", "extra-high": "xhigh", "extra_high": "xhigh", "maximum": "max" },
+    "levels": {
+      "none": { "en": "Off", "vi": "Tắt", "ja": "オフ", "zh": "关闭", "zh-hant": "關閉" },
+      "minimal": {
+        "en": "Instant",
+        "vi": "Tức thì",
+        "ja": "即答",
+        "zh": "即时",
+        "zh-hant": "即時"
+      },
+      "low": { "en": "Quick", "vi": "Nhanh", "ja": "速く", "zh": "快速", "zh-hant": "快速" },
+      "medium": {
+        "en": "Balanced",
+        "vi": "Cân bằng",
+        "ja": "バランス",
+        "zh": "均衡",
+        "zh-hant": "均衡"
+      },
+      "high": { "en": "Thorough", "vi": "Kỹ", "ja": "じっくり", "zh": "深入", "zh-hant": "深入" },
+      "xhigh": {
+        "en": "Extra thorough",
+        "vi": "Rất kỹ",
+        "ja": "さらにじっくり",
+        "zh": "更深入",
+        "zh-hant": "更深入"
+      },
+      "max": { "en": "Maximum", "vi": "Tối đa", "ja": "最大", "zh": "最大", "zh-hant": "最大" }
+    }
+  },
+  "lineup": { "nguyet-thuc": "everyday", "nhat-thuc": "hard", "thai-cuc": "flagship" },
+  "taglines": {
+    "everyday": {
+      "en": "Good for everyday tasks",
+      "vi": "Phù hợp tác vụ hàng ngày",
+      "ja": "日常のタスクに適しています",
+      "zh": "适合日常任务",
+      "zh-hant": "適合日常任務"
+    },
+    "hard": {
+      "en": "Good for hard tasks",
+      "vi": "Phù hợp với tác vụ khó khăn",
+      "ja": "難しいタスクに適しています",
+      "zh": "适合困难任务",
+      "zh-hant": "適合困難任務"
+    },
+    "flagship": {
+      "en": "The most powerful model",
+      "vi": "Mô hình quyền năng nhất",
+      "ja": "最も強力なモデル",
+      "zh": "最强大的模型",
+      "zh-hant": "最強大的模型"
+    }
+  },
+  "suggested": {
+    "en": "Suggested",
+    "vi": "Đề xuất",
+    "ja": "おすすめ",
+    "zh": "推荐",
+    "zh-hant": "建議"
+  }
+}

@@ -3,6 +3,8 @@ import { type Locale, useI18n } from '@/i18n'
 import type { MatrixConnectedModelProblem, MatrixEffort } from '../../shared/matrix-models'
 import type { MatrixShelfRetention } from '../../shared/matrix-shelf-models'
 
+import labels from './model-picker-labels.json'
+
 /**
  * The model picker's words. Vietnamese first: short, warm, no "reasoning", "provider" or
  * "token". The picker names whose model changes: a connected route is this assistant on this
@@ -117,14 +119,22 @@ interface ModelPickerCopy {
   shelfRetention: Record<MatrixShelfRetention, string>
 }
 
+/**
+ * The words both pickers share (model-picker-labels.json): the thinking heading and levels, and Atum's
+ * line-up taglines. Work's picker (atum-work) reads a byte-identical copy of the same file.
+ */
+function pickerLabels(locale: Locale): Pick<ModelPickerCopy, 'effort' | 'efforts' | 'taglines'> {
+  const { thinking, taglines } = labels
+
+  return {
+    effort: thinking.heading[locale],
+    efforts: { low: thinking.levels.low[locale], medium: thinking.levels.medium[locale], high: thinking.levels.high[locale] },
+    taglines: { everyday: taglines.everyday[locale], hard: taglines.hard[locale], flagship: taglines.flagship[locale] }
+  }
+}
+
 const en: ModelPickerCopy = {
-  taglines: {
-    everyday: 'Good for everyday tasks',
-    hard: 'Good for hard tasks',
-    flagship: 'The most powerful model'
-  },
-  effort: 'Thinking',
-  efforts: { low: 'Quick', medium: 'Balanced', high: 'Thorough' },
+  ...pickerLabels('en'),
   effortHelp: {
     low: 'Answers fast, for simple things.',
     medium: 'Right for most things.',
@@ -224,13 +234,7 @@ const en: ModelPickerCopy = {
 }
 
 const vi: ModelPickerCopy = {
-  taglines: {
-    everyday: 'Phù hợp tác vụ hàng ngày',
-    hard: 'Phù hợp với tác vụ khó khăn',
-    flagship: 'Mô hình quyền năng nhất'
-  },
-  effort: 'Mức suy nghĩ',
-  efforts: { low: 'Nhanh', medium: 'Cân bằng', high: 'Kỹ' },
+  ...pickerLabels('vi'),
   effortHelp: {
     low: 'Trả lời nhanh, hợp với việc đơn giản.',
     medium: 'Hợp với hầu hết mọi việc.',
@@ -329,13 +333,7 @@ const vi: ModelPickerCopy = {
 }
 
 const ja: ModelPickerCopy = {
-  taglines: {
-    everyday: '日常のタスクに適しています',
-    hard: '難しいタスクに適しています',
-    flagship: '最も強力なモデル'
-  },
-  effort: '思考の深さ',
-  efforts: { low: '速く', medium: 'バランス', high: 'じっくり' },
+  ...pickerLabels('ja'),
   effortHelp: {
     low: 'すばやく答えます。簡単なことに。',
     medium: 'たいていのことに合います。',
@@ -435,13 +433,7 @@ const ja: ModelPickerCopy = {
 }
 
 const zh: ModelPickerCopy = {
-  taglines: {
-    everyday: '适合日常任务',
-    hard: '适合困难任务',
-    flagship: '最强大的模型'
-  },
-  effort: '思考深度',
-  efforts: { low: '快速', medium: '均衡', high: '深入' },
+  ...pickerLabels('zh'),
   effortHelp: {
     low: '回答快，适合简单的事。',
     medium: '适合大多数事情。',
@@ -539,13 +531,7 @@ const zh: ModelPickerCopy = {
 }
 
 const zhHant: ModelPickerCopy = {
-  taglines: {
-    everyday: '適合日常任務',
-    hard: '適合困難任務',
-    flagship: '最強大的模型'
-  },
-  effort: '思考深度',
-  efforts: { low: '快速', medium: '均衡', high: '深入' },
+  ...pickerLabels('zh-hant'),
   effortHelp: {
     low: '回答快，適合簡單的事。',
     medium: '適合大多數事情。',

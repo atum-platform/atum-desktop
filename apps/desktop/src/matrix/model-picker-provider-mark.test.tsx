@@ -9,6 +9,7 @@ describe('model picker provider marks', () => {
   it.each([
     ['openai-codex', 'ChatGPT', 'openai'],
     ['openai-api', 'OpenAI', 'openai'],
+    ['antigravity', 'Antigravity', 'antigravity'],
     ['anthropic', 'Claude', 'claude'],
     ['deepseek', 'DeepSeek', 'deepseek'],
     ['opencode-go', 'OpenCode', 'opencode'],
@@ -38,6 +39,7 @@ describe('model picker provider marks', () => {
         <ProviderMark provider={{ id: 'openai-codex', label: 'ChatGPT' }} size="xs" />
       </>
     )
+
     const marks = container.querySelectorAll('[data-provider-mark="openai"]')
 
     expect(marks[0]?.className).toContain('size-[1.125rem]')

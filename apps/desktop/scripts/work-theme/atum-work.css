@@ -109,8 +109,10 @@ body {
   border-radius: var(--ak-r-full);
 }
 
-/* Keyboard focus only, following the control's shape. */
-:focus-visible {
+/* Keyboard focus only, following the control's shape. Text fields are left to T3: Chromium counts
+   every focused field as :focus-visible, and this unlayered rule beat their own outline-none, boxing
+   the model picker's search (owner 2026-11-24); T3 marks a focused field with its underline. */
+:focus-visible:not(input, textarea, [contenteditable='true']) {
   outline: 3px solid var(--ak-focus);
   outline-offset: 1px;
 }
@@ -213,4 +215,14 @@ body {
 [data-chat-header],
 [data-app-sidebar] [data-slot='sidebar-footer'] {
   transition: opacity 200ms var(--ak-ease, ease);
+}
+
+/* Switches: the Kit's .ak-switch, 38 by 22 with an 18px knob (T3 sizes its track from the thumb),
+   off on the Kit's line-2 track; on is already ink through T3's primary role. */
+[data-slot='switch'][data-size='default'] {
+  --thumb-size: 20px;
+}
+
+[data-slot='switch'][data-unchecked] {
+  background-color: var(--ak-line-2);
 }

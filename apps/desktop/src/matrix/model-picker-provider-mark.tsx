@@ -14,6 +14,7 @@ import { BrandTile, type BrandTileSize } from '@/components/brand/brand-tile'
 import { cn } from '@/lib/utils'
 
 import type { PickerProvider } from './model-picker-sections'
+import antigravityMark from './provider-marks/antigravity.png'
 import claudeMark from './provider-marks/claude.svg'
 import deepSeekMark from './provider-marks/deepseek.svg'
 import geminiMark from './provider-marks/gemini.svg'
@@ -27,6 +28,7 @@ import qwenMark from './provider-marks/qwen.svg'
 interface ProviderIconSpec {
   key: string
   asset?: string
+  image?: string
   color?: string
   Icon?: ComponentType<SVGProps<SVGSVGElement>>
   monogram?: string
@@ -37,6 +39,7 @@ const PROVIDER_ICONS: ReadonlyArray<{ matches: readonly string[]; icon: Provider
     matches: ['openai-codex', 'openai-api', 'chatgpt', 'codex', 'openai'],
     icon: { key: 'openai', asset: openAiMark }
   },
+  { matches: ['antigravity'], icon: { key: 'antigravity', image: antigravityMark } },
   { matches: ['anthropic', 'claude'], icon: { key: 'claude', asset: claudeMark, color: '#D97757' } },
   { matches: ['deepseek'], icon: { key: 'deepseek', asset: deepSeekMark, color: '#5786FE' } },
   { matches: ['opencode'], icon: { key: 'opencode', asset: openCodeMark } },
@@ -71,6 +74,8 @@ function providerIconSpec(provider: string, label: string): ProviderIconSpec {
 interface ProviderMarkProps {
   provider: PickerProvider
   size?: BrandTileSize
+  /** A size from the picker spec, over the named size (the fallback tile keeps the named one). */
+  className?: string
 }
 
 /**
@@ -78,9 +83,13 @@ interface ProviderMarkProps {
  * follow the theme while Claude/Gemini/DeepSeek/MiniMax/Qwen retain their identifying colour.
  * Unknown providers alone fall back to the first letter in the shared sunk tile.
  */
-export function ProviderMark({ provider, size = 'sm' }: ProviderMarkProps) {
+export function ProviderMark({ provider, size = 'sm', className: sized }: ProviderMarkProps) {
   const spec = providerIconSpec(provider.id, provider.label)
-  const className = MARK_SIZE[size]
+  const className = cn(MARK_SIZE[size], sized)
+
+  if (spec.image) {
+    return <img alt="" aria-hidden className={cn('shrink-0', className)} data-provider-mark={spec.key} src={spec.image} />
+  }
 
   if (spec.asset) {
     const mask: CSSProperties = {
