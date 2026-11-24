@@ -362,3 +362,30 @@ promoted under their desktop path and nothing goes into `mobileScreensCopy`. Pro
   producer cannot map yet got throwaway mappings (`Checks`, `Forward`, `LayoutGallery`, `LayoutGroups`,
   `PenNib`, and `Laptop` from #112–#113); `glyphs.json` is not spliced. All 44 manifest hashes match. Desktop
   `tsc -p . --noEmit` and the copy vitest files pass. The outbound guard passes.
+
+## Wave 4e: Team Space Board/List and Mine (follow-up to #114)
+
+The phone repin (W4-D4) found that the Board/List and Mine controls use two words the export
+didn't have yet. Producer inputs are on atum-app `chore/mobile-export-wave4e-keys`.
+
+- **Added: 2.** `shared.matrix-company-board-copy.copy.list` ("List") and `…copy.mine` ("Mine"). Desktop has
+  both translated in all five locales, so no English fallback applies (vi "Danh sách" / "Của tôi",
+  ja "リスト" / "自分", zh "列表" / "我的", zh-Hant "清單" / "我的"). `…copy.board` was already exported.
+- **Refreshed / removed: none.** Catalog: 4132 → 4134 entries. Inventory and copy map unchanged.
+
+### The six unmapped glyph aliases
+
+Desktop knows these aliases only as Phosphor icons (`src/lib/icons.ts`). It has no SF Symbol names, and the
+public export carries no alias-to-Phosphor file. The SF Symbol map is the producer's `glyph-map.json` in atum-app.
+None of the six is mapped there yet, so each wave's run uses throwaway entries and does not ship `glyphs.json`.
+
+| Alias | Phosphor | Desktop draws it | Candidate SF Symbol (for review) |
+|---|---|---|---|
+| `Checks` | `checks` | nowhere (defined only) | `checkmark` (as `Check`), or leave unmapped |
+| `Forward` | `share-fat` | message menu Forward | `arrowshape.turn.up.right` |
+| `LayoutGallery` | `slideshow` | Drive's Gallery view | `rectangle.split.3x1` or `photo.on.rectangle` |
+| `LayoutGroups` | `rows` | Drive's Group By | `rectangle.grid.1x2` (`PanelBottom` shares Phosphor `rows` but maps to a panel glyph) |
+| `PenNib` | `pen-nib` | nowhere since #107's switch to `Laptop` | `pencil.tip`, or leave unmapped |
+| `Laptop` | `laptop` | the Work destination in the Mac shell | `laptopcomputer` |
+
+Mapping them changes `glyphs.json`, a design-export decision. This wave doesn't change it.
