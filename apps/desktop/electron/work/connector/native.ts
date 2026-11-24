@@ -7,10 +7,12 @@ export interface NativeGrant {
   binding: { owner: string; agent: string; generation: string; mac: string; consent_revision: number }
   enabled: boolean
   expiresAt: number
+  sessionExpiresAt?: number
   [key: string]: unknown
 }
 export interface NativeConnectorPorts {
   current(): boolean
+  enabled?(): boolean
   agents(): Promise<string[]>
   /** Main's authenticated account transport resolves the agent's private S2 profile. */
   request(agent: string, path: NativePath, method: 'GET' | 'POST', body?: unknown): Promise<unknown>
@@ -52,7 +54,7 @@ export class NativeConnector {
         if (!Array.isArray(value.grants)) {throw new Error('native_invalid_grants')}
         for (const grant of value.grants) {
           if (grant.binding?.agent === agent && grant.binding.mac === this.mac && typeof grant.clientId === 'string') {
-            next.set(grant.clientId, grant)
+            next.set(grant.clientId, { ...grant, enabled: grant.enabled && (this.ports.enabled?.() ?? true) })
           }
         }
       } catch { /* This profile is unavailable; other agents retain their own route. */ }
@@ -66,6 +68,9 @@ export class NativeConnector {
   async handle(path: NativePath, method: 'GET' | 'POST', body?: unknown): Promise<unknown> {
     this.live()
     if (path === '/native-consent' && method === 'GET') {return this.consent()}
+    if (path !== '/native-consent' && !path.startsWith('/native-consent?') && this.ports.enabled?.() === false) {
+      throw new Error('native_mac_disabled')
+    }
     if (method !== 'POST' || !body || typeof body !== 'object') {throw new Error('native_invalid_request')}
     const input = body as { binding?: { agent?: string; mac?: string }; agent?: string }
     const agent = input.binding?.agent ?? input.agent
@@ -88,7 +93,7 @@ export class NativeConnector {
   }
   renewal(now = Date.now()): 'needed' | 'soon' | 'current' {
     const rows = [...this.grants.values()].filter(row => row.enabled)
-    if (!rows.length || rows.some(row => row.expiresAt <= now)) {return 'needed'}
-    return rows.some(row => row.expiresAt - now <= 3 * 86400_000) ? 'soon' : 'current'
+    if (!rows.length || rows.some(row => (row.sessionExpiresAt ?? row.expiresAt) <= now)) {return 'needed'}
+    return rows.some(row => (row.sessionExpiresAt ?? row.expiresAt) - now <= 3 * 86400_000) ? 'soon' : 'current'
   }
 }

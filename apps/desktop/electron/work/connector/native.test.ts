@@ -47,3 +47,17 @@ it('retains revoked client membership across restarts and isolates an unavailabl
   expect(JSON.parse(readFileSync(restarted.forwardFile, 'utf8'))).toHaveLength(2)
   expect(restarted.renewal()).toBe('needed')
 })
+
+it('keeps the local Mac switch off even when S2 still reports an enabled grant', async () => {
+  let enabled = true
+  const native = new NativeConnector(root(), 'mac', { current: () => true, enabled: () => enabled,
+    agents: async () => ['a'], request: async () => ({ grants: [{ ...grant('a'), sessionExpiresAt: Date.now() + 30 * 86400_000 }] }) })
+  await native.consent()
+  expect(native.renewal()).toBe('current')
+  enabled = false
+  native.revoke()
+  expect((await native.consent()).grants[0]?.enabled).toBe(false)
+  await expect(native.handle('/tools', 'POST', { binding: grant('a').binding })).rejects.toThrow('disabled')
+  enabled = true
+  expect((await native.consent()).grants[0]?.enabled).toBe(true)
+})

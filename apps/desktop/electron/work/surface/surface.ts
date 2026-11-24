@@ -325,6 +325,7 @@ export class WorkSurface {
   }
 
   async setPlan(on: boolean): Promise<void> {
+    if (!on) {this.parts?.nativeConsent?.revoke()}
     await this.parts?.gate?.setPlanSwitch?.(on)
     this.publish()
   }
@@ -394,6 +395,9 @@ export class WorkSurface {
   async setPlanConsent(input: MatrixWorkPlanConsentInput, plan?: WorkRelayPlan): Promise<MatrixWorkPlanConsent> {
     const consent = this.consentDoor()
     await consent.set({ ...(plan ? { provider: plan } : {}), agents: input.agents, devices: input.macs, alsoWhenScheduled: input.alsoWhenScheduled })
+    if (this.parts?.nativeConsent && input.macs.includes(this.parts.deviceServiceId?.() ?? '')) {
+      await this.parts.gate?.setPlanSwitch?.(true)
+    }
     await this.parts?.nativeConsent?.approve(input, plan)
 
     return this.readPlanConsent(plan)

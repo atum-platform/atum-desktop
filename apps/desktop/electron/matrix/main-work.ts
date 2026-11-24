@@ -13,6 +13,7 @@ import { ConnectorHttp } from '../work/connector/http'
 import { matrixConnector } from '../work/connector/matrix'
 import { ConnectorService } from '../work/connector/service'
 import { NativeConnector, type NativePath } from '../work/connector/native'
+import { approveNativeAgent } from '../work/connector/native-oauth'
 import { readConnectMcpUrl } from '../work/surface/connect-endpoint'
 import {
   createDeviceServicePlatform,
@@ -408,7 +409,8 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
 
       const native = deps.nativeAgents && deps.nativeRequest && deps.deviceServiceId()
         ? new NativeConnector(join(bound.root, 'work'), deps.deviceServiceId()!, {
-          current, agents: () => deps.nativeAgents!(), request: (...args) => deps.nativeRequest!(...args)
+          current, enabled: () => mount.service()?.state().planSwitchOn ?? false,
+          agents: () => deps.nativeAgents!(), request: (...args) => deps.nativeRequest!(...args)
         }) : undefined
       if (native) {await native.consent()}
       const candidate = new ConnectorHttp(service, secret, native)
@@ -706,8 +708,11 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
         const running = host.current()
         if (!running) {throw new Error('native_work_unavailable')}
         const connectUrl = await readConnectMcpUrl(running.origin, deps.sessionFromPartition(partitionFor(running.accountKey)))
-        await Promise.all(input.agents.map(agent => nativeConnector!.handle('/native-consent', 'POST', {
-          agent, mac, plan: plan ?? 'codex', alsoWhenScheduled: input.alsoWhenScheduled, connectUrl
+        const bound = account()
+        await Promise.all(input.agents.map(agent => approveNativeAgent({
+          connector: nativeConnector!, owner: deps.sessionFromPartition(partitionFor(running.accountKey)), origin: running.origin,
+          agent, request: { mac, plan: plan ?? 'codex', alsoWhenScheduled: input.alsoWhenScheduled, connectUrl },
+          current: () => account()?.key === bound?.key && account()?.generation === bound?.generation && host.current()?.id === running.id
         })))
         await nativeConnector.consent()
       },

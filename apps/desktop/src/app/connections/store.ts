@@ -106,22 +106,24 @@ export function closeAccountConnect(): void {
  * included (Q2), then turns this Mac's switch on. Best effort: a failure here never blocks the plan, which still works in Work, and
  * a cloud turn that cannot use it answers on Nguyệt Thực.
  */
-export async function grantAccountPlanUse(bridge: ConnectionsBridge, plan: AccountPlan): Promise<void> {
+export async function grantAccountPlanUse(bridge: ConnectionsBridge, plan: AccountPlan): Promise<boolean> {
   try {
     const consent = await bridge.readPlanConsent(plan)
     const thisMac = consent.macs.find(mac => mac.thisMac)
     const agents = [...new Set([...(consent.state === 'on' ? consent.agents : []), ...consent.eligible])]
 
     if (!thisMac || agents.length === 0) {
-      return
+      return false
     }
 
     const macs = [...new Set([...(consent.state === 'on' ? consent.macs.filter(mac => mac.named).map(mac => mac.id) : []), thisMac.id])]
 
     await bridge.setPlanConsent({ agents, macs, alsoWhenScheduled: true }, plan)
     await bridge.setPlan(true)
+    return true
   } catch {
     // The per-Mac switch in Connections still turns it on by hand.
+    return false
   }
 }
 
@@ -151,9 +153,9 @@ export async function continueAccountConnect(
   }
 
   if (request.mode === 'allow' || request.mode === 'renew') {
-    await grantAccountPlanUse(bridge, request.plan)
+    const granted = await grantAccountPlanUse(bridge, request.plan)
     await refreshNativeRenewal(bridge)
-    finish(request.plan, 'done')
+    finish(request.plan, granted ? 'done' : 'failed')
 
     return
   }
