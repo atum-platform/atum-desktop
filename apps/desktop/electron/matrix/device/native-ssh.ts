@@ -124,7 +124,7 @@ export function managedKeys(current: string, keys: string[], command?: (key: str
   }
 
   const block = keys.length
-    ? `${BEGIN}\n${[...new Set(keys)].map(key => `no-agent-forwarding,no-port-forwarding,no-X11-forwarding${command ? `,no-user-rc,command="${command(key).replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"` : ''} ${key}`).join('\n')}\n${END}\n`
+    ? `${BEGIN}\n${[...new Set(keys)].map(key => `no-agent-forwarding,no-port-forwarding,no-X11-forwarding${command ? `,no-user-rc,command="${command(key).replace(/"/g, '\\"')}"` : ''} ${key}`).join('\n')}\n${END}\n`
     : ''
 
   if (begin < 0) {

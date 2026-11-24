@@ -1,0 +1,13 @@
+# SSH containment review fixes — 24 November 2026
+
+Built locally, not deployed. The coordinating task owns assembly, review and rollout. No pushes, PRs, CI, production access, real credentials or nested agents.
+
+- B1: cleanup combines descendant ancestry with process-group membership only when the supervisor's PID equals its PGID and PGID > 1. This catches background jobs reparented to launchd without touching an inherited caller group. Real detached-session orphan fixture leaves no live process after withdrawal; unrelated sleep remains usable.
+- B2: STOP each newly discovered process, rescan until the set stops growing, then KILL the retained set. Exclude the short-lived ps snapshot process itself so scanning terminates. Real busy fork-loop fixture checks the entire session group is gone, allowing the OS to finish exit/reaping.
+- B3: supervisor ignores SIGINT after fork; child explicitly restores default INT handling before exec. A real Python stdlib PTY sends Ctrl-C to the foreground group; shell trap returns 42, preserved by the supervisor rather than replaced by 126. The PTY harness drains output while waiting (required on macOS).
+- B5: comment now acknowledges sshd invokes the forced command through `$SHELL -c`; zsh's `.zshenv` can run before the wrapper despite no-user-rc.
+- B6: authorized-key formatter escapes only double quotes; it no longer doubles backslashes. The fixture uses a home path with backslash, double quote and apostrophe cases. Its option parser decodes only backslash-double-quote, matching sshd rather than a general backslash-unescape regex. The extracted forced command really executes from that path.
+
+Evidence: running the new orphan, fork-loop and PTY tests against the original wrapper failed all three (exit 1); the old PTY path returned 126. Original formatter against the new path fixture fails separately. Fixed native-ssh and native-ssh-session suites: 97 passing, exit 0. Electron `tsc -p tsconfig.electron.json`: exit 0. Focused ESLint on all three edited TypeScript files: exit 0. Public guard is run after the local commit so HEAD contains the patch; exact result is retained in the app assembly plan.
+
+Rollout gates remain: drain/reboot pre-wrapper logins; disposable real sshd acceptance with PTY/SFTP/multiplexing, multiple keys/owners and restart. Remote withdrawal is delayed by the refresh interval (~60 s) plus local polling. An older app can rewrite the block without command=, so rollback must disable admission and drain. OS-user sessions can add keys outside the managed block or deliberately detach into other groups; A2 must not rely on this cleanup as hostile-code containment.
