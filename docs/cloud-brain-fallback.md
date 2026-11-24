@@ -33,11 +33,18 @@ v1 evidence, requires an exact native binding attestation and validates the
 resulting v2 lineage. It never derives an owner or policy generation from raw v1
 records. Empty/denied/malformed cloud replies do not authorize fallback.
 
-Ordinary Electron launcher activation is still outstanding: it must use the
-real reconciled native authority to start the port and pass the admitted socket.
-The module and runtime admission are built and tested; this is not a claim of
-installed activation. Do not use the UI controls view to bypass that remaining
-binding. Historical fallback is labelled local_historical_fallback.
+Mac historical fallback is deferred from this release. Electron does not start
+or advertise the port. The existing optional native socket admission and
+default-false current-authority check keep it off; no new environment flag exists.
+Cloud recall returns origin cloud, status unavailable and service_unavailable
+when unreachable. The agent explains the cloud brain outage in its own words,
+without a canned reply or a claim of a local search. No local data is changed.
+
+Follow-up: managed-memory v2 native controller + reconciled authority on desktop.
+The shipping desktop lacks the native v2 binding/controller and current-policy
+responders. Account identity and UI controls cannot substitute for reconciled
+policy, key and service generations. Native startup, lifecycle recovery and
+admission proof belong to that follow-up; the synthetic fixture is insufficient.
 
 Freeze enrollment now also needs --cutover-file: an operator-owned private
 atum.awareness-cutover/1 receipt for the exact localRoot, completeInventory=true,
@@ -53,3 +60,11 @@ install the Desktop launcher.
 
 Public validation removes an unused synthetic request literal; real request
 shapes are captured from the provider in the mapping test. No policy exception.
+
+
+Release validation: five isolated Python files pass, including four cloud-only
+outage cases that never read the Mac store (47 tests, exit 0). The native socket
+boundary test passes (exit 0). The disposable real-store proof additionally
+checks cloud-only outage with the historical port available but unadmitted.
+Freeze refusal before complete coverage remains tested. No app startup binding,
+real user data, freeze, activation or deployment was introduced.

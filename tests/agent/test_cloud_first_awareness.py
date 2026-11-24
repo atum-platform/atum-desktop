@@ -95,3 +95,39 @@ def test_v2_cloud_and_bound_historical_fallback(tmp_path):
     state['current'] = False
     assert p.recall({'query': 'meeting'})['items'] == []
     assert calls == ['local']
+
+
+@pytest.mark.parametrize('failure', ['connection', 'timeout', 'transport', 'unavailable'])
+def test_v2_release_without_native_authority_reports_cloud_outage_without_local_reads(tmp_path, failure):
+    from agent.cloud_first_awareness import CloudFirstAwareness
+    from agent.atum_awareness_v2 import unavailable
+    from tests.agent.test_atum_awareness_v2 import provider as v2provider
+    calls = []
+
+    def cloud(req, stop):
+        calls.append('cloud')
+        if failure == 'connection':
+            raise ConnectionError()
+        if failure == 'timeout':
+            raise TimeoutError()
+        if failure == 'transport':
+            import httpx
+            raise httpx.ConnectError('synthetic outage')
+        return unavailable(req)
+
+    def local(req, stop):
+        pytest.fail('Unreconciled Mac store must never be read')
+
+    # No native capability/current-privacy authority: the release default is off,
+    # even if a historical transport is available to the composing host.
+    port = CloudFirstAwareness(cloud, local, version=2)
+    p = v2provider(tmp_path, read=port)
+    prompt = p.system_prompt_block()
+    result = json.loads(p.handle_tool_call('atum_recall', {'query': 'meeting'}))
+    assert result['status'] == 'unavailable'
+    assert result['retrievalOrigin'] == 'cloud'
+    assert result['errors'] == ['service_unavailable']
+    assert result['items'] == [] and result['contentBytes'] == 0
+    assert calls == ['cloud']
+    assert p.system_prompt_block() == prompt
+    p.shutdown()
