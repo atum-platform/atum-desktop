@@ -513,7 +513,7 @@ it('requests the platform shell-only projection', async () => {
   const f = fixture()
   await f.service.refresh()
   const requests = f.http.mock.calls.map(([, init]) => JSON.parse(init.body))
-  expect(requests).toContainEqual({ operation: 'ssh_authorized_keys' })
+  expect(requests).toContainEqual({ operation: 'ssh_authorized_keys', deviceServiceId: enrollment.deviceServiceId, enrollmentEpoch: enrollment.enrollmentEpoch })
   expect(f.disk()).toContain(`no-agent-forwarding,no-port-forwarding,no-X11-forwarding ${authorized[0].publicKey}`)
 })
 
