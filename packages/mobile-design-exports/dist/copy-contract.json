@@ -680,6 +680,18 @@
       "key": "src.matrix.roster-create-copy.copies.rateLimited.seconds=1",
       "value": 1
     },
+    "src.matrix.team-space.revamp-copy.copy.showAllActivity": {
+      "alternatives": [
+        {
+          "argumentIndex": 1,
+          "key": "src.matrix.team-space.revamp-copy.copy.showAllActivity.count=0",
+          "value": 0
+        }
+      ],
+      "argumentIndex": 1,
+      "key": "src.matrix.team-space.revamp-copy.copy.showAllActivity.count=1",
+      "value": 1
+    },
     "src.matrix.thread-copy.copy.participants": {
       "alternatives": [
         {
@@ -3277,7 +3289,6 @@
     "shared.matrix-company-copy.copy.cancelled": [],
     "shared.matrix-company-copy.copy.channelDetails": [],
     "shared.matrix-company-copy.copy.channelName": [],
-    "shared.matrix-company-copy.copy.channelOpenFailed": [],
     "shared.matrix-company-copy.copy.channelState.state=archived": [
       {
         "kind": "choice",
@@ -7699,6 +7710,54 @@
     "src.matrix.team-space.layout-copy.copy.previewingInvite": [],
     "src.matrix.team-space.layout-copy.copy.revokedInviteLink": [],
     "src.matrix.team-space.layout-copy.copy.wrongAccountInvite": [],
+    "src.matrix.team-space.revamp-copy.copy.ai": [],
+    "src.matrix.team-space.revamp-copy.copy.billing": [],
+    "src.matrix.team-space.revamp-copy.copy.boardViews": [],
+    "src.matrix.team-space.revamp-copy.copy.channelFailed": [],
+    "src.matrix.team-space.revamp-copy.copy.companyWallet": [],
+    "src.matrix.team-space.revamp-copy.copy.hiringPreparing": [],
+    "src.matrix.team-space.revamp-copy.copy.noMatches": [],
+    "src.matrix.team-space.revamp-copy.copy.openWallet": [],
+    "src.matrix.team-space.revamp-copy.copy.people": [],
+    "src.matrix.team-space.revamp-copy.copy.preparingChannel": [],
+    "src.matrix.team-space.revamp-copy.copy.privateChiefOfStaff": [],
+    "src.matrix.team-space.revamp-copy.copy.search": [],
+    "src.matrix.team-space.revamp-copy.copy.searchFor": [
+      {
+        "kind": "string",
+        "nullable": false
+      }
+    ],
+    "src.matrix.team-space.revamp-copy.copy.searchMessagesFor": [
+      {
+        "kind": "string",
+        "nullable": false
+      }
+    ],
+    "src.matrix.team-space.revamp-copy.copy.settingsSections": [],
+    "src.matrix.team-space.revamp-copy.copy.showAllActivity": [
+      {
+        "kind": "number",
+        "nullable": false
+      }
+    ],
+    "src.matrix.team-space.revamp-copy.copy.showAllActivity.count=0": [
+      {
+        "kind": "number",
+        "nullable": false
+      }
+    ],
+    "src.matrix.team-space.revamp-copy.copy.showAllActivity.count=1": [
+      {
+        "kind": "number",
+        "nullable": false
+      }
+    ],
+    "src.matrix.team-space.revamp-copy.copy.showLessActivity": [],
+    "src.matrix.team-space.revamp-copy.copy.suggested": [],
+    "src.matrix.team-space.revamp-copy.copy.suggestedHint": [],
+    "src.matrix.team-space.revamp-copy.copy.tryAgain": [],
+    "src.matrix.team-space.revamp-copy.copy.workspace": [],
     "src.matrix.thread-copy.copy.backToThreads": [],
     "src.matrix.thread-copy.copy.closeThreads": [],
     "src.matrix.thread-copy.copy.follow": [],

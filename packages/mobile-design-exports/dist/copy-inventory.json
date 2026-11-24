@@ -350,6 +350,12 @@
       "tables": []
     },
     {
+      "source": "apps/desktop/src/matrix/team-space/revamp-copy.ts",
+      "tables": [
+        "copy"
+      ]
+    },
+    {
       "note": "Derived formatting helpers; no locale table",
       "source": "apps/desktop/src/matrix/team-space/saved-messages-copy.ts",
       "tables": []
