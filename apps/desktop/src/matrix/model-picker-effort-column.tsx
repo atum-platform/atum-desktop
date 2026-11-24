@@ -54,8 +54,8 @@ export function pickerEffortChoice(input: {
 }
 
 const COLUMN_ROW = cn(
-  'flex h-9 w-full shrink-0 items-center gap-2 rounded-[var(--atum-r-row)] px-2.5 text-left',
-  'text-(length:--atum-t-body) text-(--atum-ink) outline-none hover:bg-(--atum-hover) focus-visible:bg-(--atum-hover)',
+  'flex h-(--mp-row-h) w-full shrink-0 items-center gap-2 rounded-(--mp-row-r) px-(--mp-row-x) text-left',
+  'text-(length:--mp-text) text-(--atum-ink) outline-none hover:bg-(--atum-hover) focus-visible:bg-(--atum-hover)',
   'disabled:cursor-default disabled:opacity-45 disabled:hover:bg-transparent'
 )
 
@@ -104,19 +104,22 @@ export function ModelPickerEffortColumn({ model, choice, disabled, onChange, onL
 
   return (
     <div
-      className="flex w-40 shrink-0 flex-col border-l border-(--atum-line) px-1.5 py-2"
+      className="flex w-(--mp-effort-w) shrink-0 flex-col border-l border-(--atum-line)"
       data-matrix-model-effort-column
       onKeyDown={event => columnKeyDown(event, onLeave)}
     >
-      {/* The level's word over the model it belongs to: the column may speak for the model that
-          answers now while the list shows another provider. */}
-      <div className="min-w-0 px-2.5 pb-1.5 text-(length:--atum-t-caption) leading-snug text-(--atum-ink-muted)">
-        <p className="truncate font-medium">{words.effort}</p>
-        <p className="truncate" data-matrix-model-effort-model>
-          {model}
-        </p>
+      {/* As T3's column: the level's word and the model it belongs to on the search row's line, so one
+          rule runs across the card (the column may speak for the model that answers now while the
+          list shows another provider). */}
+      <div className="shrink-0 px-(--mp-search-x) pt-(--mp-search-top)">
+        <div className="flex h-[calc(var(--mp-search-h)+0.375rem)] min-w-0 items-center gap-2 border-b-(length:--mp-search-rule) border-(--atum-line) pb-1.5 text-(length:--mp-text)">
+          <span className="shrink-0 text-(--atum-ink-muted)">{words.effort}</span>
+          <span className="ms-auto min-w-0 truncate text-xs text-(--atum-ink-muted)" data-matrix-model-effort-model>
+            {model}
+          </span>
+        </div>
       </div>
-      <div aria-label={`${words.effort}: ${model}`} className="flex flex-col gap-0.5" role="radiogroup">
+      <div aria-label={`${words.effort}: ${model}`} className="flex flex-col gap-0.5 px-2 pt-1.5 pb-1.5" role="radiogroup">
         {choice.levels.map(level => {
           const selected = level === choice.selected
           const isDefault = level === choice.defaultLevel

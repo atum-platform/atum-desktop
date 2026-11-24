@@ -2723,6 +2723,14 @@ html[data-atum-vibrancy] [data-atum-main][data-atum-team-roster] [data-matrix-co
 
 [data-atum-main][data-atum-team-roster] [data-atum-main-split] > [data-atum-chat] > [data-atum-main-header] > :first-child {
   min-width: calc(var(--atum-team-roster) + var(--atum-panel-gap) - 0.75rem);
+  /* The bell ends where the chat roster's does: one header inset inside the panel's edge. */
+  padding-inline-end: calc(var(--atum-panel-gap) + 0.75rem);
+}
+
+/* Work: the bell ends one header inset inside the view's thread list, as the chat roster's does. The
+   header's own start inset and that end inset come off the list's reported edge. */
+[data-atum-work][data-atum-work-roster] > [data-atum-main-header] > :first-child {
+  min-width: calc(var(--atum-work-roster-edge) - 1.5rem);
 }
 
 [data-atum-shell][data-atum-rail]:not([data-atum-roster-flow]) {

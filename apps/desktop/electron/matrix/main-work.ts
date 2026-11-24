@@ -1,10 +1,11 @@
 import { randomBytes } from 'node:crypto'
 import { existsSync, readFileSync } from 'node:fs'
+import { availableParallelism, loadavg } from 'node:os'
 import { join } from 'node:path'
 
 import type { BrowserWindow, IpcMain, IpcMainInvokeEvent, Session } from 'electron'
 
-import type { WorkSurfaceModeSnapshot } from "../../shared/matrix-work"
+import type { WorkSidebarSnapshot, WorkSurfaceModeSnapshot } from "../../shared/matrix-work"
 import { MATRIX_WORK_IPC, type MatrixWorkProjection } from '../../shared/matrix-work'
 import type { SafeStorageLike } from '../encrypted-store'
 import { admitConnector } from '../work/connector/admission'
@@ -112,7 +113,7 @@ export interface MatrixWorkDeps {
   agentDefinition?(principal: string): Promise<MatrixAgentDefinitionSnapshot>
   /** The owner's top-up page (what `openTopUp` opens). */
   openProtons(): Promise<void>
-  publish(channel: string, payload: MatrixWorkProjection | WorkSurfaceModeSnapshot | null): void
+  publish(channel: string, payload: MatrixWorkProjection | WorkSurfaceModeSnapshot | WorkSidebarSnapshot | null): void
   /** Main's `closing`: nothing starts while the app quits. */
   closing(): boolean
   log(line: string): void
@@ -412,8 +413,9 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
   }
 
   const host = new WorkHost({
-    log: (phase, ms) => deps.log(`[atum-work] startup phase=${phase} ms=${ms}`),
+    log: (phase, ms) => deps.log(`[atum-work] startup phase=${phase} ms=${ms} at=${Date.now()}`),
     surfaceModeChanged: snapshot => deps.publish(MATRIX_WORK_IPC.surfaceModeChanged, snapshot),
+    sidebarChanged: snapshot => deps.publish(MATRIX_WORK_IPC.sidebarChanged, snapshot),
     prepare: prepareConnector,
     resources: deps.resources,
     account,
@@ -585,13 +587,16 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
   })
 
   surface = new WorkSurface({
+    canPrewarm: () => loadavg()[0] < availableParallelism(),
     getSurfaceMode: () => host.getSurfaceMode(),
+    getSidebar: () => host.sidebar(),
     runCommand: command => host.runCommand(command),
     setSurfaceMode: (projectId, mode) => host.setSurfaceMode(projectId, mode),
     createView: createWorkViewFactory({
       window: () => deps.ui() ?? null,
       preload: deps.workPreload,
       zoomFactor: deps.zoomFactor,
+      log: (phase, ms) => deps.log(`[atum-work] startup phase=${phase} ms=${ms} at=${Date.now()}`),
       radius: 0,
       onBlocked: (kind, origin) => deps.log(`[atum-work] view_blocked ${kind} ${origin}`)
     }),
@@ -725,10 +730,7 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
 
       await lifecycle.activate()
 
-      // Recover/update through WorkSession before warming the account's native server.
-      if (host.enabled() && !session.held()) {
-        void session.start().catch(() => deps.log('[atum-work] background_start_failed'))
-      }
+      // WorkSurface preloads one hidden view after launch, through WorkSession's recovery door.
     },
     retire: async () => {
       modelKeys.forget()

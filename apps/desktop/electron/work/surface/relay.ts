@@ -4,7 +4,7 @@ import { deviceServiceCall, type DeviceServicePlatformOptions, type WorkConsentC
 import type { WorkMount } from '../mount/mount'
 
 /** Owner-only adapter on the existing Work IPC. No cloud grant or T3 token crosses. */
-export function createOwnerRelay(mount: WorkMount, consent: Pick<WorkConsentClient, 'read'>, platform: () => DeviceServicePlatformOptions) {
+export function createOwnerRelay(mount: WorkMount, consent: Pick<WorkConsentClient, 'read'> & Partial<Pick<WorkConsentClient, 'set'>>, platform: () => DeviceServicePlatformOptions) {
   const service = () => {
     const value = mount.service()
 
@@ -34,9 +34,27 @@ export function createOwnerRelay(mount: WorkMount, consent: Pick<WorkConsentClie
         })))
 
       if (!account) {throw new Error('work_relay_account_unavailable')}
+      if (mount.service() !== s) {throw new Error('work_relay_account_changed')}
+      // C5 bridge: extend active UUID-scoped grants as Work learns owner agents.
+      // Never revive a revoked grant or re-enable the local switch here.
+      const eligible = s?.gate.state().agents.filter(agent => agent.entitled).map(agent => agent.principal) ?? []
+
+      for (const state of [account, ...others]) {
+        if (!state || state.consent.state !== 'on' || !consent.set) {continue}
+        const agents = [...new Set([...state.consent.agents, ...eligible])]
+
+        if (agents.length === state.consent.agents.length) {continue}
+
+        try {
+          state.consent = await consent.set({ provider: state.consent.provider, agents,
+            devices: [...state.consent.devices], alsoWhenScheduled: state.consent.alsoWhenScheduled })
+        } catch { /* Keep availability readable; the next read retries consent sync. */ }
+      }
+
       account.facts = [account, ...others].flatMap(state => state?.facts ?? [])
 
-      if (!s) {return { account, status: null, turns: [] }}
+      // Account-wide model availability does not depend on this Mac enrolling this agent.
+      if (!s || !s.ledger.agent(principal)?.entitled) {return { account, status: null, turns: [] }}
       const ctx = context(principal)
       const status = await s.gate.relay.status(ctx, roomId) as unknown as WorkRelayStatus
       // Display keeps the last synced selection even when admission is fenced/offline.

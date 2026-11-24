@@ -4,7 +4,7 @@ import { useEffect, useEffectEvent } from 'react'
 import { $workRelayRooms, $workRelayStop } from './store'
 
 /** Read only the visible conversation, without overlapping polls or retaining a previous account. */
-export function useWorkRelayRoom(principal: string | undefined, roomId: string, accountKey: string | undefined, fail: (cause?: unknown) => void) {
+export function useWorkRelayRoom(principal: string | undefined, roomId: string, accountKey: string | undefined, fail: (cause?: unknown) => void, manageStop = true) {
   const rooms = useStore($workRelayRooms)
   const onFailure = useEffectEvent(fail)
   useEffect(() => {
@@ -12,7 +12,8 @@ export function useWorkRelayRoom(principal: string | undefined, roomId: string, 
 
     if (!principal || !accountKey || !bridge?.readRelay) {return}
     let live = true
-    $workRelayStop.set(bridge.stopRelay ? (room, event) => { void bridge.stopRelay!(room, event).catch(onFailure) } : null)
+
+    if (manageStop) {$workRelayStop.set(bridge.stopRelay ? (room, event) => { void bridge.stopRelay!(room, event).catch(onFailure) } : null)}
     let timer: ReturnType<typeof setTimeout>
 
     const read = async () => {
@@ -27,8 +28,10 @@ export function useWorkRelayRoom(principal: string | undefined, roomId: string, 
 
     void read()
 
-    return () => { live = false; clearTimeout(timer); $workRelayStop.set(null) }
-  }, [principal, roomId, accountKey])
+    return () => { live = false; clearTimeout(timer);
+
+ if (manageStop) {$workRelayStop.set(null)} }
+  }, [principal, roomId, accountKey, manageStop])
 
   return rooms[roomId]
 }

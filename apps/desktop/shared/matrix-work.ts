@@ -13,7 +13,8 @@ import type { WorkRelayLimit, WorkRelayRoomView, WorkRelaySelection } from './ma
 export const MATRIX_WORK_IPC = {
   request: 'matrix:work:request',
   changed: 'matrix:work:changed',
-  surfaceModeChanged: 'matrix:work:surface-mode-changed'
+  surfaceModeChanged: 'matrix:work:surface-mode-changed',
+  sidebarChanged: 'matrix:work:sidebar-changed'
 } as const
 
 /** The owner's own Work view, which fills the page. */
@@ -122,12 +123,28 @@ export interface MatrixWorkRect {
 
 export interface WorkSurfaceModeSnapshot { projectId: string; mode: 'work' | 'code' }
 
+/** The view's thread list: open, and its right edge in the view's CSS pixels (the band lines the bell up with it). */
+export interface WorkSidebarSnapshot { open: boolean; edge: number }
+
+/** A report from the view, or null when it is not one (the view is another origin's page). */
+export function parseWorkSidebar(value: unknown): WorkSidebarSnapshot | null {
+  if (!value || typeof value !== 'object') {
+    return null
+  }
+
+  const row = value as Record<string, unknown>
+
+  return typeof row.open === 'boolean' && typeof row.edge === 'number' && Number.isFinite(row.edge) && row.edge >= 0 && row.edge <= 10_000
+    ? { open: row.open, edge: Math.round(row.edge) } : null
+}
+
 /** T3 commands the Work title band offers as buttons over the roster column (spec §1.4). */
 export const WORK_BAND_COMMANDS = ['sidebar.toggle', 'chat.new'] as const
 export type WorkBandCommand = (typeof WORK_BAND_COMMANDS)[number]
 
 export type MatrixWorkRequest =
   | { kind: 'getSurfaceMode' }
+  | { kind: 'getSidebar' }
   | { kind: 'runCommand'; command: WorkBandCommand }
   | { kind: 'setSurfaceMode'; projectId: string; mode: 'work' | 'code' }
   | { kind: 'readRelay'; principal: string; roomId: string }
@@ -156,6 +173,9 @@ export interface MatrixWorkBridge {
   runCommand?(command: WorkBandCommand): Promise<boolean>
   setSurfaceMode(projectId: string, mode: 'work' | 'code'): Promise<void>
   onSurfaceModeChanged(listener: (snapshot: WorkSurfaceModeSnapshot | null) => void): () => void
+  /** The view's thread list as it last reported it; null before a report. */
+  getSidebar?(): Promise<WorkSidebarSnapshot | null>
+  onSidebarChanged?(listener: (snapshot: WorkSidebarSnapshot | null) => void): () => void
   readRelay?(principal: string, roomId: string): Promise<WorkRelayRoomView>
   selectRelay?(principal: string, expectedRevision: number, model: string, plan?: WorkRelayPlan): Promise<WorkRelaySelection>
   stopRelay?(roomId: string, eventId: string): Promise<void>
@@ -234,6 +254,8 @@ export function parseMatrixWorkRequest(value: unknown): MatrixWorkRequest | null
 
   switch (row.kind) {
     case 'getSurfaceMode': return keys.length === 1 ? { kind: 'getSurfaceMode' } : null
+
+    case 'getSidebar': return keys.length === 1 ? { kind: 'getSidebar' } : null
     case 'runCommand': {
       const command = WORK_BAND_COMMANDS.find(each => each === row.command)
 

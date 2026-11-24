@@ -1,0 +1,5 @@
+{
+  "about": "sha256 of the two files both model pickers share. atum-desktop src/matrix/ and atum-work atum-work/ each keep byte-identical copies of model-picker-spec.json, model-picker-labels.json and this file; each repo's tests fail when its copies differ from these digests. Change one copy: copy all three files to the other repo and update the digests (shasum -a 256).",
+  "model-picker-spec.json": "412c54d0ebab6833ed30f6545248c88f5ed5890f297fd53716254a6b6ca60fd1",
+  "model-picker-labels.json": "463ee15298d18daefe9a084c162f51e790e8f70f4579a959f40b03f9d0324a64"
+}

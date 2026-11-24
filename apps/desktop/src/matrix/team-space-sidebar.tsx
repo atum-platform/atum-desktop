@@ -7,6 +7,8 @@
  * local presentation storage, and no Buzz relay, Tauri, plugin or Cordis state.
  */
 
+import { useStore } from '@nanostores/react'
+import { atom } from 'nanostores'
 import {
   type ComponentProps,
   forwardRef,
@@ -22,6 +24,16 @@ import { Button } from '@/components/ui/button'
 import { ChevronDown, Plus } from '@/lib/icons'
 
 import styles from './team-space-sidebar.module.css'
+
+/**
+ * The title bar's hide-left-panel button for Team Space, as Chat's hides its roster. Window-wide,
+ * not per company: switching companies keeps the panel as the person left it.
+ */
+export const $teamSpaceSidebarHidden = atom(false)
+
+export function toggleTeamSpaceSidebar(): void {
+  $teamSpaceSidebarHidden.set(!$teamSpaceSidebarHidden.get())
+}
 
 export const TEAM_SPACE_SIDEBAR_DEFAULT_WIDTH = 268
 export const TEAM_SPACE_SIDEBAR_MIN_WIDTH = 220
@@ -65,6 +77,9 @@ export function TeamSpaceSidebar({ children, compactFull = false, footer, header
   scope: string
 }) {
   const frame = useRef<HTMLElement>(null)
+  // A compact window shows one pane at a time and never offers the title-bar button.
+  const hiddenByPerson = useStore($teamSpaceSidebarHidden)
+  const concealed = hidden || (hiddenByPerson && !compactFull)
   const [view, setView] = useState(() => ({ scope, width: readWidth(scope) }))
 
   useEffect(() => {
@@ -81,7 +96,7 @@ export function TeamSpaceSidebar({ children, compactFull = false, footer, header
 
   // Atum Kit frame (FlowTeamSpace): this sidebar is the roster panel, so the title bar's name and
   // the main card start past it, as they start past the chat roster. Its width is the user's.
-  const besideCard = !hidden && !compactFull
+  const besideCard = !concealed && !compactFull
 
   useLayoutEffect(() => {
     const main = frame.current?.closest<HTMLElement>('[data-atum-main]')
@@ -100,14 +115,14 @@ export function TeamSpaceSidebar({ children, compactFull = false, footer, header
   return (
     <>
       <aside aria-label={label} className={styles.frame} data-compact-full={compactFull || undefined}
-        data-matrix-company-sidebar hidden={hidden} ref={frame} style={{ width }}>
+        data-matrix-company-sidebar hidden={concealed} ref={frame} style={{ width }}>
         {header && <div className={styles.header} data-team-space-sidebar-header>{header}</div>}
         <div className={styles.body}>
           <nav className={styles.list}>{children}</nav>
         </div>
         {footer && <div className={styles.footer}>{footer}</div>}
       </aside>
-      <TeamSpaceResizeHandle hidden={hidden || compactFull} label={resizeLabel} panel={frame}
+      <TeamSpaceResizeHandle hidden={concealed || compactFull} label={resizeLabel} panel={frame}
         reset={() => resize(TEAM_SPACE_SIDEBAR_DEFAULT_WIDTH)} setWidth={resize} width={width} />
     </>
   )

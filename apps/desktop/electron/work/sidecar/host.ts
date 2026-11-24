@@ -3,7 +3,14 @@ import { join } from 'node:path'
 
 import { ipcMain, type IpcMainInvokeEvent, type WebContents } from 'electron'
 
-import { MATRIX_WORK_IPC, WORK_BAND_COMMANDS, type WorkBandCommand, type WorkSurfaceModeSnapshot } from '../../../shared/matrix-work'
+import {
+  MATRIX_WORK_IPC,
+  parseWorkSidebar,
+  WORK_BAND_COMMANDS,
+  type WorkBandCommand,
+  type WorkSidebarSnapshot,
+  type WorkSurfaceModeSnapshot
+} from '../../../shared/matrix-work'
 import type { WorkSessionPaths } from '../session/paths'
 import type { PinHost } from '../session/update'
 
@@ -24,6 +31,7 @@ interface WorkHostOptions {
   log?(phase: string, ms: number): void
   resources: string
   surfaceModeChanged?(snapshot: WorkSurfaceModeSnapshot | null): void
+  sidebarChanged?(snapshot: WorkSidebarSnapshot | null): void
   prepare?(signal: AbortSignal): Promise<void>
   account(): Account | undefined
   gatewayEnvironment(): Record<string, string>
@@ -46,7 +54,11 @@ export class WorkHost {
   private binding?: WorkBinding
   private backendToken?: string
   private view?: { contents: WebContents; incarnation: WorkIncarnation }
+  private viewStartedAt = 0
+  private readonly startupPhases = new Set<string>()
   private closing?: Promise<void>
+  /** The live view's last thread-list report, for a band that mounts after it (the view reports changes only). */
+  private lastSidebar?: { view: NonNullable<WorkHost['view']>; snapshot: WorkSidebarSnapshot }
 
   constructor(private readonly options: WorkHostOptions) {}
 
@@ -122,6 +134,7 @@ export class WorkHost {
   stop(): Promise<void> {
     this.view = undefined
     this.options.surfaceModeChanged?.(null)
+    this.options.sidebarChanged?.(null)
 
     if (this.closing) {
       return this.closing
@@ -176,11 +189,14 @@ export class WorkHost {
 
     const view = { contents, incarnation }
     this.view = view
+    this.viewStartedAt = Date.now()
+    this.startupPhases.clear()
 
     const detach = () => {
       if (this.view === view) {
         this.view = undefined
         this.options.surfaceModeChanged?.(null)
+        this.options.sidebarChanged?.(null)
       }
     }
 
@@ -217,6 +233,12 @@ export class WorkHost {
     }
   }
 
+  sidebar(): WorkSidebarSnapshot | null {
+    const last = this.lastSidebar
+
+    return last && last.view === this.view && this.current() === last.view.incarnation ? last.snapshot : null
+  }
+
   async getSurfaceMode(): Promise<WorkSurfaceModeSnapshot | null> {
     const view = this.view
 
@@ -243,6 +265,12 @@ export class WorkHost {
       return false
     }
 
+    // The press landed in the band, outside the view: without keyboard focus the view cannot take
+    // the caret New thread puts in its composer, so on an empty draft the button looked dead.
+    if (command === 'chat.new') {
+      view.contents.focus()
+    }
+
     const ran: unknown = await view.contents.executeJavaScript(`window.atumWorkCommands?.run(${JSON.stringify(command)}) ?? false`)
 
     return this.view === view && ran === true
@@ -267,12 +295,31 @@ export class WorkHost {
   }
 
   registerOwnerPreload(): void {
+    ipcMain.handle('atum:work:startup-phase', (event, phase: unknown) => {
+      if (!this.ownerCaller(event) || typeof phase !== 'string' ||
+        !['ws-connected', 'providers-ready', 'threads-painted'].includes(phase) || this.startupPhases.has(phase)) {return}
+
+      if (phase === 'threads-painted') {event.sender.setBackgroundThrottling(true)}
+      this.startupPhases.add(phase)
+      this.options.log?.(phase, Date.now() - this.viewStartedAt)
+    })
     ipcMain.handle(MATRIX_WORK_IPC.surfaceModeChanged, (event, value: unknown) => {
       if (!this.ownerCaller(event)) {
         return
       }
 
       this.options.surfaceModeChanged?.(parseSurfaceMode(value))
+    })
+    ipcMain.handle(MATRIX_WORK_IPC.sidebarChanged, (event, value: unknown) => {
+      const view = this.ownerCaller(event)
+      const snapshot = parseWorkSidebar(value)
+
+      if (!view || !snapshot) {
+        return
+      }
+
+      this.lastSidebar = { view, snapshot }
+      this.options.sidebarChanged?.(snapshot)
     })
     ipcMain.handle(WORK_ACCESS_CHANNEL, async event => {
       const view = this.ownerCaller(event)

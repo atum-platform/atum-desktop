@@ -299,14 +299,13 @@ describe('WorkScreen: the title band (spec §1.4, §8.2)', () => {
     expect(screen.getByRole('heading', { name: 'Work' }).className).not.toContain('sr-only')
   })
 
-  it('runs the view\'s own sidebar toggle and New thread, and offers neither before the view is ready', () => {
+  it('runs the view\'s own New thread, and not before the view is ready', () => {
     const work = bridge()
     const { rerender } = show({ view: 'starting' }, { work })
 
     expect(screen.queryByRole('button', { name: 'New thread' })).toBeNull()
     rerender({ view: 'ready' })
     fireEvent.click(screen.getByRole('button', { name: 'New thread' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Show or hide threads' }))
-    expect(work.runCommand?.mock.calls).toEqual([['chat.new'], ['sidebar.toggle']])
+    expect(work.runCommand?.mock.calls).toEqual([['chat.new']])
   })
 })

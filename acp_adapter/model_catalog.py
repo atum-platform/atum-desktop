@@ -9,7 +9,7 @@ from typing import Callable
 
 from acp.schema import ModelInfo, SessionModelState
 
-from acp_adapter.model_labels import model_display_name
+from acp_adapter.model_labels import ATUM_LINEUP, ATUM_PROVIDERS, ATUM_RETIRED, model_display_name
 
 logger = logging.getLogger("acp_adapter.server")
 
@@ -238,9 +238,22 @@ class _ModelCatalog:
                 self.add(named_slug, named_model, named_model, " • ".join(part for part in parts if part))
 
 
+def atum_model_state(model: str, provider: str) -> SessionModelState:
+    """A session on Atum's own provider picks among Atum's line-up only: the profile's other
+    connections are separate instances in the client, not rows under Atum's name."""
+    slug = str(provider or "").strip().lower()
+    current = ATUM_RETIRED.get(model, model)
+    rows = [ModelInfo(model_id=encode_model_choice(slug, alias), name=name) for alias, name in ATUM_LINEUP]
+    ids = [row.model_id for row in rows]
+    current_id = encode_model_choice(slug, current)
+    return SessionModelState(available_models=rows, current_model_id=current_id if current_id in ids else ids[0])
+
+
 def build_model_state(model: str, provider: str, base_url: str) -> SessionModelState | None:
     """Picker state from the shared inventory + named endpoints; ``None`` when nothing is listable
     (caller falls back to a single current-model row). Raises on inventory failure."""
+    if str(provider or "").strip().lower() in ATUM_PROVIDERS:
+        return atum_model_state(model, provider)
     from hermes_cli.inventory import build_models_payload, load_picker_context
     from hermes_cli.models import normalize_provider, provider_label
 

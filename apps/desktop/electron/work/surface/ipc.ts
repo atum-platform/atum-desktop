@@ -10,6 +10,7 @@ export function registerMatrixWorkIpc(
   surface: Pick<
     WorkSurface,
     | 'getSurfaceMode'
+    | 'getSidebar'
     | 'runCommand'
     | 'setSurfaceMode'
     | 'allowAssistants'
@@ -42,6 +43,8 @@ export function registerMatrixWorkIpc(
 
     switch (request.kind) {
       case 'getSurfaceMode': return surface.getSurfaceMode()
+
+      case 'getSidebar': return surface.getSidebar()
 
       case 'runCommand': return surface.runCommand(request.command)
 
