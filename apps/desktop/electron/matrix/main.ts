@@ -284,6 +284,7 @@ import { createUpdateHandoff, restoredUpdateBounds, type UpdateHandoff, type Upd
 import { saveUserSelectedFile } from '../user-selected-file-save'
 import { createWordMacAdapter } from '../word-companion-mac'
 import { createWordLiveMacAdapter } from '../word-live-mac'
+import { requestNativeT3 } from '../work/sidecar/native-t3'
 import { fetchConnectAssertion } from '../work/sidecar/connect-assertion'
 
 import { MatrixAccount } from './account'
@@ -20633,18 +20634,10 @@ async function start() {
       agentName: principal => allAgents().find(each => each.agentPrincipal === principal)?.name,
       nativeAgents: async () => (await account.agents(AbortSignal.timeout(15_000)))
         .filter(agent => agent.status === 'active').map(agent => agent.principal),
-      nativeRequest: (agent, nativePath, method, body) => account.s1Request(async (token, base, signal) => {
-        const response = await session.defaultSession.fetch(new URL('/api/host/native-t3', base).href, {
-          method: 'POST', redirect: 'error', signal,
-          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json',
-            'X-Atum-Host-Bridge-Contract': 'atum.s2.host-bridge/1.0.0' },
-          body: JSON.stringify({ agent, path: nativePath, method, body })
-        })
-
-        if (!response.ok) {throw new Error('native_profile_unavailable')}
-
-        return response.json()
-      }, AbortSignal.timeout(60_000), { timeoutMs: 60_000 }),
+      nativeRequest: (agent, nativePath, method, body) => account.s1Request(
+        (token, base, signal) => requestNativeT3(token, base, signal,
+          session.defaultSession.fetch.bind(session.defaultSession), agent, nativePath, method, body),
+        AbortSignal.timeout(60_000), { timeoutMs: 60_000 }),
       agentDefinition: async principal => {
         const agent = (await account.agents(AbortSignal.timeout(15_000))).find(
           each => each.principal === principal && each.status === 'active'

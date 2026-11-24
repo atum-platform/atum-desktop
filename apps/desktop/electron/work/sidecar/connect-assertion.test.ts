@@ -8,7 +8,7 @@ describe('Connect assertion issuer', () => {
     const request = vi.fn<typeof fetch>().mockResolvedValue(Response.json({ assertion: 'signed', access_token: 'must-stay-in-host' }))
     await expect(fetchConnectAssertion('fixture-bearer', 'https://platform.test/resource', signal, request)).resolves.toBe('signed')
     expect(request).toHaveBeenCalledWith('https://platform.test/api/work/connect/assertion', {
-      method: 'POST', redirect: 'error', cache: 'no-store', signal,
+      method: 'POST', credentials: 'omit', redirect: 'error', cache: 'no-store', signal,
       headers: { Authorization: 'Bearer fixture-bearer' }
     })
   })

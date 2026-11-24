@@ -5,7 +5,7 @@ export async function fetchConnectAssertion(
   request: typeof fetch
 ): Promise<string> {
   const response = await request(new URL('/api/work/connect/assertion', base).href, {
-    method: 'POST', redirect: 'error', cache: 'no-store', signal,
+    method: 'POST', credentials: 'omit', redirect: 'error', cache: 'no-store', signal,
     headers: { Authorization: `Bearer ${token}` }
   })
 
