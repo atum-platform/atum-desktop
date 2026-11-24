@@ -51531,6 +51531,40 @@
         }
       }
     },
+    "shared.matrix-company-board-copy.copy.list": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "List"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "リスト"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Danh sách"
+          }
+        },
+        "zh": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "列表"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "清單"
+          }
+        }
+      }
+    },
     "shared.matrix-company-board-copy.copy.marketplace": {
       "localizations": {
         "en": {
@@ -51561,6 +51595,40 @@
           "stringUnit": {
             "state": "translated",
             "value": "市集"
+          }
+        }
+      }
+    },
+    "shared.matrix-company-board-copy.copy.mine": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mine"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "自分"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Của tôi"
+          }
+        },
+        "zh": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "我的"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "我的"
           }
         }
       }
