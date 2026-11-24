@@ -100,7 +100,7 @@ const BEGIN = '# BEGIN ATUM MANAGED SSH KEYS'
 const END = '# END ATUM MANAGED SSH KEYS'
 
 /** Preserve all bytes outside the block; refuse ambiguous/corrupt markers. */
-export function managedKeys(current: string, keys: string[]): string {
+export function managedKeys(current: string, keys: string[], command?: (key: string) => string): string {
   if (!keys.every(sshPublicKey)) {
     throw new Error('invalid_ssh_key')
   }
@@ -119,8 +119,12 @@ export function managedKeys(current: string, keys: string[]): string {
     throw new Error('invalid_ssh_block')
   }
 
+  if (command && keys.some(key => /[\r\n\0]/.test(command(key)))) {
+    throw new Error('invalid_ssh_key')
+  }
+
   const block = keys.length
-    ? `${BEGIN}\n${[...new Set(keys)].map(key => `no-agent-forwarding,no-port-forwarding,no-X11-forwarding ${key}`).join('\n')}\n${END}\n`
+    ? `${BEGIN}\n${[...new Set(keys)].map(key => `no-agent-forwarding,no-port-forwarding,no-X11-forwarding${command ? `,no-user-rc,command="${command(key).replace(/"/g, '\\"')}"` : ''} ${key}`).join('\n')}\n${END}\n`
     : ''
 
   if (begin < 0) {

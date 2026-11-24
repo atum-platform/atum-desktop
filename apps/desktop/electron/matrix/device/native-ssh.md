@@ -26,8 +26,9 @@ The token is an atomic 600 file within a 700 Application Support/Atum/native-ssh
 directory. Only its path appears in launchd arguments. Sign-out and disconnect
 attempt remote revoke, launchd removal, managed-key removal and token deletion
 independently. Cleanup also removes the previous adapter's Keychain item and shell
-wrapper. A cleanup failure remains retryable. Existing sshd sessions survive
-revocation, and Remote Login remains the owner's system setting.
+wrapper. A cleanup failure remains retryable. Managed sessions opened with the
+revocable authorized-key command close on withdrawal (see containment below).
+Remote Login remains the owner's system setting.
 
 ## Window adapters
 
@@ -245,3 +246,49 @@ Verification uses mocked owner responses, process calls and Work reports, plus
 temporary homes and real Work ledgers. The focused tests cover all five failing
 setup steps, credential redaction, cleanup and retry, focus and restart after
 Disconnect, and published fact withdrawal.
+
+
+## Session containment — 24 November 2026 (built, not live)
+
+Native OpenSSH [authorized_keys command=](https://man.openbsd.org/sshd.8#AUTHORIZED_KEYS_FILE_FORMAT)
+provides per-key attribution without changing system sshd configuration or unrelated keys.
+`native-ssh-system.ts` writes a private Perl/POSIX supervisor and per-key epoch
+markers beside the existing tunnel token custody. macOS's Perl must exist before
+keys are installed. Authorized keys retain all forwarding prohibitions and add
+`no-user-rc` plus the forced supervisor command. The supervisor executes the
+original command through the login shell, or starts the login shell interactively;
+command bytes are not re-encoded. It checks the matching epoch every 250 ms.
+Missing or changed authority closes only its attributable descendant process tree,
+then ends the SSH channel. Re-grant generates a different epoch; old channels
+cannot regain authority. Ordinary refresh preserves the current epoch.
+
+Removing a key clears its marker before the authorized_keys rewrite. Stopping
+invalidates all session markers and attempts launchd bootout independently, even
+when one cleanup fails. Tunnel job replacement during routine setup uses a
+transport-only stop so it does not revoke freshly written markers. Corrupt key
+blocks, symlink fences, account scoping, forwarding restrictions and token cleanup
+remain intact. Remote withdrawal is observed through the existing one-minute
+reconciliation; the local off action withdraws immediately.
+
+Limits: pre-wrapper sessions cannot be retrospectively attributed safely; drain
+them during upgrade before claiming revoke closure. A shell running as the OS
+login user can deliberately detach work, kill its supervisor or alter user-owned
+markers. This is bounded session cleanup, not confinement of malicious OS-user
+code. A dedicated account or privileged OpenSSH session boundary is required for
+that stronger promise. Do not remove the cloud's existing full-runtime authority
+stop on the strength of these local tests. Real sshd PTY/job-control, SFTP subsystem,
+multiplexing, two keys/owners and restart acceptance remain required before release.
+No real Mac authority, sshd configuration or administrator prompt was exercised.
+
+Source base: origin/main before the Mac repair PR. Minimal unavoidable overlap
+with that repair is `native-ssh.ts` managedKeys signature/formatter only; keep its
+shell-only projection and recovery edits during assembly. Most new work is the
+system adapter and new session module/tests.
+
+Verification (Node 22, existing shared dependencies only):
+- `vitest run --project electron electron/matrix/device/native-ssh-session.test.ts electron/matrix/device/native-ssh.test.ts`: 94 pass, exit 0. Real temporary filesystem and Perl/shell subprocesses; key withdrawal and stop close commands/descendants while unrelated processes survive; quoted paths, normal command exit status, epoch retention and stale-epoch refusal covered.
+- `tsc -p tsconfig.electron.json --noEmit --tsBuildInfoFile <temporary-file>`: exit 0. Initial `--incremental false` invocation exited 2 because composite projects require incremental compilation; corrected invocation above passes.
+- Focused ESLint: exit 0. `git diff --check`: exit 0.
+- Public guard is run against the committed source separately and reported in the final handoff.
+
+No push, PR, CI, deployment, cloud/prod access, credentials or nested agents.
