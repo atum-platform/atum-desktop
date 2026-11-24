@@ -7,8 +7,10 @@ import { $accountConnections, loadAccountConnections, openAccountConnect } from 
 import { ACCOUNT_PLAN_PICKER_PROVIDER, accountPickerPlans, accountPlanOfPickerProvider } from '@/app/connections/view'
 import { workRelayServedByName } from '@/app/work/relay-chrome'
 import { WORK_RELAY_PLAN_NAMES, workRelayChipText, workRelayCopy } from '@/app/work/relay-copy'
+import { workRelayPickerView } from '@/app/work/relay-view'
 import type { WorkRelayFix, WorkRelayPickerView } from '@/app/work/relay-view'
-import { $work, setWorkActive } from '@/app/work/store'
+import { $work, $workRelayRooms, setWorkActive } from '@/app/work/store'
+import { useWorkRelayRoom } from '@/app/work/use-relay'
 import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Tip } from '@/components/ui/tooltip'
@@ -69,7 +71,7 @@ import {
   type MatrixSubscriptionsStatus,
   parseMatrixSubscriptionProvider
 } from '../../shared/matrix-subscriptions'
-import { WORK_RELAY_PROVIDER, workRelayNoticePlan } from '../../shared/matrix-work-relay'
+import { WORK_RELAY_PLANS, WORK_RELAY_PROVIDER, workRelayNoticePlan } from '../../shared/matrix-work-relay'
 
 import { ChatGptTrainingConfirm } from './chatgpt-training-confirm'
 import { useModelPickerCopy } from './model-picker-copy'
@@ -264,8 +266,8 @@ interface PendingHomePick {
  * explanatory/settings footers.
  */
 /**
- * Relay slice R1 (lane U1): a cloud assistant's plan rows, from the relay view-model (`workRelayPickerView`). Absent: D6, the
- * plan works in Work only. Present: a plan model can be picked whenever its plan is connected and consented on at least one of
+ * A cloud assistant's plan rows from the native relay view-model (`workRelayPickerView`).
+ * While its account read is pending the picker keeps neutral loading copy. Present: a plan model can be picked whenever its plan is connected and consented on at least one of
  * the owner's Macs (an asleep or offline Mac never greys it); greyed rows carry one line and the one fixing action.
  */
 export interface MatrixModelPickerRelay {
@@ -299,7 +301,7 @@ export function MatrixModelPicker({
   agentHome,
   subscriptionBridge,
   lastFallback,
-  workRelay,
+  workRelay: providedWorkRelay,
   trigger,
   open: controlledOpen,
   onOpenChange,
@@ -345,7 +347,7 @@ export function MatrixModelPicker({
   subscriptionBridge?: MatrixSubscriptionsBridge
   /** The fallback that answered the agent's latest reply here (agent-turns/1.7), if one did. */
   lastFallback?: MatrixSubscriptionFallback
-  /** Relay R1: the plan rows from the relay view-model. Absent: D6. */
+  /** Optional preloaded room view; otherwise the picker reads the native relay for this agent. */
   workRelay?: readonly MatrixModelPickerRelay[]
   /** A row that opens this picker, replacing the composer's model pill. */
   trigger?: ReactNode
@@ -367,6 +369,36 @@ export function MatrixModelPicker({
   const accountConnections = useStore($accountConnections)
   const connectionWords = connectionsCopy(locale)
   const scope = preferenceScope ?? room.id
+
+  // Both composer and assistant card use the native relay. The card is an agent preference,
+  // not an encrypted conversation; its synthetic room must not fence the agent's plan choice.
+  const ownRelayRoom = useWorkRelayRoom(
+    cloud && !providedWorkRelay ? agentPrincipal : undefined, room.id, preferenceScope ?? agentPrincipal, fail, false
+  )
+
+  const workRelay: readonly MatrixModelPickerRelay[] | undefined = providedWorkRelay ?? (ownRelayRoom && agentPrincipal && window.atumMatrix.work?.selectRelay
+    ? WORK_RELAY_PLANS.map(plan => ({
+        view: workRelayPickerView({ plan, agentPrincipal, account: ownRelayRoom.account,
+          selection: ownRelayRoom.status?.selection ?? null,
+          encrypted: !room.id.startsWith('assistant-card:') && room.encrypted }),
+        models: (() => {
+          const ids = [...new Set(ownRelayRoom.account.facts.filter(fact => fact.provider === plan && fact.status !== 'disconnected')
+            .flatMap(fact => fact.models ?? []))]
+
+          return ids.length ? ids.map(id => ({ id, displayName: id })) : accountPickerPlans(accountConnections).flatMap(pick => pick.plan === plan && pick.kind !== 'connect' ? pick.models : [])
+        })(),
+        select: async (model: string) => {
+          const selection = await window.atumMatrix.work!.selectRelay!(agentPrincipal,
+            ownRelayRoom.status?.selection?.revision ?? cloudChoice?.revision ?? 0, model, plan)
+
+          if (ownRelayRoom.status) {
+            $workRelayRooms.set({ ...$workRelayRooms.get(), [room.id]: { ...ownRelayRoom, status: { ...ownRelayRoom.status, selection } } })
+          }
+
+          return { status: 'saved' }
+        }
+      })) : undefined)
+
   const [openState, setOpenState] = useState(false)
   const open = controlledOpen ?? openState
   // What a late result sees: the card is still open (its own line says why), or it is not.
@@ -854,8 +886,8 @@ export function MatrixModelPicker({
 
   // D6 (self-work plan §10.3): an assistant never answers with the plan; the plan works in Work on the owner's Mac. One line,
   // the rows greyed without a reason of their own, and one action (Open Work) when this account has Work here.
-  const chatgptReason = words.chatgptInWork
-  const chatgptHint = words.chatgptInWork
+  const chatgptReason = window.atumMatrix.work?.readRelay ? words.modelsLoading : words.chatgptInWork
+  const chatgptHint = chatgptReason
   const opencodeProvider = cloudProvider('opencode-go')
   const opencodeConnected = opencodeProvider?.connected === true
 
@@ -893,7 +925,7 @@ export function MatrixModelPicker({
   const relayPlanName = WORK_RELAY_PLAN_NAMES[selectedRelay?.view.plan ?? 'codex']
   const relayCurrent = cloudSubscriptions && !(cloud && pendingModel) ? selectedRelay?.view.currentModel : undefined
 
-  const modelsFor = (each: MatrixModelPickerRelay) => each.models ?? (each.view.plan === 'codex' ? chatgptModels : [])
+  const modelsFor = (each: MatrixModelPickerRelay) => each.models ?? (each.view.plan === 'codex' ? chatgptModels : accountPickerPlans(accountConnections).flatMap(pick => pick.plan === each.view.plan && pick.kind !== 'connect' ? pick.models : []))
 
   const relayCurrentName = relayCurrent
     ? ((selectedRelay ? modelsFor(selectedRelay) : []).find(model => model.id === relayCurrent)?.displayName ??
@@ -1018,7 +1050,7 @@ export function MatrixModelPicker({
 
 
   // The account's plans (`atum.account-connections/1`): every plan has a rail entry, connected or not. ChatGPT's rows come from the
-  // relay above; a connected plan the relay does not carry yet lists its models greyed with one line; a plan connected nowhere
+  // relay above; a carried plan awaiting its view keeps loading copy; a plan connected nowhere
   // gets a hollow mark and one Connect state in place of the list (Work UI spec §2.1).
   const accountPicks = cloudSubscriptions ? accountPickerPlans(accountConnections) : []
   const listedPlanProviders = new Set(cloudSubscriptionRoutes.map(({ route }) => route.provider))
@@ -1026,7 +1058,7 @@ export function MatrixModelPicker({
   const accountPlanRoutes: PickerRoute[] = accountPicks.flatMap(pick => {
     const provider = ACCOUNT_PLAN_PICKER_PROVIDER[pick.plan]
 
-    if (pick.kind === 'connect' || listedPlanProviders.has(provider) || (pick.kind === 'relay' && relay)) {
+    if (pick.kind === 'connect' || listedPlanProviders.has(provider) || (pick.kind === 'relay' && relays.some(each => each.view.plan === pick.plan))) {
       return []
     }
 
@@ -1049,7 +1081,7 @@ export function MatrixModelPicker({
       },
       subscription: true,
       disabled: true,
-      reason: connectionWords.picker.inWork
+      reason: pick.kind === 'relay' ? words.modelsLoading : connectionWords.picker.inWork
     }))
   })
 
