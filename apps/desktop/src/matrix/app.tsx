@@ -8491,6 +8491,125 @@ function MatrixAccountView({
       <EmptyState className="m-auto p-8" description={copy.noRoomHelp} title={copy.noRoom} />
     ))
 
+  // The window's notice bands. They sit at the top of the main column, never above a sidebar.
+  const statusStack = (
+    <div className="mx-auto w-full max-w-[700px] shrink-0 px-10 empty:hidden" data-matrix-status-stack>
+      {/* A new sign-in elsewhere is the title bar's attention item (agent-attention.ts),
+          never a band here: a band pushes the page under it down. */}
+      <ConversationRetryLine
+        onRetry={() => {
+          if (!snapshot.identity || !profileAgent) {
+            return
+          }
+
+          void window.atumMatrix
+            .command({
+              kind: 'agentConversation',
+              identity: snapshot.identity,
+              agentId: profileAgent.userId,
+              action: 'retry',
+              ...(profileAgent.conversation?.proposed ? { roomId: profileAgent.conversation.proposed } : {})
+            })
+            .catch(fail)
+        }}
+        view={
+          !founderDraftShown && !workplaceActive && !driveActive && !appDestination
+            ? profileAgent?.conversation
+            : undefined
+        }
+      />
+      <HermesPrompts
+        conversationVisible={
+          !founderDraftShown && conversationShellVisible && !driveActive && !appDestination && Boolean(room)
+        }
+        fail={fail}
+        snapshot={snapshot}
+      />
+      {/* A person's verification only: main's own checks of agents never reach the
+          window (background-verification.ts). */}
+      <VerificationPrompt snapshot={snapshot} />
+      {snapshot.deviceIsolation?.value === 'signed' && error === 'identity_review' && !settingsOpen && (
+        <MatrixPeerIdentityPanel
+          onResolved={() => setError(current => (current === 'identity_review' ? null : current))}
+          snapshot={snapshot}
+        />
+      )}
+      {/* The chat's offers belong to the chat, never to Drive (Atum Kit review E23). */}
+      {!workplaceActive && !driveActive && !appDestination && (
+        <MatrixTerminalOffers
+          onOpened={(id, scope) => {
+            setTerminalRequest({ id, scope, serial: Date.now() })
+            openWorkspace()
+          }}
+          scope={matrixWorkbenchScope(snapshot)}
+          snapshot={snapshot}
+        />
+      )}
+      {!workplaceActive && !driveActive && !appDestination && (
+        <MatrixWebPreviewOfferCard
+          full={workspaceTabCount >= 32}
+          offer={snapshot.webPreview}
+          onOpened={value => {
+            setBrowserRequest(value)
+            openWorkspace()
+          }}
+          roomId={snapshot.roomId}
+          scope={matrixWorkbenchScope(snapshot)}
+        />
+      )}
+      {(error || (snapshot.error && snapshot.error !== 'matrix_disk_full')) && (
+        <NoticeBand role="status" tone="notice">
+          <span className="flex items-start gap-2" data-matrix-failure={error ?? undefined}>
+            <span className="min-w-0 flex-1">{notice}</span>
+            {error && !snapshot.error && failureRetry && (
+              <Button
+                className="-my-0.5 shrink-0"
+                data-matrix-failure-retry
+                onClick={() => {
+                  setError(null)
+                  failureRetry.run()
+                }}
+                size="sm"
+                type="button"
+                variant="text"
+              >
+                {chat.retry}
+              </Button>
+            )}
+            {error && !snapshot.error && (
+              <Tip label={chat.dismiss}>
+                <button
+                  aria-label={chat.dismiss}
+                  className="atum-icon-btn -my-0.5 size-6 shrink-0"
+                  onClick={() => setError(null)}
+                  type="button"
+                >
+                  <X aria-hidden className="size-3.5" />
+                </button>
+              </Tip>
+            )}
+          </span>
+        </NoticeBand>
+      )}
+      {snapshot.agentCleanupRequired && <NoticeBand tone="notice">{copy.enrollmentOrphaned}</NoticeBand>}
+      {/* The window's one device-health band: this Mac's own device repair/control
+          offers. Disk-full blocks the composer, so its notice lives with that box. */}
+      <MatrixDeviceHealthNotice
+        snapshot={{
+          deviceAccessRepair: snapshot.deviceAccessRepair,
+          deviceDamaged: snapshot.deviceDamaged,
+          ownerDeviceRepair: snapshot.ownerDeviceRepair
+        }}
+      />
+      <MatrixApprovalSheet open={approvalSheet.open} snapshot={snapshot} />
+      {setupCooldown && (
+        <NoticeBand role="status" tone="notice">
+          {setupCooldown.title} {setupCooldown.help}
+        </NoticeBand>
+      )}
+    </div>
+  )
+
   return (
     <>
       {/* Settings and the launch are modal: the window behind them is inert, which also keeps
@@ -8928,121 +9047,9 @@ function MatrixAccountView({
                     )}
                 </div>
               </AtumMainHeaderSurface>
-              <div className="mx-auto w-full max-w-[700px] shrink-0 px-10 empty:hidden" data-matrix-status-stack>
-                {/* A new sign-in elsewhere is the title bar's attention item (agent-attention.ts),
-                    never a band here: a band pushes the page under it down. */}
-                <ConversationRetryLine
-                  onRetry={() => {
-                    if (!snapshot.identity || !profileAgent) {
-                      return
-                    }
-
-                    void window.atumMatrix
-                      .command({
-                        kind: 'agentConversation',
-                        identity: snapshot.identity,
-                        agentId: profileAgent.userId,
-                        action: 'retry',
-                        ...(profileAgent.conversation?.proposed ? { roomId: profileAgent.conversation.proposed } : {})
-                      })
-                      .catch(fail)
-                  }}
-                  view={
-                    !founderDraftShown && !workplaceActive && !driveActive && !appDestination
-                      ? profileAgent?.conversation
-                      : undefined
-                  }
-                />
-                <HermesPrompts
-                  conversationVisible={
-                    !founderDraftShown && conversationShellVisible && !driveActive && !appDestination && Boolean(room)
-                  }
-                  fail={fail}
-                  snapshot={snapshot}
-                />
-                {/* A person's verification only: main's own checks of agents never reach the
-                    window (background-verification.ts). */}
-                <VerificationPrompt snapshot={snapshot} />
-                {snapshot.deviceIsolation?.value === 'signed' && error === 'identity_review' && !settingsOpen && (
-                  <MatrixPeerIdentityPanel
-                    onResolved={() => setError(current => (current === 'identity_review' ? null : current))}
-                    snapshot={snapshot}
-                  />
-                )}
-                {/* The chat's offers belong to the chat, never to Drive (Atum Kit review E23). */}
-                {!workplaceActive && !driveActive && !appDestination && (
-                  <MatrixTerminalOffers
-                    onOpened={(id, scope) => {
-                      setTerminalRequest({ id, scope, serial: Date.now() })
-                      openWorkspace()
-                    }}
-                    scope={matrixWorkbenchScope(snapshot)}
-                    snapshot={snapshot}
-                  />
-                )}
-                {!workplaceActive && !driveActive && !appDestination && (
-                  <MatrixWebPreviewOfferCard
-                    full={workspaceTabCount >= 32}
-                    offer={snapshot.webPreview}
-                    onOpened={value => {
-                      setBrowserRequest(value)
-                      openWorkspace()
-                    }}
-                    roomId={snapshot.roomId}
-                    scope={matrixWorkbenchScope(snapshot)}
-                  />
-                )}
-                {(error || (snapshot.error && snapshot.error !== 'matrix_disk_full')) && (
-                  <NoticeBand role="status" tone="notice">
-                    <span className="flex items-start gap-2" data-matrix-failure={error ?? undefined}>
-                      <span className="min-w-0 flex-1">{notice}</span>
-                      {error && !snapshot.error && failureRetry && (
-                        <Button
-                          className="-my-0.5 shrink-0"
-                          data-matrix-failure-retry
-                          onClick={() => {
-                            setError(null)
-                            failureRetry.run()
-                          }}
-                          size="sm"
-                          type="button"
-                          variant="text"
-                        >
-                          {chat.retry}
-                        </Button>
-                      )}
-                      {error && !snapshot.error && (
-                        <Tip label={chat.dismiss}>
-                          <button
-                            aria-label={chat.dismiss}
-                            className="atum-icon-btn -my-0.5 size-6 shrink-0"
-                            onClick={() => setError(null)}
-                            type="button"
-                          >
-                            <X aria-hidden className="size-3.5" />
-                          </button>
-                        </Tip>
-                      )}
-                    </span>
-                  </NoticeBand>
-                )}
-                {snapshot.agentCleanupRequired && <NoticeBand tone="notice">{copy.enrollmentOrphaned}</NoticeBand>}
-                {/* The window's one device-health band: this Mac's own device repair/control
-                    offers. Disk-full blocks the composer, so its notice lives with that box. */}
-                <MatrixDeviceHealthNotice
-                  snapshot={{
-                    deviceAccessRepair: snapshot.deviceAccessRepair,
-                    deviceDamaged: snapshot.deviceDamaged,
-                    ownerDeviceRepair: snapshot.ownerDeviceRepair
-                  }}
-                />
-                <MatrixApprovalSheet open={approvalSheet.open} snapshot={snapshot} />
-                {setupCooldown && (
-                  <NoticeBand role="status" tone="notice">
-                    {setupCooldown.title} {setupCooldown.help}
-                  </NoticeBand>
-                )}
-              </div>
+              {/* Team Space draws its own sidebar inside the workspace, so there the notices go into its
+                  main column (MatrixCompanyWorkspace notices); above it they would push the sidebar down. */}
+              {!workplaceActive && statusStack}
               {!workplaceActive && !driveActive && snapshot.apps && (
                 <MatrixApps
                   fail={fail}
@@ -9094,6 +9101,7 @@ function MatrixAccountView({
                   initialPage={workplacePage}
                   // Each page Settings opens is a fresh trip, even over one already open.
                   key={settingsTrip ? `settings:${settingsTrip.serial}` : 'workplace'}
+                  notices={statusStack}
                   obstructed={
                     drawerOpen ||
                     overlaid ||
