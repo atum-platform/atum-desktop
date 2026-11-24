@@ -396,7 +396,7 @@ export const WorkConsentRecordSchema = z
   .object({
     provider: z.enum(WORK_PLAN_PROVIDERS),
     state: z.enum(['on', 'off']),
-    agents: z.array(uuid).max(WORK_CONSENT_AGENTS_MAX),
+    agents: z.union([z.literal('all'), z.array(uuid).max(WORK_CONSENT_AGENTS_MAX)]).nonoptional(),
     devices: z.array(uuid).max(32),
     alsoWhenScheduled: z.boolean(),
     revision: safe,

@@ -12,6 +12,16 @@ function mounted(service: unknown): WorkMount {
 }
 
 describe('owner relay adapter', () => {
+  it('does not replace an all-owner grant with a UUID list', async () => {
+    const set = vi.fn()
+    const relay = createOwnerRelay(mounted({ ledger: { agent: () => undefined },
+      gate: { state: () => ({ agents: [{ principal, entitled: true }] }) } }),
+    { read: async (plan = 'codex') => ({ ...account, consent: { ...account.consent, provider: plan, state: 'on', agents: 'all' } }), set },
+    () => { throw new Error('unused') })
+
+    await relay.read(principal, '!dm:test')
+    expect(set).not.toHaveBeenCalled()
+  })
   it('reads account facts even when this Mac has no running gate', async () => {
     const relay = createOwnerRelay({ service: () => undefined } as unknown as WorkMount, { read: async () => account }, () => { throw new Error('unused') })
     expect(await relay.read(principal, '!dm:test')).toEqual({ account, status: null, turns: [] })

@@ -47,6 +47,14 @@ function bridge(reads: AccountConnectionsView[]) {
   }
 }
 
+it('keeps an all-owner grant intact during automatic Connect consent', async () => {
+  const b = bridge([])
+  b.readPlanConsent.mockResolvedValue({ ...CONSENT, state: 'on', allOwnerAgents: true })
+  await grantAccountPlanUse(b, 'codex')
+  expect(b.setPlanConsent).not.toHaveBeenCalled()
+  expect(b.setPlan).toHaveBeenCalledWith(true)
+})
+
 beforeEach(() => {
   vi.useFakeTimers()
   resetAccountConnectionsForTest()

@@ -104,6 +104,13 @@ describe('the owner\'s consent client (gate 4b-2)', () => {
     expect(calls).toEqual([{ operation: 'work_consent_set', provider: 'codex', agents: [LUNA, NOVA], devices: [DEVICE], alsoWhenScheduled: true }])
   })
 
+  it('reads all-owner consent without changing the list-only sender', async () => {
+    const all = { ...record, agents: 'all' }
+    const { consent } = consentClient({ consent: all, facts: [], issuedAt: 1 })
+
+    expect((await consent.read()).consent).toEqual(all)
+  })
+
   it('revokes with the provider only, and reads the state', async () => {
     const off = { ...record, state: 'off', agents: [], devices: [], revision: 3, revokedAt: 1_795_000_000_500 }
     const revoke = consentClient(off)

@@ -70,6 +70,7 @@ export interface MatrixWorkConsentMac {
  */
 export interface MatrixWorkPlanConsent {
   state: 'on' | 'off'
+  allOwnerAgents?: boolean
   /** Principals of the assistants named. */
   agents: string[]
   /** Principals the owner may name: the assistants this Mac's Work route knows (entitled), and any the record names. */

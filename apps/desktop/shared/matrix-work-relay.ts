@@ -86,7 +86,7 @@ export interface WorkRelayConsent {
   provider: WorkRelayPlan
   state: 'on' | 'off'
   /** Assistant principals named. */
-  agents: readonly string[]
+  agents: readonly string[] | 'all'
   /** Mac (device-service) ids named. */
   devices: readonly string[]
   alsoWhenScheduled: boolean
