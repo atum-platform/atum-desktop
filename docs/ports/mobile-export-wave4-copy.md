@@ -389,3 +389,34 @@ None of the six is mapped there yet, so each wave's run uses throwaway entries a
 | `Laptop` | `laptop` | the Work destination in the Mac shell | `laptopcomputer` |
 
 Mapping them changes `glyphs.json`, a design-export decision. This wave doesn't change it.
+
+## Wave 4f: the picker's thinking levels (#119)
+
+Desktop #119 (`2365efe8`) moved the picker's thinking heading, levels and taglines into
+`apps/desktop/src/matrix/model-picker-labels.json`, which `model-picker-copy.ts` imports and spreads
+(`pickerLabels`). The producer could not load that import: its resolver appended `.ts` to every relative import
+(atum-app `scripts/copy.mjs`, then line 168), so `export.mjs --check` stopped on
+`model-picker-labels.json.ts`. Producer inputs are on atum-app `chore/mobile-export-wave4f-keys`.
+
+- **Producer fix** (atum-app `packages/mobile-design-exports/scripts/copy.mjs`): a `.json` import in a copy
+  module is now read with Node's own JSON loader (`createRequire`, lines 3 and 11; the branch at lines 172–177).
+  It must sit inside the desktop app. TypeScript's `esModuleInterop` (line 157; line 113 for the type program,
+  with `resolveJsonModule`) gives the default import, as `apps/desktop/tsconfig.json:9,15` does on desktop. The new
+  test `test/json-copy-source.test.mjs` checks every `labels.json`-backed key in all five locales against the
+  JSON. It fails on the old resolver with the same error, and passes now.
+- **No phone-visible change** to the seven existing keys (`COPY.effort`, `efforts.{low,medium,high}`,
+  `taglines.{everyday,hard,flagship}`): each is byte-identical in all five locales.
+- **Added: 4.** `src.matrix.model-picker-copy.COPY.efforts.{none,minimal,xhigh,max}`, next to `efforts.*`.
+  `pickerLabels` now fills every level the JSON has (`model-picker-copy.ts:136–142`; type at line 23). The agent
+  picker still draws only `low`/`medium`/`high` (`MATRIX_EFFORTS`, `shared/matrix-models.ts:237`;
+  `model-picker-effort-column.tsx:143`), so desktop behaviour is unchanged. The words are the JSON's exactly:
+  - `none` (`model-picker-labels.json:13`): Off / Tắt / オフ / 关闭 / 關閉
+  - `minimal` (`:14`): Instant / Tức thì / 即答 / 即时 / 即時
+  - `xhigh` (`:30`): Extra thorough / Rất kỹ / さらにじっくり / 更深入 / 更深入
+  - `max` (`:37`): Maximum / Tối đa / 最大 / 最大 / 最大
+- **"Loading models…"** was already exported (`COPY.modelsLoading`, `model-picker-copy.ts:170` en), so nothing
+  was added for it.
+- **Refreshed / removed: none.** Catalog: 4134 → 4138 entries. Inventory and copy map unchanged.
+- Checks: producer `export.mjs --check` 0 and tests 46/46. As before, six glyph aliases got throwaway mappings
+  for the run; `glyphs.json` is not spliced. Desktop `tsc -p . --noEmit` 0. The model-picker and copy vitest
+  files pass, 180 tests. All 44 manifest hashes match. The outbound guard passes.
