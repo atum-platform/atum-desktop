@@ -18,10 +18,10 @@ def validate_cutover(root, evidence_file):
     path = Path(evidence_file)
     info = path.lstat()
     if (not path.is_absolute() or not stat.S_ISREG(info.st_mode)
-            or path.is_symlink() or info.st_uid != os.getuid() or info.st_mode & 0o077
+            or path.is_symlink() or info.st_uid != os.getuid() or info.st_mode & 0o077  # windows-footgun: ok - POSIX-only private-file ownership check
             or info.st_size > 65536):
         raise ValueError('private_cutover_evidence_required')
-    value = json.loads(path.read_text())
+    value = json.loads(path.read_text(encoding='utf-8-sig'))
     reports = value.get('reports')
     if (set(value) != {'schema', 'localRoot', 'completeInventory', 'liveTransportProven', 'reports'}
             or value['schema'] != 'atum.awareness-cutover/1'
@@ -61,7 +61,7 @@ def enroll(home, endpoint, client=None, *, local_brain_root=None, cutover_file=N
         _write_json(storage._client_info_path(), {**client, 'grant_types':['client_credentials'],
                            'token_endpoint_auth_method':'client_secret_post', 'scope':'read'})
     path = home / 'config.yaml'
-    config = (safe_load(path.read_text()) if path.exists() else {}) or {}
+    config = (safe_load(path.read_text(encoding='utf-8-sig')) if path.exists() else {}) or {}
     entry = {'url':endpoint, 'auth':'oauth', 'tools':{'include':['search','get_page']}}
     if client is not None:
         entry['oauth'] = {'grant_type':'client_credentials', 'scope':'read'}
@@ -106,7 +106,7 @@ def main():
         info = args.client_file.lstat()
         if args.client_file.is_symlink() or info.st_mode & 0o077:
             raise ValueError('private_client_file_required')
-        client = json.loads(args.client_file.read_text())
+        client = json.loads(args.client_file.read_text(encoding='utf-8-sig'))
     for home in args.home:
         enroll(home, args.endpoint, client, local_brain_root=args.local_brain_root, cutover_file=args.cutover_file)
 

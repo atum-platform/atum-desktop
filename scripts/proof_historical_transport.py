@@ -7,7 +7,7 @@ from agent.atum_awareness import AtumAwarenessProvider, AwarenessRunBinding
 from agent.cloud_first_awareness import CloudFirstAwareness
 from agent.historical_awareness import HistoricalAwareness, UnixHistoricalTransport
 
-with open(sys.argv[1]) as file:
+with open(sys.argv[1], encoding='utf-8-sig') as file:
     config = json.load(file)
 b = config['binding']
 state = {'current': True}

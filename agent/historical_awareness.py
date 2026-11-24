@@ -50,7 +50,7 @@ class UnixHistoricalTransport:
             raise AwarenessSessionError()
         for path in (self.path.parent, self.path):
             info = path.lstat()
-            if (info.st_uid != os.getuid() or info.st_mode & 0o077
+            if (info.st_uid != os.getuid() or info.st_mode & 0o077  # windows-footgun: ok - POSIX-only private-file ownership check
                     or stat.S_ISLNK(info.st_mode)):
                 raise AwarenessSessionError()
         if not stat.S_ISDIR(self.path.parent.stat().st_mode) or not stat.S_ISSOCK(self.path.stat().st_mode):
