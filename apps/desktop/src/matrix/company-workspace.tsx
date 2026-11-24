@@ -212,6 +212,8 @@ export interface MatrixCompanyWorkspaceProps {
   convergenceAttempts?: number
   /** The selected company channel transcript. The company sidebar stays mounted beside it. */
   channelContent?: ReactNode
+  /** The window's notice bands: shown at the top of the main column, never above the sidebar. */
+  notices?: ReactNode
   /** Reports whether the bound transcript is actually painted and readable. */
   onChannelVisibilityChange?(visible: boolean): void
   /** Current Matrix room, used only to mark the active channel row. */
@@ -346,7 +348,7 @@ function CompanyOverviewFrame({ children, overlay }: { children: ReactNode; over
  */
 export function MatrixCompanyWorkspace({ accountKey, activeRoomId, activity: syncedActivity = [], bridge, fundingEnabled = false, projectSourcesEnabled = false,
     projectReaderEnabled = false, projectsEnabled = false, rooms = [], searchEnabled = false,
-    overviewFallback = false, channelContent, drafts = { records: [], writable: false }, notesSelf, notesSelfAvatar,
+    overviewFallback = false, channelContent, notices, drafts = { records: [], writable: false }, notesSelf, notesSelfAvatar,
     onOpenNotesSelf, savedMessages = { records: [], writable: false }, citationSenderName,
     convergenceDelayMs = 1_500, convergenceAttempts = 8,
     onAcceptPrivateCosInvite, onChannelVisibilityChange, onFollowCompanyThread, onOpenActivityItem, onOpenChannel,
@@ -3189,6 +3191,7 @@ export function MatrixCompanyWorkspace({ accountKey, activeRoomId, activity: syn
             </Button>
           </div>
         )}
+        {notices}
         {selectedCompanyId && <CompanySpaceTabs scope={activeCompanyScope} />}
         <div className="relative flex min-h-0 flex-1 overflow-hidden">
         <div className={visibleMainContent

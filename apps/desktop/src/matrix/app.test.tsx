@@ -3507,6 +3507,38 @@ describe('isolated Matrix composition', () => {
     expect(rosterSearch.value).toBe('Atum')
   })
 
+  it('shows window notices inside the Team space main column, never above its sidebar', async () => {
+    const rail = () => screen.getByRole('navigation', { name: 'Main navigation' })
+    const company = fixture(undefined, 'en', workplacePages(), undefined, undefined, companyWorkspace())
+    // agentCleanupRequired paints one of the window's notice bands.
+    company.emit({ ...controlsState, agentCleanupRequired: true, companyWorkspaceEnabled: true })
+    await screen.findByRole('button', { name: 'Account: owner' })
+    const chatStack = () => window.document.querySelector('[data-matrix-status-stack]')
+    expect(chatStack()?.textContent).toBeTruthy()
+
+    fireEvent.click(within(rail()).getByRole('button', { name: 'Team space' }))
+
+    const sidebar = await waitFor(() => {
+      const value = window.document.querySelector('[data-matrix-company-sidebar]')
+
+      expect(value).toBeTruthy()
+
+      return value!
+    })
+
+    const main = window.document.querySelector('[data-matrix-company-content]')!
+    const stacks = window.document.querySelectorAll('[data-matrix-status-stack]')
+
+    expect(stacks).toHaveLength(1)
+    expect(stacks[0]!.textContent).toBeTruthy()
+    expect(main.contains(stacks[0]!)).toBe(true)
+    expect(stacks[0]!.contains(sidebar)).toBe(false)
+    // Nothing above the workspace row offsets the sidebar: no band precedes it in the chat section.
+    const workspace = window.document.querySelector('[data-matrix-company-workspace]')!
+    expect(workspace.contains(sidebar)).toBe(true)
+    expect(sidebar.parentElement).toBe(main.parentElement)
+  })
+
   it('never paints a bound company channel in Home and follows an external channel selection into Team Space', async () => {
     const command = vi.fn(async () => null)
     const companies = companyWorkspaceWithChannel('!launch:test')
