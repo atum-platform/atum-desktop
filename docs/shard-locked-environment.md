@@ -13,3 +13,5 @@ optional provider was removed and the lock was not changed.
 The public outbound guard passed with exit 0 after fetching full public history.
 No push, rerun, release or deployment was performed. Full hosted shard execution
 remains pending the coordinating session's push.
+
+Superseded by ci-hermes-shard-recovery.md: the in-tree environment bypassed PM tools and interpreter semantics. Restore canonical activation and increase the forwarded metadata timeout instead.
