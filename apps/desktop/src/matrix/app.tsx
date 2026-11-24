@@ -8093,7 +8093,7 @@ function MatrixAccountView({
   // Self-work slice A: Work, right below Chats, while main reports it for this account on this Mac.
   const workOnScreen = workActive && workOnRail(work)
 
-  const railDestination: AtumShellDestination = workOnScreen
+  const railDestination: MatrixNavScreen = workOnScreen
     ? 'work'
     : driveActive
       ? 'drive'
@@ -8216,18 +8216,6 @@ function MatrixAccountView({
       selectDefaultConversation()
     }
   }
-
-  // The window's history (layout r2 §1): the screen on the rail and what is open on it.
-  const railDestination: MatrixNavScreen = workOnScreen
-    ? 'work'
-    : driveActive
-      ? 'drive'
-      : workplaceOnScreen
-        ? 'workplace'
-        : // An open app is one of the store's: the rail keeps that place, not Home.
-          snapshot.destination?.kind === 'discover' || (snapshot.apps && snapshot.destination?.kind === 'app')
-          ? 'discover'
-          : 'chat'
 
   // The neutral right panel's screen and whether it is open (layout r2 §2), remembered per screen.
   const rightPanels = useStore($matrixRightPanel)
