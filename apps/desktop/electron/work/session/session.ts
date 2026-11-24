@@ -77,8 +77,25 @@ export class WorkSession {
 
   private readonly updating = new Set<string>()
 
-  async start(): Promise<WorkIncarnation> {
+  private readonly starting = new Map<string, Promise<WorkIncarnation>>()
+
+  start(): Promise<WorkIncarnation> {
     const state = this.state()
+    const key = state.paths.home
+    const pending = this.starting.get(key)
+
+    if (pending) {return pending}
+
+    const run = this.startAccount(state).finally(() => {
+      if (this.starting.get(key) === run) {this.starting.delete(key)}
+    })
+
+    this.starting.set(key, run)
+
+    return run
+  }
+
+  private async startAccount(state: AccountState): Promise<WorkIncarnation> {
     await state.driver?.recover()
     await state.coordinator.reconcile()
 

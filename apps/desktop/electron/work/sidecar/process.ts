@@ -2,6 +2,7 @@ import { type ChildProcessByStdio, spawn } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
 import { readFileSync } from 'node:fs'
 import { mkdir, readFile } from 'node:fs/promises'
+import { homedir, tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { createInterface } from 'node:readline'
 import type { Readable, Writable } from 'node:stream'
@@ -27,6 +28,7 @@ interface WorkAccount {
 }
 
 interface WorkProcessOptions {
+  log?(phase: string, ms: number): void
   prepare?(signal: AbortSignal): Promise<void>
   account: WorkAccount
   resources: string
@@ -106,13 +108,13 @@ function provider(python: string, home: string, label: string, showInPicker: boo
 }
 
 export function workRuntimeEnvironment(root: string, resources: string, shellPath = ''): Record<string, string> {
-  const osHome = join(root, 'environment')
-
   return {
-    HOME: osHome,
-    TMPDIR: osHome,
-    XDG_CONFIG_HOME: join(osHome, 'config'),
-    XDG_CACHE_HOME: join(osHome, 'cache'),
+    HOME: homedir(),
+    TMPDIR: tmpdir(),
+    ...(process.env.USER ? { USER: process.env.USER } : {}),
+    ...(process.env.LOGNAME ? { LOGNAME: process.env.LOGNAME } : {}),
+    ...(process.env.SHELL ? { SHELL: process.env.SHELL } : {}),
+    ...Object.fromEntries(['XDG_CONFIG_HOME', 'XDG_CACHE_HOME', 'XDG_DATA_HOME', 'CODEX_HOME', 'CLAUDE_CONFIG_DIR'].flatMap(name => process.env[name] ? [[name, process.env[name]!]] : [])),
     PATH: [join(resources, 'work-runtime'), shellPath, '/usr/bin', '/bin', '/usr/sbin', '/sbin'].filter(Boolean).join(':'),
     PYTHONPATH: join(resources, 'runtime', 'hermes-agent'),
     LANG: 'en_US.UTF-8',
@@ -130,17 +132,18 @@ async function startProcess(options: WorkProcessOptions, { continuation, trial }
   const root = join(account.root, 'work')
   const home = join(root, 'server')
   const cwd = join(root, 'workspace')
-  const osHome = join(root, 'environment')
   const source = join(resources, 'runtime', 'hermes-agent')
   const python = join(resources, 'runtime', 'python', 'bin', 'python3.14')
   const profileSource = join(source, 'acp_adapter', 'profiles')
 
   const profiles = BROKER_PROFILES.map(({ directory }) => join(root, directory))
-  await Promise.all([join(home, 'userdata'), cwd, osHome, ...profiles].map(directory =>
+  await Promise.all([join(home, 'userdata'), cwd, ...profiles].map(directory =>
     mkdir(directory, { recursive: true, mode: 0o700 })
   ))
 
+  const shellStarted = Date.now()
   const environment = workRuntimeEnvironment(root, resources, await loginShellPath())
+  options.log?.('shell', Date.now() - shellStarted)
   const managedModel = { instanceId: ATUM_WORK_PROVIDER, model: ATUM_WORK_MODEL }
 
   const providerInstances = Object.fromEntries(BROKER_PROFILES.map(({ directory, instance, label, showInPicker }) => [
@@ -395,6 +398,7 @@ export class WorkSidecar {
 
   private async launch(input: WorkStartOptions, controller: AbortController): Promise<WorkIncarnation> {
     const signal = controller.signal
+    const startedAt = Date.now()
 
     try {
       await this.options.prepare?.(signal)
@@ -416,6 +420,7 @@ export class WorkSidecar {
 
         origin = paired.origin
         grant = paired.url
+        this.options.log?.('ready', Date.now() - startedAt)
         this.live = incarnation
         this.readyAt = Date.now()
         // A committed trial recovers as an ordinary run, never replays a trial.

@@ -412,6 +412,7 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
   }
 
   const host = new WorkHost({
+    log: (phase, ms) => deps.log(`[atum-work] startup phase=${phase} ms=${ms}`),
     surfaceModeChanged: snapshot => deps.publish(MATRIX_WORK_IPC.surfaceModeChanged, snapshot),
     prepare: prepareConnector,
     resources: deps.resources,
@@ -722,7 +723,12 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
       }).finally(() => { resolving = undefined })
       await resolving
 
-      return lifecycle.activate()
+      await lifecycle.activate()
+
+      // Recover/update through WorkSession before warming the account's native server.
+      if (host.enabled() && !session.held()) {
+        void session.start().catch(() => deps.log('[atum-work] background_start_failed'))
+      }
     },
     retire: async () => {
       modelKeys.forget()
