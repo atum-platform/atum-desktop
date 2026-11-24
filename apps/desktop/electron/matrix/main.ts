@@ -897,6 +897,7 @@ import {
 } from './provider-connections'
 import { createMatrixQuitHandler } from './quit'
 import {
+  MATRIX_READINESS_TIMINGS,
   matrixCloudOnlyReadiness,
   matrixLaunchExclusionLine,
   type MatrixReadinessCheck,
@@ -2564,6 +2565,7 @@ function createDeviceIdentity(): MacDeviceIdentity {
     // Production builds dial only the production hub; a build compiled with a loopback hub (the
     // local tunnel fallback) may dial it instead (connection.ts deviceHubUrl).
     hubUrl: deviceHubUrl(process.env.ATUM_DEVICE_HUB_URL),
+    hubRequired: controllerHubRequired,
     call: s1Call,
     owner: deviceOwner,
     // Until the device runtime (WS-4) attaches, this Mac offers nothing and says so.
@@ -7077,7 +7079,7 @@ function publish(next: MatrixSnapshot) {
       next.identity && (ownDeviceDamaged === `${next.identity.userId}\n${next.identity.deviceId}` ||
         ownerDeviceRepair?.replacing(next.identity)) ? true : undefined,
     ownerDeviceRepair: ownerDeviceRepair?.snapshot(next.identity),
-    deviceAccessRepair: deviceIdentity?.connection()?.needsRepair() || undefined,
+    deviceAccessRepair: (controllerHubRequired() && deviceIdentity?.connection()?.needsRepair()) || undefined,
     deviceControlRequired: next.identity && deviceControlOwner?.userId === next.identity.userId &&
       deviceControlOwner?.deviceId === next.identity.deviceId ? true : undefined,
     newSignIn,
@@ -11464,6 +11466,7 @@ function unusedRoot(): boolean {
 function recheckAgents(refreshRoster = false) {
   if (refreshRoster) {
     agentRoster.request()
+    void syncAgents()
   }
 
   for (const each of allAgents()) {
@@ -11551,6 +11554,26 @@ const agentRoster = new MatrixRosterRecovery<Awaited<ReturnType<MatrixAccount['a
  * reusable hire target against (store.ts matrixScopedHireTargetLive). */
 let hireRoster: { scope: MatrixRosterScope; roster: Awaited<ReturnType<MatrixAccount['agents']>> } | undefined
 
+/** Placement is metadata from this authenticated account generation, never missing local custody. */
+function agentPlacementKnown(agent: MatrixAgentRuntime): boolean {
+  const scope = account.appScope()
+  const principal = cloudPrincipal(agent) ?? productDefaultPrincipal
+
+  return Boolean(scope && hireRoster && hireRoster.scope.accountKey === scope.accountKey &&
+    hireRoster.scope.generation === scope.generation && principal &&
+    hireRoster.roster.some(row => row.status === 'active' && row.principal === principal))
+}
+
+/** S2 uses native SSH/Work; only legacy roster agents need the controller hub. Unknown waits. */
+function controllerHubRequired(): boolean | undefined {
+  const scope = account?.appScope()
+
+  if (!scope || !hireRoster || hireRoster.scope.accountKey !== scope.accountKey ||
+    hireRoster.scope.generation !== scope.generation) {return undefined}
+
+  return hireRoster.roster.some(row => row.status === 'active' && row.runtime !== 'hermes')
+}
+
 /** Unknown (undefined) until a roster is read for the signed-in account and generation. */
 function hireTargetLive(assistantId: string): boolean | undefined {
   return matrixScopedHireTargetLive(hireRoster, account.appScope(), assistantId)
@@ -11614,6 +11637,7 @@ function syncAgents(): Promise<MatrixReadinessCheck> {
       retiredAgentRooms.roster(account.identity()?.userId, roster)
       // S1 compatibility still names cloud routing; H-F policy decides whether this Mac also
       // keeps a policy-backed local writer ready for takeover.
+      deviceIdentity?.connection()?.start()
       applyAnswering(roster)
       const own = account.retainedAgentPrincipal()
       const primary = matrixDefaultAgent(roster)
@@ -12175,12 +12199,13 @@ function setUpAssistant(interactive: boolean): Promise<void> {
     try {
       // Roster only reads role/slot metadata. It never awaits setup, so this
       // direction cannot deadlock the roster and enrollment single flights.
-      if (productDefaultPrincipal === undefined && account.appScope()) {
-        let roster: MatrixReadinessCheck | undefined
+      if (!agentPlacementKnown(defaultAgent)) {
         let failure: unknown
 
         try {
-          roster = await syncAgents()
+          await account.readDomain(interactive)
+          live()
+          await syncAgents()
         } catch (error) {
           failure = error
         }
@@ -12188,7 +12213,9 @@ function setUpAssistant(interactive: boolean): Promise<void> {
         // A first roster read that fails before naming the product default is not a setup
         // failure: the assistant may already be in the cloud, and the next read decides. Keep
         // the setup pending and let the readiness gate retry it at its first backoff.
-        const retry = matrixAssistantSetupRosterRetry({ roster, defaultPrincipal: productDefaultPrincipal })
+        if (failure && !account.appScope()) { throw failure }
+
+        const retry = matrixAssistantSetupRosterRetry({ placementKnown: agentPlacementKnown(defaultAgent) })
 
         if (retry !== undefined) {
           assistantSetupState = undefined
@@ -12368,6 +12395,13 @@ function rereadCustodyAfterRefusal(code: string) {
  * one agent's setup never holds up another's turns. */
 function setUpAgent(agentRuntime: MatrixAgentRuntime): Promise<void> {
   const principal = agentRuntime.principal
+
+  if (!agentPlacementKnown(agentRuntime)) {
+    agentRuntime.setupState = undefined
+    agentRuntime.setupRetryAt = Date.now() + MATRIX_READINESS_TIMINGS.backoffMs[0]
+
+    return Promise.resolve()
+  }
 
   // S1 legacy cloud-only agents are not enrolled, started or checked here. A saved H-F policy can
   // prepare one for a fenced takeover; a move still cannot restart it mid-flight.
@@ -18490,11 +18524,11 @@ async function start() {
       localExecutorRequired: agent =>
         matrixLocalExecutorRequired({
           principal: agent,
-          defaultCloudOnly: isCloudOnlyAgent(defaultAgent),
+          defaultCloudOnly: agentPlacementKnown(defaultAgent) ? isCloudOnlyAgent(defaultAgent) : undefined,
           namedCloudOnly: principal => {
             const named = agents.get(principal)
 
-            return named ? isCloudOnlyAgent(named) : undefined
+            return named && agentPlacementKnown(named) ? isCloudOnlyAgent(named) : undefined
           }
         }),
       domainContinuation: matrixDriveChain(() => drive)
@@ -25721,6 +25755,7 @@ async function start() {
       try {
         switch (request?.kind) {
           case 'repairDeviceAccess': {
+            if (!controllerHubRequired()) { return }
             await deviceIdentity?.repairConnection()
             publish(state)
 

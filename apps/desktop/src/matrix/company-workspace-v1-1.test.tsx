@@ -482,6 +482,33 @@ describe('company workspace 1.1', () => {
     expect(screen.queryByRole('button', { name: 'Invite' })).toBeNull()
   })
 
+  it('shows the window notices in the main column, beside the sidebar, never above it', async () => {
+    const bridge: MatrixCompanyBridge = {
+      pending: noPending,
+      request: vi.fn(async input => {
+        if (input.action === 'list') { return { ok: true as const, value: directory11() } }
+
+        if (input.action === 'read') { return { ok: true as const, value: snapshot11([self]) } }
+
+        if (input.action === 'list-channels') { return { ok: true as const, value: channels11() } }
+
+        return { ok: false as const, error: 'invalid' as const }
+      })
+    }
+
+    renderWorkspace({ bridge, notices: <p role="status">This Mac's access needs repair</p> })
+    await screen.findByRole('heading', { name: 'Atum Studio' })
+    const notice = screen.getByText("This Mac's access needs repair")
+    const sidebar = document.querySelector('[data-matrix-company-sidebar]')!
+    const main = document.querySelector('[data-matrix-company-content]')!
+
+    expect(main.contains(notice)).toBe(true)
+    expect(sidebar.contains(notice)).toBe(false)
+    expect(notice.contains(sidebar)).toBe(false)
+    // The sidebar and the main column are siblings in one row: the notice offsets only the column.
+    expect(sidebar.parentElement).toBe(main.parentElement)
+  })
+
   it('shows no default encryption notice in the workspace sidebar', async () => {
     const bridge: MatrixCompanyBridge = {
       pending: noPending,

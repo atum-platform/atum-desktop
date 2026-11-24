@@ -83,8 +83,20 @@ export function buildEnvironmentCaptureCommand(shell: string, names: ReadonlyArr
   return DEBUG_TRAP_SHELLS.has(executableName) ? `(trap - DEBUG) 2>/dev/null && trap - DEBUG; ${command}` : command
 }
 
-/** Resolve before substituting Work's isolated HOME; never inherit shell credentials. */
-export async function loginShellPath(env: NodeJS.ProcessEnv = process.env): Promise<string> {
+let cachedPath: Promise<string> | undefined
+
+/** Share concurrent captures; retain only successful captures across starts. */
+export function loginShellPath(env: NodeJS.ProcessEnv = process.env): Promise<string> {
+  if (env !== process.env) {return captureLoginShellPath(env).then(result => result.path)}
+
+  return cachedPath ??= captureLoginShellPath(env).then(result => {
+    if (!result.captured) {cachedPath = undefined}
+
+    return result.path
+  })
+}
+
+async function captureLoginShellPath(env: NodeJS.ProcessEnv): Promise<{ path: string; captured: boolean }> {
   let userShell: string | undefined
 
   try {
@@ -119,9 +131,9 @@ export async function loginShellPath(env: NodeJS.ProcessEnv = process.env): Prom
       start >= 0 && end > start ? output.slice(start + '__T3CODE_ENV_PATH_START__\n'.length, end).trim() : ''
 
     if (captured) {
-      return [captured, env.PATH].filter(Boolean).join(':')
+      return { path: [captured, env.PATH].filter(Boolean).join(':'), captured: true }
     }
   }
 
-  return env.PATH ?? ''
+  return { path: env.PATH ?? '', captured: false }
 }

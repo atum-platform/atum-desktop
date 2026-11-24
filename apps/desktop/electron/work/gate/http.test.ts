@@ -370,7 +370,7 @@ describe('B-0: every path from an agent to a plan, with a granted credential, th
     const reply = await post(rpc('launch', { ...launchArgs(), plan: 'codex' }), await good())
 
     expect(reply.json.result.structuredContent).toMatchObject({ class: 'accepted', receipt: 'launched' })
-    expect((h.t3.calls.find(call => call.tool === 'launch')?.args as { call: { modelSelection: unknown } }).call.modelSelection).toEqual({ instanceId: 'codex', model: 'codex-model-1' })
+    expect((h.t3.calls.find(call => call.tool === 'launch')?.args as { call: { modelSelection: unknown } }).call.modelSelection).toEqual({ instanceId: 'atum-relay-codex', model: 'codex-model-1' })
   })
 
   it.each([
@@ -378,7 +378,7 @@ describe('B-0: every path from an agent to a plan, with a granted credential, th
     ['another case', 'CODEX'],
     ['a padded name', 'codex '],
     ['true', true],
-    ['an object', { instanceId: 'codex' }],
+    ['an object', { instanceId: 'atum-relay-codex' }],
     ['null', null]
   ])('plan: %s is refused as an invalid field; T3 and the homeserver see nothing', async (_name, value) => {
     planReady()
@@ -446,8 +446,8 @@ describe('direct calls with a granted credential (T10)', () => {
     ['an attachment', { attachments: [{ name: 'a' }] }],
     ['delegatedFrom', { delegatedFrom: 'x' }],
     ['an environmentId', { environmentId: 'e' }],
-    ['another provider', { provider: 'codex' }],
-    ['a modelSelection', { modelSelection: { instanceId: 'codex', model: 'x' } }],
+    ['another provider', { provider: 'atum-relay-codex' }],
+    ['a modelSelection', { modelSelection: { instanceId: 'atum-relay-codex', model: 'x' } }],
     ['a workspaceStrategy', { workspaceStrategy: { type: 'worktree' } }],
     ['an agent id', { agent: LUNA }],
     ['an unknown field', { surprise: 1 }]
@@ -562,7 +562,7 @@ describe('logs carry ids and typed reasons only', () => {
 it('1.3 sends IDs through authenticated socket, freezes replay and refuses caller material (RT2/RT10)', async () => {
   h.consent({})
   h.gate.setPlanSwitch(true)
-  relaySelection = { revision: 1, instanceId: 'codex', model: 'test', projectId: 'test', personaRevision: 1 }
+  relaySelection = { revision: 1, instanceId: 'atum-relay-codex', model: 'test', projectId: 'test', personaRevision: 1 }
   h.owner.fetch = async () => ({
     kind: 'ok',
     body: 'intact owner text',

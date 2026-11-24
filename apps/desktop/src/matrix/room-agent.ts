@@ -1,5 +1,5 @@
 import type { MatrixAgentView, MatrixSnapshot } from '../../shared/matrix'
-import { matrixPrimaryAgent } from '../../shared/matrix-assistant-room'
+import { isAssistantRoom, matrixPrimaryAgent } from '../../shared/matrix-assistant-room'
 
 import { resolveProjectedConversation } from './conversation-marker'
 
@@ -27,13 +27,18 @@ export function agentRoomId(snapshot: MatrixSnapshot, principal: string): string
  * The snapshot as the selected room's agent sees it (
  * §2.8). In another agent's room, that agent's user, readiness, backend, model, setup, room
  * watch and work in progress take the place of the default agent's singular fields, so the
- * conversation reads one shape. Anywhere else the snapshot is returned as it is.
+ * conversation reads one shape. A cloud primary without local enrollment uses the same
+ * projection. Anywhere else the snapshot is returned as it is.
  */
 export function snapshotForRoom(snapshot: MatrixSnapshot): MatrixSnapshot {
   const room = snapshot.rooms.find(each => each.id === snapshot.roomId)
 
   const agent = room?.agentPrincipal
-    ? otherAgents(snapshot).find(each => each.principal === room.agentPrincipal)
+    ? (otherAgents(snapshot).find(each => each.principal === room.agentPrincipal) ??
+      // A cloud primary has no local enrollment to supply the singular assistant identity.
+      (!snapshot.assistant
+        ? snapshot.agents?.find(each => each.principal === room.agentPrincipal && each.answering === 'cloud')
+        : undefined))
     : undefined
 
   if (!room || !agent) {
@@ -66,4 +71,16 @@ export function anyAgentPrompts(snapshot: MatrixSnapshot): boolean {
   return Boolean(
     snapshot.hermesPrompts?.prompts.length || snapshot.agentTurns?.some(turn => Boolean(turn.prompts?.length))
   )
+}
+
+/** A room nudge follows that room's assistant even after Main changes. */
+export function assistantTarget(snapshot: MatrixSnapshot, agentId?: string, roomId?: string): string | undefined {
+  if (!roomId) {return agentId ?? primaryAgent(snapshot)?.userId ?? snapshot.assistant?.userId}
+  const room = snapshot.rooms.find(value => value.id === roomId)
+  const agent = snapshot.agents?.find(value => room?.agentPrincipal === value.principal) ??
+    snapshot.agents?.find(value => room && isAssistantRoom(room, snapshot.identity?.userId, value.userId))
+
+  const target = agent?.userId ?? snapshot.assistant?.userId
+
+  return room && isAssistantRoom(room, snapshot.identity?.userId, target) ? target : undefined
 }

@@ -191,10 +191,10 @@ export function matrixLaunchAgents(snapshot: MatrixSnapshot): MatrixLaunchPrepar
     ]
   }
 
-  // A failed read is an assistant/roster problem, not a reason to hold the app. The existing
-  // refresh keeps trying in the background and the shell can render the cache it has.
+  // A failed read has no placement authority. During the bounded launch wait it keeps
+  // the retry action; the shell suppresses setup notices until placement becomes known.
   if (roster.state !== 'ready') {
-    return []
+    return [{ roster: true, readiness: { phase: 'blocked', step: 'assistant', code: 'agent_roster_unavailable', since: roster.since } }]
   }
 
   if (snapshot.agents?.length) {
@@ -225,7 +225,7 @@ export function matrixLaunchPreparation(snapshot: MatrixSnapshot): MatrixLaunchP
 /** Cold start waits only for sign-in/chat sync, an account step, the first roster read, and the
  * brief normal-starting-assistant wait. Assistant, roster-refresh, and app-catalog trouble stays
  * inside the open app and keeps retrying in the background. */
-/** The longest the launch waits on a normally starting assistant or the first roster read. A
+/** The longest the launch waits on a normally starting assistant after roster convergence. A
  * step that never answers must not keep the window closed: after this the app opens and the
  * assistant's own row keeps showing that it is starting. */
 export const MATRIX_LAUNCH_START_WAIT_MS = 20_000
@@ -246,6 +246,7 @@ export function matrixStartupBlocking(snapshot: MatrixSnapshot, waitedMs = 0): b
     return (
       !matrixChatReady(snapshot) ||
       matrixLaunchAccountStep(snapshot) !== null ||
+      (snapshot.agentRoster?.state !== 'ready' && waitedMs < MATRIX_LAUNCH_START_WAIT_MS) ||
       (Boolean(matrixLaunchPreparation(snapshot)) && waitedMs < MATRIX_LAUNCH_START_WAIT_MS)
     )
   }
@@ -378,7 +379,8 @@ export function MatrixStartupScreen({ onDone, snapshot }: { onDone: () => void; 
   const accountStep = matrixLaunchAccountStep(snapshot)
   // Once chats are ready, a stopped/degraded/waiting assistant is no longer launch copy. Its
   // row and chat own the plain-language reason and retry while launch finishes its brief motion.
-  const readiness = preparation?.readiness ?? (!chatReady || accountStep ? snapshot.readiness : undefined)
+  const readiness = accountStep ? snapshot.readiness :
+    preparation?.readiness ?? (!chatReady ? snapshot.readiness : undefined)
   const preparingAgent = preparation?.agent
 
   // Every check passed (or, without the readiness gate, the older setup finished), and every

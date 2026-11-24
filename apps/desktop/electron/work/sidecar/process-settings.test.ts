@@ -1,9 +1,9 @@
 import { execFileSync } from 'node:child_process'
 import { copyFile, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
-import { tmpdir } from 'node:os'
+import { homedir, tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 import { workSessionPaths } from '../session/paths'
 
@@ -41,6 +41,7 @@ describe.skipIf(!python || process.platform === 'win32')('Work startup settings'
       revokeCredentials: () => undefined
     })
 
+    vi.stubEnv('CODEX_HOME', join(root, 'fixture-codex'))
     try {
       await Promise.all([pythonBin, workRuntime, profiles, paths.userdata].map(directory => mkdir(directory, { recursive: true })))
       // A symlink relocates a venv interpreter away from pyvenv.cfg and loses
@@ -72,7 +73,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
 def run(spec, children, channel):
     environments = spec["gateways"]
     Path(${JSON.stringify(observed)}).write_text(json.dumps([
-        [env["ATUM_MANAGED_MODEL_DEFAULT"], yaml.safe_load((Path(env["HERMES_HOME"]) / "config.yaml").read_text())["model"]]
+        [env["ATUM_MANAGED_MODEL_DEFAULT"], yaml.safe_load((Path(env["HERMES_HOME"]) / "config.yaml").read_text())["model"], env["HOME"]]
         for env in environments
     ]))
     with http.server.ThreadingHTTPServer(("127.0.0.1", 0), Handler) as server:
@@ -89,7 +90,7 @@ actual.main()
 `)
       const blocked = (driver: string) => ({ driver, enabled: false, config: { binaryPath: '/usr/bin/false' } })
       await writeFile(settingsPath, JSON.stringify({
-        providerInstances: { codex: blocked('codex'), claudeAgent: blocked('claudeAgent') }
+        providerInstances: { codex: { driver: 'codex', enabled: true, config: { setupMode: 'managed' } }, claudeAgent: blocked('claudeAgent') }
       }))
 
       await sidecar.start({ continuation: false })
@@ -97,11 +98,15 @@ actual.main()
       expect(settings.defaultModelSelection).toEqual({ instanceId: 'atum-managed', model: 'atum-managed:nguyet-thuc' })
       expect(settings.textGenerationModelSelection).toEqual(settings.defaultModelSelection)
       const defaultProfile = ['nguyet-thuc', { provider: 'atum-managed', default: 'nguyet-thuc' }]
-      expect(JSON.parse(await readFile(observed, 'utf8'))).toEqual([defaultProfile, defaultProfile])
-      expect(settings.providerInstances.codex).toEqual({ driver: 'codex', enabled: true, config: { setupMode: 'managed' } })
+      expect(JSON.parse(await readFile(observed, 'utf8'))).toEqual([[...defaultProfile, homedir()], [...defaultProfile, join(root, 'work', 'delegated')]])
+      expect(settings.providerInstances.codex).toEqual({ driver: 'codex', enabled: true, config: { setupMode: 'existing' } })
       expect(settings.providerInstances.claudeAgent).toEqual({ driver: 'claudeAgent', enabled: true })
       expect(settings.providerInstances.antigravity).toEqual({ driver: 'antigravity', enabled: true })
       expect(settings.providerInstances['atum-managed-delegated']).toMatchObject({ enabled: true, showInPicker: false })
+      expect(settings.providerInstances['atum-managed-delegated'].environment).toContainEqual({
+        name: 'HOME', value: join(root, 'work', 'delegated'), sensitive: false
+      })
+      expect(settings.providerInstances['atum-managed'].environment.some((entry: { name: string }) => entry.name === 'HOME')).toBe(false)
 
       await sidecar.stop()
       settings.providerInstances.claudeAgent.config = { binaryPath: '/opt/example/bin/claude' }
@@ -116,6 +121,7 @@ actual.main()
       expect(restarted.providerInstances['atum-managed-delegated'].showInPicker).toBe(false)
     } finally {
       await sidecar.stop()
+      vi.unstubAllEnvs()
       await rm(root, { recursive: true, force: true })
     }
   })
