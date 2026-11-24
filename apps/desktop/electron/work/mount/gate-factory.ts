@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto'
+import { readFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 
@@ -93,6 +94,15 @@ export function createWorkGateService(input: WorkGateFactoryInput): WorkGateServ
       origin: () => input.incarnation()?.origin,
       incarnation: () => input.incarnation()?.id,
       settingsFile: join(paths.userdata, 'settings.json'),
+      delegatedGatewayReady: () => {
+        try {
+          const pid = input.incarnation()?.pid
+
+          return Boolean(pid && readFileSync(join(paths.userdata, 'delegated-gateway-ready'), 'ascii') === String(pid))
+        } catch {
+          return false
+        }
+      },
       delegated: { instanceId: ATUM_WORK_DELEGATED_PROVIDER, model: ATUM_WORK_MODEL },
       // Gate 4b-1: the Codex instance, compiled in for launch admission.
       plan: { instanceId: WORK_RELAY_PROVIDER.codex.instanceId },

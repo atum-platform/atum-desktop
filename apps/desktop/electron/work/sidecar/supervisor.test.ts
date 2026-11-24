@@ -116,7 +116,7 @@ r, w = os.pipe()
 os.dup2(r, 0)
 children = sup.Children()
 try:
-    sup.run(dict(gateways=[], environment=dict(os.environ), executable=sys.argv[2], cwd=os.getcwd()), children, {})
+    sup.run(dict(settingsPath=os.path.join(os.getcwd(), "fixture-settings.json"), gateways=[], environment=dict(os.environ), executable=sys.argv[2], cwd=os.getcwd()), children, {})
     children.leaders[0].wait(timeout=5)
     assert children.leaders[0].returncode == 7
     print("SERVER_EXITED")
@@ -152,4 +152,103 @@ bystander.kill()
 
     expect(result.stdout.trim()).toBe('NOT_OWNED')
   })
+})
+
+
+it.skipIf(!python)('starts the native server without waiting on either gateway', () => {
+  const result = execFileSync(python!, ['-I', '-c', `
+import importlib.util, io, os, sys
+module = importlib.util.spec_from_file_location("supervisor", sys.argv[1])
+sup = importlib.util.module_from_spec(module); module.loader.exec_module(sup)
+class Child:
+    pid = 123
+    stdout = io.BytesIO()
+    def poll(self): return None
+class Children:
+    leaders = []
+    seen = {}
+    calls = []
+    def start(self, argv, *args):
+        self.calls.append(argv)
+        return Child()
+    def scan(self): return 0
+children = Children()
+def no_wait(*args): raise AssertionError("gateway readiness blocked the native server")
+sup.wait_for_gateway = no_wait
+sup.publish = lambda *args, **kw: None
+sup.select.select = lambda *args: ([0], [], [])
+sup.run(dict(settingsPath=os.path.join(os.getcwd(), "fixture-settings.json"), gateways=[{}, {}], environment={}, executable="t3", cwd=os.getcwd()), children, {})
+assert len(children.calls) == 3
+assert children.calls[-1][0] == "t3"
+print("ok")
+`, supervisor], { encoding: 'utf8' })
+
+  expect(result.trim()).toBe('ok')
+})
+
+
+it.skipIf(!python)('disables every user MCP in the relay Codex instance while preserving owner settings', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'relay-codex-'))
+  dirs.push(dir)
+  const result = execFileSync(python!, ['-I', '-B', '-c', `
+import importlib.util, json, pathlib, shlex, sys, tomllib
+module = importlib.util.spec_from_file_location("supervisor", sys.argv[1])
+sup = importlib.util.module_from_spec(module); module.loader.exec_module(sup)
+home = pathlib.Path(sys.argv[2])
+(home / "config.toml").write_text('[mcp_servers.private]\\ncommand="fixture"\\n[mcp_servers."private.dotted"]\\nurl="http://fixture"\\n')
+owner = dict(driver="codex", enabled=True, config=dict(setupMode="existing", homePath=str(home), launchArgs="--disable apps"))
+before = json.dumps(owner, sort_keys=True)
+relay = sup.relay_codex_instance(owner)
+args = shlex.split(relay["config"]["launchArgs"])
+overrides = tomllib.loads(args[-1])
+assert overrides["mcp_servers"] == {"private": {"enabled": False}, "private.dotted": {"enabled": False}}
+assert json.dumps(owner, sort_keys=True) == before
+assert relay["showInPicker"] is False
+owner["config"]["launchArgs"] = '-c mcp_servers.injected.command=sh'
+assert sup.relay_codex_instance(owner)["enabled"] is False
+print("ok")
+`, supervisor, dir], { encoding: 'utf8' })
+  expect(result.trim()).toBe('ok')
+})
+
+
+it.skipIf(!python)('publishes gateway readiness only after discovery and clears an old server marker', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'gateway-ready-'))
+  dirs.push(dir)
+  const output = execFileSync(python!, ['-I', '-B', '-c', `
+import importlib.util, io, pathlib, sys
+module = importlib.util.spec_from_file_location("supervisor", sys.argv[1])
+sup = importlib.util.module_from_spec(module); module.loader.exec_module(sup)
+root = pathlib.Path(sys.argv[2])
+marker = root / "delegated-gateway-ready"
+marker.write_text("old")
+class Child:
+    pid = 123
+    stdout = io.BytesIO()
+    def poll(self): return None
+class Children:
+    leaders = []
+    seen = {}
+    def start(self, *args): return Child()
+    def scan(self): return 0
+class Thread:
+    def __init__(self, target, **kw): self.target = target
+    def start(self): self.target()
+sup.threading.Thread = Thread
+sup.select.select = lambda *args: ([0], [], [])
+sup.publish = lambda *args, **kw: None
+def discovered(home, *args):
+    assert home == "delegated"
+    assert not marker.exists()
+sup.wait_for_gateway = discovered
+spec = dict(settingsPath=str(root / "settings.json"), gateways=[{"HERMES_HOME": "owner"}, {"HERMES_HOME": "delegated"}], environment={}, executable="t3", cwd=str(root))
+sup.run(spec, Children(), {})
+assert marker.read_text() == "123"
+def unavailable(*args): raise RuntimeError("gateway_timeout")
+sup.wait_for_gateway = unavailable
+sup.run(spec, Children(), {})
+assert not marker.exists()
+print("ok")
+`, supervisor, dir], { encoding: 'utf8' })
+  expect(output.trim()).toBe('ok')
 })

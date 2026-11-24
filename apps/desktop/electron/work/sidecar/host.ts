@@ -21,6 +21,7 @@ interface Account {
 }
 
 interface WorkHostOptions {
+  log?(phase: string, ms: number): void
   resources: string
   surfaceModeChanged?(snapshot: WorkSurfaceModeSnapshot | null): void
   prepare?(signal: AbortSignal): Promise<void>
@@ -76,6 +77,7 @@ export class WorkHost {
       process: new WorkSidecar({
         account,
         resources,
+        log: this.options.log,
         prepare: this.options.prepare,
         gatewayEnvironment: () => {
           const environment = this.options.gatewayEnvironment()
@@ -222,6 +224,7 @@ export class WorkHost {
       !this.binding || !sameAccount(this.binding.account, this.options.account())) {
       return null
     }
+
     const value: unknown = await view.contents.executeJavaScript('window.atumSurfaceMode?.getSurfaceMode() ?? null')
 
     if (this.view !== view || !this.binding || !sameAccount(this.binding.account, this.options.account())) {
@@ -239,6 +242,7 @@ export class WorkHost {
       !this.binding || !sameAccount(this.binding.account, this.options.account())) {
       return false
     }
+
     const ran: unknown = await view.contents.executeJavaScript(`window.atumWorkCommands?.run(${JSON.stringify(command)}) ?? false`)
 
     return this.view === view && ran === true
@@ -254,6 +258,7 @@ export class WorkHost {
     if (!projectId || projectId.length > 255 || (mode !== 'work' && mode !== 'code')) {
       throw new Error('work_mode_invalid')
     }
+
     await view.contents.executeJavaScript(`window.atumSurfaceMode ? window.atumSurfaceMode.setSurfaceMode(${JSON.stringify(projectId)}, ${JSON.stringify(mode)}) : Promise.reject(new Error('work_unavailable'))`)
 
     if (this.view !== view) {
@@ -266,6 +271,7 @@ export class WorkHost {
       if (!this.ownerCaller(event)) {
         return
       }
+
       this.options.surfaceModeChanged?.(parseSurfaceMode(value))
     })
     ipcMain.handle(WORK_ACCESS_CHANNEL, async event => {
@@ -323,6 +329,7 @@ function parseSurfaceMode(value: unknown): WorkSurfaceModeSnapshot | null {
   if (!value || typeof value !== 'object') {
       return null
     }
+
   const row = value as Record<string, unknown>
 
   return typeof row.projectId === 'string' && row.projectId.length > 0 && row.projectId.length <= 255 && (row.mode === 'work' || row.mode === 'code')

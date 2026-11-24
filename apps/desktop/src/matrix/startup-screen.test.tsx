@@ -277,7 +277,7 @@ describe('the launch waits for the complete agent roster', () => {
 
     expect(matrixStartupBlocking({ ...ready, agentRoster: undefined })).toBe(true)
     expect(matrixStartupBlocking({ ...ready, agentRoster: { state: 'loading', since: 10 } })).toBe(true)
-    expect(matrixStartupBlocking({ ...ready, agentRoster: { state: 'unavailable', since: 10 } })).toBe(false)
+    expect(matrixStartupBlocking({ ...ready, agentRoster: { state: 'unavailable', since: 10 } })).toBe(true)
     expect(matrixStartupBlocking({ ...ready, agentRoster: { state: 'ready', since: 10 }, agents: [] })).toBe(false)
   })
 
@@ -1055,4 +1055,19 @@ describe('the launch’s motion, at the product window’s size', () => {
     await advance(700)
     expect(stage(view)?.hasAttribute('data-revealed')).toBe(true)
   })
+})
+
+it('opens the shell after the bounded roster wait', () => {
+  const ready = { ...base, readiness: { phase: 'ready' as const, since: 1 } }
+  expect(matrixStartupBlocking({ ...ready, agentRoster: undefined }, 120_000)).toBe(false)
+  expect(matrixStartupBlocking({ ...ready, agentRoster: { state: 'loading', since: 1 } }, 120_000)).toBe(false)
+  expect(matrixStartupBlocking(ready, 120_000)).toBe(false)
+})
+
+it('keeps a failed roster on the existing launch with a retry instead of claiming missing setup', () => {
+  const failed: MatrixSnapshot = { ...base, readiness: { phase: 'ready', since: 1 }, agentRoster: { state: 'unavailable', since: 1 } }
+  render(<I18nProvider configClient={null} initialLocale="en"><MatrixStartupScreen onDone={vi.fn()} snapshot={failed} /></I18nProvider>)
+  expect(screen.getByRole('button', { name: 'Try again' })).toBeTruthy()
+  expect(screen.queryByText(/isn.t set up/)).toBeNull()
+  expect(matrixStartupBlocking(failed, 120_000)).toBe(false)
 })

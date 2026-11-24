@@ -35,13 +35,15 @@ export interface MatrixWorkspaceConversationTarget {
 
 export interface MatrixWorkspaceProps extends Omit<ComponentProps<typeof MatrixWorkplace>, 'header'> {
   channelContent?: ReactNode
+  /** The window's notice bands; Team Space shows them in its main column, beside the sidebar. */
+  notices?: ReactNode
   onChannelVisibilityChange?(visible: boolean): void
   onOpenConversation?(target: MatrixWorkspaceConversationTarget): void
   onMessageLinkFailure?(kind: 'membership' | 'unavailable'): void
 }
 
 /** Team Space is a company mode. Personal assistant management stays in Settings. */
-export function MatrixWorkspace({ channelContent, onChannelVisibilityChange, onMessageLinkFailure,
+export function MatrixWorkspace({ channelContent, notices, onChannelVisibilityChange, onMessageLinkFailure,
   onOpenConversation, ...props }: MatrixWorkspaceProps) {
   const bridge = window.atumMatrix.companies
   const enabled = Boolean(props.snapshot.companyWorkspaceEnabled && bridge?.pending)
@@ -348,7 +350,12 @@ export function MatrixWorkspace({ channelContent, onChannelVisibilityChange, onM
   // Settings may still open a specific assistant-management page. The Team Space
   // rail itself never routes through that personal workspace landing page.
   if (!enabled || props.initialPage) {
-    return <MatrixWorkplace {...props} />
+    return (
+      <>
+        {notices}
+        <MatrixWorkplace {...props} />
+      </>
+    )
   }
 
   return (
@@ -368,6 +375,7 @@ export function MatrixWorkspace({ channelContent, onChannelVisibilityChange, onM
           snapshot={props.snapshot}
         />
       )}
+      notices={notices}
       onAcceptPrivateCosInvite={acceptPrivateCosInvitation}
       onChannelVisibilityChange={onChannelVisibilityChange}
       onFollowCompanyThread={followCompanyThread}

@@ -77,8 +77,25 @@ export class WorkSession {
 
   private readonly updating = new Set<string>()
 
-  async start(): Promise<WorkIncarnation> {
+  private readonly starting = new Map<string, Promise<WorkIncarnation>>()
+
+  start(): Promise<WorkIncarnation> {
     const state = this.state()
+    const key = state.paths.home
+    const pending = this.starting.get(key)
+
+    if (pending) {return pending}
+
+    const run = this.startAccount(state).finally(() => {
+      if (this.starting.get(key) === run) {this.starting.delete(key)}
+    })
+
+    this.starting.set(key, run)
+
+    return run
+  }
+
+  private async startAccount(state: AccountState): Promise<WorkIncarnation> {
     await state.driver?.recover()
     await state.coordinator.reconcile()
 
@@ -149,6 +166,7 @@ export class WorkSession {
    */
   async restart(reason: 'pairing-failed' | 'sign-out' = 'pairing-failed'): Promise<WorkIncarnation> {
     const state = this.state()
+    await this.starting.get(state.paths.home)?.catch(() => undefined)
     this.closeViews(state)
     await this.host.stop()
     await state.coordinator.reset(reason)
@@ -231,6 +249,8 @@ export class WorkSession {
     if (!state.driver) {
       throw new WorkSessionError('work_update_unavailable')
     }
+
+    await this.starting.get(state.paths.home)?.catch(() => undefined)
 
     // A refusal that can be known up front (a stop owed above all) is answered before a view is closed, the partition cleared or
     // anything restarted: the running home keeps serving exactly as it was.

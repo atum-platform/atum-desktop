@@ -68,6 +68,7 @@ function lab() {
   const openProtons = vi.fn<() => Promise<void>>().mockResolvedValue(undefined)
 
   const surfaceModeChanged = vi.fn()
+
   const host = new WorkHost({
     surfaceModeChanged,
     resources: '/bundled',
@@ -157,7 +158,7 @@ describe.skipIf(process.platform !== 'darwin' || process.arch !== 'arm64')('Work
     expect(packaged.current()).toBeUndefined()
     expect(host.authTools(workSessionPaths(account))).toMatchObject({
       executable: '/target/work-runtime/t3',
-      environment: { HOME: '/account-fixture/work/environment', T3CODE_HOME: '/account-fixture/work/server' }
+      environment: { T3CODE_HOME: '/account-fixture/work/server' }
     })
     await target.stop()
     await target.start({ continuation: false })

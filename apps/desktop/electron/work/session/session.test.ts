@@ -1,6 +1,6 @@
 import { readFileSync, writeFileSync } from 'node:fs'
 
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { partitionFor, type WorkSessionAccount } from './paths'
 import { WorkSession } from './session'
@@ -395,4 +395,72 @@ describe('update through the session', () => {
     await expect(session.start()).rejects.toMatchObject({ code: 'work_pin_downgrade' })
     expect(host.starts).toBe(1)
   })
+})
+
+it('shares recovery and pin setup when background warmup overlaps first open', async () => {
+  const { session } = lab()
+  const first = session.start()
+  const second = session.start()
+  expect(second).toBe(first)
+  const [a, b] = await Promise.all([first, second])
+  expect(a).toBe(b)
+})
+
+it('joins background startup before a sign-out restart stops and resets the server', async () => {
+  const { session, entry } = lab()
+  const { host } = entry('A')
+  const original = host.start.bind(host)
+  let release!: () => void
+  const gate = new Promise<void>(resolve => { release = resolve })
+  const start = vi.spyOn(host, 'start').mockImplementationOnce(async options => {
+    await gate
+    return original(options)
+  })
+  const stop = vi.spyOn(host, 'stop')
+  const warming = session.start()
+  await vi.waitFor(() => expect(start).toHaveBeenCalled())
+  const restarting = session.restart('sign-out')
+  await Promise.resolve()
+  expect(stop).not.toHaveBeenCalled()
+  release()
+  await warming
+  await restarting
+  expect(stop).toHaveBeenCalledOnce()
+  expect(host.starts).toBe(2)
+})
+
+
+it('awaits background startup before an explicit update preflights and replaces the pin', async () => {
+  const { entry } = lab()
+  const { account, home, host } = entry('A')
+  const next = new FakeHost(home, [], '0.1.12')
+  let release!: () => void
+  const pending = new Promise<void>(resolve => { release = resolve })
+  const original = host.start.bind(host)
+  const starting = vi.spyOn(host, 'start').mockImplementationOnce(async options => {
+    await pending
+    return original(options)
+  })
+  const stop = vi.spyOn(host, 'stop')
+  const session = new WorkSession({
+    account: () => account, host,
+    authTools: () => ({ cli: home.cli(), grants: home.grants() }),
+    clearPartition: async () => undefined,
+    homeRunning: () => home.running,
+    update: {
+      currentPin: () => ({ version: '0.1.11', resources: '/p1' }),
+      hostFor: pin => pin.version === '0.1.12' ? next : host,
+      stopsOwed: () => false, freeBytes: () => 1e12,
+      verifyPin: async () => undefined
+    }
+  })
+  const warm = session.start()
+  await vi.waitFor(() => expect(starting).toHaveBeenCalled())
+  const update = session.update({ version: '0.1.12', resources: '/p2' })
+  await Promise.resolve()
+  expect(stop).not.toHaveBeenCalled()
+  release()
+  await warm
+  expect(await update).toMatchObject({ outcome: 'committed' })
+  expect(next.starts).toBe(1)
 })

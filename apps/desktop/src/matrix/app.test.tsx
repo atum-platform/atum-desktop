@@ -1007,8 +1007,8 @@ function fixture(
           // Current native hosts publish an authoritative roster with a ready session.
           // Individual startup tests override this when exercising loading or failure.
           agentRoster:
-            state.agentRoster ??
-            (state.state === 'ready' ? { state: 'ready', since: state.readiness?.since ?? 0 } : undefined),
+            (Object.hasOwn(state, 'agentRoster') ? state.agentRoster :
+            (state.state === 'ready' ? { state: 'ready', since: state.readiness?.since ?? 0 } : undefined)),
           agents: state.agents?.map(agent =>
             agent.readiness || !agent.ready || agent.hermes !== 'ready'
               ? agent
@@ -3507,6 +3507,38 @@ describe('isolated Matrix composition', () => {
     expect(rosterSearch.value).toBe('Atum')
   })
 
+  it('shows window notices inside the Team space main column, never above its sidebar', async () => {
+    const rail = () => screen.getByRole('navigation', { name: 'Main navigation' })
+    const company = fixture(undefined, 'en', workplacePages(), undefined, undefined, companyWorkspace())
+    // agentCleanupRequired paints one of the window's notice bands.
+    company.emit({ ...controlsState, agentCleanupRequired: true, companyWorkspaceEnabled: true })
+    await screen.findByRole('button', { name: 'Account: owner' })
+    const chatStack = () => window.document.querySelector('[data-matrix-status-stack]')
+    expect(chatStack()?.textContent).toBeTruthy()
+
+    fireEvent.click(within(rail()).getByRole('button', { name: 'Team space' }))
+
+    const sidebar = await waitFor(() => {
+      const value = window.document.querySelector('[data-matrix-company-sidebar]')
+
+      expect(value).toBeTruthy()
+
+      return value!
+    })
+
+    const main = window.document.querySelector('[data-matrix-company-content]')!
+    const stacks = window.document.querySelectorAll('[data-matrix-status-stack]')
+
+    expect(stacks).toHaveLength(1)
+    expect(stacks[0]!.textContent).toBeTruthy()
+    expect(main.contains(stacks[0]!)).toBe(true)
+    expect(stacks[0]!.contains(sidebar)).toBe(false)
+    // Nothing above the workspace row offsets the sidebar: no band precedes it in the chat section.
+    const workspace = window.document.querySelector('[data-matrix-company-workspace]')!
+    expect(workspace.contains(sidebar)).toBe(true)
+    expect(sidebar.parentElement).toBe(main.parentElement)
+  })
+
   it('never paints a bound company channel in Home and follows an external channel selection into Team Space', async () => {
     const command = vi.fn(async () => null)
     const companies = companyWorkspaceWithChannel('!launch:test')
@@ -4362,7 +4394,7 @@ describe('isolated Matrix composition', () => {
     expect(bridge.command).not.toHaveBeenCalled()
   })
 
-  it('does not silently choose the former default when Main has no available default room/runtime', async () => {
+  it('creates a chat with roster Main instead of choosing the former default when Main has no room/runtime', async () => {
     const state = promotedMainSnapshot()
 
     const { bridge } = fixture(async () => ({
@@ -4376,7 +4408,10 @@ describe('isolated Matrix composition', () => {
     fireEvent.click(await screen.findByRole('button', { name: /^Chats$/ }))
     fireEvent.click(screen.getByRole('button', { name: /^Atum Main$/ }))
     await act(async () => {})
-    expect(bridge.command).not.toHaveBeenCalled()
+    // The roster primary can start a new chat without a local enrollment. Never enter the old history.
+    expect(bridge.command).toHaveBeenCalledExactlyOnceWith({
+      kind: 'create', name: '', invite: ['@main:test'], direct: true
+    })
     expect(bridge.connectHermes).not.toHaveBeenCalled()
   })
 
@@ -9168,6 +9203,44 @@ describe('cold-start preparation screen', () => {
     )
     expect(bridge.connectHermes).toHaveBeenCalledWith('!assistant:test')
   })
+
+  it('lands automatically on the roster cloud primary without a local assistant', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    const { bridge, emit } = fixture(async () => ({ ...signedOut, state: 'connecting', identity: owner }))
+    await waitFor(() => expect(plate()).not.toBeNull())
+    emit({
+      ...preparing, assistant: undefined, startup: undefined,
+      readiness: { phase: 'ready', since: 1 }, rooms: [],
+      agents: [{
+        principal: 'cloud-main', userId: '@cloud:test', isDefault: true,
+        ready: true, hermes: 'unavailable', atumModel: true, answering: 'cloud'
+      }]
+    })
+    vi.mocked(bridge.command).mockResolvedValueOnce('!cloud:test')
+    await passLaunch()
+    await waitFor(() => expect(plate()).toBeNull(), LAUNCH_OPENS)
+    await waitFor(() => expect(bridge.command).toHaveBeenCalledWith({
+      kind: 'create', name: '', invite: ['@cloud:test'], direct: true
+    }))
+    expect(bridge.connectHermes).not.toHaveBeenCalled()
+  })
+
+  it.each([undefined, { state: 'unavailable' as const, since: 1 }])(
+    'opens the shell after the roster timeout with setup notices suppressed (%s)', async agentRoster => {
+      vi.useFakeTimers({ shouldAdvanceTime: true })
+      const { view } = fixture(async () => ({
+        ...preparing, assistant: undefined, startup: undefined, agents: undefined, agentRoster,
+        readiness: { phase: 'ready', since: 1 }
+      }))
+      await waitFor(() => expect(plate()).not.toBeNull())
+      await act(async () => { await vi.advanceTimersByTimeAsync(21_000) })
+      await passLaunch()
+      await waitFor(() => expect(plate()).toBeNull(), LAUNCH_OPENS)
+      expect(view.container.querySelector('[data-matrix-setup-card]')).toBeNull()
+      expect(view.container.querySelector('[data-matrix-launch-notice]')).toBeNull()
+      expect(screen.queryByText('Atum isn’t set up on this Mac yet.')).toBeNull()
+    }
+  )
   it('opens the product window for the launch the moment a sign-in lands, and keeps it', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true })
     const { bridge, emit } = fixture()
@@ -11797,6 +11870,7 @@ describe("Home's chat (launch night, second wave)", () => {
 
     const cloud: MatrixSnapshot = {
       ...ready,
+      assistant: undefined,
       rooms: ready.rooms.map(each => (each.assistant ? { ...each, agentPrincipal: 'cloud-t' } : each)),
       agents: [
         {
@@ -11947,7 +12021,29 @@ describe("Home's chat (launch night, second wave)", () => {
     expect(screen.queryByText('This assistant isn’t available right now. Try again in a moment.')).toBeNull()
   })
 
-  it('opens a cloud assistant chat without asking this Mac to connect a local host', async () => {
+  it('holds the existing launch while the roster is delayed and suppresses provisional setup notices', async () => {
+    const cold: MatrixSnapshot = {
+      ...ready, assistant: undefined, agents: [], domainEnabled: true,
+      assistantSetup: 'failed',
+      readiness: { phase: 'blocked', step: 'assistant', code: 'setup_failed', since: 1 },
+      agentRoster: { state: 'loading', since: 1 }
+    }
+    const { emit, view } = fixture(async () => cold)
+    await waitFor(() => expect(view.container.querySelector('[data-slot="matrix-startup"]')).toBeTruthy())
+    expect(screen.queryByText('Atum isn’t set up on this Mac yet.')).toBeNull()
+    expect(screen.queryByText(/not connected to your current assistant/)).toBeNull()
+    expect(screen.queryByText(/Your assistant isn't ready yet/)).toBeNull()
+    emit({
+      ...cold, agentRoster: { state: 'ready', since: 2 }, assistantSetup: undefined,
+      readiness: { phase: 'ready', since: 2 },
+      agents: [{ principal: 'root', userId: '@atum:test', name: 'Raymond', isDefault: true,
+        ready: true, hermes: 'unavailable', atumModel: true, answering: 'cloud' }]
+    })
+    await waitFor(() => expect(view.container.querySelector('[data-slot="matrix-startup"]')).toBeNull())
+    expect(screen.getByRole('button', { name: /^Raymond$/ })).toBeTruthy()
+  })
+
+  it('opens the cloud primary’s existing chat without local custody', async () => {
     const cloud: MatrixSnapshot = {
       ...ready,
       rooms: ready.rooms.map(room =>
@@ -11969,6 +12065,7 @@ describe("Home's chat (launch night, second wave)", () => {
 
     const { bridge } = await openChat(cloud)
     vi.mocked(bridge.connectHermes).mockClear()
+    vi.mocked(bridge.command).mockClear()
     fireEvent.click(screen.getByRole('button', { name: /^Raymond$/ }))
     await waitFor(() =>
       expect(bridge.command).toHaveBeenCalledWith({ kind: 'select', roomId: assistantRoom.id })

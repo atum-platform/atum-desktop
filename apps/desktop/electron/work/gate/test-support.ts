@@ -104,7 +104,7 @@ export class FakeT3 implements T3Port {
   planProvider = async (_token?: string, instanceId = 'codex'): Promise<{ status: 'connected' | 'disconnected' | 'unknown'; selection?: { instanceId: string; model: string } }> => {
     this.planCalls++
 
-    return this.planStatus === 'connected' ? { status: 'connected', selection: { instanceId, model: `${instanceId}-model-1` } } : { status: this.planStatus }
+    return this.planStatus === 'connected' ? { status: 'connected', selection: { instanceId, model: `${instanceId === 'atum-relay-codex' ? 'codex' : instanceId}-model-1` } } : { status: this.planStatus }
   }
   prepare = async () => true
 
