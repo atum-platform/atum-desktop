@@ -3436,6 +3436,13 @@ body:has(.atum-shell)
   transition-timing-function: var(--atum-ease-exit);
 }
 
+/* A panel that came or went with a screen switch does not move (shell-frame.tsx, T3's rule). */
+[data-atum-roster-slot][data-atum-motion-instant],
+[data-atum-motion-instant] > [data-atum-roster],
+[data-atum-main-split][data-atum-motion-instant] {
+  transition: none;
+}
+
 @keyframes atum-shell-plate-in {
   from {
     opacity: 0;
