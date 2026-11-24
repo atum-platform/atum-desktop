@@ -2,7 +2,9 @@ import { readFileSync } from 'node:fs'
 
 import { describe, expect, it } from 'vitest'
 
-import { buildWorkTheme, workThemeColors } from './build-work-theme.mjs'
+import spec from '../src/matrix/model-picker-spec.json' with { type: 'json' }
+
+import { buildWorkTheme, workPickerCss, workThemeColors } from './build-work-theme.mjs'
 
 const HEX = /^#[0-9a-f]{6}$/
 
@@ -39,5 +41,17 @@ describe('the Work theme (T3 environment theme from the Atum Kit)', () => {
     // Work's selectors are T3 data- hooks, never its class names.
     expect(css).toContain("[data-app-sidebar]")
     expect(css).toContain("[data-slot='sidebar-inset']")
+  })
+
+  it("gives Work's picker the shared spec's chip, type and search colour, so a spec change moves both pickers", () => {
+    const changed = structuredClone(spec)
+    changed.trigger.height = spec.trigger.height + 4
+    changed.type.size = spec.type.size + 1
+    changed.search.focusUnderline.light = '#123456'
+
+    expect(buildWorkTheme().css).toContain(workPickerCss())
+    expect(workPickerCss(changed)).toContain(`height: ${changed.trigger.height}px`)
+    expect(workPickerCss(changed)).toContain(`--text-sm: ${changed.type.size}px`)
+    expect(workPickerCss(changed)).toContain('--ring: #123456')
   })
 })

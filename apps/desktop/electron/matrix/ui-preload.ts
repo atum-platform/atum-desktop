@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron'
 
-import type { WorkSurfaceModeSnapshot } from "../../shared/matrix-work"
+import type { WorkSidebarSnapshot, WorkSurfaceModeSnapshot } from "../../shared/matrix-work"
 
 import { exposeMatrixBrowserImport } from './browser-import-preload'
 import { createMatrixCompanyDesktopBridge } from './company-desktop-preload'
@@ -108,6 +108,13 @@ const bridge: MatrixUiBridge = {
       ipcRenderer.on(MATRIX_WORK_IPC.surfaceModeChanged, receive)
 
       return () => { ipcRenderer.removeListener(MATRIX_WORK_IPC.surfaceModeChanged, receive) }
+    },
+    getSidebar: () => ipcRenderer.invoke(MATRIX_WORK_IPC.request, { kind: 'getSidebar' }),
+    onSidebarChanged: listener => {
+      const receive = (_event: Electron.IpcRendererEvent, snapshot: WorkSidebarSnapshot | null) => listener(snapshot)
+      ipcRenderer.on(MATRIX_WORK_IPC.sidebarChanged, receive)
+
+      return () => { ipcRenderer.removeListener(MATRIX_WORK_IPC.sidebarChanged, receive) }
     },
     read: () => ipcRenderer.invoke(MATRIX_WORK_IPC.request, { kind: 'read' }),
     show: rect => ipcRenderer.invoke(MATRIX_WORK_IPC.request, { kind: 'show', rect }),

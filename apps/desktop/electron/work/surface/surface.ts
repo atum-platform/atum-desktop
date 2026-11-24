@@ -6,6 +6,7 @@ import type {
   MatrixWorkRect,
   MatrixWorkViewState,
   WorkBandCommand,
+  WorkSidebarSnapshot,
   WorkSurfaceModeSnapshot
 } from '../../../shared/matrix-work'
 import type { WorkRelayPlan, WorkRelayRoomView, WorkRelaySelection } from '../../../shared/matrix-work-relay'
@@ -73,6 +74,7 @@ export interface WorkSurfaceParts {
 
 export interface WorkSurfaceOptions {
   getSurfaceMode?(): Promise<WorkSurfaceModeSnapshot | null>
+  getSidebar?(): WorkSidebarSnapshot | null
   runCommand?(command: WorkBandCommand): Promise<boolean>
   setSurfaceMode?(projectId: string, mode: 'work' | 'code'): Promise<void>
   createView(incarnation: WorkIncarnation): WorkViewHandle
@@ -299,6 +301,8 @@ export class WorkSurface {
    * token: the screen, the browser sign-in and Codex's own store are T3's and Codex's.
    */
   getSurfaceMode() { return this.options.getSurfaceMode?.() ?? Promise.resolve(null) }
+
+  async getSidebar() { return this.options.getSidebar?.() ?? null }
 
   async runCommand(command: WorkBandCommand): Promise<boolean> {
     // The click lands in the Atum renderer; New thread ends in the view's composer, so the view takes focus first.

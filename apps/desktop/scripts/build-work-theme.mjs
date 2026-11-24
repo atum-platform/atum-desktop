@@ -18,6 +18,7 @@ const output = fileURLToPath(new URL('electron/work/sidecar/atum.json', desktop)
 const tokens = JSON.parse(readFileSync(new URL('tokens.json', kit), 'utf8')).theme
 const kitCss = readFileSync(new URL('dist/atum-kit.css', kit), 'utf8')
 const workCss = readFileSync(new URL('scripts/work-theme/atum-work.css', desktop), 'utf8')
+const pickerSpec = JSON.parse(readFileSync(new URL('src/matrix/model-picker-spec.json', desktop), 'utf8'))
 
 // T3 caps a theme's CSS (THEME_CSS_MAX_LENGTH in its contracts).
 const CSS_LIMIT = 100_000
@@ -139,9 +140,29 @@ export function workThemeColors(appearance) {
   }
 }
 
+/**
+ * The shared model picker (src/matrix/model-picker-spec.json) in Work: T3's picker already has the
+ * spec's geometry, so only what Atum adds to it is set here: the Kit's type, the capsule chip and the
+ * search's focus colour. The desktop picker reads the same file.
+ */
+export function workPickerCss(spec = pickerSpec) {
+  const { trigger, type, search } = spec
+  const text = `${type.size}px`
+
+  return [
+    '/* The shared model picker (GENERATED from src/matrix/model-picker-spec.json). */',
+    `[data-chat-provider-model-picker] { height: ${trigger.height}px; padding-inline: ${trigger.paddingX}px; gap: ${trigger.gap}px; border-radius: ${trigger.radius === 'full' ? 'var(--ak-r-full)' : `${trigger.radius}px`}; font-size: ${trigger.size}px; font-weight: ${trigger.weight}; }`,
+    // T3 sizes the picker's text with text-sm and draws the search rule in its ring colour: both are
+    // its own variables, scoped here to the picker.
+    `:is([data-model-picker-content], [data-model-picker-effort]) { --text-sm: ${text}; }`,
+    `[data-model-picker-content] { --ring: ${search.focusUnderline.light}; }`,
+    `.dark [data-model-picker-content] { --ring: ${search.focusUnderline.dark}; }`
+  ].join('\n')
+}
+
 export function buildWorkTheme() {
   // T3 drops `@import` and any `url()` but a data: address or an #id from theme CSS.
-  const css = `${kitCss.trim()}\n\n${workCss.trim()}\n`
+  const css = `${kitCss.trim()}\n\n${workCss.trim()}\n\n${workPickerCss()}\n`
 
   if (css.length > CSS_LIMIT) {
     throw new Error(`build-work-theme: theme CSS is ${css.length} characters; T3 accepts ${CSS_LIMIT}`)

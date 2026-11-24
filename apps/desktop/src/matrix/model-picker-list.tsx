@@ -97,7 +97,7 @@ function PickerRowView({
     <Tip label={tooltip} side="left">
       <li
         className={cn(
-          'group/model-row relative flex min-h-10 items-center rounded-[var(--atum-r-row)]',
+          'group/model-row relative flex min-h-(--mp-row-h) items-center rounded-(--mp-row-r)',
           current && 'bg-(--atum-hover)'
         )}
       >
@@ -107,20 +107,13 @@ function PickerRowView({
           aria-keyshortcuts={hint ? `Meta+${hint}` : undefined}
           aria-label={label}
           // Room on the right for the star and the shortcut, which sit over the row.
-          className={cn(PICKER_ROW, 'min-h-10 flex-1', hint ? 'pr-16' : 'pr-9')}
+          className={cn(PICKER_ROW, 'flex-1', hint ? 'pr-16' : 'pr-9')}
           data-matrix-model-route={route.id}
           disabled={busy || unavailable}
           onClick={onChoose}
           tabIndex={roving && !unavailable ? 0 : -1}
         >
-          {atum ? (
-            <BrandMark className="size-4 rounded-[0.25rem]" data-matrix-model-mark="atum" inset />
-          ) : (
-            <ProviderMark
-              provider={shelf ? shelfMakerMark(shelf) : { id: route.provider, label: route.providerLabel }}
-              size="sm"
-            />
-          )}
+          <PickerRouteMark route={route} shelf={shelf} />
           <span className="flex min-w-0 flex-1 items-baseline gap-2">
             <span className="min-w-0 shrink truncate leading-tight text-(--atum-ink)" data-matrix-model-name>
               {name}
@@ -199,6 +192,28 @@ function PickerRowView({
         </span>
       </li>
     </Tip>
+  )
+}
+
+/** A row's mark, and the composer chip's for the current row: Atum's own, a model maker's on the
+ * OpenRouter shelf, else the connection's. */
+export function PickerRouteMark({
+  route,
+  shelf,
+  className = 'size-(--mp-mark)'
+}: {
+  route: Pick<MatrixModelRoute, 'provider' | 'providerLabel'>
+  shelf?: MatrixShelfModelView
+  className?: string
+}) {
+  return route.provider === 'atum' ? (
+    <BrandMark className={cn(className, 'rounded-[0.25rem]')} data-matrix-model-mark="atum" inset />
+  ) : (
+    <ProviderMark
+      className={className}
+      provider={shelf ? shelfMakerMark(shelf) : { id: route.provider, label: route.providerLabel }}
+      size="sm"
+    />
   )
 }
 

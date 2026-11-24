@@ -735,6 +735,7 @@ describe('registerMatrixWorkIpc', () => {
 
     const surface = {
       getSurfaceMode: vi.fn(async () => null),
+      getSidebar: vi.fn(async () => null),
       setSurfaceMode: vi.fn(async () => {}),
       runCommand: vi.fn(async () => true),
       readRelay: vi.fn(),

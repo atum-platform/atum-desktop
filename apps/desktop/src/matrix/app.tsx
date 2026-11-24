@@ -8681,14 +8681,16 @@ function MatrixAccountView({
                 reserveOverlay={facts.overlayWidth > 0}
                 windowControls={
                   // Every page's title bar leads the same way: the lights, the hide-left-panel
-                  // button, then the bell. Here the left panel is the view's own thread list.
-                  <div className="flex items-center gap-2" data-atum-leading-cluster>
+                  // button, then the bell at the left panel's far edge. Here the panel is the
+                  // view's own thread list, whose edge the view reports (styles.css).
+                  <div className="flex flex-1 items-center gap-2" data-atum-leading-cluster>
                     <AtumWindowControlsSurface
                       onToggleSidebar={() => void window.atumMatrix.work?.runCommand?.('sidebar.toggle').catch(() => false)}
                       reserveLights={!facts.isFullscreen && Boolean(facts.windowButtonPosition)}
                       showSidebarToggle={work.view === 'ready' && Boolean(window.atumMatrix.work.runCommand)}
                       sidebarLabel={workBand.toggleSidebar}
                     />
+                    <span className="flex-1" />
                     {attentionBell}
                   </div>
                 }

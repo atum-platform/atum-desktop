@@ -15,7 +15,7 @@ import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Tip } from '@/components/ui/tooltip'
 import { useI18n } from '@/i18n'
-import { AlertCircle, ChevronDown, Refresh, Spinner } from '@/lib/icons'
+import { AlertCircle, Refresh, Spinner } from '@/lib/icons'
 import { cn } from '@/lib/utils'
 
 import { AGENT_HOMES_CLOUD_ONLY } from '../../shared/agent-home-cloud-only'
@@ -77,7 +77,7 @@ import { ChatGptTrainingConfirm } from './chatgpt-training-confirm'
 import { useModelPickerCopy } from './model-picker-copy'
 import { ModelPickerEffortColumn, pickerEffortChoice } from './model-picker-effort-column'
 import { type PickerFilterSource } from './model-picker-filter'
-import { ModelPickerList, shelfPrice } from './model-picker-list'
+import { ModelPickerList, PickerRouteMark, shelfPrice } from './model-picker-list'
 import {
   MODEL_PICKER_CARD,
   MODEL_PICKER_CARD_COMPACT,
@@ -99,7 +99,7 @@ import {
   type PickerRoute,
   pickerSections
 } from './model-picker-sections'
-import { PICKER_NOTE, PICKER_ROW } from './model-picker-style'
+import { MODEL_PICKER_VARS, PICKER_NOTE, PICKER_ROW, PICKER_TRIGGER } from './model-picker-style'
 import { MATRIX_FALLBACK_WHY } from './subscription-fallback-line'
 import { SubscriptionConnectFlow } from './subscriptions'
 
@@ -1214,9 +1214,11 @@ export function MatrixModelPicker({
 
   // Preserve user-visible identity, state and recovery behavior across connection changes.
   // answers now (Atum's by default) and lists only that provider's models until the rail changes.
-  const currentProvider = [...atumRoutes, ...shelfRoutes, ...connectedRoutes, ...shownSubscriptionRoutes].find(({ route }) =>
+  const currentRoute = [...atumRoutes, ...shelfRoutes, ...connectedRoutes, ...shownSubscriptionRoutes].find(({ route }) =>
     isCurrent(route)
-  )?.route.provider
+  )?.route
+
+  const currentProvider = currentRoute?.provider
 
   useEffect(() => {
     if (filterTouched || !currentProvider || savedPlanDown) {
@@ -2389,6 +2391,14 @@ export function MatrixModelPicker({
       ? (atumChipName ?? label)
       : label
 
+  // The chip's mark names the same connection as its name: the current row's, else the saved plan's,
+  // else Atum's own line-up.
+  const chipRoute: Pick<MatrixModelRoute, 'provider' | 'providerLabel'> =
+    currentRoute ??
+    (chipPlanProvider
+      ? { provider: chipPlanProvider, providerLabel: matrixSubscriptionProviderLabel(chipPlanProvider) }
+      : { provider: 'atum', providerLabel: atumProvider })
+
   const rowTooltip = (route: MatrixModelRoute) => {
     const shelf = shelfById.get(route.id)
 
@@ -2424,7 +2434,7 @@ export function MatrixModelPicker({
                   ? `${copy.modelPicker}: ${label}${chipWarning && chipDown !== 'reconnect' ? ` · ${chipWarning}` : ''}`
                   : copy.modelPicker
               }
-              className="ak-btn ak-btn--plain ak-btn--sm max-w-52 shrink-0"
+              className={PICKER_TRIGGER}
               data-matrix-model-picker
               data-matrix-model-unavailable={
                 relayChip && selectedRelay?.view.chip
@@ -2434,7 +2444,7 @@ export function MatrixModelPicker({
                     : undefined
               }
               disabled={disabled}
-              style={{ color: 'var(--ak-ink-2)' }}
+              style={MODEL_PICKER_VARS}
               type="button"
             >
               {chipWarning && (
@@ -2445,8 +2455,15 @@ export function MatrixModelPicker({
                   style={{ color: 'var(--ak-danger)' }}
                 />
               )}
+              {/* T3's chip: the answering model's mark before its name, no chevron (owner 2026-11-24). */}
+              {!chipWarning && (
+                <PickerRouteMark
+                  className="size-(--mp-trigger-mark)"
+                  route={chipRoute}
+                  shelf={currentRoute ? shelfById.get(currentRoute.id) : undefined}
+                />
+              )}
               <span className="truncate">{chipLabel}</span>
-              <ChevronDown aria-hidden className="-me-1 size-3.5 shrink-0" />
             </button>
           </PopoverTrigger>
         </Tip>
@@ -2464,6 +2481,7 @@ export function MatrixModelPicker({
         ref={content}
         side={side}
         sideOffset={8}
+        style={MODEL_PICKER_VARS}
         tabIndex={-1}
       >
         <ModelPickerPanel

@@ -24,7 +24,7 @@ export interface ModelPickerFilterProps {
 }
 
 const RAIL_BUTTON = cn(
-  'relative grid size-11 shrink-0 place-items-center rounded-md text-(--atum-ink-muted)',
+  'relative grid size-(--mp-rail-item) shrink-0 place-items-center rounded-(--mp-rail-radius) text-(--atum-ink-muted)',
   'hover:bg-(--atum-hover) hover:text-(--atum-ink) focus-visible:bg-(--atum-hover) focus-visible:text-(--atum-ink)'
 )
 
@@ -32,7 +32,8 @@ function ActiveBar() {
   return (
     <span
       aria-hidden
-      className="absolute -right-0.5 inset-y-2 w-0.5 rounded-full bg-(--atum-attention)"
+      // T3's indicator: a short ink bar at the rail's inner edge, beside the chosen connection.
+      className="absolute top-1/2 right-[calc(var(--mp-ind-inset)-(var(--mp-rail-w)-var(--mp-rail-item))/2)] h-(--mp-ind-h) w-(--mp-ind-w) -translate-y-1/2 rounded-full bg-(--atum-ink)"
       data-matrix-model-rail-active
     />
   )
@@ -46,7 +47,7 @@ export function ModelPickerFilter({ filter, sources, onChange, onConnect }: Mode
   return (
     <nav
       aria-label={words.modelSources}
-      className="flex h-full w-12 shrink-0 flex-col items-center border-r border-(--atum-line) py-1"
+      className="flex h-full w-(--mp-rail-w) shrink-0 flex-col items-center gap-1 border-r border-(--atum-line) py-1"
       data-matrix-model-rail
     >
       <Tip label={words.favorites} side="right">
@@ -57,12 +58,12 @@ export function ModelPickerFilter({ filter, sources, onChange, onConnect }: Mode
           data-matrix-model-rail-item="favorites"
           onClick={() => onChange({ favoritesOnly: true })}
         >
-          <Star aria-hidden className="size-5 fill-current" />
+          <Star aria-hidden className="size-(--mp-rail-icon) fill-current" />
           {favorites && <ActiveBar />}
         </RowButton>
       </Tip>
 
-      <div className="dt-portal-scrollbar flex min-h-0 flex-1 flex-col items-center overflow-y-auto">
+      <div className="dt-portal-scrollbar flex min-h-0 flex-1 flex-col items-center gap-1 overflow-y-auto">
         {sources.map(source => {
           const active = !favorites && filter.source === source.id
 
@@ -75,14 +76,17 @@ export function ModelPickerFilter({ filter, sources, onChange, onConnect }: Mode
               <RowButton
                 aria-label={source.label}
                 aria-pressed={active}
-                className={cn(RAIL_BUTTON, active && 'text-(--atum-ink)', !source.ready && 'opacity-45')}
+                // A signed-out connection keeps its full mark, as in T3: it is still chosen to reach its
+                // sign-in state, and a dimmed mark under the pointer or the active bar read as missing.
+                className={cn(RAIL_BUTTON, active && 'text-(--atum-ink)')}
                 data-matrix-model-rail-item={source.id}
+                data-matrix-model-rail-signed-out={source.ready ? undefined : 'true'}
                 onClick={() => onChange({ favoritesOnly: false, source: source.id })}
               >
                 {source.atum ? (
-                  <BrandMark className="size-5 rounded-[0.3rem]" inset />
+                  <BrandMark className="size-(--mp-rail-icon) rounded-[0.3rem]" inset />
                 ) : (
-                  <ProviderMark provider={source} size="sm" />
+                  <ProviderMark className="size-(--mp-rail-icon)" provider={source} size="sm" />
                 )}
                 {active && <ActiveBar />}
               </RowButton>
@@ -99,7 +103,7 @@ export function ModelPickerFilter({ filter, sources, onChange, onConnect }: Mode
             data-matrix-model-connect
             onClick={onConnect}
           >
-            <Plug aria-hidden className="size-5" />
+            <Plug aria-hidden className="size-(--mp-rail-icon)" />
           </RowButton>
         </Tip>
       )}

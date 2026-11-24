@@ -68,9 +68,11 @@ function lab() {
   const openProtons = vi.fn<() => Promise<void>>().mockResolvedValue(undefined)
 
   const surfaceModeChanged = vi.fn()
+  const sidebarChanged = vi.fn()
 
   const host = new WorkHost({
     surfaceModeChanged,
+    sidebarChanged,
     resources: '/bundled',
     account: () => account,
     openProtons,
@@ -81,7 +83,7 @@ function lab() {
 
   host.registerOwnerPreload()
 
-  return { host, openProtons, surfaceModeChanged }
+  return { host, openProtons, sidebarChanged, surfaceModeChanged }
 }
 
 function sender() {
@@ -122,8 +124,8 @@ describe.skipIf(process.platform !== 'darwin' || process.arch !== 'arm64')('Work
     expect(openProtons).toHaveBeenCalledOnce()
   })
 
-  it('keeps mode reports inside the bound owner account and validates snapshots', async () => {
-    const { host, surfaceModeChanged } = lab()
+  it('keeps mode and thread-list reports inside the bound owner account and validates snapshots', async () => {
+    const { host, sidebarChanged, surfaceModeChanged } = lab()
     const incarnation = await host.start({ continuation: false })
     const contents = sender()
     host.bindOwnerView(incarnation, contents)
@@ -136,7 +138,18 @@ describe.skipIf(process.platform !== 'darwin' || process.arch !== 'arm64')('Work
     expect(surfaceModeChanged).toHaveBeenLastCalledWith(snapshot)
     await invoke(event, { ...snapshot, mode: 'invalid' })
     expect(surfaceModeChanged).toHaveBeenLastCalledWith(null)
+
+    const report = handlers.get(MATRIX_WORK_IPC.sidebarChanged)! as (event: IpcMainInvokeEvent, value: unknown) => Promise<unknown>
+    await report({ ...event, sender: sender() }, { open: true, edge: 300 })
+    expect(host.sidebar()).toBeNull()
+    await report(event, { open: true, edge: 300.4 })
+    expect(sidebarChanged).toHaveBeenLastCalledWith({ open: true, edge: 300 })
+    expect(host.sidebar()).toEqual({ open: true, edge: 300 })
+    await report(event, { open: true, edge: Number.NaN })
+    expect(host.sidebar()).toEqual({ open: true, edge: 300 })
     await host.stop()
+    expect(sidebarChanged).toHaveBeenLastCalledWith(null)
+    expect(host.sidebar()).toBeNull()
     surfaceModeChanged.mockClear()
     await invoke(event, snapshot)
     expect(surfaceModeChanged).not.toHaveBeenCalled()
@@ -181,7 +194,7 @@ describe.skipIf(process.platform !== 'darwin' || process.arch !== 'arm64')('Work
     await target.start({ continuation: false })
 
     expect(starts.mock.calls).toEqual([['/bundled'], ['/target'], ['/target']])
-    expect([...handlers.keys()]).toEqual([MATRIX_WORK_IPC.surfaceModeChanged, WORK_ACCESS_CHANNEL, WORK_OPEN_PROTONS_CHANNEL])
+    expect([...handlers.keys()]).toEqual([MATRIX_WORK_IPC.surfaceModeChanged, MATRIX_WORK_IPC.sidebarChanged, WORK_ACCESS_CHANNEL, WORK_OPEN_PROTONS_CHANNEL])
   })
 })
 

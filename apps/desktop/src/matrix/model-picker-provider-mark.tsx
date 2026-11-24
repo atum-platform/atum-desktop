@@ -74,6 +74,8 @@ function providerIconSpec(provider: string, label: string): ProviderIconSpec {
 interface ProviderMarkProps {
   provider: PickerProvider
   size?: BrandTileSize
+  /** A size from the picker spec, over the named size (the fallback tile keeps the named one). */
+  className?: string
 }
 
 /**
@@ -81,9 +83,9 @@ interface ProviderMarkProps {
  * follow the theme while Claude/Gemini/DeepSeek/MiniMax/Qwen retain their identifying colour.
  * Unknown providers alone fall back to the first letter in the shared sunk tile.
  */
-export function ProviderMark({ provider, size = 'sm' }: ProviderMarkProps) {
+export function ProviderMark({ provider, size = 'sm', className: sized }: ProviderMarkProps) {
   const spec = providerIconSpec(provider.id, provider.label)
-  const className = MARK_SIZE[size]
+  const className = cn(MARK_SIZE[size], sized)
 
   if (spec.image) {
     return <img alt="" aria-hidden className={cn('shrink-0', className)} data-provider-mark={spec.key} src={spec.image} />

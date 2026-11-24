@@ -21,6 +21,7 @@ import {
   writeMatrixModelPickerPreferences
 } from './model-picker-preferences'
 import { type PickerFilter, type PickerProvider, type PickerRoute, pickerSections } from './model-picker-sections'
+import { MODEL_PICKER_VARS } from './model-picker-style'
 
 function storage(): Storage | undefined {
   try {
@@ -219,6 +220,7 @@ export function ModelPickerPopover({
         }}
         ref={content}
         sideOffset={6}
+        style={MODEL_PICKER_VARS}
         tabIndex={-1}
       >
         <ModelPickerPanel

@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import { Tip } from '@/components/ui/tooltip'
 import { MessagePlus } from '@/lib/icons'
 
-import type { MatrixWorkBridge, WorkBandCommand, WorkSurfaceModeSnapshot } from '../../../shared/matrix-work'
+import type { MatrixWorkBridge, WorkBandCommand, WorkSidebarSnapshot, WorkSurfaceModeSnapshot } from '../../../shared/matrix-work'
 
 import type { WorkWords } from './copy'
 
@@ -56,6 +56,37 @@ export function useWorkSurfaceMode(bridge: Pick<MatrixWorkBridge, 'getSurfaceMod
   }, [bridge, ready])
 
   return [snapshot, setSnapshot] as const
+}
+
+/**
+ * The view's thread list as the view reports it, so the band can end the bell at its edge as the chat
+ * roster does; null while the view is away or has not reported (the bell then follows the button).
+ */
+export function useWorkSidebar(bridge: Pick<MatrixWorkBridge, 'getSidebar' | 'onSidebarChanged'>, ready: boolean) {
+  const [snapshot, setSnapshot] = useState<WorkSidebarSnapshot | null>(null)
+
+  // Another process: read the last report once, then follow changes.
+  useEffect(() => {
+    if (!ready || !bridge.onSidebarChanged) {
+      setSnapshot(null)
+
+      return
+    }
+
+    let live = true
+    const stop = bridge.onSidebarChanged(next => live && setSnapshot(next))
+    void bridge
+      .getSidebar?.()
+      .then(next => live && setSnapshot(next))
+      .catch(() => null)
+
+    return () => {
+      live = false
+      stop()
+    }
+  }, [bridge, ready])
+
+  return snapshot
 }
 
 /**
