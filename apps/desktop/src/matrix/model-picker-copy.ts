@@ -16,7 +16,11 @@ interface ModelPickerCopy {
   /** The three Atum lineup descriptors shown beneath their model names. */
   taglines: Record<'everyday' | 'hard' | 'flagship', string>
   effort: string
-  efforts: Record<MatrixEffort, string>
+  /**
+   * Every thinking level's label from model-picker-labels.json. This picker draws `low`, `medium` and
+   * `high` (MATRIX_EFFORTS); the others are Work's, and the phone export reads them here.
+   */
+  efforts: Record<MatrixEffort | 'none' | 'minimal' | 'xhigh' | 'max', string>
   effortHelp: Record<MatrixEffort, string>
   /** Under Kỹ, for Atum's models only. */
   effortProtons: string
@@ -128,7 +132,15 @@ function pickerLabels(locale: Locale): Pick<ModelPickerCopy, 'effort' | 'efforts
 
   return {
     effort: thinking.heading[locale],
-    efforts: { low: thinking.levels.low[locale], medium: thinking.levels.medium[locale], high: thinking.levels.high[locale] },
+    efforts: {
+      none: thinking.levels.none[locale],
+      minimal: thinking.levels.minimal[locale],
+      low: thinking.levels.low[locale],
+      medium: thinking.levels.medium[locale],
+      high: thinking.levels.high[locale],
+      xhigh: thinking.levels.xhigh[locale],
+      max: thinking.levels.max[locale]
+    },
     taglines: { everyday: taglines.everyday[locale], hard: taglines.hard[locale], flagship: taglines.flagship[locale] }
   }
 }
