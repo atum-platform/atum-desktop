@@ -94,6 +94,7 @@ def test_controller_loopback_cache_stability_and_retirement(setup, monkeypatch):
         manager.assert_run_authority()
         answer = json.loads(manager.handle_tool_call('atum_recall', {'query': query}))
         assert answer['status'] == 'ok'
+        assert answer['retrievalOrigin'] == 'cloud'
     assert manager.build_system_prompt() == prompt
     assert manager.get_all_tool_schemas() == tools
     assert any(e == 'atum.memory.retrieve.request' for e, _ in calls)

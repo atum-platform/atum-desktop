@@ -339,11 +339,17 @@ class AtumAwarenessProvider(MemoryProvider):
         if box.get("failed"):
             return unavailable
         try:
+            from agent.cloud_first_awareness import CloudFirstAwareness
+            raw = box.get("result")
+            origin = raw.get('retrievalOrigin') if isinstance(self._retrieve, CloudFirstAwareness) and isinstance(raw, dict) else None
+            payload = {k: v for k, v in raw.items() if k != 'retrievalOrigin'} if origin is not None else raw
             if self._cloud_binding is not None:
                 from agent.atum_awareness_v2 import validate_response
-                result = validate_response(box.get("result"), request)
+                result = validate_response(payload, request)
             else:
-                result = validate_retrieval_response(box.get("result"), request)
+                result = validate_retrieval_response(payload, request)
+            if origin in ('cloud', 'local_historical_fallback'):
+                result = {**result, 'retrievalOrigin': origin}
         except AwarenessContractError:
             return unavailable
         # Metadata is context too. KS scopes coverage before returning it, but a
@@ -400,8 +406,6 @@ class AtumAwarenessProvider(MemoryProvider):
             return '{"error":"awareness_fresh_session_required"}'
         try:
             result = self.recall(args)
-            if getattr(self._retrieve, 'historical_local', False):
-                result = {**result, 'retrievalOrigin': 'local_historical_fallback'}
             return json.dumps(result, ensure_ascii=True, separators=(",", ":"))
         except AwarenessContractError:
             return '{"error":"awareness_args_invalid"}'

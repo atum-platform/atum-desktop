@@ -137,9 +137,15 @@ def build_cloud_memory(session, sid, session_id, db):
     bridge = ControllerMemoryBridge(session, sid)
     session['_managed_memory_bridge'] = bridge
     try:
+        # The isolated controller is the authenticated production transport. It
+        # owns the fixed account binding and live On/Off/Forget checks. Cloud
+        # hosts have no historical Mac store, so they deliberately have no local
+        # fallback. Never interpret controller refusal/timeouts as local authority.
+        from agent.cloud_first_awareness import CloudFirstAwareness
+        retrieve = CloudFirstAwareness(bridge.retrieve, version=2)
         return bind_cloud_memory(
             binding=binding, hermes_home=str(Path(session.get('profile_home') or get_hermes_home())),
-            lifecycle=MemoryRunLifecycle(db), retrieve=bridge.retrieve,
+            lifecycle=MemoryRunLifecycle(db), retrieve=retrieve,
             is_current=bridge.current, invalidate_run=bridge.invalidate, enabled=True)
     finally:
         bridge.constructing = False

@@ -51,3 +51,17 @@ Final focused Python v2/cloud-first/frozen-contract check: 50 passed, exit 0.
 Public boundary guard against the incoming slice head passed (exit 0), invoked
 directly without piping; paths, modes, full ancestry, identifiers, secrets and
 metadata passed. Workspace remains below the requested storage limit.
+
+Live-chat checkpoint (built, not activated): the existing isolated controller
+now constructs the cloud-first v2 adapter before provider construction, retains
+lineage validation and labels successful recall `retrievalOrigin:cloud`. The
+adapter accepts a trusted v2 historical port, checks privacy before and after
+fallback, and refuses denial, malformed and empty-success substitution. No raw
+v1 history is stamped with v2 lineage. The cloud host has no Mac store and gets
+no local fallback by default. Desktop historical-port admission remains required
+before cutover. Enrollment alone must leave ingestion running; use
+`--local-brain-root` only after complete migration coverage and transport proof
+(step 7). No timer, real data, production or installed app was touched.
+
+Live-chat focused verification: canonical per-file runner, 40 Python tests passed,
+exit 0 (v1/v2 cloud-first provider and real controller/SQLite loopback).

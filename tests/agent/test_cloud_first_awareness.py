@@ -3,7 +3,7 @@ import pytest
 from tests.agent.test_atum_awareness import provider, response
 
 
-def test_cloud_first_is_runtime_default_with_bound_cloud(tmp_path):
+def test_bound_managed_port_precedes_local_recall(tmp_path):
     calls = []
     p = provider(tmp_path, read=lambda req, stop: calls.append('local') or response(req),
                  managed_retrieve=lambda req, stop: calls.append('cloud') or response(req),
@@ -12,9 +12,12 @@ def test_cloud_first_is_runtime_default_with_bound_cloud(tmp_path):
     assert calls == ['cloud']
 
 
-@pytest.mark.parametrize('failed', ['network', 'unavailable'])
+@pytest.mark.parametrize('failed', ['network', 'httpx', 'unavailable'])
 def test_outage_uses_current_readonly_fallback_and_labels_it(tmp_path, failed):
     def cloud(req, stop):
+        if failed == 'httpx':
+            import httpx
+            raise httpx.ConnectError('fixture')
         if failed == 'network':
             raise ConnectionError()
         return response(req, [], status='unavailable')
@@ -38,3 +41,57 @@ def test_no_fallback_after_denial_empty_invalid_or_stale_privacy(tmp_path, mode)
     result = p.recall({'query': 'meeting'})
     assert not result['items']
     assert calls == []
+
+
+def test_origin_is_attached_to_each_response_not_shared_state(tmp_path):
+    cloud_up = False
+    def cloud(req, stop):
+        if not cloud_up:
+            raise ConnectionError()
+        return response(req)
+    p = provider(tmp_path, managed_retrieve=cloud, fallback_current=lambda: True)
+    first = p.recall({'query': 'meeting'})
+    cloud_up = True
+    second = p.recall({'query': 'meeting'})
+    assert first['retrievalOrigin'] == 'local_historical_fallback'
+    assert second['retrievalOrigin'] == 'cloud'
+    assert first['retrievalOrigin'] == 'local_historical_fallback'
+
+
+def test_privacy_change_during_fallback_discards_result(tmp_path):
+    state = {'current': True}
+    def local(req, stop):
+        state['current'] = False
+        return response(req)
+    def down(req, stop):
+        raise ConnectionError()
+    p = provider(tmp_path, read=local, managed_retrieve=down,
+                 fallback_current=lambda: state['current'])
+    result = p.recall({'query': 'meeting'})
+    assert result['items'] == []
+
+
+def test_v2_cloud_and_bound_historical_fallback(tmp_path):
+    from agent.cloud_first_awareness import CloudFirstAwareness
+    from tests.agent.test_atum_awareness_v2 import provider as v2provider, response as v2response
+    state = {'up': True, 'current': True}
+    calls = []
+    def cloud(req, stop):
+        if not state['up']:
+            raise ConnectionError()
+        return v2response(req, stop)
+    def local(req, stop):
+        calls.append('local')
+        return v2response(req, stop)
+    port = CloudFirstAwareness(cloud, local, version=2,
+                               fallback_current=lambda: state['current'])
+    p = v2provider(tmp_path, read=port)
+    result = p.recall({'query': 'meeting'})
+    assert result['retrievalOrigin'] == 'cloud' and result['items']
+    assert calls == []
+    state['up'] = False
+    result = p.recall({'query': 'meeting'})
+    assert result['retrievalOrigin'] == 'local_historical_fallback' and result['items']
+    state['current'] = False
+    assert p.recall({'query': 'meeting'})['items'] == []
+    assert calls == ['local']
