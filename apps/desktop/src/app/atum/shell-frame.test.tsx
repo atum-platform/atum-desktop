@@ -1,8 +1,13 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { Dialog } from 'radix-ui'
 import type { ComponentProps } from 'react'
-import { useEffect, useState } from 'react'
-import { expect, it, vi } from 'vitest'
+import { useEffect, useRef, useState } from 'react'
+import { describe, expect, it, vi } from 'vitest'
+
+import { ATUM_DESTINATION_RAIL_WIDTH, ATUM_ROSTER_WIDTH } from '@/lib/atum-shell-geometry'
+
+import type { MatrixWorkRect } from '../../../shared/matrix-work'
+import { useWorkViewPlacement } from '../work/use-work-view-placement'
 
 import { AtumShellFrame } from './shell-frame'
 
@@ -346,4 +351,122 @@ it('keeps one roster mounted across hide/reopen and layout changes, but makes hi
   }
 
   expect(unmounted).toHaveBeenCalledOnce()
+})
+
+// Owner report (2026-11-24): Work "sweeps out from the left. No other screen behaves this way."
+// The left panel's exit motion widened Work's host frame by frame, and the native view followed.
+describe('a screen switch moves no panel; only the toggle animates', () => {
+  const RAIL = ATUM_DESTINATION_RAIL_WIDTH
+  const ROSTER = ATUM_ROSTER_WIDTH
+
+  /** jsdom has no layout: the host starts after the rail and whatever the roster slot occupies now. */
+  function Host({ bridge }: { bridge: { hide: () => Promise<void>; show: (rect: MatrixWorkRect) => Promise<void> } }) {
+    const host = useRef<HTMLDivElement>(null)
+
+    useEffect(() => {
+      const node = host.current!
+
+      node.getBoundingClientRect = () => {
+        const slot = node.ownerDocument.querySelector<HTMLElement>('[data-atum-roster-slot]')!
+        const phase = slot.getAttribute('data-atum-motion')
+        // Entering or exiting, the slot is mid-transition: about half its width.
+        const roster = slot.style.display === 'none' ? 0 : phase === 'open' ? ROSTER : ROSTER / 2
+        const left = RAIL + roster
+
+        return { left, top: 0, width: 1200 - left, height: 800, x: left, y: 0, right: 1200, bottom: 800, toJSON: () => ({}) } as DOMRect
+      }
+    }, [])
+    useWorkViewPlacement(bridge, host, true)
+
+    return <div data-atum-work-host ref={host} />
+  }
+
+  function shell(props: Partial<ComponentProps<typeof AtumShellFrame>> = {}) {
+    return (
+      <AtumShellFrame
+        compact={false}
+        main={() => <section data-testid="main-slot" />}
+        onCloseRosterDrawer={vi.fn()}
+        roster={<aside data-atum-roster>Roster</aside>}
+        rosterDrawerCloseLabel="Close roster"
+        rosterDrawerLabel="Conversations"
+        rosterDrawerOpen={false}
+        screen="chat"
+        sidebarShowing
+        workspaceInSplit
+        workspaceOpen={false}
+        workspaceOverFrame={false}
+        workspacePercent={40}
+        {...props}
+      />
+    )
+  }
+
+  const slot = (view: ReturnType<typeof render>) => view.container.querySelector<HTMLElement>('[data-atum-roster-slot]')!
+
+  it('opens Work with the panel already gone, so the Work view is placed once at its final bounds', async () => {
+    vi.useFakeTimers()
+    const bridge = { hide: vi.fn(async () => {}), show: vi.fn(async (_rect: MatrixWorkRect) => {}) }
+    const view = render(shell())
+
+    try {
+      act(() => vi.advanceTimersByTime(20))
+      view.rerender(shell({ main: () => <Host bridge={bridge} />, screen: 'work', sidebarShowing: false }))
+
+      // The same commit: no exiting phase, no width in flight, the main panel follows the rail.
+      expect(slot(view).style.display).toBe('none')
+      expect(slot(view).getAttribute('data-atum-motion')).toBe('open')
+      expect(slot(view).hasAttribute('data-atum-motion-instant')).toBe(true)
+      expect(view.container.querySelector('[data-atum-shell]')!.hasAttribute('data-atum-roster-flow')).toBe(false)
+
+      for (let frame = 0; frame < 20; frame += 1) {
+        act(() => vi.advanceTimersByTime(16))
+      }
+
+      expect(bridge.show.mock.calls.map(([rect]) => rect)).toEqual([{ x: RAIL, y: 0, width: 1200 - RAIL, height: 800 }])
+
+      // Back to Chat: the panel is there at once, at full width.
+      view.rerender(shell({ screen: 'chat', sidebarShowing: true }))
+      expect(slot(view).style.display).not.toBe('none')
+      expect(slot(view).style.width).toBe(`${ROSTER}px`)
+      expect(slot(view).getAttribute('data-atum-motion')).toBe('open')
+    } finally {
+      view.unmount()
+      vi.useRealTimers()
+    }
+  })
+
+  it('still animates the panel when the toggle is pressed on the same screen', () => {
+    vi.useFakeTimers()
+    const view = render(shell({ screen: 'work', sidebarShowing: false }))
+
+    try {
+      view.rerender(shell({ screen: 'chat', sidebarShowing: true }))
+      // The toggle, on Chat: the panel slides out over its exit motion, then leaves the row.
+      view.rerender(shell({ screen: 'chat', sidebarShowing: false }))
+      expect(slot(view).getAttribute('data-atum-motion')).toBe('exiting')
+      expect(slot(view).hasAttribute('data-atum-motion-instant')).toBe(false)
+      expect(slot(view).style.display).not.toBe('none')
+      act(() => vi.advanceTimersByTime(300))
+      expect(slot(view).style.display).toBe('none')
+
+      // And back in: entering, then open.
+      view.rerender(shell({ screen: 'chat', sidebarShowing: true }))
+      expect(slot(view).getAttribute('data-atum-motion')).toBe('entering')
+    } finally {
+      view.unmount()
+      vi.useRealTimers()
+    }
+  })
+
+  it('closes a split workspace with the screen switch at once, not over its exit motion', () => {
+    const view = render(shell({ workspace: () => <section data-testid="workspace-slot" />, workspaceOpen: true }))
+    const split = () => screen.getByTestId('main-slot').parentElement!
+
+    expect(split().style.gridTemplateColumns).toBe('minmax(0, 60fr) minmax(0, 40fr)')
+    view.rerender(shell({ workspace: () => <section data-testid="workspace-slot" />, workspaceOpen: false, screen: 'work', sidebarShowing: false }))
+    expect(split().style.gridTemplateColumns).toBe('minmax(0, 1fr) minmax(0, 0fr)')
+    expect(split().hasAttribute('data-atum-motion-instant')).toBe(true)
+    view.unmount()
+  })
 })

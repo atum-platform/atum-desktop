@@ -36,16 +36,44 @@ export interface AtumShellFrameProps {
   rosterDrawerCloseLabel: string
   rosterDrawerLabel: string
   onCloseRosterDrawer(): void
+  /**
+   * The screen on show (Chat, Store, Work, ...). A panel that opens or closes because this changed
+   * does so instantly; only a change on the same screen (the toggle) animates. T3's rule
+   * (`usePanelNavigationSuppression`): a moving panel on a screen switch drags the new screen's
+   * content, Work's native view above all, across the window.
+   */
+  screen?: string
   className?: string
 }
 
-function useMotionPresence(open: boolean, exitMs: number): AtumShellFrameMotion {
+/** Whether the latest change to `open` came with a screen change, and so must not animate. */
+function useScreenSwitchInstant(open: boolean, screen: string | undefined): boolean {
+  const [seen, setSeen] = useState({ open, screen })
+  const [instant, setInstant] = useState(false)
+
+  // Derived from the previous render, so the committed frame already has the final layout.
+  if (seen.open !== open || seen.screen !== screen) {
+    setSeen({ open, screen })
+    setInstant(seen.screen !== screen)
+  }
+
+  return instant
+}
+
+function useMotionPresence(open: boolean, exitMs: number, instant = false): AtumShellFrameMotion {
   const [rendered, setRendered] = useState(open)
   const [phase, setPhase] = useState<MotionPhase>('open')
   const frame = useRef(0)
 
   useEffect(() => {
     window.cancelAnimationFrame(frame.current)
+
+    if (instant) {
+      setRendered(open)
+      setPhase('open')
+
+      return
+    }
 
     if (open) {
       setRendered(true)
@@ -69,7 +97,7 @@ function useMotionPresence(open: boolean, exitMs: number): AtumShellFrameMotion 
     const timeout = window.setTimeout(() => setRendered(false), exitMs)
 
     return () => window.clearTimeout(timeout)
-  }, [exitMs, open, rendered])
+  }, [exitMs, instant, open, rendered])
 
   return {
     finishExit: () => {
@@ -77,8 +105,9 @@ function useMotionPresence(open: boolean, exitMs: number): AtumShellFrameMotion 
         setRendered(false)
       }
     },
-    phase,
-    rendered
+    // An instant change is final in the same render: no entering or exiting frame.
+    phase: instant ? 'open' : phase,
+    rendered: instant ? open : rendered
   }
 }
 
@@ -99,6 +128,7 @@ export function AtumShellFrame({
   rosterDrawerCloseLabel,
   rosterDrawerLabel,
   rosterDrawerOpen,
+  screen,
   sidebarShowing,
   workspace,
   workspaceInSplit,
@@ -106,9 +136,14 @@ export function AtumShellFrame({
   workspaceOverFrame,
   workspacePercent
 }: AtumShellFrameProps) {
-  const sidebarMotion = useMotionPresence(!compact && sidebarShowing, 280)
-  const rosterDrawerMotion = useMotionPresence(compact && rosterDrawerOpen, 280)
-  const workspaceMotion = useMotionPresence(workspaceOpen, 280)
+  const sidebarOpen = !compact && sidebarShowing
+  const sidebarInstant = useScreenSwitchInstant(sidebarOpen, screen)
+  const sidebarMotion = useMotionPresence(sidebarOpen, 280, sidebarInstant)
+  const drawerShown = compact && rosterDrawerOpen
+  const rosterDrawerInstant = useScreenSwitchInstant(drawerShown, screen)
+  const rosterDrawerMotion = useMotionPresence(drawerShown, 280, rosterDrawerInstant)
+  const workspaceInstant = useScreenSwitchInstant(workspaceOpen, screen)
+  const workspaceMotion = useMotionPresence(workspaceOpen, 280, workspaceInstant)
   const [workspaceMounted, setWorkspaceMounted] = useState(workspaceOpen)
 
   useEffect(() => {
@@ -189,6 +224,7 @@ export function AtumShellFrame({
           aria-modal={drawerOpen ? true : undefined}
           className={compact ? 'absolute inset-y-0 left-0 z-50 flex' : 'flex min-h-0 shrink-0 overflow-hidden'}
           data-atum-motion={rosterMotion.phase}
+          data-atum-motion-instant={(compact ? rosterDrawerInstant : sidebarInstant) ? true : undefined}
           data-atum-roster-drawer={compact ? true : undefined}
           data-atum-roster-slot={!compact ? true : undefined}
           inert={!rosterInFlow && !drawerOpen ? true : undefined}
@@ -239,6 +275,7 @@ export function AtumShellFrame({
         <div
           className="relative grid min-h-0 flex-1"
           data-atum-main-split
+          data-atum-motion-instant={workspaceInstant ? true : undefined}
           data-pet-stage-root
           style={{
             gridTemplateColumns:

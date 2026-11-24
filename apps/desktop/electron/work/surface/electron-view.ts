@@ -4,6 +4,7 @@ import type { MatrixWorkRect } from '../../../shared/matrix-work'
 import { createElectronOwnerView, installWorkViewPolicy, partitionFor } from '../session'
 import type { WorkIncarnation } from '../sidecar/process'
 
+import { placeOwnerView } from './place-view'
 import type { WorkViewHandle } from './surface'
 
 /**
@@ -67,32 +68,13 @@ export function createWorkViewFactory(input: {
     const place = (rect: MatrixWorkRect | null) => {
       const window = input.window()
 
-      if (!rect || !window || window.isDestroyed() || view.webContents.isDestroyed()) {
-        if (host && !host.isDestroyed()) {
-          host.contentView.removeChildView(view)
-        }
-
-        host = null
-
-        return
-      }
-
-      if (host !== window) {
-        if (host && !host.isDestroyed()) {
-          host.contentView.removeChildView(view)
-        }
-
-        window.contentView.addChildView(view)
-        host = window
-      }
-
-      const zoom = input.zoomFactor?.() ?? 1
-      view.setBorderRadius(Math.round((input.radius ?? 0) * zoom))
-      view.setBounds({
-        x: Math.round(rect.x * zoom),
-        y: Math.round(rect.y * zoom),
-        width: Math.max(0, Math.round(rect.width * zoom)),
-        height: Math.max(0, Math.round(rect.height * zoom))
+      host = placeOwnerView({
+        view,
+        host,
+        window: view.webContents.isDestroyed() ? null : window,
+        rect,
+        zoom: input.zoomFactor?.() ?? 1,
+        radius: input.radius ?? 0
       })
     }
 
