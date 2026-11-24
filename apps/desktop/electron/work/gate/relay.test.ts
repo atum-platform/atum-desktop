@@ -23,7 +23,7 @@ function rig() {
   clean.push(() => {
     void h.cleanup()
   })
-  const selection = { revision: 1, instanceId: 'codex', model: 'test', projectId: 'test', personaRevision: 1 }
+  const selection = { revision: 1, instanceId: 'atum-relay-codex', model: 'test', projectId: 'test', personaRevision: 1 }
   const history = vi.fn(async () => [])
 
   const owner = vi.fn(async () => ({

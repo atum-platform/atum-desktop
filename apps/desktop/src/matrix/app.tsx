@@ -423,7 +423,7 @@ import { useMatrixReadAttention } from './read-attention'
 import { matrixFirstUnreadMessageId } from './read-marker'
 import { matrixReadinessCopy, matrixSetupCooldown } from './readiness-copy'
 import { ResultRecoveryOutcome, useResultRecovery } from './result-recovery'
-import { anyAgentPrompts, primaryAgent, snapshotForRoom } from './room-agent'
+import { anyAgentPrompts, assistantTarget, primaryAgent, snapshotForRoom } from './room-agent'
 import { sortConversations } from './room-navigation'
 import { MatrixRosterConversations } from './roster-conversations'
 import { useRosterCopy } from './roster-copy'
@@ -3017,7 +3017,8 @@ function MatrixComposer({
         Boolean(snapshot.appTurn) ||
         (room.assistant &&
           (!isAssistantRoom(room, snapshot.identity?.userId, snapshot.assistant?.userId) ||
-            (!listening && snapshot.hermes !== 'ready')))
+            // Cloud placement does not depend on this Mac's local executor readiness.
+            (!cloudAssistant && !listening && snapshot.hermes !== 'ready')))
 
   // Notes-to-self integration seam: a former winner or changed audience remains readable but
   // cannot receive another Atum send. The SDK repeats this check at the authority boundary.
@@ -5734,7 +5735,7 @@ function Conversation({
             />
           )}
           {room.membership !== 'join' && <ConversationMembership room={room} snapshot={snapshot} />}
-          {room.assistant && room.membership === 'join' && !assistantEligible && (
+          {snapshot.agentRoster?.state === 'ready' && room.assistant && room.membership === 'join' && !assistantEligible && (
             <NoticeBand tone="notice">{t.matrixShell.assistantHistoryOnly}</NoticeBand>
           )}
           {room.assistant && snapshot.domainEnabled && snapshot.linkedDocument && usableAgentRoom(room) && (
@@ -5742,7 +5743,7 @@ function Conversation({
           )}
           {/* The assistant still starting (the window opens with the person's chats), stopped
             or paused: said here, in its own chat, with the one action that helps. */}
-          {localAssistant && (
+          {snapshot.agentRoster?.state === 'ready' && localAssistant && (
             <MatrixLaunchNotice
               cloudOnly={cloudOnly}
               fail={fail}
@@ -6520,7 +6521,8 @@ function MatrixRoster({
   // A cloud-only default (the first sign-up assistant) never runs local setup: no local
   // identity or setup state is expected, so it is never asked to set up on this Mac.
   const primaryAgent = snapshot.agents?.find(agent => agent.isDefault)
-  const localSetupRequired = !primaryAgent || matrixAgentNeedsLocalSetup(primaryAgent, cloudOnly)
+  const localSetupRequired = snapshot.agentRoster?.state === 'ready' &&
+    (!primaryAgent || matrixAgentNeedsLocalSetup(primaryAgent, cloudOnly))
 
   const globalCompanyIds = useMemo(() => [...new Set(snapshot.rooms.flatMap(value => {
     const companyId = value.companyChannel?.companyId ?? value.companyConversation?.companyId
@@ -6645,7 +6647,8 @@ function MatrixRoster({
     closeDrawer()
   }
 
-  const openAssistant = async (fresh = false, agentId = snapshot.assistant?.userId, preferredRoomId?: string) => {
+  const openAssistant = async (fresh = false, agentId?: string, preferredRoomId?: string) => {
+    agentId = assistantTarget(snapshot, agentId, preferredRoomId)
     if (!agentId || !snapshot.identity || assistantOpening) {
       return
     }
@@ -6743,7 +6746,7 @@ function MatrixRoster({
   // compact drawer stays shut. While the assistant is still getting ready, its
   // existing chat is only opened (it says so there); connecting waits for it.
   useEffect(() => {
-    if (landed.current || !sawStartup.current || snapshot.state !== 'ready' || gating || !snapshot.assistant) {
+    if (landed.current || !sawStartup.current || snapshot.state !== 'ready' || gating || (!snapshot.assistant && primaryAgent?.answering !== 'cloud')) {
       return
     }
 
@@ -6776,6 +6779,7 @@ function MatrixRoster({
     compact,
     gating,
     placed,
+    primaryAgent,
     snapshot.assistant,
     snapshot.startup,
     snapshot.state
@@ -8474,8 +8478,8 @@ function MatrixAccountView({
         name={matrixPrimaryAgentName(snapshot, shell.assistantName)}
         snapshot={snapshot}
       />
-    ) : matrixLaunchNoticeKind(snapshot.readiness) === 'starting' ||
-      matrixLaunchNoticeKind(snapshot.readiness) === 'blocked' ? (
+    ) : snapshot.agentRoster?.state === 'ready' && (matrixLaunchNoticeKind(snapshot.readiness) === 'starting' ||
+      matrixLaunchNoticeKind(snapshot.readiness) === 'blocked') ? (
       <MatrixLaunchNotice
         cloudOnly={cloudOnly}
         fail={fail}
@@ -8489,6 +8493,125 @@ function MatrixAccountView({
     ) : (
       <EmptyState className="m-auto p-8" description={copy.noRoomHelp} title={copy.noRoom} />
     ))
+
+  // The window's notice bands. They sit at the top of the main column, never above a sidebar.
+  const statusStack = (
+    <div className="mx-auto w-full max-w-[700px] shrink-0 px-10 empty:hidden" data-matrix-status-stack>
+      {/* A new sign-in elsewhere is the title bar's attention item (agent-attention.ts),
+          never a band here: a band pushes the page under it down. */}
+      <ConversationRetryLine
+        onRetry={() => {
+          if (!snapshot.identity || !profileAgent) {
+            return
+          }
+
+          void window.atumMatrix
+            .command({
+              kind: 'agentConversation',
+              identity: snapshot.identity,
+              agentId: profileAgent.userId,
+              action: 'retry',
+              ...(profileAgent.conversation?.proposed ? { roomId: profileAgent.conversation.proposed } : {})
+            })
+            .catch(fail)
+        }}
+        view={
+          !founderDraftShown && !workplaceActive && !driveActive && !appDestination
+            ? profileAgent?.conversation
+            : undefined
+        }
+      />
+      <HermesPrompts
+        conversationVisible={
+          !founderDraftShown && conversationShellVisible && !driveActive && !appDestination && Boolean(room)
+        }
+        fail={fail}
+        snapshot={snapshot}
+      />
+      {/* A person's verification only: main's own checks of agents never reach the
+          window (background-verification.ts). */}
+      <VerificationPrompt snapshot={snapshot} />
+      {snapshot.deviceIsolation?.value === 'signed' && error === 'identity_review' && !settingsOpen && (
+        <MatrixPeerIdentityPanel
+          onResolved={() => setError(current => (current === 'identity_review' ? null : current))}
+          snapshot={snapshot}
+        />
+      )}
+      {/* The chat's offers belong to the chat, never to Drive (Atum Kit review E23). */}
+      {!workplaceActive && !driveActive && !appDestination && (
+        <MatrixTerminalOffers
+          onOpened={(id, scope) => {
+            setTerminalRequest({ id, scope, serial: Date.now() })
+            openWorkspace()
+          }}
+          scope={matrixWorkbenchScope(snapshot)}
+          snapshot={snapshot}
+        />
+      )}
+      {!workplaceActive && !driveActive && !appDestination && (
+        <MatrixWebPreviewOfferCard
+          full={workspaceTabCount >= 32}
+          offer={snapshot.webPreview}
+          onOpened={value => {
+            setBrowserRequest(value)
+            openWorkspace()
+          }}
+          roomId={snapshot.roomId}
+          scope={matrixWorkbenchScope(snapshot)}
+        />
+      )}
+      {(error || (snapshot.error && snapshot.error !== 'matrix_disk_full')) && (
+        <NoticeBand role="status" tone="notice">
+          <span className="flex items-start gap-2" data-matrix-failure={error ?? undefined}>
+            <span className="min-w-0 flex-1">{notice}</span>
+            {error && !snapshot.error && failureRetry && (
+              <Button
+                className="-my-0.5 shrink-0"
+                data-matrix-failure-retry
+                onClick={() => {
+                  setError(null)
+                  failureRetry.run()
+                }}
+                size="sm"
+                type="button"
+                variant="text"
+              >
+                {chat.retry}
+              </Button>
+            )}
+            {error && !snapshot.error && (
+              <Tip label={chat.dismiss}>
+                <button
+                  aria-label={chat.dismiss}
+                  className="atum-icon-btn -my-0.5 size-6 shrink-0"
+                  onClick={() => setError(null)}
+                  type="button"
+                >
+                  <X aria-hidden className="size-3.5" />
+                </button>
+              </Tip>
+            )}
+          </span>
+        </NoticeBand>
+      )}
+      {snapshot.agentCleanupRequired && <NoticeBand tone="notice">{copy.enrollmentOrphaned}</NoticeBand>}
+      {/* The window's one device-health band: this Mac's own device repair/control
+          offers. Disk-full blocks the composer, so its notice lives with that box. */}
+      <MatrixDeviceHealthNotice
+        snapshot={{
+          deviceAccessRepair: snapshot.deviceAccessRepair,
+          deviceDamaged: snapshot.deviceDamaged,
+          ownerDeviceRepair: snapshot.ownerDeviceRepair
+        }}
+      />
+      <MatrixApprovalSheet open={approvalSheet.open} snapshot={snapshot} />
+      {setupCooldown && (
+        <NoticeBand role="status" tone="notice">
+          {setupCooldown.title} {setupCooldown.help}
+        </NoticeBand>
+      )}
+    </div>
+  )
 
   return (
     <>
@@ -8927,121 +9050,9 @@ function MatrixAccountView({
                     )}
                 </div>
               </AtumMainHeaderSurface>
-              <div className="mx-auto w-full max-w-[700px] shrink-0 px-10 empty:hidden" data-matrix-status-stack>
-                {/* A new sign-in elsewhere is the title bar's attention item (agent-attention.ts),
-                    never a band here: a band pushes the page under it down. */}
-                <ConversationRetryLine
-                  onRetry={() => {
-                    if (!snapshot.identity || !profileAgent) {
-                      return
-                    }
-
-                    void window.atumMatrix
-                      .command({
-                        kind: 'agentConversation',
-                        identity: snapshot.identity,
-                        agentId: profileAgent.userId,
-                        action: 'retry',
-                        ...(profileAgent.conversation?.proposed ? { roomId: profileAgent.conversation.proposed } : {})
-                      })
-                      .catch(fail)
-                  }}
-                  view={
-                    !founderDraftShown && !workplaceActive && !driveActive && !appDestination
-                      ? profileAgent?.conversation
-                      : undefined
-                  }
-                />
-                <HermesPrompts
-                  conversationVisible={
-                    !founderDraftShown && conversationShellVisible && !driveActive && !appDestination && Boolean(room)
-                  }
-                  fail={fail}
-                  snapshot={snapshot}
-                />
-                {/* A person's verification only: main's own checks of agents never reach the
-                    window (background-verification.ts). */}
-                <VerificationPrompt snapshot={snapshot} />
-                {snapshot.deviceIsolation?.value === 'signed' && error === 'identity_review' && !settingsOpen && (
-                  <MatrixPeerIdentityPanel
-                    onResolved={() => setError(current => (current === 'identity_review' ? null : current))}
-                    snapshot={snapshot}
-                  />
-                )}
-                {/* The chat's offers belong to the chat, never to Drive (Atum Kit review E23). */}
-                {!workplaceActive && !driveActive && !appDestination && (
-                  <MatrixTerminalOffers
-                    onOpened={(id, scope) => {
-                      setTerminalRequest({ id, scope, serial: Date.now() })
-                      openWorkspace()
-                    }}
-                    scope={matrixWorkbenchScope(snapshot)}
-                    snapshot={snapshot}
-                  />
-                )}
-                {!workplaceActive && !driveActive && !appDestination && (
-                  <MatrixWebPreviewOfferCard
-                    full={workspaceTabCount >= 32}
-                    offer={snapshot.webPreview}
-                    onOpened={value => {
-                      setBrowserRequest(value)
-                      openWorkspace()
-                    }}
-                    roomId={snapshot.roomId}
-                    scope={matrixWorkbenchScope(snapshot)}
-                  />
-                )}
-                {(error || (snapshot.error && snapshot.error !== 'matrix_disk_full')) && (
-                  <NoticeBand role="status" tone="notice">
-                    <span className="flex items-start gap-2" data-matrix-failure={error ?? undefined}>
-                      <span className="min-w-0 flex-1">{notice}</span>
-                      {error && !snapshot.error && failureRetry && (
-                        <Button
-                          className="-my-0.5 shrink-0"
-                          data-matrix-failure-retry
-                          onClick={() => {
-                            setError(null)
-                            failureRetry.run()
-                          }}
-                          size="sm"
-                          type="button"
-                          variant="text"
-                        >
-                          {chat.retry}
-                        </Button>
-                      )}
-                      {error && !snapshot.error && (
-                        <Tip label={chat.dismiss}>
-                          <button
-                            aria-label={chat.dismiss}
-                            className="atum-icon-btn -my-0.5 size-6 shrink-0"
-                            onClick={() => setError(null)}
-                            type="button"
-                          >
-                            <X aria-hidden className="size-3.5" />
-                          </button>
-                        </Tip>
-                      )}
-                    </span>
-                  </NoticeBand>
-                )}
-                {snapshot.agentCleanupRequired && <NoticeBand tone="notice">{copy.enrollmentOrphaned}</NoticeBand>}
-                {/* The window's one device-health band: this Mac's own device repair/control
-                    offers. Disk-full blocks the composer, so its notice lives with that box. */}
-                <MatrixDeviceHealthNotice
-                  snapshot={{
-                    deviceAccessRepair: snapshot.deviceAccessRepair,
-                    deviceDamaged: snapshot.deviceDamaged,
-                    ownerDeviceRepair: snapshot.ownerDeviceRepair
-                  }}
-                />
-                <MatrixApprovalSheet open={approvalSheet.open} snapshot={snapshot} />
-                {setupCooldown && (
-                  <NoticeBand role="status" tone="notice">
-                    {setupCooldown.title} {setupCooldown.help}
-                  </NoticeBand>
-                )}
-              </div>
+              {/* Team Space draws its own sidebar inside the workspace, so there the notices go into its
+                  main column (MatrixCompanyWorkspace notices); above it they would push the sidebar down. */}
+              {!workplaceActive && statusStack}
               {!workplaceActive && !driveActive && snapshot.apps && (
                 <MatrixApps
                   fail={fail}
@@ -9093,6 +9104,7 @@ function MatrixAccountView({
                   initialPage={workplacePage}
                   // Each page Settings opens is a fresh trip, even over one already open.
                   key={settingsTrip ? `settings:${settingsTrip.serial}` : 'workplace'}
+                  notices={statusStack}
                   obstructed={
                     drawerOpen ||
                     overlaid ||

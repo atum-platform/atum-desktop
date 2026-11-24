@@ -18,7 +18,7 @@ export type WorkRelayPlan = (typeof WORK_RELAY_PLANS)[number]
 export const WORK_RELAY_ENABLED_PLANS = WORK_RELAY_PLANS
 /** Wire plan IDs map only to these built-in native instances. */
 export const WORK_RELAY_PROVIDER = {
-  codex: { instanceId: 'codex', picker: 'openai-codex', notice: 'chatgpt', usage: true, mode: {} },
+  codex: { instanceId: 'atum-relay-codex', picker: 'openai-codex', notice: 'chatgpt', usage: true, mode: {} },
   claude: { instanceId: 'claudeAgent', picker: 'anthropic', notice: 'claude', usage: true, mode: {} },
   antigravity: { instanceId: 'antigravity', picker: 'antigravity', notice: 'antigravity', usage: false,
     mode: { 'auto-accept-edits': 'approval-required' } }

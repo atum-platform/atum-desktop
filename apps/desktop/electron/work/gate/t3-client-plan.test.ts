@@ -73,3 +73,12 @@ describe('the thread read names the provider the thread runs on now', () => {
     expect(await read({ status: 'idle' })).not.toHaveProperty('provider')
   })
 })
+
+
+it('admits the hidden relay Codex instance by its native driver without selecting the owner instance', async () => {
+  const relay = { ...READY, providerInstanceId: 'atum-relay-codex' }
+  expect(await client([READY, relay], { instanceId: 'atum-relay-codex' }).planProvider?.('t')).toMatchObject({
+    status: 'connected', selection: { instanceId: 'atum-relay-codex' }
+  })
+  expect(await client([READY], { instanceId: 'atum-relay-codex' }).planProvider?.('t')).toEqual({ status: 'disconnected' })
+})

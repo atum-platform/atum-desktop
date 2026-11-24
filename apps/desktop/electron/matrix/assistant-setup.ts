@@ -1,4 +1,4 @@
-import { MATRIX_READINESS_TIMINGS, type MatrixReadinessCheck } from './readiness'
+import { MATRIX_READINESS_TIMINGS } from './readiness'
 
 /**
  * Whether a cold first sign-in still owes the default assistant local setup.
@@ -21,31 +21,23 @@ export function matrixAssistantSetupRunsLocally(input: { cloudOnly: boolean }): 
  * Returning a delay keeps `assistantSetupState` pending and lets the existing readiness gate
  * resume setup at the same first-backoff cadence it uses for every other retry.
  */
-export function matrixAssistantSetupRosterRetry(input: {
-  roster: MatrixReadinessCheck | undefined
-  defaultPrincipal: string | undefined
-}): number | undefined {
-  if (input.defaultPrincipal !== undefined || input.roster?.ok) {
-    return undefined
-  }
-
-  return MATRIX_READINESS_TIMINGS.backoffMs[0]
+export function matrixAssistantSetupRosterRetry(input: { placementKnown: boolean }): number | undefined {
+  return input.placementKnown ? undefined : MATRIX_READINESS_TIMINGS.backoffMs[0]
 }
 
 /**
  * The account's `localExecutorRequired` answer for one enrollment target.
  *
  * An unnamed target is the default assistant. A named principal follows its runtime when this
- * Mac knows it; an unknown principal is never assumed cloud-only, so its local enrollment stays
- * allowed (the platform still answers for whether it may exist).
+ * Mac knows its authenticated placement. Unknown placement never authorizes local enrollment.
  */
 export function matrixLocalExecutorRequired(input: {
   principal: string | undefined
-  defaultCloudOnly: boolean
+  defaultCloudOnly: boolean | undefined
   namedCloudOnly: (principal: string) => boolean | undefined
 }): boolean {
   const cloudOnly =
-    input.principal === undefined ? input.defaultCloudOnly : (input.namedCloudOnly(input.principal) ?? false)
+    input.principal === undefined ? input.defaultCloudOnly : input.namedCloudOnly(input.principal)
 
-  return matrixAssistantSetupRunsLocally({ cloudOnly })
+  return cloudOnly === false
 }
