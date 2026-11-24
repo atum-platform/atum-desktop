@@ -32,6 +32,8 @@ report success. The Mac switch disables local snapshots before awaiting the
 platform, and stale enabled cloud snapshots cannot override that switch.
 `sessionExpiresAt`, when supplied by S2, drives the renewal card separately from
 the enrollment grant's shorter expiry.
+An intentionally disabled Mac does not show an expiry card; its off switch
+remains the owner's choice until they turn it back on.
 
 Verification: 107 focused connector/OAuth/surface/Matrix/process/connection tests
 passed. Electron typecheck exit 0. Initial exact-commit public guard exit 0;

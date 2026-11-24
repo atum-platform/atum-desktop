@@ -92,6 +92,7 @@ export class NativeConnector {
     this.save(this.bindingsFile, [])
   }
   renewal(now = Date.now()): 'needed' | 'soon' | 'current' {
+    if (this.ports.enabled?.() === false) {return 'current'}
     const rows = [...this.grants.values()].filter(row => row.enabled)
     if (!rows.length || rows.some(row => (row.sessionExpiresAt ?? row.expiresAt) <= now)) {return 'needed'}
     return rows.some(row => (row.sessionExpiresAt ?? row.expiresAt) - now <= 3 * 86400_000) ? 'soon' : 'current'

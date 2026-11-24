@@ -56,6 +56,7 @@ it('keeps the local Mac switch off even when S2 still reports an enabled grant',
   expect(native.renewal()).toBe('current')
   enabled = false
   native.revoke()
+  expect(native.renewal()).toBe('current')
   expect((await native.consent()).grants[0]?.enabled).toBe(false)
   await expect(native.handle('/tools', 'POST', { binding: grant('a').binding })).rejects.toThrow('disabled')
   enabled = true
