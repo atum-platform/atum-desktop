@@ -185,3 +185,15 @@ it('routes a room nudge to its assistant after Main is reassigned', () => {
   expect(assistantTarget(state)).toBe('@new:test')
   expect(assistantTarget(state, undefined, '!missing:test')).toBeUndefined()
 })
+
+it('projects a roster cloud primary without local enrollment into its own chat', () => {
+  const cloud = agent('default', { isDefault: true, answering: 'cloud', hermes: 'unavailable', ready: false })
+  const state: MatrixSnapshot = { ...snapshot, assistant: undefined, agents: [cloud], roomId: '!default' }
+
+  expect(snapshotForRoom(state)).toMatchObject({
+    assistant: { userId: cloud.userId },
+    hermes: 'unavailable',
+    atumModel: cloud.atumModel
+  })
+  expect(snapshotForRoom({ ...state, roomId: '!group' }).assistant).toBeUndefined()
+})

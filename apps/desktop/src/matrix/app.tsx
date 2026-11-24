@@ -3017,7 +3017,8 @@ function MatrixComposer({
         Boolean(snapshot.appTurn) ||
         (room.assistant &&
           (!isAssistantRoom(room, snapshot.identity?.userId, snapshot.assistant?.userId) ||
-            (!listening && snapshot.hermes !== 'ready')))
+            // Cloud placement does not depend on this Mac's local executor readiness.
+            (!cloudAssistant && !listening && snapshot.hermes !== 'ready')))
 
   // Notes-to-self integration seam: a former winner or changed audience remains readable but
   // cannot receive another Atum send. The SDK repeats this check at the authority boundary.

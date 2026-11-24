@@ -62,6 +62,8 @@ function window6(readiness: (name: string) => MatrixAgentView['readiness'], extr
     domainEnabled: true,
     hermes: 'ready',
     assistantPath: 'local',
+    // These are known local placements; unknown placement intentionally suppresses notices.
+    agentRoster: { state: 'ready', since: 1 },
     atumModel: true,
     readiness: agents[0]!.readiness,
     agents,

@@ -4394,7 +4394,7 @@ describe('isolated Matrix composition', () => {
     expect(bridge.command).not.toHaveBeenCalled()
   })
 
-  it('does not silently choose the former default when Main has no available default room/runtime', async () => {
+  it('creates a chat with roster Main instead of choosing the former default when Main has no room/runtime', async () => {
     const state = promotedMainSnapshot()
 
     const { bridge } = fixture(async () => ({
@@ -4408,7 +4408,10 @@ describe('isolated Matrix composition', () => {
     fireEvent.click(await screen.findByRole('button', { name: /^Chats$/ }))
     fireEvent.click(screen.getByRole('button', { name: /^Atum Main$/ }))
     await act(async () => {})
-    expect(bridge.command).not.toHaveBeenCalled()
+    // The roster primary can start a new chat without a local enrollment. Never enter the old history.
+    expect(bridge.command).toHaveBeenCalledExactlyOnceWith({
+      kind: 'create', name: '', invite: ['@main:test'], direct: true
+    })
     expect(bridge.connectHermes).not.toHaveBeenCalled()
   })
 

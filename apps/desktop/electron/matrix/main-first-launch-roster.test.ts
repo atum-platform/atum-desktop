@@ -66,11 +66,12 @@ it('requires the hub only for authenticated legacy roster agents, including mixe
   const scope = { accountKey: 'owner', generation: 1 }
   const context = { account: { appScope: () => scope }, hireRoster: undefined as unknown }
   const required = mainFunction('controllerHubRequired', context)
-  expect(required()).toBe(false)
+  // Unknown placement is distinct from a confirmed roster with no legacy agents.
+  expect(required()).toBeUndefined()
   context.hireRoster = { scope, roster: [{ status: 'active', runtime: 'hermes' }] }
   expect(required()).toBe(false)
   context.hireRoster = { scope, roster: [{ status: 'active', runtime: 'hermes' }, { status: 'active', answering: 'cloud' }] }
   expect(required()).toBe(true)
   context.hireRoster = { scope: { ...scope, generation: 0 }, roster: [{ status: 'active' }] }
-  expect(required()).toBe(false)
+  expect(required()).toBeUndefined()
 })
