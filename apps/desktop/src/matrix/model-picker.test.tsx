@@ -27,6 +27,7 @@ import {
 } from '../../shared/matrix-models'
 import type { MatrixSubscriptionFallback } from '../../shared/matrix-subscription-fallback'
 import type { MatrixChatGptTrainingStatus } from '../../shared/matrix-subscriptions'
+import type { WorkRelayRoomView } from '../../shared/matrix-work-relay'
 
 import { MatrixModelPicker, type MatrixModelPickerRelay } from './model-picker'
 import { readMatrixModelPickerPreferences, writeMatrixModelPickerPreferences } from './model-picker-preferences'
@@ -1518,7 +1519,7 @@ describe('account subscriptions in the model picker', () => {
     expect(row(card, OPENROUTER_ROUTE)).toBeTruthy()
   })
 
-  it('lists every account plan in the rail: a connected plan the relay does not carry is greyed with one line; one connected nowhere is one Connect', async () => {
+  it('lists every account plan in the rail: a connected plan awaits its relay with neutral loading copy; one connected nowhere is one Connect', async () => {
     $accountConnections.set(ACCOUNT_CONNECTIONS_FIXTURE)
     picker(ROOM, { cloud: true, here: 'cloud', local: true, managed: true, cloudChoice: { offered: ['default'], current: 'default' } })
     const card = await open('Model: Nguyệt Thực 1.3')
@@ -1532,7 +1533,8 @@ describe('account subscriptions in the model picker', () => {
     fireEvent.click(rail(card, 'claude-plan'))
     const claude = card.querySelector<HTMLButtonElement>('[data-matrix-model-route="claude-plan:claude-sonnet-5-5"]')!
     expect(claude.disabled).toBe(true)
-    expect(card.textContent).toContain('Works in Work for now')
+    expect(card.textContent).toContain('Loading models…')
+    expect(card.textContent).not.toContain('Works in Work for now')
 
     fireEvent.click(rail(card, 'antigravity'))
     const connect = card.querySelector('[data-atum-picker-connect="antigravity"]')!
@@ -1541,6 +1543,36 @@ describe('account subscriptions in the model picker', () => {
     expect($accountConnect.get()).toEqual({ plan: 'antigravity', mode: 'connect' })
     // No price, limit, relay or Mac text in the picker.
     expect(card.textContent ?? '').not.toMatch(/relay|offline|Protons|% used/iu)
+  })
+
+  it('loads the assistant-card relay automatically and selects Claude through its native plan route', async () => {
+    $accountConnections.set(ACCOUNT_CONNECTIONS_FIXTURE)
+    const read = deferred<WorkRelayRoomView>()
+    const selectRelay = vi.fn(async () => ({ provider: 'atum-work' as const, plan: 'claude' as const, model: 'claude-sonnet-5-5', revision: 1 }))
+    picker({ ...ROOM, id: 'assistant-card:raymond:cloud' }, {
+      cloud: true, here: 'cloud', agentPrincipal: 'raymond', preferenceScope: 'account:test',
+      cloudChoice: { offered: ['default'], current: 'default' },
+      bridge: { work: { readRelay: vi.fn(() => read.promise), selectRelay } as unknown as NonNullable<MatrixUiBridge['work']> }
+    })
+    const card = await open(/Model:/)
+    fireEvent.click(rail(card, 'claude-plan'))
+    expect(card.textContent).toContain('Loading models…')
+    expect(card.textContent).not.toContain('Works in Work for now')
+    await act(async () => read.resolve({
+      account: { consent: { provider: 'claude', state: 'on', agents: [], devices: [], alsoWhenScheduled: true, revision: 1 },
+        facts: [{ provider: 'claude', deviceServiceId: 'mac', status: 'stale', models: ['claude-sonnet-5-5'] }] },
+      status: null, turns: []
+    }))
+
+    const model = await waitFor(() => {
+      const model = card.querySelector<HTMLButtonElement>('[data-matrix-model-route="claude-plan:claude-sonnet-5-5"]')!
+      expect(model.disabled).toBe(false)
+
+      return model
+    })
+
+    fireEvent.click(model)
+    await waitFor(() => expect(selectRelay).toHaveBeenCalledWith('raymond', 0, 'claude-sonnet-5-5', 'claude'))
   })
 
   it('labels a cloud current-model fallback as Cloud, never This Mac', async () => {
