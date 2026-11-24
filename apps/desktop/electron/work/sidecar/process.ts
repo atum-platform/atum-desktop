@@ -211,7 +211,7 @@ async function startProcess(options: WorkProcessOptions, { continuation, trial }
     gateways: profiles.map((profile, index) => ({
       ...environment,
       ...(index === 1 ? workDelegatedEnvironment(profile) : {}),
-      ...Object.fromEntries(Object.entries(credentials).filter(([key]) => !key.startsWith('ATUM_WORK_CONNECTOR_'))),
+      ...Object.fromEntries(Object.entries(credentials).filter(([key]) => !key.startsWith('ATUM_WORK_'))),
       ATUM_MANAGED_MODEL_DEFAULT: ATUM_WORK_DEFAULT_ALIAS,
       HERMES_HOME: profile
     })),
@@ -219,6 +219,9 @@ async function startProcess(options: WorkProcessOptions, { continuation, trial }
     executable: join(resources, 'work-runtime', 't3'),
     environment: {
       ...environment,
+      ...Object.fromEntries(Object.entries(credentials).filter(([key]) => [
+        'ATUM_WORK_MAC_ID', 'ATUM_WORK_FORWARD_GRANTS_FILE', 'ATUM_WORK_BINDINGS_FILE', 'ATUM_WORK_TOOLS_CONNECTOR_URL'
+      ].includes(key))),
       ...(credentials.ATUM_WORK_CONNECTOR_URL
       ? { ATUM_WORK_CONNECTOR_URL: credentials.ATUM_WORK_CONNECTOR_URL }
       : {}),

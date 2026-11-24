@@ -10,6 +10,7 @@ import {
   useSensors
 } from '@dnd-kit/core'
 import { useStore } from '@nanostores/react'
+import { atom } from 'nanostores'
 import { type CSSProperties, useEffect, useMemo, useRef, useState } from 'react'
 
 import { AtumAssistantAvatar } from '@/app/atum/assistant-avatar'
@@ -1525,6 +1526,14 @@ function FilterMenu({
   )
 }
 
+/** Team Space's plus menu asks for New task (layout r2 §4): pending until a board answers it, so a
+ * board that mounts because of the request (the menu switched to Board) still opens its composer. */
+export const $companyBoardNewTask = atom(false)
+
+export function requestCompanyBoardNewTask(): void {
+  $companyBoardNewTask.set(true)
+}
+
 export function CompanyBoard({
   citationChannels,
   citationContext,
@@ -1546,6 +1555,14 @@ export function CompanyBoard({
   const [attempt, setAttempt] = useState(0)
   const [creating, setCreating] = useState(false)
   const [title, setTitle] = useState('')
+  const newTaskRequested = useStore($companyBoardNewTask)
+
+  useEffect(() => {
+    if (newTaskRequested) {
+      $companyBoardNewTask.set(false)
+      setCreating(true)
+    }
+  }, [newTaskRequested])
   const [busyCard, setBusyCard] = useState<string>()
   const [editingCard, setEditingCard] = useState<string>()
   const [dragging, setDragging] = useState(false)

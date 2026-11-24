@@ -121,7 +121,7 @@ function PaymentQrImage({ downloadName, payload }: { downloadName: string; paylo
       </div>
       {dataUrl && (
         <a
-          className="mt-2 inline-flex w-full items-center justify-center rounded-full border border-(--atum-line-strong) px-3 py-1.5 text-(length:--atum-t-caption) font-semibold text-(--atum-ink-soft) transition-colors hover:bg-(--atum-hover)"
+          className="mt-2 inline-flex w-full items-center justify-center rounded-(--control-radius) border border-(--atum-line-strong) px-3 py-1.5 text-(length:--atum-t-caption) font-semibold text-(--atum-ink-soft) transition-colors hover:bg-(--atum-hover)"
           download={downloadName}
           href={dataUrl}
         >
@@ -195,7 +195,7 @@ export function PurchaseQrPanel({ amountVnd, onOpenCheckout, onOpenLink, orderCo
             <p className="mt-2 text-(length:--atum-t-caption) leading-relaxed text-(--atum-ink-muted)">{copy.qrUnavailableCheckout}</p>
             {onOpenCheckout && (
               <button
-                className="mt-3 inline-flex items-center justify-center rounded-full border border-(--atum-line-strong) px-3 py-1.5 text-(length:--atum-t-caption) font-semibold text-(--atum-ink-soft) transition-colors hover:bg-(--atum-hover)"
+                className="mt-3 inline-flex items-center justify-center rounded-(--control-radius) border border-(--atum-line-strong) px-3 py-1.5 text-(length:--atum-t-caption) font-semibold text-(--atum-ink-soft) transition-colors hover:bg-(--atum-hover)"
                 onClick={onOpenCheckout}
                 type="button"
               >

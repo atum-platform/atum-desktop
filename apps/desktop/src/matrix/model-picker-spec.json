@@ -1,5 +1,5 @@
 {
-  "about": "The one model picker (owner 2026-11-08, 2026-11-24): the agent chats' picker and Work's (T3 Code's own) share these measures, in CSS pixels. Geometry is T3's (ModelPickerSidebar, ModelListRow, ComboboxSearchInput, ComposerModelEffort, ComposerControl as measured 2026-11-24); type, the capsule and the focus colour are the Atum Kit's. The desktop picker reads every value through model-picker-style.ts; scripts/build-work-theme.mjs gives Work the values T3 does not already have. Change a value here and both pickers follow. Round 3 (owner 2026-11-24, \"make them match, consistent to our Atum kit\"): the card is the Kit's frosted glass at its menu radius (STYLE.md §7) with no tint on the rail, list or thinking column; the rail has no rule under Favorites; a row is T3's shape (STYLE.md §12): mark, name, the check beside the name, then Atum's muted tagline, the star on hover and the ⌘1–⌘9 hint as the Kit's menu key (.ak-menu-key: plain ink-3 text, no keycap). Words live in model-picker-labels.json.",
+  "about": "The one model picker (owner 2026-11-08, 2026-11-24): the agent chats' picker and Work's (T3 Code's own) share these measures, in CSS pixels. Geometry is T3's (ModelPickerSidebar, ModelListRow, ComboboxSearchInput, ComposerModelEffort, ComposerControl as measured 2026-11-24); type and the focus colour are the Atum Kit's. The desktop picker reads every value through model-picker-style.ts. Work shows T3's own picker in the Atum palette (owner 2026-11-24, option B: no theme CSS); its chip is T3's, 14px text on T3's 8px control radius, and the desktop chip matches it. Change a value here and both pickers follow. Round 3 (owner 2026-11-24, \"make them match, consistent to our Atum kit\"): the card is the Kit's frosted glass at its menu radius (STYLE.md §7) with no tint on the rail, list or thinking column; the rail has no rule under Favorites; a row is T3's shape (STYLE.md §12): mark, name, the check beside the name, then Atum's muted tagline, the star on hover and the ⌘1–⌘9 hint as the Kit's menu key (.ak-menu-key: plain ink-3 text, no keycap). Words live in model-picker-labels.json.",
   "card": {
     "listWidth": 316,
     "effortWidth": 192,
@@ -42,9 +42,9 @@
     "paddingX": 8,
     "gap": 6,
     "mark": 16,
-    "size": 13,
+    "size": 14,
     "weight": 500,
-    "radius": "full",
+    "radius": 8,
     "chevron": false
   }
 }

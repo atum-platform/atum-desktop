@@ -121,7 +121,7 @@ describe('the one connect flow', () => {
     expect($accountConnectProgress.get()?.phase).toBe('done')
   })
 
-  it('granting keeps what the record already names and never fails the connect', async () => {
+  it('granting preserves named Macs and reports unavailable consent without throwing', async () => {
     const port = bridge([])
     port.readPlanConsent.mockResolvedValueOnce({
       ...CONSENT,
@@ -137,7 +137,7 @@ describe('the one connect flow', () => {
     }, 'codex')
 
     port.readPlanConsent.mockRejectedValueOnce(new Error('offline'))
-    await expect(grantAccountPlanUse(port, 'codex')).resolves.toBeUndefined()
+    await expect(grantAccountPlanUse(port, 'codex')).resolves.toBe(false)
   })
 })
 

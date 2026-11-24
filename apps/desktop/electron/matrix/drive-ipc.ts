@@ -2,7 +2,7 @@ import type { IpcMain, IpcMainInvokeEvent } from 'electron'
 
 import { MATRIX_DRIVE_IPC, type MatrixDriveBridge } from '../../shared/matrix-drive'
 
-import type { MatrixDrive } from './drive'
+import { type MatrixDrive, validDriveEntryName } from './drive'
 import type { MatrixDriveImport } from './drive-import'
 import { validDriveSearchQuery } from './drive-search'
 import { parseDriveTaskInput } from './drive-task'
@@ -61,6 +61,25 @@ export function registerMatrixDriveIpc(
 
     if (request.kind === 'sendTask' && Object.keys(request).sort().join(',') === 'input,kind' && task) {
       return task.sendTask(parseDriveTaskInput(request.input))
+    }
+
+    // Drive's plus menu (layout r2 §4): a folder or document by the window's word for it, or an upload the
+    // person picks in main's own dialog. No path ever comes from the window.
+    if (
+      request.kind === 'create' &&
+      Object.keys(request).sort().join(',') === 'entry,kind,name' &&
+      (request.entry === 'folder' || request.entry === 'document') &&
+      validDriveEntryName(request.name)
+    ) {
+      return drive.create(request.entry, request.name)
+    }
+
+    if (
+      request.kind === 'upload' &&
+      Object.keys(request).sort().join(',') === 'entry,kind' &&
+      (request.entry === 'files' || request.entry === 'folder')
+    ) {
+      return drive.upload(request.entry)
     }
 
     if (

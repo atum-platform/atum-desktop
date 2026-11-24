@@ -1,6 +1,6 @@
 import { atom } from 'nanostores'
 
-import type { MatrixDriveRow, MatrixDriveView } from '../../shared/matrix-drive'
+import type { MatrixDriveQuota, MatrixDriveRow, MatrixDriveView } from '../../shared/matrix-drive'
 
 import type { MatrixDriveGroupBy } from './drive-groups'
 
@@ -372,6 +372,15 @@ export const $matrixDriveHeader = atom<MatrixDriveHeader | null>(null)
 export type MatrixDriveIntent =
   | { kind: 'back' | 'forward' | 'root' }
   | { kind: 'folder'; name: string }
+  /** Drive's plus menu (layout r2 §4), carried out in the open folder by the page that owns the bridge. */
+  | { kind: 'create'; entry: 'folder' | 'document'; name: string }
+  | { kind: 'upload'; entry: 'files' | 'folder' }
+
+/** What the open Drive page lists, for its left panel's plus menu and storage foot; null while it is closed. */
+export const $matrixDrivePageFacts = atom<{ browsable: boolean; quota?: MatrixDriveQuota } | null>(null)
+
+/** Drive's search, in its left panel (layout r2 D): the page lists what it finds. */
+export const $matrixDriveQuery = atom('')
 
 /** A request from the title bar or the sidebar, carried out by the Drive page that owns the bridge. */
 export const $matrixDriveIntent = atom<(MatrixDriveIntent & { serial: number }) | null>(null)

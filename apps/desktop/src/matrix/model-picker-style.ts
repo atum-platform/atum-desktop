@@ -36,13 +36,14 @@ export const MODEL_PICKER_VARS = {
   '--mp-trigger-x': px(spec.trigger.paddingX),
   '--mp-trigger-gap': px(spec.trigger.gap),
   '--mp-trigger-mark': px(spec.trigger.mark),
+  '--mp-trigger-r': px(spec.trigger.radius),
   '--mp-trigger-text': px(spec.trigger.size),
   '--mp-trigger-weight': String(spec.trigger.weight)
 } as CSSProperties
 
-/** The composer's chip that opens the card: the current model's mark and name in a plain capsule, no chevron. */
+/** The composer's chip that opens the card: the current model's mark and name on T3's 8px control, no chevron. */
 export const PICKER_TRIGGER = cn(
-  'inline-flex h-(--mp-trigger-h) max-w-56 min-w-0 shrink-0 items-center gap-(--mp-trigger-gap) rounded-full px-(--mp-trigger-x)',
+  'inline-flex h-(--mp-trigger-h) max-w-56 min-w-0 shrink-0 items-center gap-(--mp-trigger-gap) rounded-(--mp-trigger-r) px-(--mp-trigger-x)',
   'text-(length:--mp-trigger-text) [font-weight:var(--mp-trigger-weight)] whitespace-nowrap text-(--ak-ink-2)',
   'hover:bg-(--atum-hover) aria-expanded:bg-(--atum-hover) disabled:opacity-45 [-webkit-app-region:no-drag]'
 )

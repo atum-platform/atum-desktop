@@ -106,8 +106,6 @@
 
 .footer {
   flex: 0 0 auto;
-  padding: var(--ak-s2);
-  border-top: thin solid var(--ak-line);
 }
 
 .sectionContent {

@@ -51,7 +51,7 @@ export function StoreOfferCard({ availableProtons, busy, children, description, 
           <button
             aria-busy={busy || undefined}
             aria-label={copy.buyFor(price)}
-            className="inline-flex min-h-9 items-center justify-center rounded-full bg-(--atum-ink) px-4 py-1.5 text-(length:--atum-t-control) font-semibold text-(--atum-on-accent) transition-opacity disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex min-h-9 items-center justify-center rounded-(--control-radius) bg-(--atum-ink) px-4 py-1.5 text-(length:--atum-t-control) font-semibold text-(--atum-on-accent) transition-opacity disabled:cursor-not-allowed disabled:opacity-60"
             data-atum-store-buy
             disabled={busy || disabled}
             onClick={onBuy}

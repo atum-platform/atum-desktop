@@ -1,12 +1,14 @@
 import { useStore } from '@nanostores/react'
 import { type ReactNode, useEffect, useRef, useState } from 'react'
 
+import { ProtonMark } from '@/components/brand/proton-mark'
 import { Input } from '@/components/ui/input'
+import { Tip } from '@/components/ui/tooltip'
 import { useI18n } from '@/i18n'
-import { CheckCircle2, Compass, Monitor, PawPrint, SearchIcon, Sparkles, UserCircle } from '@/lib/icons'
+import { CheckCircle2, Compass, Monitor, PawPrint, SearchIcon, Settings, Sparkles, UserCircle } from '@/lib/icons'
 import { cn } from '@/lib/utils'
 
-import { MatrixStartChatButton } from '../start-chat'
+import { plusMenuCopy } from '../plus-menu'
 
 import { matrixStoreCopy } from './store-copy'
 import { $matrixStoreShelfRequest, type DiscoverShelf } from './top-up'
@@ -77,9 +79,11 @@ export function useMatrixStoreNavigation({
 
 interface MatrixStoreSidebarProps extends MatrixStoreNavigation {
   compact?: boolean
-  newChatDisabled?: boolean
-  onNewChat?(): void
-  /** The title bar's bell, while this column leads the window's row. */
+  /** The foot's Top up (the same top-up Settings → Protons opens). No balance is shown. */
+  onTopUp?(): void
+  /** The foot's gear. */
+  onOpenSettings?(): void
+  /** The title bar's ← →, while this column leads the window's row. */
   titleBarAction?: ReactNode
   windowControls?: ReactNode
 }
@@ -87,9 +91,9 @@ interface MatrixStoreSidebarProps extends MatrixStoreNavigation {
 /** Store navigation replaces the conversation roster while the Store is the active destination. */
 export function MatrixStoreSidebar({
   compact = false,
-  newChatDisabled,
-  onNewChat,
+  onOpenSettings,
   onQueryChange,
+  onTopUp,
   onShelfChange,
   query,
   shelf,
@@ -98,6 +102,7 @@ export function MatrixStoreSidebar({
 }: MatrixStoreSidebarProps) {
   const { locale } = useI18n()
   const copy = matrixStoreCopy(locale)
+  const foot = plusMenuCopy(locale)
 
   const labels: Record<Exclude<DiscoverShelf, 'topups'>, string> = {
     featured: copy.discover,
@@ -135,7 +140,7 @@ export function MatrixStoreSidebar({
           type="search"
           value={query}
         />
-        {onNewChat && <MatrixStartChatButton disabled={newChatDisabled} onClick={onNewChat} />}
+        {/* No plus here: you create nothing in the Store (layout r2 §5, owner 2026-11-24). */}
       </div>
       {/* Atum Kit Store board: the shelves sit on the roster panel itself, a hairline between rows,
           never inside a card of their own. */}
@@ -154,6 +159,34 @@ export function MatrixStoreSidebar({
           </button>
         ))}
       </nav>
+      <span className="flex-1" />
+      {/* The left panel's foot (layout r2 E, owner 2026-11-24): Top up, then the gear. Never the balance:
+          it shows inside the top-up. */}
+      {(onTopUp || onOpenSettings) && (
+        <div className="atum-panel-foot" data-matrix-store-foot>
+          {onTopUp ? (
+            <button className="atum-panel-foot-action" data-matrix-store-topup onClick={onTopUp} type="button">
+              <ProtonMark />
+              {foot.topUp}
+            </button>
+          ) : (
+            <span className="flex-1" />
+          )}
+          {onOpenSettings && (
+            <Tip label={foot.settings}>
+              <button
+                aria-label={foot.settings}
+                className="ak-iconbtn ak-iconbtn--sm"
+                data-matrix-store-settings
+                onClick={onOpenSettings}
+                type="button"
+              >
+                <Settings aria-hidden className="ak-icon" />
+              </button>
+            </Tip>
+          )}
+        </div>
+      )}
     </aside>
   )
 }

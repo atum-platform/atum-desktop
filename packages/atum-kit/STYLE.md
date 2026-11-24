@@ -137,10 +137,14 @@ each to a Dynamic Type style (`AtumKit.TypeRole`).
 | Display            | `--ak-t-display`                    | 26/32 600 | full-window page titles (Store, Drive) |
 | Title              | `--ak-t-title`                      | 20/26 600 | sheet, dialog and Settings page titles |
 | Headline           | `--ak-t-headline`                   | 15/20 600 | header names, section heads in content |
-| Chat               | `--ak-t-chat`                       | 15/23 400 | every message, the composer            |
-| Body / Body strong | `--ak-t-body`, `--ak-t-body-strong` | 13/18     | interface text, rows, menus, buttons   |
+| Chat               | `--ak-t-chat`                       | 15/23 400 | every message                          |
+| Body / Body strong | `--ak-t-body`, `--ak-t-body-strong` | 14/20     | interface text, rows, menus, buttons   |
 | Callout            | `--ak-t-callout`                    | 12/16     | secondary lines, help                  |
 | Caption            | `--ak-t-caption`                    | 11/14 500 | timestamps, small labels               |
+
+Body is 14/20 on desktop and web since the T3 base (owner 2026-11-24: "UI text at 14 px (chat
+stays 15/23, Vietnamese line heights stay)"); the phone keeps 13/18 (`tokens.json` `desktop` group).
+The composer's text is T3's 14/22.75 (§11).
 
 Sidebar and menu **section labels** are 12 px semibold in `--ak-ink-3`
 (Channels, Direct messages, On this Mac). Never uppercase with letter-spacing
@@ -160,8 +164,10 @@ page with one group takes none. Settings is a sheet, so its page titles use
 - **Apps are squircles**: 22.5% corner radius with `corner-shape: squircle`
   (phone: `appIconCornerRatio`). That difference is how a list says "this row is
   an app" at a glance. Store items are app tiles too.
-- **Actions are capsules.** Buttons are full-radius pills; icon buttons are
-  circles.
+- **Controls are T3's 8 px rounded rectangles** (owner 2026-11-24, option B, replacing
+  capsules): buttons, icon buttons, segmented controls, search fields and the model chip use
+  `--ak-r-sm`, which equals T3's `--control-radius`. Still round: the composer's send, badges,
+  switches and people.
 - **Containers are rounded rectangles** from the radius scale (`--ak-r-xs` 6 ·
   `sm` 8 · `md` 10 · `lg` 14 · `xl` 20 · `2xl` 26). Nested corners are
   concentric: inner radius = outer radius − padding.
@@ -294,11 +300,14 @@ exceptions.
 
 ## 11. Composer
 
-- A frosted capsule (`--ak-glass`, radius 20 on the Mac) floating over the
-  bottom of the conversation, the same shape everywhere, look packs included.
+- T3 Code's composer (owner 2026-11-24, option B; `packages/atum-kit/t3/`, measured from
+  `ComposerSurface.tsx` / `ChatComposer.tsx` at v0.1.11): a 16 px card of T3 glass with a 1 px
+  outline (an inset highlight in dark), in Chat, DMs and Team Space. The editor (14/22.75) starts
+  two lines tall; the footer sits under it.
 - Placeholder: "Message {name}" in the person's language.
-- Left: the add (+) button. Right: the model chip (Atum chats), dictation, then
-  send, a round ink icon button, faint until there is something to send. The
+- Left: the paperclip (it opens the attach menu: photos, files, routines, skills). Right: the
+  model chip (assistant chats only, no chevron), dictation, then send, a 32 px round ink button,
+  a 12 % tint until there is something to send. Atum's Phosphor icons throughout. The
   chip is always there in Atum chats; there is no setting to hide it
   (2026-10-29, delegated design decision; replacing 2026-10-10 "model choice
   off by default"). While the assistant works, the placeholder reads "Add to
