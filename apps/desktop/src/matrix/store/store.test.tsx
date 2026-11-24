@@ -419,12 +419,15 @@ describe('Matrix Store', () => {
     'labels an owned gift and separates Gifts from Purchased in %s',
     locale => {
       const copy = matrixStoreCopy(locale)
+
       const gift = item('pet', {
         itemId: 'pet/gigi',
         title: { en: 'Gigi', vi: 'Gigi' },
         ownership: { state: 'owned', source: 'gift', assistantIds: [], until: null }
       })
+
       const bought = item('pet', { itemId: 'pet/luna', title: { en: 'Luna', vi: 'Luna' } })
+
       const grant = {
         id: ENTITLEMENT,
         itemId: gift.itemId,
@@ -435,6 +438,7 @@ describe('Matrix Store', () => {
         grantedAt: '2026-10-01T00:00:00Z',
         subscription: null
       }
+
       renderStore({
         locale,
         store: {
@@ -465,6 +469,7 @@ describe('Matrix Store', () => {
       title: { en: 'Gigi' },
       ownership: { state: 'owned', source: 'gift', assistantIds: [], until: null }
     })
+
     renderStore({ store: { snapshot: snapshot([gift]) } })
     fireEvent.click(screen.getByText('Gigi'))
     const dialog = screen.getByRole('dialog')
@@ -481,6 +486,7 @@ describe('Matrix Store', () => {
           ? { state, source: null, assistantIds: [], until: null }
           : { state, source: 'visit', assistantIds: [], until: '2026-10-13T00:00:00Z' }
     })
+
     const { store } = renderStore({
       store: {
         snapshot: snapshot([pet], {
@@ -499,11 +505,14 @@ describe('Matrix Store', () => {
         })
       }
     })
+
     fireEvent.click(screen.getByText('Gigi'))
     const dialog = screen.getByRole('dialog')
+
     if (state === 'visiting') {
       expect(within(dialog).getByText(matrixStoreCopy('en').visiting)).toBeTruthy()
     }
+
     const acquire = dialog.querySelector('[data-store-acquire]') as HTMLButtonElement
     expect(acquire.disabled).toBe(false)
     fireEvent.click(acquire)
@@ -514,6 +523,7 @@ describe('Matrix Store', () => {
     const skill = item('skill', {
       ownership: { state: 'owned', source: 'purchase', assistantIds: [AGENT_A], until: null }
     })
+
     const { store } = renderStore({ store: { snapshot: snapshot([skill]) } })
     fireEvent.click(screen.getByText('Focus skill'))
     const dialog = screen.getByRole('dialog')
@@ -732,10 +742,12 @@ describe('Matrix Store', () => {
 
   it('offers no assistant to teach when every one answers with its own model', () => {
     const skill = item('skill')
+
     const { store } = renderStore({
       store: { snapshot: snapshot([skill]) },
       agents: agents.map(agent => ({ ...agent, atumModel: false }))
     })
+
     fireEvent.click(screen.getByText('Focus skill'))
     const dialog = screen.getByRole('dialog')
 
@@ -754,6 +766,7 @@ describe('Matrix Store', () => {
 
   it('calls the existing purchase controller from Get instead of inferring affordability from wallet data', async () => {
     const skill = item('skill', { offer: { ...item('skill').offer!, priceMicroProtons: 4_000 * MICRO } })
+
     const { store } = renderStore({
       checkout: checkoutFor(),
       store: { snapshot: snapshot([skill]) },
@@ -1051,20 +1064,21 @@ describe('Matrix Store', () => {
     expect(gigi.textContent).not.toContain('🐾')
   })
 
-  it('shows the balance in its header and opens the top-up from it', () => {
+  // Layout r2 E (owner 2026-11-24): no balance on an everyday surface; it shows inside the top-up only.
+  it('shows the balance only inside the top-up', () => {
     const checkout = checkoutFor()
     renderStore({ checkout, wallet: wallet(25_400) })
 
-    expect(window.document.querySelector('[data-store-balance]')?.textContent).toContain('25,400')
+    expect(window.document.querySelector('[data-store-balance]')).toBeNull()
+    act(() => $matrixStoreShelfRequest.set('topups'))
+    renderStore({ checkout, wallet: wallet(25_400) })
+
     const balance = screen.getByRole('button', { name: 'You have 25,400 Protons' })
     // The mark stands for the word: "[mark] 25,400", the sentence kept as the button's name.
     expect(balance.querySelector('svg[data-proton-mark]')).toBeTruthy()
     expect(visibleText(balance)).toBe('25,400')
-    expect(balance.getAttribute('aria-pressed')).toBe('false')
-    expect(screen.queryByRole('button', { name: 'Top up' })).toBeNull()
-    fireEvent.click(balance)
+    expect(balance.getAttribute('aria-pressed')).toBe('true')
     expect(window.document.querySelector('[data-matrix-topup-pack="protons-50k"]')).toBeTruthy()
-    expect(screen.getByRole('button', { name: 'You have 25,400 Protons' }).getAttribute('aria-pressed')).toBe('true')
   })
 
   it('arrives on the top-up when another surface asked for it, and takes the request once', async () => {
@@ -1136,9 +1150,11 @@ describe('the Store sheet with a short balance, and what a purchase outcome says
 
   it('opens the real checkout after the purchase controller reports a shortfall', async () => {
     const checkout = checkoutFor()
+
     const onAcquire = vi.fn(
       async (): Promise<StoreAcquireOutcome> => ({ outcome: 'refused', code: 'insufficient_protons' })
     )
+
     const { dialog } = openResearcher({ checkout, store: { onAcquire }, wallet: wallet(6_950) })
 
     fireEvent.click(within(dialog).getByRole('checkbox'))

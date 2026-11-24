@@ -17,6 +17,12 @@ stylesheet, verbatim, and the tests fail if a generated value drifts from it.
   `atum-kit-tokens.json` (the phone projection, shipped through
   `packages/mobile-design-exports`) and `phosphor-icons.json`.
 
+- `t3/`: T3 Code's design layer (MIT), vendored byte for byte from tag v0.1.11 by
+  `scripts/sync-t3-design.mjs` (`npm run --workspace @atum/kit sync:t3`), the base of the Kit since
+  2026-11-24. `scripts/t3-theme.mjs` turns the Kit's palette into a T3 theme file
+  (`dist/atum-t3-theme.json`, Work's theme) and the T3 `--app-theme-*`, `--control-radius` and
+  `--glass-*` variables in `dist/atum-kit.css`. See `t3/THIRD-PARTY.md`.
+
 Regenerate with `npm run --workspace @atum/kit build`; never edit `dist/`.
 `npm run --workspace @atum/kit check` fails when `dist/` is stale, then runs
 the typecheck and tests.

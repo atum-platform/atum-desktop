@@ -43,7 +43,7 @@ export function AssistantGreeting({
         <div className="mt-6 flex max-w-[34rem] flex-wrap justify-center gap-2" data-matrix-starters>
           {starters.map(starter => (
             <button
-              className="h-8 rounded-full border border-(--atum-line) px-3.5 text-(length:--atum-t-control) text-(--atum-ink-soft) transition-colors duration-150 hover:bg-(--atum-hover) hover:text-(--atum-ink)"
+              className="h-8 rounded-(--control-radius) border border-(--atum-line) px-3.5 text-(length:--atum-t-control) text-(--atum-ink-soft) transition-colors duration-150 hover:bg-(--atum-hover) hover:text-(--atum-ink)"
               key={starter.label}
               onClick={starter.onPick}
               type="button"

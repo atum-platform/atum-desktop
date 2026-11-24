@@ -115,7 +115,7 @@ export function DiscoverPetsSection({ onOpenStore }: DiscoverPetsSectionProps) {
 
     return (
       <button
-        className={`shrink-0 rounded-full px-3.5 py-[7px] text-(length:--atum-t-control) font-medium ${adopted ? 'bg-(--atum-hover) text-(--atum-ink) hover:bg-(--atum-pressed)' : 'bg-(--atum-ink) text-(--atum-on-accent)'} ${offerable ? '' : 'opacity-50'}`}
+        className={`shrink-0 rounded-(--control-radius) px-3.5 py-[7px] text-(length:--atum-t-control) font-medium ${adopted ? 'bg-(--atum-hover) text-(--atum-ink) hover:bg-(--atum-pressed)' : 'bg-(--atum-ink) text-(--atum-on-accent)'} ${offerable ? '' : 'opacity-50'}`}
         data-atum-adopt={pet.slug}
         disabled={!offerable}
         onClick={event => {
@@ -158,7 +158,7 @@ export function DiscoverPetsSection({ onOpenStore }: DiscoverPetsSectionProps) {
       )}
 
       <button
-        className="rounded-full bg-(--atum-ink) px-4 py-2 text-(length:--atum-t-control) font-medium text-(--atum-on-accent)"
+        className="rounded-(--control-radius) bg-(--atum-ink) px-4 py-2 text-(length:--atum-t-control) font-medium text-(--atum-on-accent)"
         data-atum-open-pet-store
         onClick={() => {
           // The store is Discover's Pets shelf now — seed the intent through

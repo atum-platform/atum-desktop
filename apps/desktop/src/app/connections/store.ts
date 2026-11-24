@@ -17,10 +17,25 @@ export const $accountConnections = atom<AccountConnectionsView | null | undefine
  */
 export interface AccountConnectRequest {
   plan: AccountPlan
-  mode?: 'connect' | 'allow'
+  mode?: 'connect' | 'allow' | 'renew'
 }
 
 export const $accountConnect = atom<AccountConnectRequest | null>(null)
+export const $nativeRenewal = atom<AccountPlan | null>(null)
+
+export async function refreshNativeRenewal(bridge = workBridge()): Promise<void> {
+  if (!bridge) {return}
+  for (const plan of ['codex', 'claude', 'antigravity'] as const) {
+    try {
+      const consent = await bridge.readPlanConsent(plan)
+      if (consent.state === 'on' && ['soon', 'needed'].includes(consent.nativeRenewal ?? '')) {
+        $nativeRenewal.set(plan)
+        return
+      }
+    } catch { /* Keep the rest of Connections usable while Work is offline. */ }
+  }
+  $nativeRenewal.set(null)
+}
 
 /** After Continue: what the Work title band says until the plan is connected on this Mac. */
 export interface AccountConnectProgress {
@@ -91,22 +106,24 @@ export function closeAccountConnect(): void {
  * included (Q2), then turns this Mac's switch on. Best effort: a failure here never blocks the plan, which still works in Work, and
  * a cloud turn that cannot use it answers on Nguyệt Thực.
  */
-export async function grantAccountPlanUse(bridge: ConnectionsBridge, plan: AccountPlan): Promise<void> {
+export async function grantAccountPlanUse(bridge: ConnectionsBridge, plan: AccountPlan): Promise<boolean> {
   try {
     const consent = await bridge.readPlanConsent(plan)
     const thisMac = consent.macs.find(mac => mac.thisMac)
     const agents = [...new Set([...(consent.state === 'on' ? consent.agents : []), ...consent.eligible])]
 
     if (!thisMac || agents.length === 0) {
-      return
+      return false
     }
 
     const macs = [...new Set([...(consent.state === 'on' ? consent.macs.filter(mac => mac.named).map(mac => mac.id) : []), thisMac.id])]
 
     await bridge.setPlanConsent({ agents, macs, alsoWhenScheduled: true }, plan)
     await bridge.setPlan(true)
+    return true
   } catch {
     // The per-Mac switch in Connections still turns it on by hand.
+    return false
   }
 }
 
@@ -135,9 +152,10 @@ export async function continueAccountConnect(
     return
   }
 
-  if (request.mode === 'allow') {
-    await grantAccountPlanUse(bridge, request.plan)
-    finish(request.plan, 'done')
+  if (request.mode === 'allow' || request.mode === 'renew') {
+    const granted = await grantAccountPlanUse(bridge, request.plan)
+    await refreshNativeRenewal(bridge)
+    finish(request.plan, granted ? 'done' : 'failed')
 
     return
   }

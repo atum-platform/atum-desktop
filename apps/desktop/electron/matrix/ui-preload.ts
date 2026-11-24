@@ -56,7 +56,7 @@ import type {
 } from '../../shared/matrix-video-consent'
 import { MATRIX_VOICE_IPC } from '../../shared/matrix-voice'
 import { MATRIX_WINDOW_CHANNELS, type MatrixWindowFacts } from '../../shared/matrix-window'
-import { MATRIX_WORK_IPC, type MatrixWorkProjection } from '../../shared/matrix-work'
+import { MATRIX_WORK_IPC, type MatrixWorkProjection, type WorkAttentionSnapshot } from '../../shared/matrix-work'
 
 const invoke = (kind: string) => ipcRenderer.invoke(channel.ui, { kind })
 
@@ -87,6 +87,8 @@ const bridge: MatrixUiBridge = {
     closePreview: token => ipcRenderer.invoke(MATRIX_DRIVE_IPC.request, { kind: 'closePreview', token }),
     open: id => ipcRenderer.invoke(MATRIX_DRIVE_IPC.request, { kind: 'open', id }),
     reveal: () => ipcRenderer.invoke(MATRIX_DRIVE_IPC.request, { kind: 'reveal' }),
+    create: (entry, name) => ipcRenderer.invoke(MATRIX_DRIVE_IPC.request, { kind: 'create', entry, name }),
+    upload: entry => ipcRenderer.invoke(MATRIX_DRIVE_IPC.request, { kind: 'upload', entry }),
     taskStatus: roomId => ipcRenderer.invoke(MATRIX_DRIVE_IPC.request, { kind: 'taskStatus', roomId }),
     sendTask: input => ipcRenderer.invoke(MATRIX_DRIVE_IPC.request, { kind: 'sendTask', input }),
     importPlan: () => ipcRenderer.invoke(MATRIX_DRIVE_IPC.request, { kind: 'importPlan' }),
@@ -110,6 +112,13 @@ const bridge: MatrixUiBridge = {
       return () => { ipcRenderer.removeListener(MATRIX_WORK_IPC.surfaceModeChanged, receive) }
     },
     getSidebar: () => ipcRenderer.invoke(MATRIX_WORK_IPC.request, { kind: 'getSidebar' }),
+    getAttention: () => ipcRenderer.invoke(MATRIX_WORK_IPC.request, { kind: 'getAttention' }),
+    onAttentionChanged: listener => {
+      const receive = (_event: Electron.IpcRendererEvent, snapshot: WorkAttentionSnapshot | null) => listener(snapshot)
+      ipcRenderer.on(MATRIX_WORK_IPC.attentionChanged, receive)
+
+      return () => { ipcRenderer.removeListener(MATRIX_WORK_IPC.attentionChanged, receive) }
+    },
     onSidebarChanged: listener => {
       const receive = (_event: Electron.IpcRendererEvent, snapshot: WorkSidebarSnapshot | null) => listener(snapshot)
       ipcRenderer.on(MATRIX_WORK_IPC.sidebarChanged, receive)

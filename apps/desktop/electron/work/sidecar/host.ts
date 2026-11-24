@@ -5,8 +5,10 @@ import { ipcMain, type IpcMainInvokeEvent, type WebContents } from 'electron'
 
 import {
   MATRIX_WORK_IPC,
+  parseWorkAttention,
   parseWorkSidebar,
   WORK_BAND_COMMANDS,
+  type WorkAttentionSnapshot,
   type WorkBandCommand,
   type WorkSidebarSnapshot,
   type WorkSurfaceModeSnapshot
@@ -18,6 +20,7 @@ import { recordWorkBillingUnit, type WorkBillingUnit } from './billing'
 import { type WorkIncarnation, workRuntimeEnvironment, WorkSidecar, type WorkStartOptions } from './process'
 
 export const WORK_ACCESS_CHANNEL = 'atum:work:read-model-access'
+export const WORK_ASSERTION_CHANNEL = 'atum:work:connect-assertion'
 export const WORK_OPEN_PROTONS_CHANNEL = 'atum:work:open-protons'
 export type WorkAccess = 'allowed' | 'empty' | 'unavailable'
 
@@ -32,11 +35,13 @@ interface WorkHostOptions {
   resources: string
   surfaceModeChanged?(snapshot: WorkSurfaceModeSnapshot | null): void
   sidebarChanged?(snapshot: WorkSidebarSnapshot | null): void
+  attentionChanged?(snapshot: WorkAttentionSnapshot | null): void
   prepare?(signal: AbortSignal): Promise<void>
   account(): Account | undefined
   gatewayEnvironment(): Record<string, string>
   revokeCredentials(): void
   readAccess(): Promise<WorkAccess>
+  connectAssertion?(): Promise<string>
   openProtons(): Promise<void>
 }
 
@@ -59,6 +64,7 @@ export class WorkHost {
   private closing?: Promise<void>
   /** The live view's last thread-list report, for a band that mounts after it (the view reports changes only). */
   private lastSidebar?: { view: NonNullable<WorkHost['view']>; snapshot: WorkSidebarSnapshot }
+  private lastAttention?: { view: NonNullable<WorkHost['view']>; snapshot: WorkAttentionSnapshot }
 
   constructor(private readonly options: WorkHostOptions) {}
 
@@ -135,6 +141,7 @@ export class WorkHost {
     this.view = undefined
     this.options.surfaceModeChanged?.(null)
     this.options.sidebarChanged?.(null)
+    this.options.attentionChanged?.(null)
 
     if (this.closing) {
       return this.closing
@@ -197,6 +204,7 @@ export class WorkHost {
         this.view = undefined
         this.options.surfaceModeChanged?.(null)
         this.options.sidebarChanged?.(null)
+        this.options.attentionChanged?.(null)
       }
     }
 
@@ -231,6 +239,12 @@ export class WorkHost {
     } catch {
       return 'unavailable'
     }
+  }
+
+  attention(): WorkAttentionSnapshot | null {
+    const last = this.lastAttention
+
+    return last && last.view === this.view && this.current() === last.view.incarnation ? last.snapshot : null
   }
 
   sidebar(): WorkSidebarSnapshot | null {
@@ -295,6 +309,22 @@ export class WorkHost {
   }
 
   registerOwnerPreload(): void {
+    ipcMain.handle(WORK_ASSERTION_CHANNEL, async event => {
+      const view = this.ownerCaller(event)
+      const account = this.options.account()
+
+      if (!view || !account || !this.binding || !sameAccount(this.binding.account, account)) {
+        throw new Error('work_unavailable')
+      }
+
+      const assertion = await this.options.connectAssertion?.()
+
+      if (!assertion || this.ownerCaller(event) !== view || !sameAccount(account, this.options.account())) {
+        throw new Error('work_unavailable')
+      }
+
+      return assertion
+    })
     ipcMain.handle('atum:work:startup-phase', (event, phase: unknown) => {
       if (!this.ownerCaller(event) || typeof phase !== 'string' ||
         !['ws-connected', 'providers-ready', 'threads-painted'].includes(phase) || this.startupPhases.has(phase)) {return}
@@ -320,6 +350,17 @@ export class WorkHost {
 
       this.lastSidebar = { view, snapshot }
       this.options.sidebarChanged?.(snapshot)
+    })
+    ipcMain.handle(MATRIX_WORK_IPC.attentionChanged, (event, value: unknown) => {
+      const view = this.ownerCaller(event)
+      const snapshot = parseWorkAttention(value)
+
+      if (!view || !snapshot) {
+        return
+      }
+
+      this.lastAttention = { view, snapshot }
+      this.options.attentionChanged?.(snapshot)
     })
     ipcMain.handle(WORK_ACCESS_CHANNEL, async event => {
       const view = this.ownerCaller(event)

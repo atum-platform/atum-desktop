@@ -178,6 +178,7 @@ const Package = phosphorIcon('package')
 const Palette = phosphorIcon('palette')
 const PanelBottom = phosphorIcon('rows')
 const PanelLeftIcon = phosphorIcon('sidebar-simple')
+const Paperclip = phosphorIcon('paperclip')
 const Pause = phosphorIcon('pause')
 const PawPrint = phosphorIcon('paw-print')
 const Pencil = phosphorIcon('pencil-simple')
@@ -242,6 +243,7 @@ const Upload = phosphorIcon('upload-simple')
 const User = phosphorIcon('user')
 const UserCircle = phosphorIcon('user-circle')
 const UserCircleFilled = phosphorIcon('user-circle')
+const UserPlus = phosphorIcon('user-plus')
 const Users = phosphorIcon('users')
 const Volume = phosphorIcon('speaker-simple-low')
 const Volume2 = phosphorIcon('speaker-simple-high')
@@ -432,6 +434,7 @@ export {
   Palette,
   PanelBottom,
   PanelLeftIcon,
+  Paperclip,
   Pause,
   PawPrint,
   Pencil,
@@ -494,6 +497,7 @@ export {
   User,
   UserCircle,
   UserCircleFilled,
+  UserPlus,
   Users,
   Volume,
   Volume2,

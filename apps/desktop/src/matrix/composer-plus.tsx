@@ -10,12 +10,12 @@ import {
   DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu'
 import { Tip } from '@/components/ui/tooltip'
-import { Calendar, Files, ImageIcon, Plus, Sparkles } from '@/lib/icons'
+import { Calendar, Files, ImageIcon, Paperclip, Sparkles } from '@/lib/icons'
 
 import { useMatrixCopy } from './copy'
 
 /**
- * The composer's "+": one small menu instead of a file picker. The two attach entries are
+ * The composer's paperclip (T3's attach control, owner 2026-11-24): one small menu instead of a file picker. The two attach entries are
  * the same file pipeline the box always had; routines and skills belong to the assistant this
  * chat is with, and are absent where the chat has no assistant (a company channel, for one).
  */
@@ -76,7 +76,8 @@ export function ComposerPlusMenu({
             size="icon"
             variant="ghost"
           >
-            <Plus aria-hidden className="size-4" />
+            {/* The clip's weight sits in its upper loop; 1px down reads as centred on the row (T3). */}
+            <Paperclip aria-hidden className="size-4 translate-y-px" />
           </Button>
         </DropdownMenuTrigger>
       </Tip>
