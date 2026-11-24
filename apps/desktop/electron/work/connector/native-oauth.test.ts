@@ -1,5 +1,6 @@
 import type { Session } from 'electron'
 import { expect, it, vi } from 'vitest'
+
 import type { NativeConnector } from './native'
 import { approveNativeAgent } from './native-oauth'
 

@@ -2,8 +2,8 @@ import { timingSafeEqual } from 'node:crypto'
 import { createServer, type Server } from 'node:http'
 
 import type { Caller } from './contract'
-import type { ConnectorService } from './service'
 import type { NativeConnector, NativePath } from './native'
+import type { ConnectorService } from './service'
 export class ConnectorHttp {
   private server?: Server
   constructor(

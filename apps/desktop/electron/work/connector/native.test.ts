@@ -1,7 +1,9 @@
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+
 import { afterEach, expect, it } from 'vitest'
+
 import { NativeConnector } from './native'
 
 const roots: string[] = []

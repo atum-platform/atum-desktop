@@ -15,7 +15,7 @@ import {
 
 import { AccountPlanMark } from './connect-sheet'
 import { ACCOUNT_PLAN_NAMES, connectionsCopy, type ConnectionsWords } from './copy'
-import { $accountConnections, $nativeRenewal, refreshNativeRenewal, type ConnectionsBridge, loadAccountConnections, openAccountConnect } from './store'
+import { $accountConnections, $nativeRenewal, type ConnectionsBridge, loadAccountConnections, openAccountConnect, refreshNativeRenewal } from './store'
 import {
   accountPlanMacNames,
   type AccountPlanRow,
@@ -89,9 +89,9 @@ export function AccountSubscriptionsSection({
   return (
     <SettingsSection data-matrix-settings-section="subscriptions" title={copy.subscriptions}>
       {renewal && (
-        <SettingsRow title={copy.renewal} data-atum-native-renewal control={
+        <SettingsRow control={
           <button className="ak-btn ak-btn--sm" onClick={() => openAccountConnect(renewal, 'renew')} type="button">{copy.renew}</button>
-        } />
+        } data-atum-native-renewal title={copy.renewal} />
       )}
       {rows.map(row => (
         <SettingsRow

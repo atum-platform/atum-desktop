@@ -1,4 +1,5 @@
 import { expect, it } from 'vitest'
+
 import { readConnectMcpUrl } from './connect-endpoint'
 
 it('uses the native environment hostname and refuses revoked or absent Connect state', async () => {

@@ -1,5 +1,7 @@
 import { setTimeout as delay } from 'node:timers/promises'
+
 import type { Session } from 'electron'
+
 import type { NativeConnector } from './native'
 
 /** Finish the owner's tap using T3's own browser-session CSRF approval, never a provider credential. */
