@@ -26,3 +26,28 @@ Local verification: 15 native supervisor tests passed (exit 0). Private assembly
 verification with the pinned MCP 2.3/httpx2 stack passed 116 focused Python tests
 and the real GBrain renewal/citation fixture. No installed user profile or data
 was accessed; no physical migration, push, PR, CI or deployment was performed.
+
+Managed-awareness migration support (built, not activated): native brain.export
+now retains full privacy records, original operation IDs, accepted receipt
+identities and ledger sequence. Missing eligible bytes block coverage. The
+platform's private approved-hash import/check operator uses these records before
+content. It does not import through raw MCP. Runtime AtumAwarenessProvider accepts
+a native managed_retrieve port and chooses it first; local fallback requires
+current native privacy authority and an actual cloud outage, and is labeled
+local_historical_fallback. Empty/denied/malformed results do not trigger fallback.
+No real store, enrollment, migration, cloud or installed app was changed.
+
+Fixture verification for this checkpoint: app vendor BrainState tests 22 passed
+(exit 0); platform native state/contract/durability 38 passed (exit 0), managed
+fixtures 52 passed (exit 0), and a disposable real Mac PGLite -> real managed
+Postgres/GBrain proof passed 22 checks (exit 0), including native provisioning,
+coverage, original-source recall and later withdrawal. Python provider/v2/cloud
+selection tests had 69 passes and one pre-existing assertion failure (exit 1):
+MemoryManager creates its expected provenance marker while the old test expects
+no new files. Untouched-base reproduction also failed. No assertion was weakened.
+Cross-family review and live enrollment/migration remain coordinator work.
+
+Final focused Python v2/cloud-first/frozen-contract check: 50 passed, exit 0.
+Public boundary guard against the incoming slice head passed (exit 0), invoked
+directly without piping; paths, modes, full ancestry, identifiers, secrets and
+metadata passed. Workspace remains below the requested storage limit.

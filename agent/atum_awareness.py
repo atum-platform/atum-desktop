@@ -117,6 +117,8 @@ class AtumAwarenessProvider(MemoryProvider):
         max_content_bytes: int = 16384,
         cloud_binding: dict[str, Any] | None = None,
         record_provenance: Callable[[dict[str, Any]], None] | None = None,
+        managed_retrieve: Callable[[dict[str, Any], threading.Event], Any] | None = None,
+        fallback_current: Callable[[], bool] | None = None,
     ) -> None:
         self._cloud_binding = None
         self._record_provenance = record_provenance
@@ -165,6 +167,11 @@ class AtumAwarenessProvider(MemoryProvider):
         self._audience = audience
         self._destination = binding.destination
         self._account_fence = binding.account_fence_active
+        if managed_retrieve is not None:
+            if cloud_binding is not None or binding.destination != 'local' or not callable(fallback_current):
+                raise AwarenessContractError()
+            from agent.cloud_first_awareness import CloudFirstAwareness
+            retrieve = CloudFirstAwareness(managed_retrieve, retrieve, fallback_current=fallback_current)
         self._retrieve = retrieve
         self._is_current = is_current
         self._mark_google = mark_google_derived
@@ -392,7 +399,10 @@ class AtumAwarenessProvider(MemoryProvider):
             self.invalidate()
             return '{"error":"awareness_fresh_session_required"}'
         try:
-            return json.dumps(self.recall(args), ensure_ascii=True, separators=(",", ":"))
+            result = self.recall(args)
+            if getattr(self._retrieve, 'historical_local', False):
+                result = {**result, 'retrievalOrigin': 'local_historical_fallback'}
+            return json.dumps(result, ensure_ascii=True, separators=(",", ":"))
         except AwarenessContractError:
             return '{"error":"awareness_args_invalid"}'
         except AwarenessSessionError:
