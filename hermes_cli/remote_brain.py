@@ -5,10 +5,49 @@ from pathlib import Path
 from urllib.parse import urlsplit
 
 
-def enroll(home, endpoint, client=None, *, local_brain_root=None):
+def validate_cutover(root, evidence_file):
+    """Protected coordinator receipt: all approved exports AND native transport proof.
+
+    This is not migration approval; the operator obtains fresh reports after
+    draining sources, as documented in the migration runbook.
+    """
+    import os
+    import stat
+    if evidence_file is None:
+        raise ValueError('complete_coverage_and_transport_proof_required')
+    path = Path(evidence_file)
+    info = path.lstat()
+    if (not path.is_absolute() or not stat.S_ISREG(info.st_mode)
+            or path.is_symlink() or info.st_uid != os.getuid() or info.st_mode & 0o077
+            or info.st_size > 65536):
+        raise ValueError('private_cutover_evidence_required')
+    value = json.loads(path.read_text())
+    reports = value.get('reports')
+    if (set(value) != {'schema', 'localRoot', 'completeInventory', 'liveTransportProven', 'reports'}
+            or value['schema'] != 'atum.awareness-cutover/1'
+            or value['localRoot'] != str(Path(root).resolve())
+            or value['completeInventory'] is not True or value['liveTransportProven'] is not True
+            or not isinstance(reports, list) or not reports):
+        raise ValueError('complete_coverage_and_transport_proof_required')
+    import re
+    for report in reports:
+        if (type(report) is not dict or report.get('complete') is not True
+                or report.get('cutoverAllowed') is not True or report.get('gaps') != []
+                or type(report.get('ledgerSeq')) is not int or report['ledgerSeq'] < 1
+                or not re.fullmatch('[a-f0-9]{64}', report.get('approvedSha256', ''))):
+            raise ValueError('complete_coverage_and_transport_proof_required')
+    return value
+
+
+def enroll(home, endpoint, client=None, *, local_brain_root=None, cutover_file=None):
     from hermes_yaml import safe_load
     from hermes_cli.config import _write_user_config
     from tools.mcp_oauth import HermesTokenStorage, _write_json, _invalidate_tokens_on_client_change
+    if local_brain_root is not None:
+        root = Path(local_brain_root)
+        if not root.is_absolute() or not root.is_dir() or root.is_symlink():
+            raise ValueError('existing_local_brain_root_required')
+        validate_cutover(root, cutover_file)
     home = Path(home)
     url = urlsplit(endpoint)
     if (url.scheme != 'https' or not url.hostname or url.path != '/mcp' or url.username
@@ -27,10 +66,6 @@ def enroll(home, endpoint, client=None, *, local_brain_root=None):
     if client is not None:
         entry['oauth'] = {'grant_type':'client_credentials', 'scope':'read'}
     config.setdefault('mcp_servers', {})['atum-brain'] = entry
-    for surface in ('cli', 'matrix', 'cron'):
-        values = config.setdefault('platform_toolsets', {}).setdefault(surface, ['hermes-'+surface])
-        if 'mcp-atum-brain' not in values:
-            values.append('mcp-atum-brain')
     _write_user_config(path, config)
     if local_brain_root is not None:
         root = Path(local_brain_root)
@@ -64,6 +99,7 @@ def main():
     parser.add_argument('--endpoint', required=True)
     parser.add_argument('--client-file', type=Path)
     parser.add_argument('--local-brain-root', type=Path)
+    parser.add_argument('--cutover-file', type=Path)
     args = parser.parse_args()
     client = None
     if args.client_file:
@@ -72,7 +108,7 @@ def main():
             raise ValueError('private_client_file_required')
         client = json.loads(args.client_file.read_text())
     for home in args.home:
-        enroll(home, args.endpoint, client, local_brain_root=args.local_brain_root)
+        enroll(home, args.endpoint, client, local_brain_root=args.local_brain_root, cutover_file=args.cutover_file)
 
 
 if __name__ == '__main__':

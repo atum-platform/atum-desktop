@@ -369,7 +369,9 @@ def _create_session(rid, params: dict, *, copy_parent_history: bool = False) -> 
                 if session is not None:
                     # Refresh the TTL so back-to-back retries don't age out mid-flight.
                     _idempotency_keys[idem_key] = (existing_sid, now_for_gc)
-                    if session.get("_managed_memory_binding") != managed_binding:
+                    if (session.get("_managed_memory_binding") != managed_binding
+                            or session.get("_native_historical_socket") !=
+                               ((params.get("managed_memory") or {}).get("historicalSocket") if managed_binding else None)):
                         return _err(rid, 4003, "memory_binding_invalid")
                     history = session["history"]
                     override = session.get("model_override") or {}
@@ -457,6 +459,8 @@ def _create_session(rid, params: dict, *, copy_parent_history: bool = False) -> 
             "follow_profile_config": _flag(params, "follow_profile_config"),
             "profile_home": str(profile_home) if profile_home is not None else None,
             "_managed_memory_binding": managed_binding,
+            "_native_historical_socket": ((params.get("managed_memory") or {}).get("historicalSocket")
+                                           if managed_binding else None),
             "_atum_awareness_binding": None,  # host-stamped only; see the refusal above
             "running": False, "session_key": key, "show_reasoning": _load_show_reasoning(), "source": source,
             "slash_worker": None, "tool_progress_mode": _load_tool_progress_mode(), "tool_started_at": {},
