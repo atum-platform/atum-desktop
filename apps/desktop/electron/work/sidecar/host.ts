@@ -18,6 +18,7 @@ import { recordWorkBillingUnit, type WorkBillingUnit } from './billing'
 import { type WorkIncarnation, workRuntimeEnvironment, WorkSidecar, type WorkStartOptions } from './process'
 
 export const WORK_ACCESS_CHANNEL = 'atum:work:read-model-access'
+export const WORK_ASSERTION_CHANNEL = 'atum:work:connect-assertion'
 export const WORK_OPEN_PROTONS_CHANNEL = 'atum:work:open-protons'
 export type WorkAccess = 'allowed' | 'empty' | 'unavailable'
 
@@ -37,6 +38,7 @@ interface WorkHostOptions {
   gatewayEnvironment(): Record<string, string>
   revokeCredentials(): void
   readAccess(): Promise<WorkAccess>
+  connectAssertion?(): Promise<string>
   openProtons(): Promise<void>
 }
 
@@ -295,6 +297,22 @@ export class WorkHost {
   }
 
   registerOwnerPreload(): void {
+    ipcMain.handle(WORK_ASSERTION_CHANNEL, async event => {
+      const view = this.ownerCaller(event)
+      const account = this.options.account()
+
+      if (!view || !account || !this.binding || !sameAccount(this.binding.account, account)) {
+        throw new Error('work_unavailable')
+      }
+
+      const assertion = await this.options.connectAssertion?.()
+
+      if (!assertion || this.ownerCaller(event) !== view || !sameAccount(account, this.options.account())) {
+        throw new Error('work_unavailable')
+      }
+
+      return assertion
+    })
     ipcMain.handle('atum:work:startup-phase', (event, phase: unknown) => {
       if (!this.ownerCaller(event) || typeof phase !== 'string' ||
         !['ws-connected', 'providers-ready', 'threads-painted'].includes(phase) || this.startupPhases.has(phase)) {return}

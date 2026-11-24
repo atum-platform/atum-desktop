@@ -284,6 +284,7 @@ import { createUpdateHandoff, restoredUpdateBounds, type UpdateHandoff, type Upd
 import { saveUserSelectedFile } from '../user-selected-file-save'
 import { createWordMacAdapter } from '../word-companion-mac'
 import { createWordLiveMacAdapter } from '../word-live-mac'
+import { fetchConnectAssertion } from '../work/sidecar/connect-assertion'
 
 import { MatrixAccount } from './account'
 import { matrixAccountLogLine } from './account-events'
@@ -6427,6 +6428,7 @@ function scheduleContinuousListening() {
       keepAwakeConnection = connection
       stopWatchingKeepAwakeConnection = connection?.onState((next, reason) => {
         scheduleContinuousListening()
+
         // The Repair band reads needsRepair(); republish when it can change.
         if (reason === 'authentication' || next === 'status_exchanged') { publish(state) }
       })
@@ -20590,6 +20592,10 @@ async function start() {
       deviceServiceId: () => deviceIdentity?.enrollment()?.deviceServiceId,
       deviceServicesEndpoint: () => `${domain.resource}/device-services`,
       bearer: () => account.s1Request(accessToken => Promise.resolve(accessToken), AbortSignal.timeout(15_000)),
+      connectAssertion: () => account.s1Request(
+        (token, base, signal) => fetchConnectAssertion(token, base, signal, session.defaultSession.fetch.bind(session.defaultSession)),
+        AbortSignal.timeout(15_000)
+      ),
       prepareChatGptConnect: () => account.s1Request(async (token, base, signal) => {
         // The Shell route checks status first and performs the idempotent account retirement only if needed.
         const response = await session.defaultSession.fetch(`${base}/api/connections/openai-codex/uncarry`, {
@@ -20634,7 +20640,9 @@ async function start() {
             'X-Atum-Host-Bridge-Contract': 'atum.s2.host-bridge/1.0.0' },
           body: JSON.stringify({ agent, path: nativePath, method, body })
         })
+
         if (!response.ok) {throw new Error('native_profile_unavailable')}
+
         return response.json()
       }, AbortSignal.timeout(60_000), { timeoutMs: 60_000 }),
       agentDefinition: async principal => {
