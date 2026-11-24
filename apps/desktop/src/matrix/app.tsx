@@ -284,7 +284,7 @@ import { MatrixChatMenu } from './conversation-menu'
 import { ConversationRetryLine } from './conversation-recovery'
 import { useMatrixCopy } from './copy'
 import { MatrixUpdateFooter } from './desktop-settings'
-import { $matrixDestinationRequests, $matrixLastChat } from './destination-requests'
+import { $matrixDestinationRequests } from './destination-requests'
 import { MatrixApprovalSheet } from './device-approval'
 import { matrixDeviceHealthCopy, MatrixDeviceHealthNotice } from './device-health-notice'
 import { focusDialogField, MatrixDialogHeader } from './dialog-header'
@@ -344,6 +344,7 @@ import {
 } from './history-search'
 import { invocationCopy, invocationNoticeVisible } from './invocation-notice'
 import { MatrixLanguageProvider } from './language'
+import { matrixChatRoomToOpen, matrixRememberedChat, rememberMatrixLastChat } from './last-chat'
 import { runMatrixReadinessAction } from './launch-actions'
 import { useLaunchCopy } from './launch-copy'
 import { MatrixLaunchNotice, matrixLaunchNoticeKind } from './launch-notice'
@@ -424,7 +425,6 @@ import { matrixFirstUnreadMessageId } from './read-marker'
 import { matrixReadinessCopy, matrixSetupCooldown } from './readiness-copy'
 import { ResultRecoveryOutcome, useResultRecovery } from './result-recovery'
 import { anyAgentPrompts, assistantTarget, primaryAgent, snapshotForRoom } from './room-agent'
-import { sortConversations } from './room-navigation'
 import { MatrixRosterConversations } from './roster-conversations'
 import { useRosterCopy } from './roster-copy'
 import { MatrixRosterCreate, type MatrixRosterCreation } from './roster-create'
@@ -6763,6 +6763,16 @@ function MatrixRoster({
       return
     }
 
+    // A relaunch lands on the Chat the person last had open (last-chat.ts), not on Trợ lý.
+    const lastChat = matrixRememberedChat(snapshot)
+
+    if (lastChat) {
+      landed.current = true
+      void runMatrixCommand({ kind: 'select', roomId: lastChat }).catch(() => {})
+
+      return
+    }
+
     if (snapshot.startup || assistantStarting) {
       if (assistantRoomId) {
         landed.current = true
@@ -6781,6 +6791,7 @@ function MatrixRoster({
     gating,
     placed,
     primaryAgent,
+    snapshot,
     snapshot.assistant,
     snapshot.startup,
     snapshot.state
@@ -7262,7 +7273,7 @@ function MatrixAccountView({
       }
     : undefined
 
-  const selectedAssistant = useRef<string | null>(null)
+  const launchChatOpened = useRef<string | null>(null)
   const rosterOpen = useRef<((fresh?: boolean, agentId?: string, roomId?: string) => Promise<void>) | null>(null)
   const newMessageOpen = useRef<(() => void) | null>(null)
   const openNewMessageAfterStore = useRef(false)
@@ -7566,42 +7577,30 @@ function MatrixAccountView({
     }
   }, [snapshot.identity])
   useEffect(() => {
-    const room = snapshot.rooms.find(value =>
-      isAssistantRoom(value, snapshot.identity?.userId, snapshot.assistant?.userId)
-    )
-
-    const scope =
-      snapshot.identity && snapshot.assistant ? `${snapshot.identity.userId}:${snapshot.assistant.userId}` : null
+    // Launch (and a new sign-in) opens a conversation, never an empty Chat: the account's last Chat
+    // from before the relaunch, else its primary agent's (last-chat.ts). Once per account.
+    const scope = snapshot.identity?.userId ?? null
 
     const retainedDestination =
       snapshot.destination?.kind === 'room' || (Boolean(snapshot.apps) && Boolean(snapshot.destination))
 
-    if (
-      snapshot.state !== 'ready' ||
-      !scope ||
-      !room ||
-      snapshot.roomId ||
-      retainedDestination ||
-      selectedAssistant.current === scope
-    ) {
+    if (snapshot.state !== 'ready' || !scope || snapshot.roomId || retainedDestination || launchChatOpened.current === scope) {
       return
     }
 
-    selectedAssistant.current = scope
-    void runMatrixCommand({ kind: 'select', roomId: room.id }).catch(error => {
+    const roomId = matrixChatRoomToOpen(snapshot)
+
+    if (!roomId) {
+      return
+    }
+
+    launchChatOpened.current = scope
+    void runMatrixCommand({ kind: 'select', roomId }).catch(error => {
       // Restoring the default chat is background navigation. A refusal leaves the current
       // destination untouched and is diagnostic only; no person action failed.
       reportMatrixWindowFailure('command.select', error, snapshot.state !== 'offline')
     })
-  }, [
-    snapshot.assistant,
-    snapshot.destination,
-    snapshot.apps,
-    snapshot.identity,
-    snapshot.roomId,
-    snapshot.rooms,
-    snapshot.state
-  ])
+  }, [snapshot])
   // The created room once sync has listed it: a room that was listed and is gone was deleted
   // (left and forgotten), which ends it as surely as leaving does.
   const listedCreatedRoom = useRef<string | null>(null)
@@ -7626,16 +7625,12 @@ function MatrixAccountView({
     }
   }, [createdAssistantRoomId, snapshot.rooms])
   const room = snapshot.rooms.find(value => value.id === snapshot.roomId)
-  const chatAccount = snapshot.identity ? JSON.stringify([snapshot.identity.userId, snapshot.identity.deviceId]) : null
+  const chatAccount = snapshot.identity?.userId
   useEffect(() => {
-    if (!chatAccount || $matrixLastChat.get()?.account !== chatAccount) {
-      $matrixLastChat.set(null)
-    }
-
     // Store/app snapshots may retain the previous room or clear it. Neither is a new Chat choice.
-    if (chatAccount && room && !isTeamSpaceRoom(room) &&
+    if (chatAccount && room && room.membership === 'join' && !isTeamSpaceRoom(room) &&
       (!snapshot.destination || snapshot.destination.kind === 'room')) {
-      $matrixLastChat.set({ account: chatAccount, roomId: room.id })
+      rememberMatrixLastChat(chatAccount, room.id)
     }
   }, [chatAccount, room, snapshot.destination])
   const privateCosAccountPrefix = `${teamSpaceAccountKey(snapshot.identity)}\n`
@@ -7912,20 +7907,11 @@ function MatrixAccountView({
       return
     }
 
-    const homeRooms = snapshot.rooms.filter(value => !isTeamSpaceRoom(value))
-    const remembered = $matrixLastChat.get()
+    // The last Chat, else the primary agent's conversation (last-chat.ts): Chat never opens empty.
+    const roomId = matrixChatRoomToOpen(snapshot, { anyConversation: true })
 
-    const lastChat = remembered?.account === chatAccount
-      ? homeRooms.find(value => value.id === remembered.roomId && value.membership === 'join')
-      : undefined
-
-    const defaultRoom = lastChat ??
-      homeRooms.find(value => isAssistantRoom(value, snapshot.identity?.userId, snapshot.assistant?.userId)) ??
-      // An unavailable platform default is not permission to enter another agent's history.
-      (!snapshot.assistant && !primaryAgent(snapshot) ? sortConversations(homeRooms)[0] : undefined)
-
-    if (defaultRoom) {
-      void runMatrixCommand({ kind: 'select', roomId: defaultRoom.id }).catch(fail)
+    if (roomId) {
+      void runMatrixCommand({ kind: 'select', roomId }).catch(fail)
     }
   }
 
@@ -8002,6 +7988,18 @@ function MatrixAccountView({
   const workplaceOnScreen = workplaceActive && workplaceOnRail && !settingsTrip
   // Self-work slice A: Work, right below Chats, while main reports it for this account on this Mac.
   const workOnScreen = workActive && workOnRail(work)
+
+  const railDestination: AtumShellDestination = workOnScreen
+    ? 'work'
+    : driveActive
+      ? 'drive'
+      : workplaceOnScreen
+        ? 'workplace'
+        : // An open app is one of the store's: the rail keeps that place, not Home.
+          snapshot.destination?.kind === 'discover' || (snapshot.apps && snapshot.destination?.kind === 'app')
+          ? 'discover'
+          : 'chat'
+
   const workRoomId = useRef(room?.id)
 
   // Opening another conversation from anywhere (the palette, a notification) leaves Work for it; Work going
@@ -9221,19 +9219,7 @@ function MatrixAccountView({
             <>
               <AtumNavSwitchSurface
                 ariaLabel={shell.navigation}
-                destination={
-                  workOnScreen
-                    ? 'work'
-                    : driveActive
-                    ? 'drive'
-                    : workplaceOnScreen
-                      ? 'workplace'
-                      : // An open app is one of the store's: the rail keeps that place, not Home.
-                        snapshot.destination?.kind === 'discover' ||
-                          (snapshot.apps && snapshot.destination?.kind === 'app')
-                        ? 'discover'
-                        : 'chat'
-                }
+                destination={railDestination}
                 disabledDiscoverLabel={
                   railSurfaceState('discover', surfaces) === 'coming_soon' ? shell.discoverUnavailable : undefined
                 }
@@ -9300,6 +9286,8 @@ function MatrixAccountView({
           rosterDrawerCloseLabel={copy.cancel}
           rosterDrawerLabel={storeOpen ? shell.discover : t.atum.roster.title}
           rosterDrawerOpen={drawerOpen && !workplaceOnScreen && !workOnScreen}
+          // Switching screens moves no panel; only the sidebar toggle animates (shell-frame.tsx).
+          screen={railDestination}
           sidebarShowing={sidebarShowing && !workplaceOnScreen && !workOnScreen}
           workspace={motion => (
             <>

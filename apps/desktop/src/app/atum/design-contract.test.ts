@@ -725,7 +725,8 @@ describe('Atum shell — the nav switch owns the destinations', () => {
     expect(roster).not.toContain('data-atum-nav-dock-reserve')
     // The roster's presence follows whether it is SHOWING, not the preference —
     // driving it from the preference left it open beside the storefront.
-    expect(shellFrame).toMatch(/useMotionPresence\(!compact && sidebarShowing, 280\)/u)
+    expect(shellFrame).toContain('const sidebarOpen = !compact && sidebarShowing')
+    expect(shellFrame).toMatch(/useMotionPresence\(sidebarOpen, 280, sidebarInstant\)/u)
     expect(shellFrame).toContain('data-atum-workspace-over-frame')
     expect(navSurface).toContain('data-atum-nav-switch')
     expect(navSurface).toContain('data-atum-nav-home')

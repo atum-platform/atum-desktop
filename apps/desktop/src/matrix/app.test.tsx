@@ -56,6 +56,7 @@ import { $matrixDesktopServices } from './desktop-services'
 import { $matrixDriveTaskSelection, selectMatrixDriveFile, setMatrixDriveTaskScope } from './drive-selection'
 import { requestFounderChat } from './founder/founder-store'
 import { resetMatrixGoogleNudgeDismissals } from './google-connection-settings'
+import { $matrixLastChatByAccount } from './last-chat'
 import { $outgoingEchoes } from './outgoing-echo'
 import { matrixHandleAccount, rememberMatrixHandle, resetMatrixHandlesForTest } from './person-handles'
 import { COMPANY_AI_ANSWER_FIXTURE, playgroundCompanyDesktopAdapter } from './playground/company-ai-fixtures'
@@ -975,6 +976,7 @@ afterEach(() => {
 
   resetAllBindings()
   $assistantNameOverrides.set({})
+  $matrixLastChatByAccount.set({})
   setMatrixDriveTaskScope(null, null)
   $outgoingEchoes.set([])
   vi.restoreAllMocks()
@@ -7267,8 +7269,9 @@ describe('isolated Matrix composition', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Chats' }))
     expect(bridge.command).not.toHaveBeenCalled()
 
+    // Main clears the selection: Chat goes back to the last conversation, Morgan, not to Atum.
     emit({ ...state, roomId: null })
-    await waitFor(() => expect(bridge.command).toHaveBeenCalledWith({ kind: 'select', roomId: assistant.id }))
+    await waitFor(() => expect(bridge.command).toHaveBeenCalledWith({ kind: 'select', roomId: human.id }))
   })
 
   it.each([{ kind: 'app', appId: 'saved-app' }, { kind: 'discover' }] as const)(
@@ -13581,7 +13584,11 @@ describe('the rail goes where it is clicked, the first time', () => {
     let emit: (state: MatrixSnapshot) => unknown = () => {}
 
     // sdk.ts: `discoverApps` leaves the chat for the Store; `select` opens the chat.
+    // Every command main received, launch included (`command` itself is cleared once launched).
+    const issued: Parameters<MatrixUiBridge['command']>[0][] = []
+
     const command = vi.fn(async (input: Parameters<MatrixUiBridge['command']>[0]) => {
+      issued.push(input)
       await Promise.resolve()
 
       if (input.kind === 'discoverApps') {
@@ -13616,6 +13623,7 @@ describe('the rail goes where it is clicked, the first time', () => {
     return {
       ...harness,
       command,
+      issued,
       // Any sync, receipt or wallet change: the same place, as a new snapshot object.
       sync: () => emit({ ...current, destination: current.destination ? { ...current.destination } : null })
     }
@@ -13684,6 +13692,68 @@ describe('the rail goes where it is clicked, the first time', () => {
     } finally {
       act(() => resetWorkStoreForTests())
     }
+  })
+
+  // Owner report (2026-11-24): "Chat screen should not have an empty state. Navigating back to it
+  // should show last convo." The last Chat outlives the window; with none, the primary agent's.
+  describe('Chat never opens empty', () => {
+    const personalRoom = { id: '!friend:test', name: 'Friend', membership: 'join' as const, direct: true, encrypted: true }
+    const selected = (issued: Parameters<MatrixUiBridge['command']>[0][]) =>
+      // Both launch paths may ask for the same room; what matters is that no other room is asked for.
+      [...new Set(issued.flatMap(input => (input.kind === 'select' ? [input.roomId] : [])))]
+
+    it('reopens the last Chat after a relaunch, and Chats returns to it from the Store', async () => {
+      // The previous run left Friend open; the relaunched window starts with nothing selected.
+      $matrixLastChatByAccount.set({ [owner.userId]: personalRoom.id })
+
+      const { command, issued } = await launch({
+        snapshot: { rooms: [assistantRoom, personalRoom], roomId: null, destination: null }
+      })
+
+      expect(selected(issued)).toEqual([personalRoom.id])
+      expect(screen.getByRole('textbox', { name: COMPOSER })).toBeTruthy()
+
+      fireEvent.click(within(rail()).getByRole('button', { name: 'Store' }))
+      await settle()
+      command.mockClear()
+      fireEvent.click(within(rail()).getByRole('button', { name: 'Chats' }))
+      await settle()
+
+      expect(command).toHaveBeenCalledWith({ kind: 'select', roomId: personalRoom.id })
+      expect(place('Chats')).toBe('page')
+    })
+
+    it('remembers the Chat the person opens, per account, for the next launch', async () => {
+      const { command } = await launch({ snapshot: { rooms: [assistantRoom, personalRoom] } })
+
+      await act(async () => void (await command({ kind: 'select', roomId: personalRoom.id })))
+      await settle()
+
+      expect($matrixLastChatByAccount.get()).toEqual({ [owner.userId]: personalRoom.id })
+      expect(JSON.parse(window.localStorage.getItem('atum.desktop.lastChatByAccount.v1') ?? '{}')).toEqual({
+        [owner.userId]: personalRoom.id
+      })
+    })
+
+    it('opens the primary agent on a first launch, even when it answers from the cloud', async () => {
+      const cloudRoom = { ...assistantRoom, id: '!cloud-main:test', agentPrincipal: 'cloud-main' }
+
+      // A newer personal chat sorts first; the first launch still lands on the primary agent.
+      const { issued } = await launch({
+        snapshot: {
+          assistant: undefined,
+          assistantPath: undefined,
+          rooms: [{ ...personalRoom, favourite: true }, cloudRoom],
+          roomId: null,
+          destination: null,
+          agents: [{ principal: 'cloud-main', userId: '@atum:test', name: 'Atum', isDefault: true, ready: true,
+            hermes: 'unavailable', atumModel: true, answering: 'cloud' }]
+        }
+      })
+
+      expect(selected(issued)).toEqual([cloudRoom.id])
+      expect(screen.getByRole('textbox', { name: COMPOSER })).toBeTruthy()
+    })
   })
 
   it('opens Drive on the first click from Home and keeps it there as snapshots arrive', async () => {

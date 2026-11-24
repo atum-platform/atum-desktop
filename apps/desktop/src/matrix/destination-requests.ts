@@ -10,11 +10,3 @@ export const $matrixDestinationRequests = atom(0)
 export function noteMatrixDestinationRequest(): void {
   $matrixDestinationRequests.set($matrixDestinationRequests.get() + 1)
 }
-
-/** Last personal Chat selection in this window, scoped to the signed-in account. */
-interface MatrixLastChat {
-  account: string
-  roomId: string
-}
-
-export const $matrixLastChat = atom<MatrixLastChat | null>(null)
