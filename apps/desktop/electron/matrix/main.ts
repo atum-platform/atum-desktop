@@ -284,8 +284,8 @@ import { createUpdateHandoff, restoredUpdateBounds, type UpdateHandoff, type Upd
 import { saveUserSelectedFile } from '../user-selected-file-save'
 import { createWordMacAdapter } from '../word-companion-mac'
 import { createWordLiveMacAdapter } from '../word-live-mac'
-import { requestNativeT3 } from '../work/sidecar/native-t3'
 import { fetchConnectAssertion } from '../work/sidecar/connect-assertion'
+import { requestNativeT3 } from '../work/sidecar/native-t3'
 
 import { MatrixAccount } from './account'
 import { matrixAccountLogLine } from './account-events'

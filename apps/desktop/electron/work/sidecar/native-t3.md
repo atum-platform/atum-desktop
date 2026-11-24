@@ -11,6 +11,8 @@ fence. Other failures remain unavailable. Previously the connector collapsed
 401 into unavailable and skipped that refresh.
 
 Verification: the connector and assertion helper suites pass 6 tests (exit 0).
+Focused ESLint for the five changed TypeScript files passes (exit 0).
+The public outbound guard passed against main (exit 0, full history, unpiped).
 Platform middleware admission and issuer composition are separate server-side
 changes. Live acceptance, rollout, and the outbound guard remain coordinator
 gates; no push or deployment is performed by this implementation worker.

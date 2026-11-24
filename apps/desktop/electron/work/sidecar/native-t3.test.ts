@@ -1,4 +1,5 @@
 import { expect, it, vi } from 'vitest'
+
 import { requestNativeT3 } from './native-t3'
 
 it('uses the domain base and owner bearer without cookies', async () => {
