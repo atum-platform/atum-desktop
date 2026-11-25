@@ -70,3 +70,31 @@ renderer, consumer-browser, Electron and E2E projects. `git diff --check` passes
 Verification reuses temporary shared root/desktop dependency symlinks; no install
 or dependency change. Local runtime is Node 23.10.0 and Vitest 4.1.12; hosted CI
 uses Node 24. The coordinator owns pushing and exact-head CI verification.
+
+## PR 125 merge with picker plan-model fix — 2026-11-25
+
+Merged origin/main 8c32f43b317d5cd08fdfe9394340523b9f00b123 into
+0fde1c8b34c1d7f4e1533676d4a692eb5664b939 with a merge commit.
+Conflicts were limited to electron/work/surface/relay.ts and relay.test.ts.
+Resolution retains independent four-second provider reads and combined account
+facts, and skips UUID expansion for all-owner grants. The parsed required
+agents field remains explicit in the returned view, including gate-failure
+returns. Both parents regression cases are kept; the all-owner test also
+asserts the returned literal. Main renderer loading/ready/unavailable/error
+states and eight-second deadline merge intact. The A4 typed HTTP-400 fallback
+and reader-only C5 contract remain intact.
+
+Verification uses shared root/desktop dependency symlinks, no installation:
+- Full desktop typecheck: exit 0 (boundary, renderer, browser, Electron, E2E).
+- Private-absent renderer: exit 0, 8320 sources, zero private sources.
+- Focused Connections store, model-picker, use-relay, surface relay/surface,
+  gate/platform and native-SSH Vitest: exit 0, 286 tests across seven files.
+- Relay rerun after explicit returned-all assertion: exit 0, nine tests.
+- Full desktop lint: exit 0, zero errors, 4101 warnings.
+- git diff --check: exit 0.
+
+Public guard is run unpiped against the committed merge; its observed exit
+code is included in the final coordinator handoff. Built-not-live; no push,
+PR changes, CI, deployment, account mutation or spending. The coordinator owns
+review, pushing and exact-head CI. Temporary dependency links are removed
+after verification; shared dependencies are untouched.

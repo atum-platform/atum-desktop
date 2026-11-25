@@ -9,7 +9,7 @@ import { workRelayServedByName } from '@/app/work/relay-chrome'
 import { WORK_RELAY_PLAN_NAMES, workRelayChipText, workRelayCopy } from '@/app/work/relay-copy'
 import { workRelayPickerView } from '@/app/work/relay-view'
 import type { WorkRelayFix, WorkRelayPickerView } from '@/app/work/relay-view'
-import { $work, $workRelayRooms, setWorkActive } from '@/app/work/store'
+import { $work, $workRelayReads, $workRelayRooms, setWorkActive } from '@/app/work/store'
 import { useWorkRelayRoom } from '@/app/work/use-relay'
 import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
@@ -375,6 +375,10 @@ export function MatrixModelPicker({
   const ownRelayRoom = useWorkRelayRoom(
     cloud && !providedWorkRelay ? agentPrincipal : undefined, room.id, preferenceScope ?? agentPrincipal, fail, false
   )
+  const relayReads = useStore($workRelayReads)
+  const relayRead = relayReads[room.id]
+  const relayReadReason = relayRead === 'loading' ? words.modelsLoading
+    : relayRead === 'failed' ? words.modelsFailed : words.modelsUnavailable
 
   const workRelay: readonly MatrixModelPickerRelay[] | undefined = providedWorkRelay ?? (ownRelayRoom && agentPrincipal && window.atumMatrix.work?.selectRelay
     ? WORK_RELAY_PLANS.map(plan => ({
@@ -396,7 +400,8 @@ export function MatrixModelPicker({
           }
 
           return { status: 'saved' }
-        }
+        },
+        fix: fix => openAccountConnect(plan, fix === 'allow' ? 'allow' : 'connect')
       })) : undefined)
 
   const [openState, setOpenState] = useState(false)
@@ -886,7 +891,7 @@ export function MatrixModelPicker({
 
   // D6 (self-work plan §10.3): an assistant never answers with the plan; the plan works in Work on the owner's Mac. One line,
   // the rows greyed without a reason of their own, and one action (Open Work) when this account has Work here.
-  const chatgptReason = window.atumMatrix.work?.readRelay ? words.modelsLoading : words.chatgptInWork
+  const chatgptReason = window.atumMatrix.work?.readRelay ? relayReadReason : words.chatgptInWork
   const chatgptHint = chatgptReason
   const opencodeProvider = cloudProvider('opencode-go')
   const opencodeConnected = opencodeProvider?.connected === true
@@ -1050,7 +1055,7 @@ export function MatrixModelPicker({
 
 
   // The account's plans (`atum.account-connections/1`): every plan has a rail entry, connected or not. ChatGPT's rows come from the
-  // relay above; a carried plan awaiting its view keeps loading copy; a plan connected nowhere
+  // relay above; a carried plan awaiting its view follows the bounded read state; a plan connected nowhere
   // gets a hollow mark and one Connect state in place of the list (Work UI spec §2.1).
   const accountPicks = cloudSubscriptions ? accountPickerPlans(accountConnections) : []
   const listedPlanProviders = new Set(cloudSubscriptionRoutes.map(({ route }) => route.provider))
@@ -1081,7 +1086,7 @@ export function MatrixModelPicker({
       },
       subscription: true,
       disabled: true,
-      reason: pick.kind === 'relay' ? words.modelsLoading : connectionWords.picker.inWork
+      reason: pick.kind === 'relay' ? relayReadReason : connectionWords.picker.inWork
     }))
   })
 
@@ -1812,8 +1817,30 @@ export function MatrixModelPicker({
     setRetryPick(null)
     setPendingCloudSubscription({ route: picked.route, saved: false })
 
-    void target.select(picked.route.model).then(
+    const select = async () => {
+      const readConsent = window.atumMatrix.work?.readPlanConsent
+      if (readConsent && picked.relayPlan && agentPrincipal) {
+        let timer: ReturnType<typeof setTimeout> | undefined
+        try {
+          const consent = await Promise.race([
+            readConsent(picked.relayPlan),
+            new Promise<never>((_, reject) => { timer = setTimeout(() => reject(new Error('work_consent_timeout')), 8_000) })
+          ])
+          if (!context.current()) {return { status: 'unavailable' }}
+          if (consent.state !== 'on' || !consent.agents.includes(agentPrincipal) || !consent.macs?.some(mac => mac.named) || consent.nativeRenewal === 'needed') {
+            setPendingCloudSubscription(null)
+            changeOpen(false)
+            openAccountConnect(picked.relayPlan, consent.nativeRenewal === 'needed' ? 'renew' : 'allow')
+            return { status: 'consent' }
+          }
+        } finally { clearTimeout(timer) }
+      }
+      return target.select(picked.route.model)
+    }
+
+    void select().then(
       result => {
+        if (result?.status === 'consent') {return}
         if (!context.current()) {
           return
         }

@@ -19,8 +19,44 @@ describe('owner relay adapter', () => {
     { read: async (plan = 'codex') => ({ ...account, consent: { ...account.consent, provider: plan, state: 'on', agents: 'all' } }), set },
     () => { throw new Error('unused') })
 
-    await relay.read(principal, '!dm:test')
+    const view = await relay.read(principal, '!dm:test')
+    expect(view.account.consent.agents).toBe('all')
     expect(set).not.toHaveBeenCalled()
+  })
+  it('bounds an optional plan timeout without delaying the working catalog forever', async () => {
+    vi.useFakeTimers()
+    try {
+      const relay = createOwnerRelay(mounted(undefined), { read: async (plan = 'codex') => {
+        if (plan === 'claude') {return new Promise<never>(() => {})}
+        return { ...structuredClone(account), facts: [{ provider: plan, deviceServiceId: 'mac', status: 'connected' as const }] }
+      } }, () => { throw new Error('unused') })
+      const pending = relay.read(principal, '!dm:test')
+      await vi.advanceTimersByTimeAsync(4000)
+      expect((await pending).account.facts.map(fact => fact.provider)).toEqual(['codex', 'antigravity'])
+    } finally { vi.useRealTimers() }
+  })
+  it('keeps each working plan when another optional plan fails', async () => {
+    const relay = createOwnerRelay(mounted(undefined), { read: async (plan = 'codex') => {
+      if (plan === 'claude') {throw new Error('offline')}
+      return { ...structuredClone(account), facts: [{ provider: plan, deviceServiceId: 'mac', status: 'connected' as const, models: ['native-model'] }] }
+    } }, () => { throw new Error('unused') })
+    const view = await relay.read(principal, '!dm:test')
+    expect(view.account.facts.map(fact => fact.provider)).toEqual(['codex', 'antigravity'])
+  })
+
+  it('keeps a working Claude plan even when the Codex read fails', async () => {
+    const relay = createOwnerRelay(mounted(undefined), { read: async (plan = 'codex') => {
+      if (plan !== 'claude') {throw new Error('unavailable')}
+      return { ...structuredClone(account), facts: [{ provider: plan, deviceServiceId: 'mac', status: 'connected' as const }] }
+    } }, () => { throw new Error('unused') })
+    expect((await relay.read(principal, '!dm:test')).account.facts).toHaveLength(1)
+  })
+
+  it('keeps account facts when the room gate cannot answer', async () => {
+    const relay = createOwnerRelay(mounted({ ledger: { agent: () => ({ entitled: true }), routeEpoch: () => 1 },
+      gate: { state: () => ({ agents: [] }), relay: { status: async () => { throw new Error('offline') } } } }),
+      { read: async () => structuredClone(account) }, () => { throw new Error('unused') })
+    expect(await relay.read(principal, '!dm:test')).toMatchObject({ account, status: null, turns: [] })
   })
   it('reads account facts even when this Mac has no running gate', async () => {
     const relay = createOwnerRelay({ service: () => undefined } as unknown as WorkMount, { read: async () => account }, () => { throw new Error('unused') })

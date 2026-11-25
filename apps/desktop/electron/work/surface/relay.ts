@@ -25,13 +25,21 @@ export function createOwnerRelay(mount: WorkMount, consent: Pick<WorkConsentClie
     async read(principal: string, roomId: string): Promise<WorkRelayRoomView> {
       const s = mount.service()
 
-      const [account, ...others] = await Promise.all(WORK_RELAY_PLANS.map(plan =>
-        consent.read(plan).catch(error => {
-          if (plan === 'codex') {return consent.read()}
-
-          if ([400, 404].includes((error as { status?: number }).status ?? 0)) {return null}
-          throw error
-        })))
+      const states = await Promise.all(WORK_RELAY_PLANS.map(async plan => {
+        let timer: ReturnType<typeof setTimeout> | undefined
+        try {
+          return await Promise.race([
+            consent.read(plan).catch(error => {
+              if (plan === 'codex' && [400, 404].includes((error as { status?: number }).status ?? 0)) {return consent.read()}
+              throw error
+            }),
+            new Promise<never>((_, reject) => { timer = setTimeout(() => reject(new Error('work_relay_catalog_timeout')), 4_000) })
+          ])
+        } catch { return null } finally { clearTimeout(timer) }
+      }))
+      const available = states.filter(state => state !== null)
+      const first = available[0]
+      const account = first ? { ...first, facts: available.flatMap(state => state.facts) } : null
 
       if (!account) {throw new Error('work_relay_account_unavailable')}
       if (mount.service() !== s) {throw new Error('work_relay_account_changed')}
@@ -39,7 +47,7 @@ export function createOwnerRelay(mount: WorkMount, consent: Pick<WorkConsentClie
       // Never revive a revoked grant or re-enable the local switch here.
       const eligible = s?.gate.state().agents.filter(agent => agent.entitled).map(agent => agent.principal) ?? []
 
-      for (const state of [account, ...others]) {
+      for (const state of available) {
         if (!state || state.consent.state !== 'on' || state.consent.agents === 'all' || !consent.set) {continue}
         const agents = [...new Set([...state.consent.agents, ...eligible])]
 
@@ -50,16 +58,17 @@ export function createOwnerRelay(mount: WorkMount, consent: Pick<WorkConsentClie
             devices: [...state.consent.devices], alsoWhenScheduled: state.consent.alsoWhenScheduled })
         } catch { /* Keep availability readable; the next read retries consent sync. */ }
       }
-
-      account.facts = [account, ...others].flatMap(state => state?.facts ?? [])
-      // Zod's union inference marks this key optional under the Electron compiler;
-      // the strict record parser above has already required and validated it.
+      account.consent = first!.consent
+      // Zod union inference marks this key optional under the Electron compiler;
+      // the strict record parser has already required and validated it.
       const accountView = { ...account, consent: { ...account.consent, agents: account.consent.agents! } }
 
       // Account-wide model availability does not depend on this Mac enrolling this agent.
       if (!s || !s.ledger.agent(principal)?.entitled) {return { account: accountView, status: null, turns: [] }}
       const ctx = context(principal)
-      const status = await s.gate.relay.status(ctx, roomId) as unknown as WorkRelayStatus
+      // Account availability is useful even while this room's local gate reconnects.
+      const status = await s.gate.relay.status(ctx, roomId).catch(() => null) as unknown as WorkRelayStatus | null
+      if (!status) {return { account: accountView, status: null, turns: [] }}
       // Display keeps the last synced selection even when admission is fenced/offline.
       const selections = JSON.parse(s.ledger.meta('relay_selections') ?? '[]') as { agentPrincipal: string; selection: unknown }[]
       const selected = WorkRelaySelectionSchema.safeParse(selections.find(each => each.agentPrincipal === principal)?.selection)
