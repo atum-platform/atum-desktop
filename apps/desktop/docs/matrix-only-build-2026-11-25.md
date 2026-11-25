@@ -103,7 +103,7 @@ Electron product lines and 47,031 test/harness lines. Restored independent
 document-editor proofs are excluded from that deletion count. Net reduction is
 about 100,700 lines after the restored builder and documentation.
 
-Final full Vitest (): exit 1 after 625.38 seconds.
+Final full Vitest (`vitest run --maxWorkers=4`): exit 1 after 625.38 seconds.
 Files: 1,582 passed, five failed, 14 skipped (1,601 total). Tests: 24,107
 passed, 19 failed, 51 skipped (24,177 total).
 
@@ -123,7 +123,7 @@ its result. No confirmed implementation regression remains from the run.
 Public input compatibility/import check: exit 0. Matrix build: exit 0, including
 renderer, SDK, seven native entries/preloads and macOS helpers. Branding: exit 0.
 Dependency inventory and git diff whitespace checks: exit 0. The outbound guard
-ran unpiped as PASS: 1 new commits; raw paths/modes, ancestry, identifiers, secrets and metadata
+ran unpiped as `python3 scripts/public_guard.py --base origin/main --head HEAD`
 and exited 0 on the implementation checkpoint; it is rerun on the final commit.
 
 Generated local bundle/type output was removed after verification. Shared
