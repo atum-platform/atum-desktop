@@ -263,7 +263,16 @@ export function StorePrice({
   )
 }
 
+/**
+ * Hires and skills wait for beta accounts (owner, 2026-11-25): everyone else sees them "Coming
+ * soon". Pets and apps stay available. Something already owned is never greyed out.
+ */
+export function storeItemComingSoon(item: Pick<MatrixStoreItem, 'kind'>, betaFeatures: boolean): boolean {
+  return !betaFeatures && (item.kind === 'agent' || item.kind === 'skill')
+}
+
 export function StoreCard({
+  comingSoon,
   kindLabel,
   item,
   onOpen,
@@ -272,6 +281,8 @@ export function StoreCard({
   locale,
   copy
 }: {
+  /** "Coming soon" in place of the price: the card still opens to read about it. */
+  comingSoon?: string
   kindLabel?: string
   item: MatrixStoreListing
   onOpen(): void
@@ -282,14 +293,23 @@ export function StoreCard({
 }) {
   const title = localizedStoreText(item.title, locale)
   const summary = localizedStoreText(item.summary, locale)
-  const amount = !owned && item.offer && item.offer.priceMicroProtons > 0 ? microProtons(item.offer.priceMicroProtons, locale) : null
+  const soon = owned ? undefined : comingSoon
+  const amount =
+    !owned && !soon && item.offer && item.offer.priceMicroProtons > 0
+      ? microProtons(item.offer.priceMicroProtons, locale)
+      : null
   // A priced row's button is the mark and the number; its name keeps the word ("8,000 Protons: Writer").
   const spoken = amount === null ? null : `${amount} ${copy.protons}`
-  const action = owned ? copy.open : (spoken ?? copy.get)
+  const action = owned ? copy.open : (soon ?? spoken ?? copy.get)
 
   return (
     <article
-      className={cn('atum-store-card group/card', variant === 'feature' && 'atum-store-card--feature')}
+      className={cn(
+        'atum-store-card group/card',
+        variant === 'feature' && 'atum-store-card--feature',
+        soon && 'atum-store-card--soon'
+      )}
+      data-store-coming-soon={soon ? true : undefined}
       data-store-item={item.itemId}
       onClick={onOpen}
     >
@@ -303,7 +323,7 @@ export function StoreCard({
             {kindLabel ? copy.discoverLine(kindLabel, summary) : summary}
           </span>
         )}
-        {isHubSkill(item) && (
+        {isHubSkill(item) && !soon && (
           <span
             className="mt-0.5 block text-(length:--atum-t-control) leading-[1.45] text-(--atum-ink-soft)"
             data-store-hub-hint

@@ -7713,7 +7713,15 @@ function MatrixAccountView({
   // occupies the same transcript pane. Its company identity comes from immutable create content.
   const notesSelfBound = Boolean(room && matrixNotesSelfRoom(snapshot.notesSelf, room.id))
 
-  const teamSpaceChannelOpen = Boolean(workplaceActive && !settingsTrip && (companyChannelBound || notesSelfBound))
+  // Local facts and the profile cache are projected once; the rail only selects states.
+  const surfaces = useMatrixSurfaces(snapshot)
+  // Team Space for an account without beta features (owner, 2026-11-25): its place reads "Coming soon"
+  // and no company room opens a transcript, even from a link or a notification.
+  const teamSpaceSoon = railSurfaceState('teamSpace', surfaces) === 'coming_soon'
+
+  const teamSpaceChannelOpen = Boolean(
+    workplaceActive && !settingsTrip && !teamSpaceSoon && (companyChannelBound || notesSelfBound)
+  )
   const conversationShellVisible = (!workplaceActive && !companyChannelBound) || teamSpaceChannelOpen
 
   const roomBot = directAppBot(snapshot)
@@ -8038,8 +8046,6 @@ function MatrixAccountView({
     }
   }
 
-  // Local facts and the profile cache are projected once; the rail only selects states.
-  const surfaces = useMatrixSurfaces(snapshot)
   const workplaceOnRail = railSurfaceState('teamSpace', surfaces) === 'on'
   // Workplace as the rail's place (not a page opened from Settings, which is a side trip).
   const workplaceOnScreen = workplaceActive && workplaceOnRail && !settingsTrip
@@ -9352,6 +9358,7 @@ function MatrixAccountView({
                 <MatrixWorkspace
                   channelContent={companyChannelContentAuthorized || notesSelfBound ? conversationContent : undefined}
                   cloudOnly={cloudOnly}
+                  comingSoon={teamSpaceSoon && !settingsTrip}
                   exitTo={
                     settingsTrip?.from === 'store'
                       ? 'store'

@@ -1112,6 +1112,8 @@ function fixture(
     closeDocumentPreview: vi.fn(async () => {}),
     pdf: { show: vi.fn(async () => ({ shown: true })), hide: vi.fn(async () => {}), close: vi.fn(async () => {}) },
     readDomain: vi.fn(async () => ({ issuer: 'https://id.test/', subject: 'alice', principal: 'principal' })),
+    // The full app is a beta account's; `bridgeOverrides` tries the rest (store/beta-features.ts).
+    betaFeatures: vi.fn(async () => true),
     cancelDomain: vi.fn(async () => {}),
     enrollment: vi.fn(async () => ({ state: 'absent' as const, identity: null })),
     enrollHermes: vi.fn(async () => ({ state: 'ready' as const, identity: null })),
@@ -3516,6 +3518,42 @@ describe('isolated Matrix composition', () => {
     expect(await screen.findByRole('dialog', { name: 'Start a chat' })).toBeTruthy()
     expect(companyRail.querySelector('[data-atum-nav-home]')?.getAttribute('aria-current')).toBe('page')
     expect(rosterSearch.value).toBe('Atum')
+  })
+
+  it('without beta features greys Team space as "Coming soon" and never opens a company channel', async () => {
+    const command = vi.fn(async () => null)
+    const companies = companyWorkspaceWithChannel('!launch:test')
+    const { emit } = fixture(undefined, 'en', workplacePages(), command, undefined, companies, undefined, {
+      betaFeatures: vi.fn(async () => false)
+    })
+    const assistant = controlsState.rooms[0]!
+    const rail = () => screen.getByRole('navigation', { name: 'Main navigation' })
+
+    emit({ ...controlsState, companyWorkspaceEnabled: true })
+    // Drawn, greyed and named, not hidden: pressing it explains, and goes nowhere.
+    const soon = await within(rail()).findByRole('button', { name: 'Team space · Coming soon' })
+    expect(soon.getAttribute('aria-disabled')).toBe('true')
+    expect(soon.getAttribute('data-surface-state')).toBe('coming_soon')
+    fireEvent.click(soon)
+    expect(await screen.findByText('This place is not ready yet.')).toBeTruthy()
+    expect(window.document.querySelector('[data-matrix-company-workspace]')).toBeNull()
+    expect(within(rail()).getByRole('button', { name: 'Chats' }).getAttribute('aria-current')).toBe('page')
+
+    // A link or notification into a company channel lands on the same calm page: no transcript, no box.
+    const companyRoom: MatrixRoom = {
+      id: '!launch:test',
+      name: 'launch',
+      membership: 'join',
+      encrypted: false,
+      roomType: MATRIX_COMPANY_CHANNEL_TYPE,
+      companyChannel: { companyId: 'company-a', channelId: '00000000-0000-4000-8000-676a3a34ff0f' }
+    }
+
+    emit({ ...controlsState, companyWorkspaceEnabled: true, roomId: companyRoom.id, rooms: [assistant, companyRoom] })
+    await waitFor(() => expect(window.document.querySelector('[data-team-space-coming-soon]')).toBeTruthy())
+    expect(window.document.querySelector('[data-matrix-company-workspace]')).toBeNull()
+    expect(screen.queryByRole('textbox', { name: COMPOSER })).toBeNull()
+    expect(screen.queryByRole('alert')).toBeNull()
   })
 
   it('shows window notices inside the Team space main column, never above its sidebar', async () => {

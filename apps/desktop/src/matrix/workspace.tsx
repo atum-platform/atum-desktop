@@ -1,6 +1,9 @@
 import { useStore } from '@nanostores/react'
 import { type ComponentProps, type ReactNode, useCallback, useEffect, useRef } from 'react'
 
+import { EmptyState } from '@/components/ui/empty-state'
+import { useI18n } from '@/i18n'
+
 import type { MatrixCompanyThread } from '../../shared/matrix'
 import type { MatrixCompanyActivityItem } from '../../shared/matrix-company-activity'
 import type { MatrixCompanyMessageSearchResult } from '../../shared/matrix-company-search'
@@ -35,6 +38,8 @@ export interface MatrixWorkspaceConversationTarget {
 
 export interface MatrixWorkspaceProps extends Omit<ComponentProps<typeof MatrixWorkplace>, 'header'> {
   channelContent?: ReactNode
+  /** Team Space without beta features: one calm "Coming soon" page in place of the company. */
+  comingSoon?: boolean
   /** The window's notice bands; Team Space shows them in its main column, beside the sidebar. */
   notices?: ReactNode
   onChannelVisibilityChange?(visible: boolean): void
@@ -43,8 +48,9 @@ export interface MatrixWorkspaceProps extends Omit<ComponentProps<typeof MatrixW
 }
 
 /** Team Space is a company mode. Personal assistant management stays in Settings. */
-export function MatrixWorkspace({ channelContent, notices, onChannelVisibilityChange, onMessageLinkFailure,
+export function MatrixWorkspace({ channelContent, comingSoon, notices, onChannelVisibilityChange, onMessageLinkFailure,
   onOpenConversation, ...props }: MatrixWorkspaceProps) {
+  const { t } = useI18n()
   const bridge = window.atumMatrix.companies
   const enabled = Boolean(props.snapshot.companyWorkspaceEnabled && bridge?.pending)
   const identity = props.snapshot.identity
@@ -349,6 +355,17 @@ export function MatrixWorkspace({ channelContent, notices, onChannelVisibilityCh
 
   // Settings may still open a specific assistant-management page. The Team Space
   // rail itself never routes through that personal workspace landing page.
+  if (comingSoon && !props.initialPage) {
+    return (
+      <>
+        {notices}
+        <div className="flex min-h-0 flex-1" data-team-space-coming-soon>
+          <EmptyState className="m-auto p-8" description={t.surfaces.comingSoonHelp} title={t.surfaces.comingSoon} />
+        </div>
+      </>
+    )
+  }
+
   if (!enabled || props.initialPage) {
     return (
       <>

@@ -1,4 +1,5 @@
 import { AGENT_HOMES_CLOUD_ONLY } from '../../shared/agent-home-cloud-only'
+import { readBetaFeatures } from '../../shared/beta-features'
 import type { MatrixDomainIdentity } from '../../shared/matrix'
 
 import type { NativeGrant } from './authorization'
@@ -34,7 +35,12 @@ export async function readDomainIdentity(resource: string, grant: NativeGrant): 
     throw new Error('matrix_domain_invalid')
   }
 
-  return { issuer: data.issuer, subject: data.subject, principal: data.principal }
+  return {
+    issuer: data.issuer,
+    subject: data.subject,
+    principal: data.principal,
+    ...(readBetaFeatures(data) ? { betaFeatures: true as const } : {})
+  }
 }
 
 /**

@@ -645,6 +645,8 @@ export function playgroundBridge(store: PlaygroundStore): MatrixUiBridge {
     closeDocumentPreview: noop,
     pdf: { show: async () => ({ shown: true }), hide: noop, close: noop },
     readDomain: async () => ({ issuer: 'https://id.atum.chat/', subject: 'minh', principal: 'principal' }),
+    // The playground shows every place; `?beta=0` shows what an account without beta features sees.
+    betaFeatures: async () => new URLSearchParams(location.search).get('beta') !== '0',
     cancelDomain: noop,
     enrollment: async () => ({ state: 'absent' as const, identity: null }),
     enrollHermes: async () => ({ state: 'ready' as const, identity: null }),

@@ -1,3 +1,4 @@
+import { useStore } from '@nanostores/react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 
 import { AtumAssistantAvatar } from '@/app/atum/assistant-avatar'
@@ -18,6 +19,7 @@ import { useI18n } from '@/i18n'
 import { ATUM_AVATAR_ACCEPT } from '@/lib/atum-avatar'
 import { ChevronRight, Plus } from '@/lib/icons'
 import { cn } from '@/lib/utils'
+import { $betaFeatures } from '@/store/beta-features'
 
 import type { MatrixAgentView } from '../../shared/matrix'
 import { matrixAgentAnswersInCloud } from '../../shared/matrix-agent-actions'
@@ -260,6 +262,8 @@ export function NewAssistantDialog({
   const photoInput = useRef<HTMLInputElement>(null)
   // Open listings (D9): hired from this same sheet, one focus at a time.
   const listings = useOpenListings(open)
+  // Hires wait for beta accounts (store/beta-features.ts); making your own never does.
+  const betaFeatures = useStore($betaFeatures).granted
   const listingHire = useListingHire(onCreated)
 
   shown.current = open
@@ -608,6 +612,7 @@ export function NewAssistantDialog({
           <DialogDescription>{copy.assistantIntro}</DialogDescription>
         </DialogHeader>
         <ListingShelf
+          comingSoon={betaFeatures ? undefined : t.surfaces.comingSoon}
           disabled={!ready || locked}
           listings={listings}
           onPick={listing => listingHire.pick(listing, listingAssistantName(listing, locale, agents, apps))}

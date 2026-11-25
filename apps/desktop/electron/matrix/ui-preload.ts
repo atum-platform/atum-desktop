@@ -69,6 +69,7 @@ const bridge: MatrixUiBridge = {
     read: () => invoke('awarenessRead'),
     change: (identity, roomId, action) => ipcRenderer.invoke(channel.ui, {kind:'awarenessChange', identity, roomId, action})
   },
+  betaFeatures: () => invoke('betaFeaturesRead'),
   ownerLocation: {
     read: () => invoke('ownerLocationRead'),
     setEnabled: enabled => ipcRenderer.invoke(channel.ui, { kind: 'ownerLocationSetEnabled', enabled })

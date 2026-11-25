@@ -1506,6 +1506,8 @@ export interface MatrixDomainIdentity {
   issuer: string
   subject: string
   principal: string
+  /** Present only when the platform names this account a beta account (shared/beta-features.ts). */
+  betaFeatures?: true
 }
 
 export interface MatrixEnrollmentIdentity extends MatrixDomainIdentity, MatrixIdentity {
@@ -2127,6 +2129,8 @@ export interface MatrixUiBridge {
   awareness?: MatrixAwarenessBridge
   /** The owner's own coarse location and its one switch (0333). */
   ownerLocation?: MatrixOwnerLocationBridge
+  /** Whether this account has beta features (shared/beta-features.ts); null when it cannot be read now. */
+  betaFeatures?(): Promise<boolean | null>
   drive?: MatrixDriveBridge
   /** Self-work slice A: the owner's Work view and "Assistants can start work here" (shared/matrix-work.ts). */
   work?: MatrixWorkBridge
