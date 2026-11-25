@@ -8,6 +8,7 @@ export const $work = atom<MatrixWorkProjection | null | undefined>(undefined)
 
 /** The Work page is the rail's current place. */
 export const $workRelayRooms = atom<Record<string, WorkRelayRoomView>>({})
+export const $workRelayReads = atom<Record<string, 'loading' | 'ready' | 'unavailable' | 'failed'>>({})
 
 export const $workActive = atom(false)
 
@@ -65,6 +66,7 @@ export function connectWorkBridge(bridge: MatrixWorkBridge | undefined): () => v
 
   let live = true
   $workRelayRooms.set({})
+  $workRelayReads.set({})
   $workRelayStop.set(bridge.stopRelay ? (roomId, eventId) => { void bridge.stopRelay!(roomId, eventId).catch(() => undefined) } : null)
 
   const unsubscribe = bridge.subscribe(projection => {
@@ -89,6 +91,7 @@ export function connectWorkBridge(bridge: MatrixWorkBridge | undefined): () => v
   return () => {
     live = false
     $workRelayRooms.set({})
+    $workRelayReads.set({})
     $workRelayStop.set(null)
     unsubscribe()
   }
@@ -109,6 +112,8 @@ export function workOnRail(projection: MatrixWorkProjection | null | undefined):
 }
 
 export function resetWorkStoreForTests(): void {
+  $workRelayRooms.set({})
+  $workRelayReads.set({})
   $workRelayStop.set(null)
   $work.set(undefined)
   $workActive.set(false)
