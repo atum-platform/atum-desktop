@@ -27,7 +27,7 @@ import {
 } from '../../shared/matrix-models'
 import type { MatrixSubscriptionFallback } from '../../shared/matrix-subscription-fallback'
 import type { MatrixChatGptTrainingStatus } from '../../shared/matrix-subscriptions'
-import type { WorkRelayRoomView } from '../../shared/matrix-work-relay'
+import type { WorkAgentPlans } from '../../shared/matrix-work'
 
 import { MatrixModelPicker, type MatrixModelPickerRelay } from './model-picker'
 import { readMatrixModelPickerPreferences, writeMatrixModelPickerPreferences } from './model-picker-preferences'
@@ -1546,81 +1546,59 @@ describe('account subscriptions in the model picker', () => {
     expect(card.textContent ?? '').not.toMatch(/relay|offline|Protons|% used/iu)
   })
 
-  it.each(['error', 'empty'] as const)('settles a %s relay response to greyed models without an endless loading label', async mode => {
-    $accountConnections.set(ACCOUNT_CONNECTIONS_FIXTURE)
-    picker({ ...ROOM, id: 'assistant-card:raymond:cloud' }, {
-      cloud: true, here: 'cloud', agentPrincipal: 'raymond', preferenceScope: 'account:test',
-      cloudChoice: { offered: ['default'], current: 'default' },
-      bridge: { work: { readRelay: async () => {
-        if (mode === 'error') {throw new Error('offline')}
-        return null
-      }, selectRelay: vi.fn() } as unknown as NonNullable<MatrixUiBridge['work']> }
-    })
-    const card = await open(/Model:/)
-    fireEvent.click(rail(card, 'claude-plan'))
-    await waitFor(() => expect(card.textContent).not.toContain('Loading models…'))
-    expect(card.textContent).toContain(mode === 'error' ? 'Couldn’t load this connection’s models.' : 'Couldn’t reach this assistant’s connections.')
-    expect(card.querySelector<HTMLButtonElement>('[data-matrix-model-route="claude-plan:claude-sonnet-5-5"]')?.disabled).toBe(true)
-  })
+  const nativePlanAgent = '00000000-0000-4000-8000-bd7662a5eeb4'
 
-  it.each(['off', 'on'] as const)('checks %s subscription consent before selecting a plan', async state => {
-    $accountConnections.set(ACCOUNT_CONNECTIONS_FIXTURE)
+  it.each([
+    [false, 'connected', 'Plan unavailable. Connect this Mac to Atum Work.'],
+    [true, 'disconnected', 'Not connected on any of your Macs']
+  ] as const)('disables a plan when publication is %s and Codex is %s', async (published, state, note) => {
     const selectRelay = vi.fn()
-    picker({ ...ROOM, id: 'assistant-card:raymond:cloud' }, {
-      cloud: true, here: 'cloud', agentPrincipal: 'raymond', preferenceScope: 'account:test',
-      cloudChoice: { offered: ['default'], current: 'default' },
+    picker(ROOM, {
+      cloud: true, here: 'cloud', agentPrincipal: nativePlanAgent,
+      cloudChoice: { offered: ['default'], current: 'default', revision: 7 },
       bridge: { work: {
-        readRelay: async () => ({ account: { consent: { provider: 'claude', state: 'on', agents: ['raymond'], devices: ['mac'], alsoWhenScheduled: true, revision: 1 },
-          facts: [{ provider: 'claude', deviceServiceId: 'mac', status: 'connected', models: ['claude-sonnet-5-5'] }] }, status: null, turns: [] }),
-        readPlanConsent: async () => ({ state, agents: ['raymond'], macs: [{ named: true }] }),
+        readAgentPlans: async () => ({
+          published, plans: { codex: { state, models: [{ id: 'gpt-6-sol', displayName: 'GPT-6 Sol' }] } }, selection: null
+        }),
         selectRelay
       } as unknown as NonNullable<MatrixUiBridge['work']> }
     })
     const card = await open(/Model:/)
-    fireEvent.click(rail(card, 'claude-plan'))
-    const model = await waitFor(() => {
-      const model = card.querySelector<HTMLButtonElement>('[data-matrix-model-route="claude-plan:claude-sonnet-5-5"]')!
-      expect(model.disabled).toBe(false)
-      return model
-    })
-    fireEvent.click(model)
-    if (state === 'on') {
-      await waitFor(() => expect(selectRelay).toHaveBeenCalledWith('raymond', 0, 'claude-sonnet-5-5', 'claude'))
-      expect($accountConnect.get()).toBeNull()
-      return
-    }
-    await waitFor(() => expect($accountConnect.get()).toEqual({ plan: 'claude', mode: 'allow' }))
+    await waitFor(() => expect(rail(card, 'openai-codex')).toBeTruthy())
+    fireEvent.click(rail(card, 'openai-codex'))
+
+    expect(row(card, SOL_ROUTE).disabled).toBe(true)
+    expect(card.textContent).toContain(note)
+    fireEvent.click(row(card, SOL_ROUTE))
     expect(selectRelay).not.toHaveBeenCalled()
   })
 
-  it('loads the assistant-card relay automatically and selects Claude through its native plan route', async () => {
+  it.each([ROOM.id, 'assistant-card:agent:cloud'])('selects native Codex models through the existing Work write (%s)', async id => {
     $accountConnections.set(ACCOUNT_CONNECTIONS_FIXTURE)
-    const read = deferred<WorkRelayRoomView>()
-    const selectRelay = vi.fn(async () => ({ provider: 'atum-work' as const, plan: 'claude' as const, model: 'claude-sonnet-5-5', revision: 1 }))
-    picker({ ...ROOM, id: 'assistant-card:raymond:cloud' }, {
-      cloud: true, here: 'cloud', agentPrincipal: 'raymond', preferenceScope: 'account:test',
-      cloudChoice: { offered: ['default'], current: 'default' },
-      bridge: { work: { readRelay: vi.fn(() => read.promise), selectRelay } as unknown as NonNullable<MatrixUiBridge['work']> }
+    const read = deferred<WorkAgentPlans>()
+    const selectRelay = vi.fn(async () => ({ provider: 'atum-work' as const, plan: 'codex' as const, model: 'gpt-6-sol', revision: 8 }))
+    const readPlanConsent = vi.fn(async () => { throw new Error('legacy gate offline') })
+    picker({ ...ROOM, id }, {
+      cloud: true, here: 'cloud', agentPrincipal: nativePlanAgent, preferenceScope: 'account:test',
+      cloudChoice: { offered: ['default'], current: 'default', revision: 1 },
+      bridge: { work: { readAgentPlans: vi.fn(() => read.promise), readPlanConsent, selectRelay } as unknown as NonNullable<MatrixUiBridge['work']> }
     })
     const card = await open(/Model:/)
-    fireEvent.click(rail(card, 'claude-plan'))
-    expect(card.textContent).toContain('Loading models…')
-    expect(card.textContent).not.toContain('Works in Work for now')
     await act(async () => read.resolve({
-      account: { consent: { provider: 'claude', state: 'on', agents: [], devices: [], alsoWhenScheduled: true, revision: 1 },
-        facts: [{ provider: 'claude', deviceServiceId: 'mac', status: 'stale', models: ['claude-sonnet-5-5'] }] },
-      status: null, turns: []
+      published: true,
+      plans: { codex: { state: 'connected', models: [{ id: 'gpt-6-sol', displayName: 'Native GPT-6 Sol' }] } },
+      selection: { provider: 'atum-work', plan: 'codex', model: 'previous-native-model', revision: 7 }
     }))
+    fireEvent.click(rail(card, 'openai-codex'))
 
-    const model = await waitFor(() => {
-      const model = card.querySelector<HTMLButtonElement>('[data-matrix-model-route="claude-plan:claude-sonnet-5-5"]')!
-      expect(model.disabled).toBe(false)
-
-      return model
-    })
+    const model = row(card, SOL_ROUTE)
+    expect(rowIds(card)).toEqual([SOL_ROUTE])
+    expect(model.disabled).toBe(false)
+    expect(model.textContent).toContain('Native GPT-6 Sol')
 
     fireEvent.click(model)
-    await waitFor(() => expect(selectRelay).toHaveBeenCalledWith('raymond', 0, 'claude-sonnet-5-5', 'claude'))
+    await waitFor(() => expect(selectRelay).toHaveBeenCalledWith(nativePlanAgent, 7, 'gpt-6-sol', 'codex'))
+    expect(readPlanConsent).not.toHaveBeenCalled()
   })
 
   it('labels a cloud current-model fallback as Cloud, never This Mac', async () => {

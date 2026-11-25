@@ -46,7 +46,7 @@ const snapshot: MatrixSnapshot = {
   error: null
 }
 
-function mount(enabled = false, initialPage?: 'runtime') {
+function mount(enabled = false, initialPage?: 'runtime', comingSoon?: boolean) {
   const request = vi.fn(async () => ({
     ok: true as const,
     value: { schemaVersion: 1 as const, companies: [], invitations: [] }
@@ -57,6 +57,7 @@ function mount(enabled = false, initialPage?: 'runtime') {
   render(
     <I18nProvider configClient={null} initialLocale="en">
       <MatrixWorkspace
+        comingSoon={comingSoon}
         initialPage={initialPage}
         obstructed={false}
         snapshot={{ ...snapshot, companyWorkspaceEnabled: enabled }}
@@ -66,6 +67,24 @@ function mount(enabled = false, initialPage?: 'runtime') {
 
   return request
 }
+
+it('without beta features shows Team Space as one calm "Coming soon" page and calls no company', () => {
+  const request = mount(true, undefined, true)
+  const page = window.document.querySelector('[data-team-space-coming-soon]')!
+  expect(within(page as HTMLElement).getByText('Coming soon')).toBeTruthy()
+  expect(within(page as HTMLElement).getByText('This place is not ready yet.')).toBeTruthy()
+  // No company UI, no error, no personal tools in its place.
+  expect(screen.queryByRole('complementary', { name: 'Channels' })).toBeNull()
+  expect(screen.queryByRole('alert')).toBeNull()
+  expect(screen.queryByRole('heading', { name: 'Personal agent tools' })).toBeNull()
+  expect(request).not.toHaveBeenCalled()
+})
+
+it('without beta features still opens a Settings page on an assistant', () => {
+  mount(true, 'runtime', true)
+  expect(screen.getByRole('heading', { name: 'Personal agent tools' })).toBeTruthy()
+  expect(window.document.querySelector('[data-team-space-coming-soon]')).toBeNull()
+})
 
 it('keeps the normal Personal surface and performs no company call when the rollout gate is off', () => {
   const request = mount()

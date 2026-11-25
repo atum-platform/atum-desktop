@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { activateBetaFeaturesProfile, betaFeaturesFor } from '@/store/beta-features'
 import {
   $surfaces,
   activateSurfaceProfile,
@@ -14,13 +15,21 @@ import {
   attachLocalSurfaceSource,
   localSurfaceEntries,
   type LocalSurfaceFacts,
+  readProfileBetaFeatures,
   surfaceProfile
 } from './surface-sources'
 
 const flags = { apps: false, companyWorkspace: false }
 // Every place this build can open: the shipped public config with its native bridges.
 const all = { apps: true, companyWorkspace: true }
-const facts: LocalSurfaceFacts = { ...all, companyBridge: true, driveBridge: true, drive: { state: 'ready' } }
+
+const facts: LocalSurfaceFacts = {
+  ...all,
+  companyBridge: true,
+  driveBridge: true,
+  betaFeatures: true,
+  drive: { state: 'ready' }
+}
 
 const view = (revision: number, state: MatrixDriveView['state'] = 'ready'): MatrixDriveView => ({
   revision,
@@ -60,27 +69,80 @@ describe('local surface source', () => {
     expect(enabled.drive.state).toBe('on')
   })
 
-  it('never produces a placeholder state, whatever the facts', () => {
+  it('draws only Team Space as a placeholder, and only for an account without beta features', () => {
     for (const apps of [true, false]) {
       for (const companyWorkspace of [true, false]) {
         for (const companyBridge of [true, false]) {
           for (const driveBridge of [true, false]) {
-            for (const state of ['unavailable', 'disconnected', 'ready', 'reauthenticate', 'error'] as const) {
-              const states = localSurfaceEntries({
-                apps,
-                companyWorkspace,
-                companyBridge,
-                driveBridge,
-                drive: { state }
-              }).map(row => row.state)
+            for (const betaFeatures of [true, false, undefined]) {
+              for (const state of ['unavailable', 'disconnected', 'ready', 'reauthenticate', 'error'] as const) {
+                const rows = localSurfaceEntries({
+                  apps,
+                  companyWorkspace,
+                  companyBridge,
+                  driveBridge,
+                  betaFeatures,
+                  drive: { state }
+                })
 
-              expect(states).not.toContain('coming_soon')
-              expect(states).not.toContain('needs_update')
+                const soon = rows.filter(row => row.state === 'coming_soon').map(row => row.id)
+
+                expect(rows.map(row => row.state)).not.toContain('needs_update')
+                // The build must have Team Space at all; only then does beta decide on or "Coming soon".
+                expect(soon).toEqual(!betaFeatures && companyWorkspace && companyBridge ? ['teamSpace'] : [])
+              }
             }
           }
         }
       }
     }
+  })
+
+  it('opens Team Space for a beta account and draws it "Coming soon" for everyone else', () => {
+    expect(parseSurfaceSet(localSurfaceEntries(facts))!.teamSpace.state).toBe('on')
+    expect(parseSurfaceSet(localSurfaceEntries({ ...facts, betaFeatures: false }))!.teamSpace.state).toBe('coming_soon')
+    // Unknown is "not beta": an older platform, or an answer not read yet.
+    expect(parseSurfaceSet(localSurfaceEntries({ ...facts, betaFeatures: undefined }))!.teamSpace.state).toBe(
+      'coming_soon'
+    )
+    // The other places do not depend on beta.
+    const public_ = parseSurfaceSet(localSurfaceEntries({ ...facts, betaFeatures: false }))!
+    expect([public_.home.state, public_.drive.state, public_.discover.state]).toEqual(['on', 'on', 'on'])
+  })
+
+  it('applies the beta answer read for the ready profile, and ignores late or unreadable answers', async () => {
+    activateBetaFeaturesProfile(null)
+    activateBetaFeaturesProfile('a')
+    expect(betaFeaturesFor('a')).toBe(false)
+
+    let answer!: (value: boolean | null) => void
+    const read = vi.fn(() => new Promise<boolean | null>(resolve => (answer = resolve)))
+    const stop = readProfileBetaFeatures('a', read)
+    answer(true)
+    await vi.waitFor(() => expect(betaFeaturesFor('a')).toBe(true))
+    stop()
+
+    // A read that cannot answer now (null) or fails keeps the last answer.
+    readProfileBetaFeatures('a', async () => null)
+    readProfileBetaFeatures('a', async () => Promise.reject(new Error('offline')))
+    await Promise.resolve()
+    await Promise.resolve()
+    expect(betaFeaturesFor('a')).toBe(true)
+
+    // A late answer after the profile changed changes nothing.
+    let late!: (value: boolean | null) => void
+    readProfileBetaFeatures('a', () => new Promise<boolean | null>(resolve => (late = resolve)))
+    activateBetaFeaturesProfile('b')
+    late(true)
+    await Promise.resolve()
+    expect(betaFeaturesFor('b')).toBe(false)
+
+    // The platform can take beta away; the next read says so.
+    activateBetaFeaturesProfile('a')
+    expect(betaFeaturesFor('a')).toBe(true)
+    readProfileBetaFeatures('a', async () => false)
+    await vi.waitFor(() => expect(betaFeaturesFor('a')).toBe(false))
+    activateBetaFeaturesProfile(null)
   })
 
   it('keeps Drive accessible in every state, including an unavailable engine', () => {

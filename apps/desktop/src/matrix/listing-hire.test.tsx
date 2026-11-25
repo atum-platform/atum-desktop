@@ -1,17 +1,22 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { useState } from 'react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { I18nProvider } from '@/i18n'
+import { $betaFeatures } from '@/store/beta-features'
 
 import type { MatrixAgentView, MatrixOpenAgentListing, MatrixUiBridge } from '../../shared/matrix'
 
 import { NewAssistantButton, NewAssistantDialog } from './agent-roster'
 import { listingAssistantName, listingText } from './listing-hire'
 
+// Hiring is what a beta account sees; `without beta features` below covers everyone else.
+beforeEach(() => $betaFeatures.set({ profile: 'hire-test', granted: true }))
+
 afterEach(() => {
   cleanup()
   vi.restoreAllMocks()
+  $betaFeatures.set({ profile: null, granted: false })
   Reflect.deleteProperty(window, 'atumMatrix')
 })
 
@@ -68,6 +73,23 @@ function setup({
 const hireButton = () => screen.findByRole('button', { name: 'Hire Researcher' })
 
 describe('the listing shelf in the new-assistant sheet', () => {
+  it('without beta features shows the listings as "Coming soon" and still makes your own', async () => {
+    $betaFeatures.set({ profile: 'hire-test', granted: false })
+    const { hireAgent } = setup()
+
+    expect(await screen.findByText('Ready to hire')).toBeTruthy()
+    expect(screen.getByText('Research with clear sources')).toBeTruthy()
+    const soon = (await screen.findByRole('button', { name: 'Coming soon Researcher' })) as HTMLButtonElement
+    expect(soon.textContent).toBe('Coming soon')
+    expect(soon.disabled).toBe(true)
+    fireEvent.click(soon)
+    expect(hireAgent).not.toHaveBeenCalled()
+    expect(screen.queryByRole('button', { name: 'Hire Researcher' })).toBeNull()
+    // Making your own assistant never waits for beta.
+    expect(screen.getByText('Make your own')).toBeTruthy()
+    expect((screen.getByLabelText('Display name') as HTMLInputElement).disabled).toBe(false)
+  })
+
   it('shows nothing extra when the platform has no listings', async () => {
     const { openAgents } = setup({ listings: [] })
 

@@ -1,6 +1,7 @@
 import { useStore } from '@nanostores/react'
 import { useLayoutEffect } from 'react'
 
+import { $betaFeatures, activateBetaFeaturesProfile, applyBetaFeatures, betaFeaturesFor } from '@/store/beta-features'
 import {
   $surfaces,
   activateSurfaceProfile,
@@ -17,21 +18,23 @@ type SourceSnapshot = Pick<
   MatrixSnapshot,
   'identity' | 'homeserver' | 'petScope' | 'state' | 'apps' | 'companyWorkspaceEnabled'
 >
-type SourceBridge = Pick<MatrixUiBridge, 'drive' | 'companies'>
+type SourceBridge = Pick<MatrixUiBridge, 'drive' | 'companies' | 'betaFeatures'>
 
 export interface LocalSurfaceFacts {
   apps: boolean
   companyWorkspace: boolean
   companyBridge: boolean
   driveBridge: boolean
+  /** Beta features for this account (shared/beta-features.ts). Absent is "not beta". */
+  betaFeatures?: boolean
   drive?: Pick<MatrixDriveView, 'state'>
 }
 
 /**
- * Today's four gates become presentation states, never cloud admission decisions. A place this
- * build cannot open is hidden, never drawn disabled as "Coming soon" or "Update required": on a
- * public launch nobody should meet a placeholder, and every capability here is fixed per build
- * (the public config, the native bridges), so there is no moment a place is "about to" arrive.
+ * Today's gates become presentation states, never cloud admission decisions. A place this build
+ * cannot open is hidden: every capability here is fixed per build (the public config, the native
+ * bridges). Team Space is the one deliberate placeholder (owner, 2026-11-25): a build that has it
+ * shows it to beta accounts and draws it "Coming soon" for everyone else.
  */
 export function localSurfaceEntries(facts: LocalSurfaceFacts): SurfaceEntry[] {
   const absent = (id: SurfaceId): SurfaceEntry => ({ id, state: 'hidden', reason: 'not_for_platform' })
@@ -42,7 +45,9 @@ export function localSurfaceEntries(facts: LocalSurfaceFacts): SurfaceEntry[] {
     // unavailable page instead of removing a principal place from the rail.
     { id: 'drive', state: 'on' },
     facts.apps ? { id: 'discover', state: 'on' } : absent('discover'),
-    facts.companyWorkspace && facts.companyBridge ? { id: 'teamSpace', state: 'on' } : absent('teamSpace')
+    facts.companyWorkspace && facts.companyBridge
+      ? { id: 'teamSpace', state: facts.betaFeatures ? 'on' : 'coming_soon' }
+      : absent('teamSpace')
   ]
 }
 
@@ -56,7 +61,7 @@ export function surfaceProfile(snapshot: SourceSnapshot): string | null {
 /** Read-only Drive adapter. Failed reads retain the cache; newer native revisions win. */
 export function attachLocalSurfaceSource(
   profile: string,
-  source: Pick<LocalSurfaceFacts, 'apps' | 'companyWorkspace'>,
+  source: Pick<LocalSurfaceFacts, 'apps' | 'companyWorkspace' | 'betaFeatures'>,
   bridge: SourceBridge
 ): () => void {
   const facts = {
@@ -104,23 +109,54 @@ export function attachLocalSurfaceSource(
   }
 }
 
+/** Reads this profile's beta answer once it is ready; a failed or late read changes nothing. */
+export function readProfileBetaFeatures(profile: string, read: SourceBridge['betaFeatures']): () => void {
+  let live = true
+
+  if (read) {
+    void (async () => {
+      try {
+        const granted = await read()
+
+        if (live) {
+          applyBetaFeatures(profile, granted)
+        }
+      } catch {
+        /* Keep the last answer. */
+      }
+    })()
+  }
+
+  return () => {
+    live = false
+  }
+}
+
 /** One narrow job: bind the active profile's local presentation source to its atom. */
 export function useMatrixSurfaces(snapshot: SourceSnapshot, bridge: SourceBridge = window.atumMatrix) {
   const projection = useStore($surfaces)
+  const beta = useStore($betaFeatures)
   const profile = surfaceProfile(snapshot)
   const state = snapshot.state
   const generation = snapshot.petScope
   const apps = Boolean(snapshot.apps)
   const companyWorkspace = Boolean(snapshot.companyWorkspaceEnabled)
-  const { drive, companies } = bridge
+  const betaFeatures = betaFeaturesFor(profile, beta)
+  const { drive, companies, betaFeatures: readBeta } = bridge
+
+  useLayoutEffect(() => {
+    activateBetaFeaturesProfile(profile)
+
+    return profile && state === 'ready' ? readProfileBetaFeatures(profile, readBeta) : undefined
+  }, [profile, state, generation, readBeta])
 
   useLayoutEffect(() => {
     activateSurfaceProfile(profile)
 
     return profile && state === 'ready'
-      ? attachLocalSurfaceSource(profile, { apps, companyWorkspace }, { drive, companies })
+      ? attachLocalSurfaceSource(profile, { apps, companyWorkspace, betaFeatures }, { drive, companies })
       : undefined
-  }, [profile, state, generation, apps, companyWorkspace, drive, companies])
+  }, [profile, state, generation, apps, companyWorkspace, betaFeatures, drive, companies])
 
   return surfacesForProfile(profile, projection)
 }

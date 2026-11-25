@@ -6235,6 +6235,12 @@ body:has(.atum-shell) .notice-band:focus-visible {
   align-self: flex-end;
 }
 
+/* A hire or skill that is "Coming soon" (owner, 2026-11-25): greyed, still readable and openable. */
+.atum-store-card--soon .atum-store-art,
+.atum-store-card--soon .ak-btn {
+  opacity: 0.55;
+}
+
 .atum-store-art {
   display: grid;
   flex-shrink: 0;

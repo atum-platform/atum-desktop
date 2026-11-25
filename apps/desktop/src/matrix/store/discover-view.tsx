@@ -9,6 +9,7 @@ import { Loader } from '@/components/ui/loader'
 import { VerifiedMark } from '@/components/verified-mark'
 import { useI18n } from '@/i18n'
 import { cn } from '@/lib/utils'
+import { $betaFeatures } from '@/store/beta-features'
 
 import type { AppDescriptor } from '../../../shared/app-catalog'
 import { appLocalizedCopy } from '../../../shared/app-catalog'
@@ -27,7 +28,7 @@ import { wholeProtons } from '../wallet-ui'
 import { type DiscoverCheckout, MatrixCheckoutPane, StoreQuietState } from './checkout'
 import { type MatrixStoreListing, storeListingFor, storeListingForOffer, storeListings } from './hatch-listing'
 import { isHubSkill } from './hub-skill'
-import { localizedStoreText, StoreArt, StoreCard } from './store-card'
+import { localizedStoreText, StoreArt, StoreCard, storeItemComingSoon } from './store-card'
 import { type MatrixStoreCopy, matrixStoreCopy } from './store-copy'
 import {
   type StoreAcquireOutcome,
@@ -175,6 +176,8 @@ export function MatrixDiscoverView({
   const { locale, t } = useI18n()
   const copy = matrixStoreCopy(locale)
   const listingRequest = useStore($matrixStoreListingRequest)
+  // The active profile's answer (store/beta-features.ts): hires and skills wait without it.
+  const betaFeatures = useStore($betaFeatures).granted
   const [listingMissing, setListingMissing] = useState(false)
   const [open, setOpen] = useState<MatrixStoreListing | null>(null)
   const [resuming, setResuming] = useState<string | null>(null)
@@ -251,6 +254,7 @@ export function MatrixDiscoverView({
 
           return (
             <StoreCard
+              comingSoon={storeItemComingSoon(item, betaFeatures) ? t.surfaces.comingSoon : undefined}
               copy={copy}
               item={item}
               key={item.itemId}
@@ -601,6 +605,7 @@ export function MatrixDiscoverView({
       <StoreDetail
         agents={agents}
         checkout={checkout}
+        comingSoon={openItem && storeItemComingSoon(openItem, betaFeatures) ? t.surfaces.comingSoon : undefined}
         entitlements={store.snapshot.entitlements}
         hatchPet={hatchPet}
         item={openItem}

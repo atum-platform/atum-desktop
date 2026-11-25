@@ -32,6 +32,16 @@ describe('main-only domain resource', () => {
       })
     )
   })
+  it('carries beta features only when the platform names them exactly', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => Response.json({ ...identity, betaFeatures: true })))
+    expect(await readDomainIdentity('https://api.test', grant)).toEqual({ ...identity, betaFeatures: true })
+
+    // An older platform, a refusal, or a malformed value is "not beta".
+    for (const betaFeatures of [undefined, false, 'true', 1, {}]) {
+      vi.stubGlobal('fetch', vi.fn(async () => Response.json({ ...identity, betaFeatures })))
+      expect(await readDomainIdentity('https://api.test', grant)).toEqual(identity)
+    }
+  })
   it.each([
     { ...identity, issuer: 'https://other.test/' },
     { ...identity, subject: 'bob' },

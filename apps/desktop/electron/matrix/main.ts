@@ -21584,6 +21584,20 @@ async function start() {
         return { identity: { userId: identity.userId, deviceId: identity.deviceId }, rooms }
       }
 
+      // Beta features (shared/beta-features.ts): the platform's `/me` answer, read without a
+      // sign-in prompt. null is "not known now", so the window keeps its last answer.
+      if (request?.kind === 'betaFeaturesRead') {
+        if (closing || !config.domain) {
+          return closing ? null : false
+        }
+
+        try {
+          return (await account.readDomain(false)).betaFeatures === true
+        } catch {
+          return null
+        }
+      }
+
       // 0333: the owner's own coarse location and its one switch. Native only, account-scoped,
       // and never cached: Settings shows exactly what the platform stored.
       if (request?.kind === 'ownerLocationRead' || request?.kind === 'ownerLocationSetEnabled') {

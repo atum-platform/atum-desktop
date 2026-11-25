@@ -785,9 +785,8 @@ describe('WorkSurface: gate 4a Connect and the 4b-2 consent', () => {
     const off = { provider: 'codex' as const, state: 'off' as const, agents: [], devices: [], alsoWhenScheduled: false, revision: 0 }
 
     const consent = {
-      readRelay: vi.fn(),
+      readAgentPlans: vi.fn(),
       selectRelay: vi.fn(),
-      stopRelay: vi.fn(),
       read: vi.fn(async () => ({ issuedAt: 1, consent: off, facts: [] })),
       set: vi.fn(async () => ({ ...off, state: 'on' as const, revision: 1 })),
       revoke: vi.fn(async () => off)
@@ -823,9 +822,8 @@ describe('registerMatrixWorkIpc', () => {
       getAttention: vi.fn(async () => null),
       setSurfaceMode: vi.fn(async () => {}),
       runCommand: vi.fn(async () => true),
-      readRelay: vi.fn(),
+      readAgentPlans: vi.fn(),
       selectRelay: vi.fn(),
-      stopRelay: vi.fn(),
       read: vi.fn(async () => null),
       show: vi.fn(async () => {}),
       hide: vi.fn(async () => {}),
