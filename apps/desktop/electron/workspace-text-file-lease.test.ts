@@ -18,7 +18,7 @@ import { join } from 'node:path'
 import { afterEach, test, vi } from 'vitest'
 
 import { AtumFilesystemCapabilityAuthority } from './atum-filesystem-capability'
-import { AccountRootAuthority } from './atum-messaging'
+import { AccountRootAuthority } from './atum-messaging/account-roots'
 import {
   commitAnchoredBinaryPublish,
   commitAnchoredTextWrite,

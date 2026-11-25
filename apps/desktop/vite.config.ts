@@ -59,7 +59,7 @@ export default defineConfig({
     // cosmetic "chunk larger than 500 kB" nag stays quiet, while still acting
     // as a regression alarm if the bundle balloons well past today's size.
     chunkSizeWarningLimit: 25000,
-    rolldownOptions: { output: { codeSplitting: true } }
+    rolldownOptions: { input: path.join(configDir, 'matrix.html'), output: { codeSplitting: true } }
   },
   resolve: {
     alias: {

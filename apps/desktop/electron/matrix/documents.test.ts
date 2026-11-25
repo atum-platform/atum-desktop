@@ -16,7 +16,7 @@ import { afterEach, expect, it, vi } from 'vitest'
 import { MATRIX_MAX_FILE_BYTES } from '../../shared/matrix'
 import { AtumConsumerFilesService } from '../atum-consumer-files'
 import { AtumFilesystemCapabilityAuthority } from '../atum-filesystem-capability'
-import { AccountRootAuthority } from '../atum-messaging'
+import { AccountRootAuthority } from '../atum-messaging/account-roots'
 import { AtumPdfViewController } from '../atum-pdf-view'
 import { EncryptedStore } from '../encrypted-store'
 

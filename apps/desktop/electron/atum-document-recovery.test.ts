@@ -23,7 +23,7 @@ import {
   type DocumentRecoveryLease
 } from './atum-document-recovery'
 import { AtumFilesystemCapabilityAuthority } from './atum-filesystem-capability'
-import { AccountRootAuthority } from './atum-messaging'
+import { AccountRootAuthority } from './atum-messaging/account-roots'
 import { WorkspaceTextFileLeaseProvider } from './workspace-text-file-lease'
 
 const ACCOUNT_A = '00000000-0000-4000-8000-bd7662a5eeb4'

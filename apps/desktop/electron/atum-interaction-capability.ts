@@ -20,7 +20,7 @@ import {
   type FilesystemAccountEnvelope,
   type FilesystemCapabilityActor
 } from './atum-filesystem-capability'
-import { accountKeyFor, type AccountScopedPaths } from './atum-messaging'
+import { accountKeyFor, type AccountScopedPaths } from './atum-messaging/account-roots'
 
 const MAX_DURATION_MS = 5 * 60_000
 const MIN_DURATION_MS = 1_000

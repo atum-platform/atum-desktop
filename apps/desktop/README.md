@@ -7,3 +7,8 @@ From the repository root, run `npm ci --ignore-scripts` and `npm run typecheck -
 See the [root README](../../README.md), [contribution guide](../../CONTRIBUTING.md), [security policy](../../SECURITY.md) and [design overview](DESIGN.md). Use this Atum repository for Atum issues and pull requests. Release signing and deployment are separate maintainer operations.
 
 Atum derives from [Hermes Agent by Nous Research](https://github.com/NousResearch/hermes-agent). Its inherited MIT notice and other third-party notices remain in [LICENSES](../../LICENSES/) and [THIRD-PARTY.json](../../THIRD-PARTY.json); Atum-owned code retains the scope stated in [LICENSE](../../LICENSE).
+
+# Canonical product
+
+Atum Matrix Candidate is the desktop build. See [canonical build commands and
+release-driver compatibility](docs/canonical-build.md). The default build, dev, start and package scripts all target Matrix.

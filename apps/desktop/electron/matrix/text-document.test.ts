@@ -6,7 +6,7 @@ import { join } from 'node:path'
 import { afterEach, test } from 'vitest'
 
 import { AtumFilesystemCapabilityAuthority, type FilesystemAccountEnvelope } from '../atum-filesystem-capability'
-import { AccountRootAuthority } from '../atum-messaging'
+import { AccountRootAuthority } from '../atum-messaging/account-roots'
 
 import { matrixDocumentRecoveryRoot } from './document-recovery-root'
 import { MatrixTextDocument, type MatrixTextDocumentScope } from './text-document'

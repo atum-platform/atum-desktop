@@ -241,22 +241,6 @@ describe('Atum shell — continuous chrome and destination rail', () => {
     )
   })
 
-  // The lights are centred on the band by construction: one constant, derived
-  // from the same 48 the CSS token holds, and main.ts imports it rather than
-  // keeping a copy. Two copies of this number is how the lights came to land
-  // 7px below the row after the auth window handed the product window back.
-  it('positions the native lights on the row’s centre line, from one constant', () => {
-    const electron = readFileSync(resolve(ATUM_DIR, '../../../electron/main.ts'), 'utf8')
-    const windowMode = readFileSync(resolve(ATUM_DIR, '../../../electron/atum-window-mode.ts'), 'utf8')
-
-    expect(styles).toContain('--atum-l-header: 48px')
-    expect(windowMode).toContain('export const ATUM_SHELL_HEADER_HEIGHT = 48')
-    expect(windowMode).toContain('x: 20')
-    expect(windowMode).toContain('y: (ATUM_SHELL_HEADER_HEIGHT - MACOS_TRAFFIC_LIGHTS_HEIGHT) / 2')
-    expect(electron).toContain('const WINDOW_BUTTON_POSITION = ATUM_SHELL_WINDOW_BUTTON_POSITION')
-    expect(electron).not.toMatch(/const WINDOW_BUTTON_POSITION = \{/u)
-  })
-
   it('keeps initials neutral and the rail account face free of status dots', () => {
     const initials = ['assistant-avatar.tsx', 'chat-header.tsx', 'start-chat-dialog.tsx', 'roster-panel.tsx']
       .map(name => readFileSync(join(ATUM_DIR, name), 'utf8'))
@@ -467,7 +451,6 @@ describe('Atum Shell v2 — one opaque ground, one glass plate, SPEC §1 tokens'
   const shell = readFileSync(join(ATUM_DIR, 'shell.tsx'), 'utf8')
   const shellFrame = readFileSync(join(ATUM_DIR, 'shell-frame.tsx'), 'utf8')
   const chatView = readFileSync(resolve(ATUM_DIR, '../chat/index.tsx'), 'utf8')
-  const electronMain = readFileSync(resolve(ATUM_DIR, '../../../electron/main.ts'), 'utf8')
   const indexHtml = readFileSync(resolve(ATUM_DIR, '../../../index.html'), 'utf8')
   const light = styles.match(/\n\.atum-shell,\n[^{]*\{([\s\S]*?)\n\}/u)?.[1] ?? ''
   const dark = styles.match(/\n\.dark \.atum-shell,\n[^{]*\{([\s\S]*?)\n\}/u)?.[1] ?? ''
@@ -483,11 +466,6 @@ describe('Atum Shell v2 — one opaque ground, one glass plate, SPEC §1 tokens'
   // desktop frosts through. Elsewhere the document is pre-painted in the ground
   // colour and the frame paints its opaque shade over it.
   it('paints the frame on the shell root and the panels below the band, and keeps the document clear under vibrancy', () => {
-    expect(electronMain).toContain("const ATUM_WINDOW_GROUND_LIGHT = '#F4F5F7'")
-    expect(electronMain).toContain("const ATUM_WINDOW_GROUND_DARK = '#17181C'")
-    expect(electronMain).toContain("const ATUM_WINDOW_VIBRANCY = 'sidebar'")
-    expect(electronMain).toContain('vibrancy: IS_MAC ? ATUM_WINDOW_VIBRANCY : undefined')
-    expect(electronMain).toContain('backgroundColor: IS_MAC ? TRANSPARENT_WINDOW_BACKGROUND : atumWindowGroundColor()')
     expect(indexHtml).toContain("setAttribute('data-atum-vibrancy', 'sidebar')")
     expect(indexHtml).toContain("scheme === 'dark' ? '#17181C' : '#F4F5F7'")
     expect(styles).toMatch(/\.atum-shell \{\n {2}background: transparent;\n\}/u)

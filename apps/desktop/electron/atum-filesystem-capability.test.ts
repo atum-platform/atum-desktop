@@ -14,7 +14,7 @@ import {
   type FilesystemCapabilityActor
 } from './atum-filesystem-capability'
 import { AtumInteractionCapabilityAuthority } from './atum-interaction-capability'
-import { AccountRootAuthority } from './atum-messaging'
+import { AccountRootAuthority } from './atum-messaging/account-roots'
 
 const ACCOUNT_A = '00000000-0000-4000-8000-bd7662a5eeb4'
 const ACCOUNT_B = '00000000-0000-4000-8000-b454f82c5857'

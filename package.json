@@ -17,7 +17,7 @@
     "packages/model-client"
   ],
   "scripts": {
-    "postinstall": "echo '\u2705 Node dependencies installed. Run: python run_agent.py --help'",
+    "postinstall": "echo '✅ Node dependencies installed. Run: python run_agent.py --help'",
     "install:root": "npm install --workspaces=false",
     "install:web": "npm install --workspace web",
     "install:tui": "npm install --workspace ui-tui",
@@ -28,8 +28,6 @@
     "audit:fix:root": "npm audit fix --workspaces=false",
     "audit:fix:web": "npm audit fix --workspace web",
     "audit:fix:tui": "npm audit fix --workspace ui-tui",
-    "demo:build": "npm run pack:prod --workspace apps/desktop -- --demo-dmg",
-    "demo:preflight": "node scripts/demo-canon-check.mjs",
     "check": "npm run --ws check",
     "fix": "npm run --ws fix"
   },

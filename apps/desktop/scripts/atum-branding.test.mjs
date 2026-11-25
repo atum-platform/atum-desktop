@@ -11,28 +11,15 @@ const read = relativePath => fs.readFileSync(path.join(desktopRoot, relativePath
 const readBuffer = relativePath => fs.readFileSync(path.join(desktopRoot, relativePath))
 const packageJson = JSON.parse(read('package.json'))
 
-test('packaged macOS identity and visible protocol names are Atum while legacy links remain stable', () => {
-  assert.equal(packageJson.name, 'hermes')
-  assert.equal(packageJson.productName, 'Atum')
-  assert.equal(packageJson.build.appId, 'com.atum.desktop')
-  assert.equal(packageJson.build.productName, 'Atum')
-  assert.equal(packageJson.build.executableName, 'Atum')
-  assert.equal(packageJson.build.mac.icon, 'assets/icon-mac.icns')
-  assert.deepEqual(packageJson.build.protocols.map(protocol => protocol.name), ['Atum Protocol', 'Atum Protocol'])
-  assert.deepEqual(packageJson.build.protocols[0].schemes, ['hermes'])
-  assert.doesNotMatch(packageJson.build.protocols.map(protocol => protocol.name).join('\n'), /Hermes|Matrix/u)
-})
-
-test('the packaged bundle claims the atum:// scheme the Google sign-in callback returns on', () => {
-  // macOS reads CFBundleURLTypes from the packaged Info.plist — an installed
-  // build is the ONLY thing that can receive atum://auth-callback/<state>.
-  // Losing this entry silently breaks native sign-in with no test failure
-  // anywhere else, so pin it next to the Hermes compatibility scheme.
-  const schemes = packageJson.build.protocols.flatMap(protocol => protocol.schemes)
-
-  assert.ok(schemes.includes('atum'), 'build.protocols must claim the atum:// scheme')
-  assert.ok(schemes.includes('hermes'), 'the inherited hermes:// scheme must keep working')
-  assert.equal(new Set(schemes).size, schemes.length, 'a scheme must be claimed exactly once')
+test('Matrix packaging claims the native sign-in callback scheme', () => {
+  for (const file of ['matrix-builder.json', 'matrix-release-builder.json']) {
+    const builder = JSON.parse(read(file))
+    assert.equal(builder.appId, 'com.atum.matrix-candidate')
+    assert.equal(builder.executableName, 'Atum Matrix Candidate')
+    assert.ok(builder.protocols.flatMap(protocol => protocol.schemes).includes('atum'))
+    assert.equal(builder.directories.app, 'dist-matrix')
+  }
+  assert.equal(packageJson.main, 'dist-matrix/matrix-main.mjs')
 })
 
 test('Atum macOS icon source uses a standard rounded tile on a transparent 1024 canvas', () => {
@@ -85,16 +72,5 @@ test('window title and native fallback name are Atum', () => {
   // Hidden developer/SDK documents keep their technical labels; neither is a product window.
   assert.match(read('matrix-sdk.html'), /<title>Atum Matrix SDK<\/title>/)
   assert.match(read('matrix-playground.html'), /<title>Atum Matrix playground<\/title>/)
-  assert.match(read('electron/main.ts'), /HERMES_DESKTOP_APP_NAME \|\| 'Atum'/)
-})
-
-test('Windows installer and uninstall lifecycle derive or recognize the Atum product identity', () => {
-  const installPs1 = fs.readFileSync(path.resolve(desktopRoot, '..', '..', 'scripts', 'install.ps1'), 'utf8')
-  const guiUninstall = fs.readFileSync(path.resolve(desktopRoot, '..', '..', 'hermes_cli', 'gui_uninstall.py'), 'utf8')
-
-  assert.match(installPs1, /desktopPackage\.build\.executableName/)
-  assert.match(installPs1, /\$desktopExecutableName, "Hermes"/)
-  assert.match(installPs1, /"\$ProductName\.lnk"/)
-  assert.match(guiUninstall, /Applications\/Atum\.app/)
-  assert.match(guiUninstall, /Programs" \/ "Atum"/)
+  assert.match(read('matrix-builder.json'), /Atum Matrix Candidate/)
 })

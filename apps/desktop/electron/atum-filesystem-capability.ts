@@ -29,7 +29,7 @@ import type {
   InteractionCapabilityDescribeInput,
   InteractionCapabilityUseInput
 } from './atum-interaction-capability'
-import { accountKeyFor, type AccountScopedPaths } from './atum-messaging'
+import { accountKeyFor, type AccountScopedPaths } from './atum-messaging/account-roots'
 
 const DEFAULT_PERSONAL_AGENT_ID = 'atum-personal-assistant'
 const MAX_BROKER_BODY_BYTES = 64 * 1024
