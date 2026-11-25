@@ -10,7 +10,7 @@ import {
   matrixSharedCodexHere,
   rememberMatrixAccountOnThisMac
 } from './codex-accounts'
-import { matrixAccountCodexScope, matrixHermesEnvironment } from './hermes-runtime'
+import { matrixAccountCodexScope, matrixHermesEnvironment } from './hermes-utilities'
 
 const roots: string[] = []
 

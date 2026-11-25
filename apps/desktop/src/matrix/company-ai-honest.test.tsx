@@ -8,6 +8,8 @@ import { companyAIStatusText } from '../../shared/matrix-company-ai-status'
 import { matrixMessageLink, parseMatrixMessageLink } from '../../shared/matrix-message-link'
 import { matrixTeamSpaceCopy } from '../../shared/matrix-team-space-copy'
 
+import { COMPANY_AI_ANSWER_FIXTURE, playgroundCompanyDesktopAdapter } from './__fixtures__/company-ai-fixtures'
+import { TEAM_COMPANY_ID } from './__fixtures__/team-space-fixtures'
 import { companyAIMentionUserIds } from './company-ai-mention'
 import { COMPANY_AI_RECHECK_MS, useCompanyAIRecheck } from './company-ai-status'
 import {
@@ -31,8 +33,6 @@ import {
   $companyWalletScope,
   companySpacePreferences
 } from './company-space-store'
-import { COMPANY_AI_ANSWER_FIXTURE, playgroundCompanyDesktopAdapter } from './playground/company-ai-fixtures'
-import { TEAM_COMPANY_ID } from './playground/team-space-fixtures'
 import { ChannelMembersDialog } from './team-space/channel-members-dialog'
 import { $companyChannels } from './team-space/channels-store'
 import { $teamSpaceIntent } from './team-space/intents'

@@ -12,7 +12,7 @@ import { NativeAppsController } from '../native-apps'
 
 import { MatrixAgentRuntime } from './agent-runtime'
 import { createHermesPagesTransport } from './hermes-pages-transport'
-import type { MatrixHermesConnection, MatrixHermesRuntimeConfig } from './hermes-runtime'
+import type { MatrixHermesConnection, MatrixHermesRuntimeConfig } from './hermes-utilities'
 import { type MatrixNativeAppSource, readMatrixNativeAppReadiness, registerMatrixNativeApps } from './native-apps'
 
 const temporary: string[] = []

@@ -1,6 +1,6 @@
 import type { MatrixProviderOAuthResult } from '../../shared/matrix-provider-settings'
 
-import { matrixHermesHome, type MatrixHermesRuntimeConfig } from './hermes-runtime'
+import { matrixHermesHome, type MatrixHermesRuntimeConfig } from './hermes-utilities'
 import {
   matrixSubscriptionRequestStatus,
   type MatrixSubscriptionStatusClass

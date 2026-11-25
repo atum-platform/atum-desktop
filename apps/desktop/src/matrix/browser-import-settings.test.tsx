@@ -12,8 +12,8 @@ import type {
 } from '../../shared/matrix-browser-import'
 import { matrixBrowserImportCopy } from '../../shared/matrix-browser-import-copy'
 
+import { scenarioSnapshot } from './__fixtures__/fixtures'
 import { MatrixBrowserImportSettings } from './browser-import-settings'
-import { scenarioSnapshot } from './playground/fixtures'
 import { matrixPrimaryAgentName } from './roster-model'
 
 afterEach(() => {

@@ -13,7 +13,7 @@ import {
   type MatrixSubscriptionKeyStore,
   matrixSubscriptionsStatus
 } from './account-subscriptions'
-import { matrixCodexSignInFile } from './hermes-runtime'
+import { matrixCodexSignInFile } from './hermes-utilities'
 
 function fakeStore(value?: string): MatrixSubscriptionKeyStore & { values: Map<string, string> } {
   const values = new Map<string, string>()

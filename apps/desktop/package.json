@@ -11,11 +11,8 @@
     "node": ">=22.22.0"
   },
   "scripts": {
-    "matrix:repair-agent-home": "tsx scripts/repair-matrix-agent-home.ts",
     "reporting:sourcemaps:matrix": "node scripts/upload-reporting-sourcemaps.mjs --matrix",
     "matrix:pack": "npm run pack",
-    "local-brain:prepare": "node scripts/stage-local-brain.mjs --prepare",
-    "local-brain:stage": "node scripts/stage-local-brain.mjs",
     "clean": "npm run clean:renderer && npm run clean:electron",
     "clean:renderer": "tsc --build tsconfig.json --clean ",
     "clean:electron": "tsc --build tsconfig.electron.json --clean",

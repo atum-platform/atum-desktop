@@ -124,8 +124,6 @@ describe('actual native own-profile binding', () => {
 
   it('uses the existing agent own session without requiring a Hermes process or lease', async () => {
     const f = fixture()
-    expect(f.runtime.executor).toBeUndefined()
-    expect(f.runtime.lease).toBeUndefined()
     const host = matrixMainProfileHost(f.source, target)!
     expect(host.identity).toEqual(f.identity)
     await host.command({ kind: 'profileRead' })
@@ -261,9 +259,11 @@ describe('actual native own-profile binding', () => {
       participants: MatrixRoom['participants'],
       membership: MatrixRoom['membership'] = 'join'
     ): MatrixRoom => ({ id, name: id, membership, encrypted: false, participants })
+
     const owner = { userId: '@person:test', membership: 'join' }
     const moon = { userId: '@app-moon:test', membership: 'join' }
     const andy = { userId: '@app-andy:test', membership: 'join' }
+
     const state = {
       roomId: '!open:test',
       rooms: [

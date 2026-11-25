@@ -189,7 +189,6 @@ import { readGroupRecent } from './group-recent'
 import { readGroupSettled } from './group-settled'
 import { watchMatrixGroupTurns } from './group-turns'
 import { changeIgnoredUser, ignoredInvitation } from './ignore'
-import { scanMatrixInvocations, watchMatrixInvocations } from './invocation-listener'
 import { discoveryReport } from './joined-room-discovery'
 import { matrixLinkPreviews } from './link-preview-media'
 import { boundedMatrixFetch, downloadMatrixAttachment } from './media'
@@ -733,7 +732,7 @@ export async function startMatrixSdk(
   })
 
   const earlierConversations = watchEarlierConversations(client, offerInvocation)
-  const listener = watchMatrixInvocations(client, offerInvocation)
+
   // An agent host's groups (armed by main on agent hosts only): the owner's own mentions.
   const groupTurns = watchMatrixGroupTurns(client, offerInvocation)
   const agentTasks = watchAgentTasks(client, offerInvocation)
@@ -2555,17 +2554,13 @@ export async function startMatrixSdk(
       case 'agentRecoveryGenerate':
         return agentIdentity.generateRecoveryKey()
 
-      case 'awarenessPrepareControls':
-        return (await import('./awareness-controls')).prepareAwarenessControls(client,()=>!stopped && state === 'ready')
 
-      case 'awarenessControl':
-        return (await import('./awareness-controls')).sendAwarenessControl(client,command.control,()=>!stopped && state === 'ready')
 
-      case 'awarenessRooms':
-        return (await import('./awareness-controls')).readAwarenessRooms(client,()=>!stopped && state === 'ready')
 
-      case 'awarenessRoomChange':
-        return (await import('./awareness-controls')).changeAwarenessRoom(client,command.roomId,command.action,()=>!stopped && state === 'ready')
+
+
+
+
 
       case 'deviceIsolation':
 
@@ -2641,24 +2636,9 @@ export async function startMatrixSdk(
       case 'recoveryRestore':
         return security!.command(command)
 
-      case 'watchInvocations':
-        // A cloud room-set watch covers every room of the agent with its owner (`roomIds`).
-        for (const id of command.watch
-          ? command.watch.roomIds?.length
-            ? command.watch.roomIds
-            : [command.watch.roomId]
-          : []) {
-          joinedRoom(id)
-        }
 
-        listener.set(command.watch)
 
-        return null
 
-      case 'scanInvocations':
-        joinedRoom(command.watch.roomId)
-
-        return scanMatrixInvocations(client, command.watch)
 
       case 'watchAgentTasks':
         agentTasks.set(command.watch)
@@ -5174,7 +5154,7 @@ export async function startMatrixSdk(
       agentIdentity.stop()
       ownerRecovery.stop()
       earlierConversations.stop()
-      listener.stop()
+
       groupTurns.stop()
       agentTasks.stop()
       notifications.stop()

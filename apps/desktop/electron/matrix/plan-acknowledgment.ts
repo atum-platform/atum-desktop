@@ -4,7 +4,7 @@ import path from 'node:path'
 
 import type { PlanAcknowledgment } from '../../shared/connection-catalog'
 
-import { matrixAccountCodexScope, type MatrixHermesRuntimeConfig } from './hermes-runtime'
+import { matrixAccountCodexScope, type MatrixHermesRuntimeConfig } from './hermes-utilities'
 
 function location(config: Pick<MatrixHermesRuntimeConfig, 'profiles'>, owner: string) {
   const directory = path.dirname(matrixAccountCodexScope(config, owner).authDir)

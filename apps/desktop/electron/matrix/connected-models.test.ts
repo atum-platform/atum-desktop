@@ -14,7 +14,7 @@ import {
   parseMatrixConnectedModelRequest,
   selectMatrixModelRoute
 } from './connected-models'
-import type { MatrixHermesConnection } from './hermes-runtime'
+import type { MatrixHermesConnection } from './hermes-utilities'
 import { MatrixPagesManagementTransport } from './pages-management-transport'
 import { MatrixHermesTurnLock } from './turn-lock'
 

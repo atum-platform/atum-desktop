@@ -25,7 +25,6 @@ import {
   type MatrixSnapshot,
   type MatrixUiBridge
 } from '../../shared/matrix'
-import { MATRIX_AGENT_SOURCES_IPC } from '../../shared/matrix-agent-sources'
 import { MATRIX_CLIPBOARD_IPC } from '../../shared/matrix-clipboard'
 import type { MatrixCompanyDesktopRequest } from '../../shared/matrix-company-desktop'
 import { MATRIX_DRIVE_IPC, type MatrixDriveView } from '../../shared/matrix-drive'
@@ -33,7 +32,6 @@ import { MATRIX_FOLDER_ACCESS_IPC } from '../../shared/matrix-folder-access'
 import { MATRIX_GOOGLE_CONNECTION_IPC, MATRIX_GOOGLE_WRITE_IPC } from '../../shared/matrix-google-connections'
 import { MATRIX_INVITE_LINK_IPC } from '../../shared/matrix-invite-link'
 import { MATRIX_LINK_PREVIEW_IPC } from '../../shared/matrix-link-preview'
-import { MATRIX_MAC_SOURCES_IPC } from '../../shared/matrix-mac-sources'
 import { MATRIX_MESSAGE_LINK_IPC, type MatrixMessageLinkTarget } from '../../shared/matrix-message-link'
 import { MATRIX_NATIVE_APPS } from '../../shared/matrix-native-apps'
 import { MATRIX_NATIVE_MAC_IPC } from '../../shared/matrix-native-mac'
@@ -65,10 +63,7 @@ const bridge: MatrixUiBridge = {
   windowFailureDiagnostic: value => {
     void Promise.resolve(ipcRenderer.invoke(channel.ui, { kind: 'windowFailureDiagnostic', value })).catch(() => {})
   },
-  awareness: {
-    read: () => invoke('awarenessRead'),
-    change: (identity, roomId, action) => ipcRenderer.invoke(channel.ui, {kind:'awarenessChange', identity, roomId, action})
-  },
+
   ownerLocation: {
     read: () => invoke('ownerLocationRead'),
     setEnabled: enabled => ipcRenderer.invoke(channel.ui, { kind: 'ownerLocationSetEnabled', enabled })
@@ -291,21 +286,8 @@ const bridge: MatrixUiBridge = {
     ssh: action => ipcRenderer.invoke(MATRIX_NATIVE_MAC_IPC.ssh, action),
     confirmCommand: command => ipcRenderer.invoke(MATRIX_NATIVE_MAC_IPC.confirmCommand, command)
   },
-  macSources: {
-    read: () => ipcRenderer.invoke(MATRIX_MAC_SOURCES_IPC.read),
-    set: (source, enabled) => ipcRenderer.invoke(MATRIX_MAC_SOURCES_IPC.set, source, enabled)
-  },
-  agentSources: {
-    read: () => ipcRenderer.invoke(MATRIX_AGENT_SOURCES_IPC.read),
-    presented: () => ipcRenderer.invoke(MATRIX_AGENT_SOURCES_IPC.presented),
-    set: (gate, enabled) => ipcRenderer.invoke(MATRIX_AGENT_SOURCES_IPC.set, gate, enabled),
-    subscribe: listener => {
-      const receive = () => listener()
-      ipcRenderer.on(MATRIX_AGENT_SOURCES_IPC.changed, receive)
 
-      return () => ipcRenderer.removeListener(MATRIX_AGENT_SOURCES_IPC.changed, receive)
-    }
-  },
+
   folderAccess: {
     read: () => ipcRenderer.invoke(MATRIX_FOLDER_ACCESS_IPC.read),
     apply: choices => ipcRenderer.invoke(MATRIX_FOLDER_ACCESS_IPC.apply, choices),
@@ -367,12 +349,7 @@ const bridge: MatrixUiBridge = {
     runs: (principal, routineId) => ipcRenderer.invoke('matrix:routines:runs', principal, routineId),
     ownerZone: () => ipcRenderer.invoke('matrix:routines:owner-zone')
   },
-  backgroundSweep: {
-    read: agentPrincipal =>
-      ipcRenderer.invoke(channel.ui, { kind: 'backgroundSweep', action: 'read', agentPrincipal }),
-    save: (agentPrincipal, write) =>
-      ipcRenderer.invoke(channel.ui, { kind: 'backgroundSweep', action: 'save', agentPrincipal, write })
-  },
+
   nativeApps: {
     list: refresh => ipcRenderer.invoke(MATRIX_NATIVE_APPS.list, refresh),
     launch: request => ipcRenderer.invoke(MATRIX_NATIVE_APPS.launch, request),
@@ -609,13 +586,7 @@ const bridge: MatrixUiBridge = {
         ? { offerVersion: request.offerVersion, disclosureVersion: request.disclosureVersion }
         : {})
     }),
-  executionPolicy: {
-    read: agentPrincipal => ipcRenderer.invoke(channel.ui, { kind: 'executionPolicy', action: 'read', agentPrincipal }),
-    save: (agentPrincipal, update) =>
-      ipcRenderer.invoke(channel.ui, { kind: 'executionPolicy', action: 'save', agentPrincipal, update }),
-    turnOff: (agentPrincipal, off) =>
-      ipcRenderer.invoke(channel.ui, { kind: 'executionPolicy', action: 'off', agentPrincipal, off })
-  },
+
   agentDesk: {
     control: (agentPrincipal, request) =>
       ipcRenderer.invoke(channel.ui, {
@@ -632,23 +603,7 @@ const bridge: MatrixUiBridge = {
         ...(request.read === 'files' && request.path !== undefined ? { path: request.path } : {})
       })
   },
-  agentHome: {
-    read: agentPrincipal => ipcRenderer.invoke(channel.ui, { kind: 'agentHome', action: 'read', agentPrincipal }),
-    preflight: (agentPrincipal, target, model) =>
-      ipcRenderer.invoke(channel.ui, { kind: 'agentHome', action: 'preflight', agentPrincipal, target, model }),
-    move: (agentPrincipal, preflightId, acceptCheckpointLoss) =>
-      ipcRenderer.invoke(channel.ui, {
-        kind: 'agentHome',
-        action: 'move',
-        agentPrincipal,
-        preflightId,
-        acceptCheckpointLoss: acceptCheckpointLoss === true
-      }),
-    cancel: agentPrincipal => ipcRenderer.invoke(channel.ui, { kind: 'agentHome', action: 'cancel', agentPrincipal }),
-    model: (agentPrincipal, model) =>
-      ipcRenderer.invoke(channel.ui, { kind: 'agentHome', action: 'model', agentPrincipal, model }),
-    prepare: agentPrincipal => ipcRenderer.invoke(channel.ui, { kind: 'agentHome', action: 'prepare', agentPrincipal })
-  },
+
   modelDestinations: {
     read: agentPrincipal => ipcRenderer.invoke(channel.ui, { kind: 'modelDestinations', action: 'read', agentPrincipal }),
     write: (agentPrincipal, destination, model) =>

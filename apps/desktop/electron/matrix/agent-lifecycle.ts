@@ -47,14 +47,6 @@ export interface MatrixCreatedAgentResult {
   assistantId: string
 }
 
-/** The platform owns a placed agent: no local room, executor setup, connect or profile import.
- * A listing hire is always the cloud's, still waiting for capacity included: the platform refuses
- * one it cannot compose natively, and never sells a Mac-run fallback (0535). */
-const cloudPlaced = (creation: Pick<MatrixAgentCreation, 'cloudPlacement' | 'listingId'>) =>
-  creation.listingId !== undefined ||
-  creation.cloudPlacement === 'placed' ||
-  creation.cloudPlacement === 'pending_trust'
-
 export type MatrixAgentSessionCleanup = 'complete' | 'pending' | 'unconfirmed'
 
 /** A retirement the person confirmed: recorded before the platform is asked, so a quit at any
@@ -99,16 +91,6 @@ export interface MatrixAgentLifecycleDeps {
   define(creation: MatrixCreatedAgent): Promise<void>
   /** The agent's runtime exists (made once) and knows its roster entry. */
   runtime(creation: MatrixCreatedAgent): void
-  /** The owner's private room with the agent: the existing one, else a new one. */
-  room(creation: MatrixCreatedAgent): Promise<string>
-  /** A selected profile into a newly enrolled, stopped executor home, before setup. */
-  importProfile?(creation: MatrixCreatedAgent): Promise<void>
-  /** This Mac's executor, host, persona and model; true once the agent's host is ready. */
-  setUp(principal: string): Promise<boolean>
-  /** The agent joins its room and the two devices verify each other. */
-  connect(principal: string, roomId: string): Promise<void>
-  /** The agent answers in its room: its gate starts. */
-  started(principal: string): void
   /** The platform placed the agent in the cloud (possibly still `pending_trust`): this Mac
    * must leave its room and executor to the cloud, including while the roster still says
    * `local`. Idempotent; called again when a resumed record reaches `cloud`. */
@@ -300,73 +282,25 @@ export class MatrixAgentLifecycle {
     const created = creation as MatrixCreatedAgent
     this.deps.runtime(created)
 
-    // The cloud owns it from the create's answer on, before any step this Mac still owes it
-    // (the persona write): its listing still says `local` until the controller trusts the
-    // enrollment, so the roster alone must not start a local executor meanwhile.
-    if (cloudPlaced(created)) {
-      this.deps.placed?.(created)
-    }
-
     if (created.step === 'define') {
-      // A listing's definition is the platform's seed: writing a persona here would replace it.
       if (created.listingId === undefined) {
         await this.deps.define(created)
       }
 
-      advance(cloudPlaced(created) ? 'cloud' : 'room')
+      // Once the definition is published, the platform owns delivery and room setup.
+      advance('cloud')
     }
 
-    // The platform placed it: it owns the room, the executor enrollment and the connect. The
-    // persona above is revision-fenced and still lands; no profile import runs either.
-    if (created.step === 'cloud') {
-      this.write(
-        MATRIX_AGENT_CREATIONS,
-        this.list<MatrixAgentCreation>(MATRIX_AGENT_CREATIONS).filter(each => each.requestId !== created.requestId)
-      )
-      this.deps.log(`[Matrix] agent ${created.principal.slice(0, 8)} answers in the cloud`)
-
-      return { principal: created.principal, assistantId: created.assistantId }
-    }
-
-    if (created.step === 'room') {
-      advance(created.profileImport ? 'import' : 'enroll', { roomId: await this.deps.room(created) })
-    }
-
-    if (created.step === 'import') {
-      if (!created.profileImport || !created.roomId || !this.deps.importProfile) {
-        throw new Error('matrix_profile_import_invalid')
-      }
-
-      await this.deps.importProfile(created)
-      advance('enroll')
-    }
-
-    // A durable connect record proves setup completed in the previous process,
-    // not that this process has an SDK host. Recreate that local state before
-    // connecting; profile installation and platform creation stay skipped.
-    if (created.step === 'enroll' || created.step === 'connect') {
-      if (!(await this.deps.setUp(created.principal))) {
-        throw new Error('matrix_agent_unavailable')
-      }
-
-      if (created.step === 'enroll') {
-        advance('connect')
-      }
-    }
-
-    if (!created.roomId) {
-      throw new Error('matrix_vault_invalid')
-    }
-
-    await this.deps.connect(created.principal, created.roomId)
+    // A journal from the Mac executor era may be beyond the definition write.
+    // Settle its local bookkeeping without reopening the old executor.
+    this.deps.placed?.(created)
     this.write(
       MATRIX_AGENT_CREATIONS,
       this.list<MatrixAgentCreation>(MATRIX_AGENT_CREATIONS).filter(each => each.requestId !== created.requestId)
     )
-    this.deps.started(created.principal)
-    this.deps.log(`[Matrix] agent ${created.principal.slice(0, 8)} answers in its room`)
+    this.deps.log(`[Matrix] agent ${created.principal.slice(0, 8)} creation handed to the platform`)
 
-    return { principal: created.principal, roomId: created.roomId, assistantId: created.assistantId }
+    return { principal: created.principal, assistantId: created.assistantId }
   }
 
   /** The platform (a repeat of a retire is safe), then this Mac, then the record goes. */

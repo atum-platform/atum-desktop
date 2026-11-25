@@ -4,7 +4,7 @@ import type { AddressInfo } from 'node:net'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { createHermesPagesTransport } from './hermes-pages-transport'
-import type { MatrixHermesConnection } from './hermes-runtime'
+import type { MatrixHermesConnection } from './hermes-utilities'
 import { createMatrixPagesComputerUseScope } from './pages-computer-use'
 import { createMatrixPagesComputerUseGrantScope } from './pages-computer-use-grant'
 import { MatrixPagesManagementTransport } from './pages-management-transport'

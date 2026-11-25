@@ -48,7 +48,6 @@ import { WorkScreen } from '@/app/work/work-screen'
 import { MarkdownContent } from '@/components/assistant-ui/markdown-surface'
 import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
-import { Dialog, DialogContent } from '@/components/ui/dialog'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -61,7 +60,6 @@ import { NoticeBand } from '@/components/ui/error-state'
 import { Loader } from '@/components/ui/loader'
 import { SearchField } from '@/components/ui/search-field'
 import { SegmentedControl } from '@/components/ui/segmented-control'
-import { Switch } from '@/components/ui/switch'
 import { Tip } from '@/components/ui/tooltip'
 import { useMediaQuery } from '@/hooks/use-media-query'
 import { useI18n } from '@/i18n'
@@ -74,7 +72,6 @@ import {
   ArrowUp,
   BookmarkFilled,
   Check,
-  ChevronRight,
   Clock,
   DeviceMobile,
   Files,
@@ -114,7 +111,7 @@ import {
   type MatrixUiBridge
 } from '../../shared/matrix'
 import { matrixActionCopy } from '../../shared/matrix-action-copy'
-import { matrixAgentNeedsLocalSetup, matrixAssistantReplySettingsShown } from '../../shared/matrix-agent-actions'
+import { matrixAgentNeedsLocalSetup } from '../../shared/matrix-agent-actions'
 import { matrixAgentDeskText } from '../../shared/matrix-agent-desk-copy'
 import { matrixAgentStatusText } from '../../shared/matrix-agent-status-copy'
 import { appChatCopy } from '../../shared/matrix-app-chat-copy'
@@ -157,7 +154,6 @@ import {
   matrixHideEndedTransientLines,
   matrixLiveWorkingLine
 } from '../../shared/matrix-transient-lines'
-import { matrixTurnQuote } from '../../shared/matrix-turn-intake'
 import type { MatrixWindowFacts } from '../../shared/matrix-window'
 import type { MatrixWindowFailureSource } from '../../shared/matrix-window-failure'
 import { WORK_RELAY_PLANS, workRelayNoticePlan } from '../../shared/matrix-work-relay'
@@ -172,7 +168,6 @@ import {
 } from './agent-attention'
 import { matrixAgentDeskAgent, matrixAgentDeskSteers } from './agent-desk-model'
 import { useMatrixAgentHandleBackfill } from './agent-handle-backfill'
-import { agentHomeTitleIconShown, MatrixAgentHomeRow } from './agent-home-control'
 import { authorizedBotApi, botApiAppForMessage, isBotApiRoom } from './app-bots/bot-api'
 import { MatrixBotApiKeyboard, MatrixBotApiText } from './app-bots/bot-api-text'
 import { MatrixBotApiPhotoView } from './app-bots/bot-photo'
@@ -300,7 +295,6 @@ import { MatrixUpdateFooter } from './desktop-settings'
 import { $matrixDestinationRequests } from './destination-requests'
 import { MatrixApprovalSheet } from './device-approval'
 import { matrixDeviceHealthCopy, MatrixDeviceHealthNotice } from './device-health-notice'
-import { focusDialogField, MatrixDialogHeader } from './dialog-header'
 import { DocumentLink } from './document-link'
 import { MatrixDrive, type MatrixDriveDestination, MatrixDriveSidebar, MatrixDriveTitle } from './drive'
 import { matrixDriveCopy } from './drive-copy'
@@ -315,8 +309,6 @@ import {
   setMatrixDriveTaskScope
 } from './drive-selection'
 import type { MatrixDriveTaskScope } from './drive-selection'
-import { MatrixExecutionPolicyControl } from './execution-policy-control'
-import { executionPolicyOffersChoice } from './execution-policy-trigger'
 import { MatrixFirstLearningTiles } from './first-learning-tiles'
 import {
   MatrixFirstRunCard,
@@ -326,7 +318,6 @@ import {
 } from './first-run-card'
 import { MatrixForwardDialog } from './forward-dialog'
 import {
-  matrixForwardNeedsLocalInvocation,
   type MatrixForwardTarget,
   matrixForwardTargets
 } from './forward-targets'
@@ -364,10 +355,9 @@ import { useLaunchCopy } from './launch-copy'
 import { MatrixLaunchNotice, matrixLaunchNoticeKind } from './launch-notice'
 import { MatrixLinkPreviewCard } from './link-preview-card'
 import { matrixMessagePreviewLink } from './link-previews'
-import { matrixAgentTyping, type MatrixTranscriptEntry, matrixTurnStatus, mergeLocalTurns } from './local-turns'
+import { matrixAgentTyping, type MatrixTranscriptEntry, mergeLocalTurns } from './local-turns'
 import { ChatLookPicker } from './look/look-picker'
 import { resolveConversationLook } from './look/resolve-look'
-import { MatrixMacSourcesNotice } from './mac-sources-notice'
 import { MainAgentBadge } from './main-agent-badge'
 import { MATRIX_MARKDOWN_HOST } from './markdown-host'
 import {
@@ -549,7 +539,6 @@ import { prepareMatrixDocumentClose, runMatrixCommand } from './text-document-ac
 import { matrixThreadCopy } from './thread-copy'
 import { loadTimelineHistoryPage, MATRIX_TIMELINE_SEARCH_PAGES, waitForTimelineProjection } from './timeline-history'
 import { followTranscriptEnd } from './transcript-follow'
-import { MatrixTurnHandoffActions } from './turn-handoff'
 import { MatrixAgentWorking } from './typing-indicator'
 import { MatrixUndecryptableMessage } from './undecryptable-message'
 import { useMatrixCloudStop } from './use-cloud-stop'
@@ -557,7 +546,6 @@ import { useShellShortcuts } from './use-shell-shortcuts'
 import { useVideoConsentAsk } from './video-consent-ask'
 import { VideoConsentCard } from './video-consent-card'
 import { MatrixVoiceDictation, useMatrixReadAloud } from './voice'
-import { matrixWalletCopy } from './wallet-copy'
 import { useMatrixWalletHistory } from './wallet-ui'
 import { MatrixWebPreviewOfferCard } from './web-preview-offer'
 import { markWelcomePlayed, MatrixWelcomeStory, welcomePlayed } from './welcome-story'
@@ -1812,7 +1800,7 @@ function MatrixEventMessageBubble() {
       {message.failed && !local && !isOutgoingEcho(message.id) && (
         <MatrixFailedSend onRetry={() => eventCommand('resend')} />
       )}
-      {local && <LocalTurnStatus local={local} />}
+
       {message.own && !local && settled && !message.redacted && (
         <MatrixSendState
           agents={action?.agents}
@@ -2050,46 +2038,6 @@ function MatrixReplyQuote({
 
 /** A local turn that failed, in plain words, and the one thing to do about it (only failures
  * speak here: while the agent works the chat shows it typing). */
-function LocalTurnStatus({ local }: { local: NonNullable<MatrixTranscriptEntry['local']> }) {
-  const { locale, t } = useI18n()
-  const actions = useContext(ConversationActions)
-  const [pending, setPending] = useState(false)
-  const status = matrixTurnStatus(local.view, local.role, t.matrixShell)
-
-  if (!status) {
-    return null
-  }
-
-  const act = () => {
-    setPending(true)
-
-    const request =
-      status.action !== 'top_up'
-        ? window.atumMatrix.retryTurn(local.view.turnId)
-        : actions?.topUp
-          ? actions.topUp()
-          : window.atumMatrix.openTopUp()
-
-    void request.catch(() => {}).finally(() => setPending(false))
-  }
-
-  return (
-    <div
-      className="flex items-center gap-2 text-xs text-(--atum-ink)"
-      data-matrix-turn-state={local.view.state}
-      role="status"
-    >
-      <span>{status.text}</span>
-      {status.action === 'answer_here' && <MatrixTurnHandoffActions turnId={local.view.turnId} />}
-      {status.action && status.action !== 'answer_here' && (
-        <Button disabled={pending} onClick={act} size="sm" variant="text">
-          {status.action === 'top_up' ? matrixWalletCopy(locale).topUpMore : t.matrixShell.turnRetry}
-        </Button>
-      )}
-    </div>
-  )
-}
-
 function MatrixComposerRuntimeRef({
   initialText,
   target
@@ -2984,22 +2932,7 @@ function MatrixComposer({
   const listening =
     room.assistant && snapshot.hermesListening?.state === 'listening' && snapshot.hermesListening.roomId === room.id
 
-  // The local path (plan 2026-09-26-reliable-local-first-chat): this Mac's assistant
-  // directly, no chat-server round trip and no per-message dialog. A linked document keeps
-  // the server path, with its confirmation.
-  const localPath =
-    room.assistant &&
-    !cloudAssistant &&
-    snapshot.assistantPath !== 'server' &&
-    Boolean(snapshot.readiness) &&
-    !snapshot.linkedDocument
-
-  // Degraded: the box is paused (drafts can still be typed) until the watch recovers.
-  // A staged Drive task uses its separately verified cloud path. Its availability
-  // comes from taskStatus below, rather than this Mac's local readiness watch.
-  const paused =
-    Boolean(cloudRoomAgent(snapshot, room) && snapshot.linkedDocument) ||
-    (localPath && !hasTaskFiles && snapshot.readiness?.phase !== 'ready')
+  const paused = Boolean(cloudRoomAgent(snapshot, room) && snapshot.linkedDocument)
 
   const attentionWords = useAttentionCopy()
   const pausedHint = paused ? matrixComposerHint(snapshot, assistantName, attentionWords) : undefined
@@ -3007,7 +2940,7 @@ function MatrixComposer({
   // A reply goes out on the chat's own path: people's chats, or your assistant's chat on this
   // Mac. An app recipient, staged Drive files or the confirmation path carry none. Asking your
   // assistant in a group can answer a message: that message is what it is asked about.
-  const replies = (!recipient || Boolean(recipientBot)) && !hasTaskFiles && (room.assistant ? Boolean(localPath) : true)
+  const replies = (!recipient || Boolean(recipientBot)) && !hasTaskFiles && !room.assistant
 
   useEffect(() => {
     if (!hasTaskFiles) {
@@ -3042,14 +2975,7 @@ function MatrixComposer({
       taskBlocked ||
       Boolean(snapshot.appTurn) ||
       !isAssistantRoom(room, snapshot.identity?.userId, snapshot.assistant?.userId)
-    : localPath
-      ? blocked ||
-        sending ||
-        room.membership !== 'join' ||
-        snapshot.canSend === false ||
-        taskBlocked ||
-        !isAssistantRoom(room, snapshot.identity?.userId, snapshot.assistant?.userId)
-      : blocked ||
+    : blocked ||
         sending ||
         snapshot.state !== 'ready' ||
         room.membership !== 'join' ||
@@ -3237,14 +3163,14 @@ function MatrixComposer({
       (!(routedBotTarget && appBridge) && !recipient && !(room.assistant && !listening && !cloudAssistant))
 
     // A reply's quote shows on the echo too (the local path carries it only with a quote).
-    const echoReplyTo = reply && (!localPath || matrixTurnQuote(reply.body)) ? reply.id : undefined
+    const echoReplyTo = reply?.id
 
     const echoMentions = [
       ...new Set([...humanMentionIds, ...companyAIMentionUserIds(body, companyAI)])
     ]
 
     const echo =
-      !threadRootId && !file && body.trim() && !(task && hasTaskFiles) && (localPath || plainSend)
+      !threadRootId && !file && body.trim() && !(task && hasTaskFiles) && plainSend
         ? addOutgoingEcho(room.id, body, {
             replyTo: echoReplyTo,
             ...(echoMentions.length || roomMention
@@ -3329,19 +3255,6 @@ function MatrixComposer({
               ? 'delivery_unknown'
               : null
         )
-      } else if (localPath) {
-        // Main accepts the text and returns at once; the turn renders from the snapshot. A
-        // reply carries the message it answers, which reaches the assistant as context.
-        const quote = reply ? matrixTurnQuote(reply.body) : ''
-
-        const accepted =
-          reply && quote
-            ? await window.atumMatrix.sendTurn(room.id, body, { eventId: reply.id, quote })
-            : await window.atumMatrix.sendTurn(room.id, body)
-
-        if (echo) {
-          settleOutgoingEcho(echo, { turnId: accepted?.turnId })
-        }
       } else if (routedBotTarget && appBridge) {
         const target = routedBotTarget
 
@@ -4106,15 +4019,6 @@ function MatrixComposer({
                 >
                   {cloudStop.stopping ? <span role="status">{t.cloud.stopping}</span>
                     : <span aria-hidden className="block size-2.5 rounded-[0.1875rem] bg-current" />}
-                </button>
-              ) : running ? (
-                <button
-                  aria-label={matrixActionCopy[locale].cancelHermes}
-                  className="atum-composer-send"
-                  onClick={() => void window.atumMatrix.cancelHermes(room.id).catch(fail)}
-                  type="button"
-                >
-                  <span aria-hidden className="block size-2.5 rounded-[0.1875rem] bg-current" />
                 </button>
               ) : (
                 <MatrixSendButton
@@ -5164,9 +5068,6 @@ function useMatrixForwarding(snapshot: MatrixSnapshot) {
       throw new Error('matrix_forward_failed')
     }
 
-    if (matrixForwardNeedsLocalInvocation(target)) {
-      await window.atumMatrix.invokeHermes(target.room.id, eventId, locale)
-    }
   }
 
   const sourceRoom = snapshot.rooms.find(room => room.id === source?.roomId)
@@ -6008,11 +5909,6 @@ function Conversation({
                   roomId={room.id}
                 />
               )}
-              {/* Cloud assistants read this Mac's sources: said once, above the box, never in the way.
-                The first-run card says it for a new account. */}
-              {room.assistant && !firstRunHere && snapshot.identity && (
-                <MatrixMacSourcesNotice scope={`${snapshot.identity.userId}:${snapshot.identity.deviceId}`} />
-              )}
               <MatrixComposer
                 assistantName={assistantName}
                 bind={setComposer}
@@ -6086,156 +5982,16 @@ function Conversation({
  * by itself (0.20): nothing about it ever shows in the chat, and here only a quiet line when
  * this Mac keeps handing the assistant over (lease-handover.ts) or could not save a Stop.
  */
-function AssistantReplySettings({
-  fail,
-  onOpenChange,
-  onPreview,
-  open,
-  snapshot
-}: {
-  fail(cause?: unknown): void
-  onOpenChange(open: boolean): void
-  onPreview(): void
-  open: boolean
-  snapshot: MatrixSnapshot
-}) {
-  const { t, locale } = useI18n()
-  const copy = matrixActionCopy[locale]
-  const chat = useChatCopy()
-  const room = snapshot.rooms.find(value => value.id === snapshot.roomId)
-  const [controlsPending, setControlsPending] = useState(false)
-  const [switching, setSwitching] = useState(false)
-  const [advanced, setAdvanced] = useState(false)
-
-  if (!room) {
-    return null
-  }
-
-  const eligible = isAssistantRoom(room, snapshot.identity?.userId, snapshot.assistant?.userId)
-  const watch = snapshot.hermesListening?.roomId === room.id ? snapshot.hermesListening : undefined
-  const listening = watch?.state === 'listening' || (watch?.mode === 'continuous' && watch.state === 'paused')
-  const agent = snapshot.agents?.find(value => value.userId === snapshot.assistant?.userId)
-  const name = agent ? matrixRosterAgentName(agent, t.matrixShell.assistantName) : t.matrixShell.assistantName
-
-  const canListen =
-    eligible && snapshot.state === 'ready' && snapshot.hermes === 'ready' && !snapshot.linkedDocument && !listening
-
-  const toggle = (on: boolean) => {
-    setSwitching(true)
-
-    const request = on
-      ? window.atumMatrix.setContinuousListening(room.id, true, locale)
-      : watch?.mode === 'continuous'
-        ? window.atumMatrix.setContinuousListening(room.id, false, locale)
-        : window.atumMatrix.stopListeningHermes(room.id)
-
-    void request.catch(fail).finally(() => setSwitching(false))
-  }
-
-  return (
-    <Dialog
-      onOpenChange={value => {
-        if (!controlsPending) {
-          onOpenChange(value)
-        }
-      }}
-      open={open}
-    >
-      <DialogContent
-        aria-describedby={undefined}
-        className="atum-sheet max-h-[80vh] max-w-md overflow-y-auto"
-        data-matrix-assistant-options
-        onOpenAutoFocus={focusDialogField}
-        showCloseButton={false}
-      >
-        <MatrixDialogHeader title={chat.replySettingsTitle} />
-        <section className="flex flex-col gap-4 text-sm">
-          <label className="flex items-start gap-3">
-            <span className="min-w-0 flex-1">
-              <span className="block font-medium text-(--atum-ink)">{chat.replyHere}</span>
-              <span className="mt-0.5 block text-xs text-(--atum-ink-muted)">{chat.replyHereHelp(name)}</span>
-            </span>
-            <Switch
-              aria-label={chat.replyHere}
-              checked={listening}
-              className="mt-0.5"
-              disabled={switching || (!listening && !canListen) || snapshot.hermes === 'running'}
-              onCheckedChange={toggle}
-            />
-          </label>
-          {/* This chat's watch is the switch. A Stop the disk could not keep is pressed again here. */}
-          {watch?.state === 'paused' && watch.reason === 'storage' && (
-            <p className="text-xs text-(--atum-ink-muted)" data-matrix-reply-note="storage">
-              {copy.listeningPausedStorage}
-            </p>
-          )}
-          {agent?.answeringTrouble === 'handover' && (
-            <p className="text-xs text-(--atum-ink-muted)" data-matrix-reply-note="handover">
-              {chat.replyHandover(name)}
-            </p>
-          )}
-          {snapshot.domainEnabled && usableAgentRoom(room) && (
-            <DocumentLink
-              className="-ms-2 px-0 py-0"
-              disabled={controlsPending}
-              onPendingChange={setControlsPending}
-              onPreview={onPreview}
-              snapshot={snapshot}
-            />
-          )}
-          <div>
-            <button
-              aria-expanded={advanced}
-              className="flex items-center gap-1 text-(length:--atum-t-caption) font-medium text-(--atum-ink-muted) hover:text-(--atum-ink)"
-              onClick={() => setAdvanced(value => !value)}
-              type="button"
-            >
-              <ChevronRight
-                aria-hidden
-                className={`size-3.5 transition-transform motion-reduce:transition-none ${advanced ? 'rotate-90' : ''}`}
-              />
-              {chat.advanced}
-            </button>
-            {advanced && (
-              <div className="mt-2 flex flex-wrap gap-2 ps-[1.125rem]">
-                <Button
-                  disabled={!canListen}
-                  onClick={() => void window.atumMatrix.listenHermes(room.id, locale).catch(fail)}
-                  size="sm"
-                  variant="secondary"
-                >
-                  {chat.listenBriefly}
-                </Button>
-                <Button
-                  disabled={!eligible || snapshot.state !== 'ready' || snapshot.hermes === 'running'}
-                  onClick={() => void window.atumMatrix.connectHermes(room.id).catch(fail)}
-                  size="sm"
-                  variant="secondary"
-                >
-                  {chat.reconnect}
-                </Button>
-              </div>
-            )}
-          </div>
-          <span className="sr-only">{copy.keepListeningHelp}</span>
-        </section>
-      </DialogContent>
-    </Dialog>
-  )
-}
-
 /**
  * The open chat's header actions (launch night): a group's people, then one conversation
  * menu for every kind of chat. No text buttons; nothing when there is nothing to offer.
  */
 function ConversationHeaderActions({
   appearance,
-  cloudOnly,
   currentLook,
   fail,
   onLookPreview,
   onPins,
-  onPreview,
   search,
   onThreads,
   pinsOpen,
@@ -6243,12 +5999,10 @@ function ConversationHeaderActions({
   snapshot
 }: {
   appearance: 'light' | 'dark'
-  cloudOnly: boolean
   currentLook: LookRoomAccountData
   fail(cause?: unknown): void
   onLookPreview(look: LookRoomAccountData): void
   onPins?: () => void
-  onPreview(): void
   search?: ReactNode
   onThreads?: () => void
   pinsOpen?: boolean
@@ -6260,7 +6014,6 @@ function ConversationHeaderActions({
   const threadCopy = matrixThreadCopy(locale)
   const room = snapshot.rooms.find(value => value.id === snapshot.roomId)
   const [members, setMembers] = useState(false)
-  const [replySettings, setReplySettings] = useState(false)
   const [lookPicker, setLookPicker] = useState(false)
 
   if (!room || room.membership !== 'join') {
@@ -6270,10 +6023,6 @@ function ConversationHeaderActions({
   if (matrixNotesSelfRoom(snapshot.notesSelf, room.id)) {
     return <>{search}</>
   }
-
-  const eligible = Boolean(
-    room.assistant && isAssistantRoom(room, snapshot.identity?.userId, snapshot.assistant?.userId)
-  )
 
   // A company channel is the company's room: its own menu and roster, never the personal chat's.
   const companyChannel = isCompanyRoom(room)
@@ -6348,21 +6097,9 @@ function ConversationHeaderActions({
           fail={fail}
           onBackground={() => setLookPicker(true)}
           onMembers={group ? () => setMembers(true) : undefined}
-          onReplySettings={
-            eligible && matrixAssistantReplySettingsShown(cloudOnly) ? () => setReplySettings(true) : undefined
-          }
           room={room}
           snapshot={snapshot}
           title={matrixChatTitle(room, { locale, untitled: t.atum.roster.untitledChat, chatOn: chat.chatOn })}
-        />
-      )}
-      {eligible && matrixAssistantReplySettingsShown(cloudOnly) && (
-        <AssistantReplySettings
-          fail={fail}
-          onOpenChange={setReplySettings}
-          onPreview={onPreview}
-          open={replySettings}
-          snapshot={snapshot}
         />
       )}
       <ChatLookPicker
@@ -6709,10 +6446,6 @@ function MatrixRoster({
     let failureSource: MatrixWindowFailureSource = 'command.select'
 
     try {
-      const agent = snapshot.agents?.find(value => value.userId === agentId)
-      // `connectHermes` joins and verifies a local agent host. A cloud-only agent has no such
-      // host on this Mac; main deliberately refuses that call before Matrix I/O.
-      const connectsHere = agent?.answering !== 'cloud' || agent.macRole === 'answering'
       const agentRooms = snapshot.rooms.filter(room => isAssistantRoom(room, snapshot.identity?.userId, agentId))
       const agentResolution = resolveProjectedConversation(agentRooms, snapshot.identity.userId, agentId)
       const agentRoom = rosterConversationRoom(agentRooms, snapshot.roomId, agentResolution.main)
@@ -6732,13 +6465,6 @@ function MatrixRoster({
       if (existingRoomId) {
         await runMatrixCommand({ kind: 'select', roomId: existingRoomId })
 
-        if (connectsHere) {
-          // This is maintenance after the chat is already open. Its failure belongs in main.log
-          // and the chat's own readiness state, never in the window failure band.
-          void window.atumMatrix.connectHermes(existingRoomId).catch(error => {
-            reportMatrixWindowFailure('connectHermes', error, snapshot.state !== 'offline')
-          })
-        }
       } else {
         failureSource = 'command.create'
 
@@ -6759,12 +6485,6 @@ function MatrixRoster({
           roomId
         })
 
-        if (connectsHere) {
-          // A newly created local room is not usable until its agent joins; this remains the
-          // person's foreground operation and therefore keeps the typed failure path.
-          failureSource = 'connectHermes'
-          await window.atumMatrix.connectHermes(roomId)
-        }
       }
 
       onCreatedAssistantRoomIdChange(null)
@@ -8582,7 +8302,6 @@ function MatrixAccountView({
     />
   ) : undefined
 
-
   const conversationRoster = (
     <MatrixRoster
       assistantOpening={assistantOpening}
@@ -8988,47 +8707,14 @@ function MatrixAccountView({
               <AtumMainHeaderSurface
                 actions={
                   <>
-                    {!workplaceActive &&
-                      !driveActive &&
-                      !appDestination &&
-                      profileAgent?.home &&
-                      window.atumMatrix.agentHome &&
-                      agentHomeTitleIconShown(profileAgent.home, cloudOnly) && (
-                        <MatrixAgentHomeRow
-                          agentName={profileAgent.name}
-                          agentPrincipal={profileAgent.principal}
-                          bridge={window.atumMatrix.agentHome}
-                          cloudOnly={cloudOnly}
-                          display="icon"
-                          view={profileAgent.home}
-                        />
-                      )}
-                    {!workplaceActive &&
-                      !driveActive &&
-                      !appDestination &&
-                      !profileAgent?.home &&
-                      profileAgent?.executionPolicy &&
-                      window.atumMatrix.executionPolicy &&
-                      // Only with a real choice (more than one Mac); the assistant's card has it for everyone.
-                      executionPolicyOffersChoice(profileAgent.executionPolicy, cloudOnly) && (
-                        <MatrixExecutionPolicyControl
-                          agentPrincipal={profileAgent.principal}
-                          bridge={window.atumMatrix.executionPolicy}
-                          cloudOnly={cloudOnly}
-                          memoryNote={profileAgent.memoryNote}
-                          view={profileAgent.executionPolicy}
-                        />
-                      )}
                     {conversationShellVisible && !founderDraftShown && !driveActive && !appDestination && room && (
                       <ConversationHeaderActions
                         appearance={lookAppearance}
-                        cloudOnly={cloudOnly}
                         currentLook={conversationLook?.selection ?? { v: 1, background: { kind: 'default' } }}
                         fail={fail}
                         key={`conversation:${room.id}`}
                         onLookPreview={look => setLookPreview({ roomId: room.id, look })}
                         onPins={isTeamSpaceRoom(room) ? togglePinnedMessages : undefined}
-                        onPreview={revealDocument}
                         onThreads={
                           isTeamSpaceRoom(room)
                             ? () => (currentThreadView ? setThreadView(null) : openThreads())

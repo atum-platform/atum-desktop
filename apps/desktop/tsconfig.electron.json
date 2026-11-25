@@ -46,7 +46,6 @@
     "shared/matrix-app-room.ts",
     "electron",
     "electron/matrix/drive-exclusions.json",
-    "electron/matrix/agent-home-placement/connection-routes.json",
     "../shared/src/gateway-contract.generated.ts",
     "../shared/src/gateway-events.ts",
     "../shared/src/json-rpc-channel.ts",

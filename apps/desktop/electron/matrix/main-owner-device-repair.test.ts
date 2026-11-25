@@ -8,8 +8,6 @@ import { isTeamSpaceRoom } from '../../shared/matrix-company-channel-room'
 import { matrixSdkErrorPayload } from '../../src/matrix/sdk-error-code'
 import { matrixSdkCommandTimeout, MatrixSdkHost } from '../../src/matrix/sdk-host-queue'
 
-import { matrixTurnsNeedingHost } from './agent-routing'
-import { matrixTurnOwnsHeldLease } from './agent-runtime'
 import {
   appBotChatSelectedLine,
   localAppChatRoom,
@@ -18,13 +16,10 @@ import {
 } from './app-bots/open-chat'
 import { platformAppChatRoom } from './app-bots/platform-room'
 import { CompanyChannelConfirmations, companyChannelOpenFailedLine, companyChannelSelectedLine } from './company-room-guard'
-import { matrixHostEndsTurns, matrixHostLiveness, matrixLeaseHostAction } from './host-health'
 import { parseMatrixCommand, parseMatrixSignInMethod, requireMatrixCaller } from './ipc-policy'
-import { MatrixExecutorLease } from './lease'
 import { logNotesSelfOpenFailures } from './notes-self-log'
-import { MatrixOwnerDeviceRepair, matrixOwnerRepairError, matrixOwnerRepairPreservesWork } from './owner-device-repair'
+import { MatrixOwnerDeviceRepair, matrixOwnerRepairError } from './owner-device-repair'
 import { matrixHumanSdkReady } from './sdk-host'
-import { matrixHumanSnapshot } from './window-launch'
 
 // Execute the actual main callbacks without booting Electron, a live account or Keychain.
 // Only external boundaries are supplied; the dispatch/catch and lifecycle decisions are main's.
@@ -34,13 +29,17 @@ const source = ts.createSourceFile(
   ts.ScriptTarget.Latest,
   true
 )
+
 const mainContexts = new WeakMap<object, Record<string, unknown>>()
+
 function mainCode(name: string, context: Record<string, unknown>, ipc = false) {
   let found: ts.Node | undefined
+
   const visit = (node: ts.Node) => {
     if (!ipc && ts.isFunctionDeclaration(node) && node.name?.text === name) {
       found = node
     }
+
     if (
       ipc &&
       ts.isCallExpression(node) &&
@@ -49,15 +48,20 @@ function mainCode(name: string, context: Record<string, unknown>, ipc = false) {
     ) {
       found = node.arguments[1]
     }
+
     ts.forEachChild(node, visit)
   }
+
   visit(source)
+
   if (!found) {
     throw new Error(`Missing main callback ${name}`)
   }
+
   const code = ts.transpileModule(`(${found.getText(source)})`, {
     compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext }
   }).outputText
+
   const sandbox = {
     // Optional Mac service is absent in these Electron-free lifecycle fixtures.
     nativeMacSsh: undefined,
@@ -71,13 +75,16 @@ function mainCode(name: string, context: Record<string, unknown>, ipc = false) {
     setTimeout,
     queueMicrotask
   }
+
   const executable = runInNewContext(code, sandbox)
   mainContexts.set(executable, sandbox)
+
   return executable
 }
 
 const oldOwner = { userId: '@owner:test', deviceId: 'OLD' }
 const newOwner = { ...oldOwner, deviceId: 'NEW' }
+
 const snapshot = () => ({
   state: 'ready' as const,
   identity: oldOwner,
@@ -89,21 +96,26 @@ const snapshot = () => ({
 
 function ipcFixture() {
   let current = oldOwner
+
   const account = {
     identity: () => current,
     repairOwnerDevice: vi.fn(async () => {
       current = newOwner
+
       return { domain: true, replaced: oldOwner }
     }),
     cancelOwnerDeviceRepair: vi.fn()
   }
+
   const repair = new MatrixOwnerDeviceRepair({
     account,
     damaged: () => true,
     resume: async () => ({ signed: true, backup: true }),
     log: vi.fn()
   })
+
   const ui = { webContents: { mainFrame: { url: 'atum-matrix://ui/matrix.html' } } }
+
   const context = {
     ui,
     UI_URL: ui.webContents.mainFrame.url,
@@ -126,8 +138,10 @@ function ipcFixture() {
     publish: vi.fn(),
     reconcileDeviceControl: vi.fn(async () => {})
   }
+
   const invoke = mainCode('ui', context, true)
   const event = { sender: ui.webContents, senderFrame: ui.webContents.mainFrame }
+
   return { account, repair, context, event, invoke }
 }
 
@@ -607,138 +621,20 @@ describe('main app chat open, while its room is on its way', () => {
   })
 })
 
-describe('main human replacement with a real lease', () => {
-  it.each([false, true])(
-    'retains the exact term and does not abort (admitted=%s); real sign-out still releases',
-    async admitted => {
-      const calls: string[] = []
-      const executorId = '00000000-0000-4000-8000-75c02539218c'
-      const now = Date.now()
-      const lease = new MatrixExecutorLease({
-        request: async operation => {
-          calls.push(operation)
-          return operation === 'release'
-            ? { held: false }
-            : {
-                held: true,
-                executorId,
-                leaseToken: '00000000-0000-4000-8000-127ad7633157',
-                boundary: now,
-                acquiredAt: now,
-                expiresAt: now + 90_000
-              }
-        }
-      })
-      lease.start(executorId, 2)
-      await new Promise<void>(resolve => setImmediate(resolve))
-      const held = lease.held(executorId)!
-      const abort = new AbortController()
-      let finish!: () => void
-      const f = ipcFixture()
-      // Hold after the account commit, exactly where main replaces its human host.
-      const repair = new MatrixOwnerDeviceRepair({
-        account: f.account,
-        damaged: () => true,
-        log: vi.fn(),
-        resume: () =>
-          new Promise(resolve => {
-            finish = () => resolve({ signed: true, backup: true })
-          })
-      })
-      const running = repair.run()
-      await vi.waitFor(() => expect(finish).toBeTypeOf('function'))
-      const agent = {
-        role: 'agent',
-        lease,
-        invocation: admitted ? { roomId: '!chat:test', abort, leaseSignal: held.signal } : undefined,
-        listener: { snapshot: () => undefined }
-      }
-      const host = { identity: newOwner }
-      let state = { ...snapshot(), identity: newOwner, state: 'connecting' }
-      const context = {
-        closing: false,
-        agent,
-        hosts: new Map<string, { identity?: typeof oldOwner; ready?: boolean }>([
-          ['human', host],
-          ['agent', { ready: true }]
-        ]),
-        enrollmentOf: () => ({ state: 'ready', identity: { executorId } }),
-        isCloudOnlyAgent: () => false,
-        isMovingAgent: () => false,
-        // The agent-home model is not running: no drain or checkpoint is holding a lease here.
-        agentHome: undefined,
-        matrixLeaseHostAction,
-        matrixHumanSdkReady,
-        matrixTurnOwnsHeldLease,
-        ownerRepairPreservesWork: () => matrixOwnerRepairPreservesWork(repair, state as never, false),
-        get state() {
-          return state
-        },
-        matrixHostLiveness,
-        matrixHostEndsTurns,
-        matrixTurnsNeedingHost,
-        requireHost: () => ['human', host],
-        agentOfRole: () => undefined,
-        allAgents: () => [agent],
-        stopListening: vi.fn(),
-        scheduleContinuousListening: vi.fn(),
-        humanEngineError: null,
-        matrixLogCode: () => null,
-        matrixChatTokenRefused: () => false,
-        matrixHumanSnapshot,
-        deviceApproval: { observe: vi.fn() },
-        unverifiedDevices: { observe: vi.fn() },
-        enrichAppBotDisplay: async (value: unknown) => value,
-        matrixApps: undefined,
-        publish: vi.fn((value: typeof state) => {
-          state = value
-        })
-      }
-      try {
-        const receive = mainCode('sdkSnapshot', context, true)
-        receive({}, { ...snapshot(), identity: newOwner, state: 'connecting' })
-        expect(context.publish).toHaveBeenCalledOnce() // swallowed callback errors cannot pass unnoticed
-        expect(abort.signal.aborted).toBe(false)
-        expect(context.stopListening).not.toHaveBeenCalled()
-        mainCode('reconcileLease', context)(agent)
-        expect(lease.held(executorId)?.signal).toBe(held.signal)
-        expect(held.signal.aborted).toBe(false)
-        expect(calls).toEqual(['acquire'])
-
-        // Even with a pending repair, real lifecycle evidence wins.
-        for (const ended of [
-          { ...state, state: 'signed_out', identity: null },
-          { ...state, error: 'matrix_sign_out_pending' },
-          { ...state, identity: { userId: '@other:test', deviceId: 'OTHER' } }
-        ]) {
-          expect(matrixOwnerRepairPreservesWork(repair, ended as never, false)).toBe(false)
-        }
-        expect(matrixOwnerRepairPreservesWork(repair, state as never, true)).toBe(false)
-        state = { ...state, state: 'signed_out' }
-        mainCode('reconcileLease', { ...context, state })(agent)
-        await vi.waitFor(() => expect(calls).toEqual(['acquire', 'release']))
-        expect(held.signal.aborted).toBe(true)
-        expect(lease.held(executorId)).toBeNull()
-      } finally {
-        finish()
-        await running
-        await lease.stop()
-      }
-    }
-  )
-})
-
 it('main resumes only the human host and clears old storage only after signed backup restore', async () => {
   const f = ipcFixture()
   const humanStop = vi.fn(async () => {})
   const agentStop = vi.fn()
   const state = snapshot()
+
   const hosts = new Map<string, { identity: typeof oldOwner; queue: { stop: typeof humanStop }; ready?: boolean }>([
     ['human', { identity: oldOwner, queue: { stop: humanStop } }],
     ['agent', { identity: { userId: '@agent:test', deviceId: 'AGENT' }, queue: { stop: agentStop }, ready: true }]
   ])
+
   const agentHost = hosts.get('agent')
   const account = f.account
+
   const context = {
     MatrixOwnerDeviceRepair,
     ownerDeviceRepair: undefined,
@@ -768,6 +664,7 @@ it('main resumes only the human host and clears old storage only after signed ba
     ensureAgentTrust: vi.fn(),
     publish: vi.fn()
   }
+
   const repair: MatrixOwnerDeviceRepair = mainCode('ownerRepairController', context)()
   expect(await repair.run()).toEqual({ state: 'resume_pending' })
   expect(humanStop).toHaveBeenCalledOnce()
@@ -786,7 +683,7 @@ it('main resumes only the human host and clears old storage only after signed ba
   expect(account.repairOwnerDevice).toHaveBeenCalledOnce()
   expect(context.clearDevice).toHaveBeenCalledExactlyOnceWith(oldOwner)
   expect(context.deviceLedger.forget).toHaveBeenCalledExactlyOnceWith(oldOwner)
-  expect(context.backgroundAgentTrust).toHaveBeenCalledOnce()
+  expect(context.backgroundAgentTrust).not.toHaveBeenCalled()
   expect(repair.snapshot(newOwner)).toBeUndefined()
   expect(repair.replacing(newOwner)).toBe(false)
 })
@@ -826,12 +723,14 @@ it('main silently enrolls at sign-in and publishes only reconnecting then ready 
 
 it('main queues the new account when an account switch races the previous enrollment flight', async () => {
   let finish!: (presence: { state: string }) => void
+
   const context = deviceReconcileContext(
     () =>
       new Promise(resolve => {
         finish = resolve
       })
   )
+
   const reconcile = mainCode('reconcileDeviceControl', context)
   const live = mainContexts.get(reconcile)!
   const first = reconcile()
@@ -853,6 +752,7 @@ it('main keeps a failed enrollment reconnecting and retries in the background', 
   const activate = vi.fn()
     .mockRejectedValueOnce(new Error('offline'))
     .mockResolvedValueOnce({ state: 'enrolled' })
+
   const context = deviceReconcileContext(activate)
   const reconcile = mainCode('reconcileDeviceControl', context)
   const live = mainContexts.get(reconcile)!

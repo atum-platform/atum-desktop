@@ -10,7 +10,7 @@ import {
   matrixLegacyCodexStore,
   migrateMatrixCodexAccounts
 } from './hermes-codex-migration'
-import { matrixAccountCodexScope, matrixHermesHome } from './hermes-runtime'
+import { matrixAccountCodexScope, matrixHermesHome } from './hermes-utilities'
 
 const roots: string[] = []
 

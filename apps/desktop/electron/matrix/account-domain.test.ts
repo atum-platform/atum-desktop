@@ -9,25 +9,19 @@ import { isDefinitiveCompanyRefusal } from '../../shared/matrix-company-team-spa
 import { EncryptedStore } from '../encrypted-store'
 
 import { MatrixAccount, type MatrixAccountHooks } from './account'
-import { MatrixAgentContent } from './agent-content'
-import { MatrixAgentRuntime } from './agent-runtime'
 import { authorizeNative, type NativeGrant } from './authorization'
 import { matrixConfigurationKey, parseMatrixConfig } from './config'
-import { MatrixContinuousListening } from './continuous-listening'
 import { ensureDomainAssistant, readDomainIdentity } from './domain'
 import type * as DomainModule from './domain'
 import type * as EnrollmentModule from './enrollment'
 import {
   MatrixEnrollmentRateLimited,
   requestAgentIdentity,
-  requestAppTurn,
   requestEnrollment,
   requestLease,
   requestLocalEnrollmentCapabilities
 } from './enrollment'
-import { MatrixGoogleFenceNotices } from './google-fence'
 import { MatrixExecutorLease } from './lease'
-import { matrixMainAgentContentTarget } from './main-agent-content'
 import { handleMatrixCompanyCommand } from './main-company'
 import { readMatrixAgentPresentation } from './main-enrollment'
 import { boundSdkConfiguration } from './sdk-host'
@@ -143,11 +137,14 @@ function fixture(connected = true, hooks?: MatrixAccountHooks) {
 it('keeps normal S1 budgets short but gives host Stop its 40-second deadline', async () => {
   const f = fixture()
   const timeout = vi.spyOn(AbortSignal, 'timeout')
+
   try {
     const send = vi.fn(async (_token: string, _resource: string, signal: AbortSignal) => {
       expect(signal.aborted).toBe(false)
+
       return 'received'
     })
+
     await expect(f.account.s1Request(send, new AbortController().signal)).resolves.toBe('received')
     expect(timeout).toHaveBeenCalledWith(15_000)
     timeout.mockClear()
@@ -304,33 +301,6 @@ describe('native Matrix app participant custody', () => {
     await restarted.close(async () => {})
     expect(f.read().apps).toEqual(retained)
     expect(f.clearAppDevice).not.toHaveBeenCalled()
-  })
-
-  it('withholds a late provider reply after withdrawal, without replaying it', async () => {
-    const f = appFixture()
-    await f.account.enrollApp(riverApp, true)
-    let finish!: (value: { text: string }) => void
-    vi.mocked(requestAppTurn).mockImplementationOnce(
-      async () =>
-        new Promise(resolve => {
-          finish = resolve
-        })
-    )
-
-    const input = {
-      text: 'current only',
-      mentionedUserIds: ['@river:test'],
-      invocationId: 'turn',
-      signal: new AbortController().signal,
-      deadlineAt: Date.now() + 30000
-    }
-
-    const pending = f.account.appTurn('river', input)
-    await vi.waitFor(() => expect(requestAppTurn).toHaveBeenCalledOnce())
-    await f.account.revokeApp('river')
-    finish({ text: 'Late response' })
-    await expect(pending).rejects.toThrow('matrix_invocation_cancelled')
-    expect(requestAppTurn).toHaveBeenCalledOnce()
   })
 
   it('coalesces one app while refusing a concurrent different version even before intent is stored', async () => {
@@ -646,10 +616,12 @@ describe('Matrix app resource authority', () => {
   })
   it('reads the optional look gallery with negotiation and treats 404 as not deployed', async () => {
     const { account } = fixture()
+
     const fetcher = vi
       .fn()
       .mockResolvedValueOnce(Response.json({ profile: 'atum.look-gallery/1', items: [] }))
       .mockResolvedValueOnce(Response.json({ error: 'not_found' }, { status: 404 }))
+
     vi.stubGlobal('fetch', fetcher)
 
     await expect(account.lookGalleryRequest()).resolves.toEqual({ profile: 'atum.look-gallery/1', items: [] })
@@ -671,9 +643,11 @@ describe('Matrix app resource authority', () => {
   it('uses the domain bearer for fixed app intake reads and one-shot submissions', async () => {
     const { account } = fixture()
     const status = { complete: false, missing: ['preferred_name'], fields: [{ name: 'preferred_name', type: 'text' }] }
+
     const fetcher = vi.fn()
       .mockResolvedValueOnce(Response.json(status))
       .mockResolvedValueOnce(Response.json({ complete: true, missing: [], fields: [] }))
+
     vi.stubGlobal('fetch', fetcher)
 
     await expect(account.appIntakeRequest('moon', 'read')).resolves.toEqual(status)
@@ -709,10 +683,12 @@ describe('Matrix app resource authority', () => {
   })
   it('keeps only a validated field name from an app intake rejection', async () => {
     const { account } = fixture()
+
     const fetcher = vi.fn(async () => Response.json(
       { error: { code: 'upstream_copy_must_not_escape' }, field: 'preferred_name' },
       { status: 400 }
     ))
+
     vi.stubGlobal('fetch', fetcher)
 
     await expect(account.appIntakeRequest('moon', 'submit', { preferred_name: 'Minh' })).rejects.toMatchObject({
@@ -722,12 +698,14 @@ describe('Matrix app resource authority', () => {
   })
   it('distinguishes an absent intake endpoint from transient non-JSON failures', async () => {
     const { account } = fixture()
+
     const fetcher = vi.fn()
       .mockResolvedValueOnce(Response.json({ error: 'not_found' }, { status: 404 }))
       .mockResolvedValueOnce(new Response('<html>gateway down</html>', {
         status: 503,
         headers: { 'content-type': 'text/html' }
       }))
+
     vi.stubGlobal('fetch', fetcher)
 
     await expect(account.appIntakeRequest('moon', 'read')).rejects.toMatchObject({
@@ -858,27 +836,7 @@ describe('Matrix app resource authority', () => {
     await rejected
     expect(fetcher).not.toHaveBeenCalled()
   })
-  it.each(['json', 'text'])('rejects late replies and keeps Hermes usable after an app-local %s 401', async format => {
-    const { account } = fixture()
-    const result = deferred<Response>()
-    const fetcher = vi.fn(() => result.promise)
-    vi.stubGlobal('fetch', fetcher)
-    const pending = account.appRequest({})
-    await vi.waitFor(() => expect(fetcher).toHaveBeenCalledOnce())
-    account.cancel()
-    result.resolve(Response.json({ apps: [] }))
-    await expect(pending).rejects.toThrow('cancelled')
-    fetcher.mockResolvedValueOnce(
-      format === 'json'
-        ? Response.json({ error: 'unauthorized' }, { status: 401 })
-        : new Response('Unauthorized', { status: 401 })
-    )
-    await expect(account.appRequest({})).rejects.toMatchObject({ code: 'account_unavailable' })
-    expect(account.appScope()).not.toBeNull()
-    expect(account.identity()?.userId).toBe('@alice:test')
-    fetcher.mockResolvedValueOnce(Response.json({ state: 'accepted' }))
-    await expect(account.invocation({ operation: 'recover' })).resolves.toEqual({ state: 'accepted' })
-  })
+
 })
 
 describe('local executor credential cleanup', () => {
@@ -1041,50 +999,6 @@ describe('persisted agent executor withdrawal', () => {
     expect(ensureDomainAssistant).not.toHaveBeenCalled()
     expect(f.open).not.toHaveBeenCalled()
     expect(f.read()).toEqual(withdrawn)
-  })
-
-  it('withdraws only the exact other-agent participant and leaves default custody usable', async () => {
-    const f = agentsFixture()
-    await f.account.enrollHermes()
-    const other = await f.account.enrollAgent(alfred)
-    f.account.retainHermesProfile('/fixture/alfred-profile', alfred)
-    const agent = new MatrixAgentRuntime(`agent:${alfred}`, alfred)
-    agent.assistantId = '00000000-0000-4000-8000-b454f82c5857'
-
-    const runtime = { source: '/unused/source', python: '/unused/python', profiles: directories.at(-1)! }
-
-    const source = {
-      defaultAgent: new MatrixAgentRuntime('agent'),
-      agents: new Map([[alfred, agent]]),
-      account: () => f.account,
-      runtime: () => runtime,
-      closing: () => false,
-      enrollment: () => f.account.agentEnrollment(alfred)
-    }
-
-    const content = new MatrixAgentContent({ log: vi.fn() })
-    const target = matrixMainAgentContentTarget(source, agent)!
-    expect(target.live()).toBe(true)
-    const before = f.read()
-    vi.mocked(requestLease).mockRejectedValueOnce(new Error('matrix_lease_denied'))
-
-    await expect(f.account.lease('acquire', other.identity!.executorId)).rejects.toThrow('matrix_lease_denied')
-    expect(f.read()).toEqual({
-      ...before,
-      agentEnrollments: {
-        ...before.agentEnrollments,
-        [alfred]: { ...before.agentEnrollments[alfred], state: 'withdrawn' }
-      }
-    })
-    expect(f.account.agentEnrollment(alfred)).toEqual({ state: 'withdrawn', identity: null })
-    expect(target.live()).toBe(false)
-    expect(matrixMainAgentContentTarget(source, agent)).toBeUndefined()
-    expect(content.view(matrixMainAgentContentTarget(source, agent))).toBeUndefined()
-    expect(() => f.account.agentSdkConfiguration({ agent: alfred })).toThrow('matrix_agent_unavailable')
-    expect(f.account.agentSdkConfiguration().accessToken).toBe('agent-only')
-    await expect(f.account.enrollAgent(alfred)).rejects.toThrow('matrix_enrollment_withdrawn')
-    expect(requestEnrollment).toHaveBeenCalledTimes(2)
-    expect(f.clearLocalHermes).not.toHaveBeenCalled()
   })
 
   it('correlates an acquire refusal to the authenticated replay grant after one401 refresh', async () => {
@@ -1606,42 +1520,6 @@ describe('domain credentials within the main-owned account', () => {
     await expect(pending).rejects.toThrow('matrix_invocation_cancelled')
   })
 
-  it('uses only the domain grant for the fixed invocation endpoint and never retries a mutation', async () => {
-    const { account } = fixture()
-
-    const request = vi.fn(
-      async () =>
-        new Response(JSON.stringify({ state: 'claimed' }), { headers: { 'Content-Type': 'application/json' } })
-    )
-
-    vi.stubGlobal('fetch', request)
-    expect(await account.invocation({ operation: 'claim' })).toEqual({ state: 'claimed' })
-    expect(request).toHaveBeenCalledWith(
-      'https://api.test/local-hermes/invocations',
-      expect.objectContaining({
-        method: 'POST',
-        redirect: 'error',
-        headers: { Authorization: 'Bearer domain-access', 'Content-Type': 'application/json' }
-      })
-    )
-    request.mockResolvedValueOnce(new Response('denied', { status: 401 }))
-    await expect(account.invocation({ operation: 'dispatch' })).rejects.toThrow('matrix_invocation_unavailable')
-    expect(request).toHaveBeenCalledTimes(2)
-    expect(oidc.refreshTokenGrant).not.toHaveBeenCalled()
-  })
-  it('rejects non-JSON and account-generation changes during invocation responses', async () => {
-    const { account } = fixture()
-    const request = vi.fn(async () => new Response('not JSON'))
-    vi.stubGlobal('fetch', request)
-    await expect(account.invocation({ operation: 'claim' })).rejects.toThrow('matrix_invocation_unavailable')
-    const response = deferred<Response>()
-    request.mockImplementation(() => response.promise)
-    const pending = account.invocation({ operation: 'claim' })
-    await vi.waitFor(() => expect(request).toHaveBeenCalledTimes(2))
-    account.cancel()
-    response.resolve(new Response('{}', { headers: { 'Content-Type': 'application/json' } }))
-    await expect(pending).rejects.toThrow('matrix_invocation_cancelled')
-  })
   it('uses the dedicated openid client and stores no new account identity or SDK token', async () => {
     const { account, read, open } = fixture(false)
     browserGrant(grant)
@@ -1681,14 +1559,7 @@ describe('domain credentials within the main-owned account', () => {
       vi.useRealTimers()
     }
   })
-  it('read-only recovery requires an existing grant and never starts a browser login', async () => {
-    const { account, open } = fixture(false)
-    await expect(account.readDomain(false)).rejects.toThrow('matrix_domain_connection_required')
-    await expect(account.invocation({ operation: 'recover' })).rejects.toThrow('matrix_domain_connection_required')
-    expect(open).not.toHaveBeenCalled()
-    expect(authorizeNative).not.toHaveBeenCalled()
-    expect(readDomainIdentity).not.toHaveBeenCalled()
-  })
+
   it('rejects and revokes the browser grant for another subject without linking or signing out Matrix', async () => {
     const { account, read } = fixture(false)
     browserGrant({ ...grant, subject: 'bob' })
@@ -2011,55 +1882,7 @@ describe('domain credentials within the main-owned account', () => {
     expect(() => account.enrollment()).toThrow('matrix_domain_signed_out')
     expect(authorizeNative).not.toHaveBeenCalled()
   })
-  it('lets listener shutdown reach real account cleanup after its domain grant is revoked', async () => {
-    const { account, store } = fixture()
-    await account.enrollHermes()
-    const maintenance = vi.fn(() => account.enrollment())
-    const publication = vi.fn(() => void readMatrixAgentPresentation(Boolean(account.appScope()), maintenance))
 
-    const listening = new MatrixContinuousListening({
-      store,
-      listener: () => undefined,
-      stop: () => {},
-      context: () => ({ state: 'waiting', reason: 'unavailable' }),
-      arm: async () => {
-        throw new Error('unexpected listener admission')
-      },
-      changed: publication
-    })
-
-    listening.disable()
-    expect(publication).toHaveBeenCalled()
-    expect(maintenance.mock.results.at(-1)?.value.state).toBe('ready')
-    publication.mockClear()
-    maintenance.mockClear()
-    vi.mocked(readDomainIdentity).mockResolvedValueOnce(null)
-    vi.mocked(oidc.refreshTokenGrant).mockRejectedValueOnce(
-      new oidc.ResponseBodyError('invalid_grant', {
-        cause: { error: 'invalid_grant' },
-        response: new Response('', { status: 400 })
-      })
-    )
-    await expect(account.readDomain()).rejects.toThrow('matrix_domain_signed_out')
-    const retained = store.getItem('matrix-account')
-    // The unguarded publication read reproduces the installed exception.
-    expect(maintenance).toThrow('matrix_domain_signed_out')
-    maintenance.mockClear()
-    expect(() => listening.disable()).not.toThrow()
-    expect(publication).toHaveBeenCalled()
-    expect(maintenance).not.toHaveBeenCalled()
-    expect(store.getItem('matrix-account')).toBe(retained)
-    publication.mockClear()
-    await account.signOut(async () => {
-      listening.disable()
-    })
-    expect(publication).toHaveBeenCalled()
-    expect(store.getItem('matrix-account')).toBeNull()
-    expect(store.getItem('matrix-revocations')).toBeNull()
-    expect(listening.enabled).toBe(false)
-    expect(maintenance).not.toHaveBeenCalled()
-    expect(authorizeNative).not.toHaveBeenCalled()
-  })
   it('closes both grants durably before remote logout, preserving pending cleanup on failure', async () => {
     const { account, read, store } = fixture()
     vi.mocked(oidc.tokenRevocation).mockRejectedValueOnce(new Error('network'))
@@ -3609,43 +3432,6 @@ describe('signing in again over an ended session ', () => {
   })
 })
 
-describe('a failing Google fence (the 2026-10-04 log flood)', () => {
-  it('never revokes, ends or clears a sign-in: it only reads who is signed in', async () => {
-    const { account, store } = fixture()
-    const retained = store.getItem('matrix-account')
-    const host = {}
-
-    // Main's owner for the fence (googleFenceOwner): who is signed in, read and nothing more.
-    const owner = () => {
-      const signedIn = account.identity()
-      const scope = account.appScope()
-
-      return signedIn && scope ? { ...scope, identity: signedIn, host } : null
-    }
-
-    const brain = {
-      ready: () => true,
-      call: vi.fn(async () => {
-        throw new Error('rpc_failed')
-      })
-    }
-
-    const fence = new MatrixGoogleFenceNotices(brain, owner)
-
-    // The mini logged about eighteen a minute for three hours.
-    for (let since = 1; since <= 18; since++) {
-      await expect(fence.observe({ state: 'current', since })).rejects.toBeTruthy()
-    }
-
-    expect(brain.call).toHaveBeenCalled()
-    expect(store.getItem('matrix-account')).toBe(retained)
-    expect(account.identity()).toEqual({ userId: '@alice:test', deviceId: 'A' })
-    expect(account.appScope()).not.toBeNull()
-    expect(oidc.refreshTokenGrant).not.toHaveBeenCalled()
-    expect(oidc.tokenRevocation).not.toHaveBeenCalled()
-  })
-})
-
 describe('every way this Mac ends or revokes a sign-in names its cause in main.log', () => {
   const refused = () =>
     new oidc.ResponseBodyError('invalid_grant', { cause: { error: 'invalid_grant' }, response: new Response('', { status: 400 }) })
@@ -4245,9 +4031,11 @@ describe('company authority account fence', () => {
     const input = { action: 'leave' as const, companyId, requestId }
     const revoking = { schemaVersion: 2, companyId, state: 'revoking', retired: false, authorityGeneration: 2 }
     const removed = { ...revoking, state: 'removed', authorityGeneration: 3 }
+
     const request = vi.fn()
       .mockImplementationOnce(async () => json(revoking))
       .mockImplementationOnce(async () => json(removed))
+
     vi.stubGlobal('fetch', request)
     await expect(f.account.company(input, AbortSignal.timeout(2000))).resolves.toEqual(revoking)
     expect(f.account.companyPending()).toEqual(input)
@@ -4270,19 +4058,24 @@ describe('company authority account fence', () => {
     const f = fixture()
     const projectId = '00000000-0000-4000-8000-072e4e6126bd'
     const channelId = '00000000-0000-4000-8000-676a3a34ff0f'
+
     const empty = { schemaVersion: 1, companyId, projectId, authorityGeneration: 2, sourceGeneration: 0,
       eligibleChannels: [{ channelId, displayName: 'Launch', state: 'ready' }], eligibleFiles: [], sources: [],
       coverage: { state: 'empty' } }
+
     const selected = { ...empty, sourceGeneration: 1, coverage: { state: 'pending' }, sources: [{
       id: '00000000-0000-4000-8000-6964221939c9', kind: 'channel', state: 'active', channelId,
       enrolledAt: '2026-10-15T10:00:00+00:00', withdrawnAt: null
     }] }
+
     const input = { action: 'include-project-channel-source' as const, companyId, projectId, requestId,
       channelId, expectedSourceGeneration: 0 }
+
     const request = vi.fn()
       .mockResolvedValueOnce(json(empty))
       .mockRejectedValueOnce(new Error('lost response'))
       .mockResolvedValueOnce(json(selected))
+
     vi.stubGlobal('fetch', request)
 
     await expect(f.account.company({ action: 'project-sources', companyId, projectId }, AbortSignal.timeout(2000)))
@@ -4298,9 +4091,11 @@ describe('company authority account fence', () => {
   it('keeps receipt-derived project reader status outside the mutation journal', async () => {
     const f = fixture()
     const projectId = '00000000-0000-4000-8000-072e4e6126bd'
+
     const status = {schemaVersion: 2, companyId, projectId, authorityGeneration: 2, sourceGeneration: 1,
       coverage: {state: 'pending'}, sources: [{sourceId: '00000000-0000-4000-8000-6964221939c9',
         kind: 'channel', state: 'active', channelId: '00000000-0000-4000-8000-676a3a34ff0f', receiptState: 'none'}]}
+
     const request = vi.fn().mockResolvedValueOnce(json(status))
     vi.stubGlobal('fetch', request)
 
@@ -4337,9 +4132,9 @@ describe('company authority account fence', () => {
     expect(restarted.companyPending()).toBeNull()
   })
 
-
   describe('a typed add or email-invite 429 (the platform records nothing)', () => {
     const team = '00000000-0000-4000-8000-3570bef6c8ca'
+
     const status = (code: number, body: unknown, headers: Record<string, string> = {}) =>
       new Response(JSON.stringify(body), { status: code, headers: { 'Content-Type': 'application/json', ...headers } })
 
@@ -4380,9 +4175,11 @@ describe('company authority account fence', () => {
     ) => {
       const f = fixture()
       const bridge = bridgeFor(f.account)
+
       const request = vi.fn()
         .mockResolvedValueOnce(status(429, refusal, { 'Retry-After': '1200' }))
         .mockResolvedValueOnce(status(200, success))
+
       vi.stubGlobal('fetch', request)
 
       const first = build('00000000-0000-4000-8000-eb8abd3c16e2')
@@ -4601,10 +4398,13 @@ describe('company file account fence and encrypted recovery', () => {
   const roomId = '!launch:atum.example'
   const sha256 = 'a'.repeat(64)
   const transactionId = `atum-cf-${requestId}`
+
   const file = { v: 1, company_id: companyId, channel_id: channelId, file_id: fileId, revision: 1,
     name: 'brief.pdf', content_type: 'application/pdf', size: 1048576, sha256 }
+
   const pending = { schemaVersion: 1 as const, phase: 'writing' as const, requestId, companyId, channelId, roomId,
     name: file.name, contentType: file.content_type, size: file.size, sha256, transactionId, fileId, revision: 1 as const }
+
   const status = () => new Response(JSON.stringify({ schemaVersion: 1, state: 'ready', requestId, file,
     resource: { storage: 'storage-users-1', space: '00000000-0000-4000-8000-e49db4f83c68', opaque: '00000000-0000-4000-8000-3850afc27747' },
     etag: '"team-space-v1"' }), { headers: { 'Content-Type': 'application/json' } })
@@ -4671,11 +4471,14 @@ describe('company file account fence and encrypted recovery', () => {
 
   it('refreshes a refused company-file platform token once and then replays the exact request', async () => {
     const f = fixture()
+
     const reserved = { schemaVersion: 1, state: 'reserved', requestId, file, serverUrl: 'https://drive.atumplatform.com',
       uploadGrant: { token: 'A'.repeat(43), expiresAtMs: 1791878400000 } }
+
     const request = vi.fn().mockResolvedValueOnce(new Response('', { status: 401 })).mockResolvedValueOnce(
       new Response(JSON.stringify(reserved), { headers: { 'Content-Type': 'application/json' } })
     )
+
     vi.stubGlobal('fetch', request)
     vi.mocked(oidc.refreshTokenGrant).mockResolvedValue({ access_token: 'rotated', refresh_token: 'rotated-refresh' } as never)
     await expect(f.account.companyFile({ action: 'reserve', companyId, channelId, requestId, name: file.name,

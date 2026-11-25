@@ -4,7 +4,7 @@ import path from 'node:path'
 
 import { afterEach, expect, it } from 'vitest'
 
-import { forgetMatrixAccountCodex, matrixAccountCodexScope } from './hermes-runtime'
+import { forgetMatrixAccountCodex, matrixAccountCodexScope } from './hermes-utilities'
 import { readMatrixPlanAcknowledgment, saveMatrixPlanAcknowledgment } from './plan-acknowledgment'
 
 const roots: string[] = []

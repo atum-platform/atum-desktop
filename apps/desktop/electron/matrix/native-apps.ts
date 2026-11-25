@@ -8,7 +8,7 @@ import type { NativeAppInventory } from '../native-app-inventory'
 import type { NativeAppsController } from '../native-apps'
 
 import type { MatrixAgentRuntime } from './agent-runtime'
-import type { MatrixHermesConnection, MatrixHermesRuntimeConfig } from './hermes-runtime'
+import type { MatrixHermesConnection, MatrixHermesRuntimeConfig } from './hermes-utilities'
 
 export interface MatrixNativeAppSource {
   authority(): string

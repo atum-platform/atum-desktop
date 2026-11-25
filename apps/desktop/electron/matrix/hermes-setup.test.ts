@@ -3,8 +3,6 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { MATRIX_NARRATION_DISPLAY } from '../../shared/matrix-turn-style'
 import { ATUM_APPROVALS_DEFAULT_MODE } from '../atum-approval-default'
 
-import { type MatrixCloudAgentMacRole, matrixCloudAgentNeedsLocalReadiness } from './cloud-agent-placement'
-import type { MatrixHermesConnection } from './hermes-runtime'
 import {
   applyMatrixFullHermes,
   applyMatrixManagedDefaults,
@@ -21,6 +19,7 @@ import {
   parseMatrixHermesModel,
   prepareMatrixHermesModel
 } from './hermes-setup'
+import type { MatrixHermesConnection } from './hermes-utilities'
 
 const value = { baseUrl: 'https://models.example/v1', model: 'provider/model', apiKey: 'test-key' }
 const signal = () => new AbortController().signal
@@ -63,31 +62,7 @@ describe('Hermes-owned setup', () => {
 
     expect(model).toEqual({ provider: 'openai-codex', default: 'owner-model', context_length: 196_608 })
   })
-  it.each(['standby', 'answering'] as MatrixCloudAgentMacRole[])(
-    'falls back to the managed model without a setup block for an unsigned plan on a %s runtime', async role => {
-      const f = fixture()
-      let ready = false
-      f.request.mockImplementation(async (method: string) => {
-        if (method === 'config.get') {
-          return { config: { model: { provider: 'openai-codex', default: 'owner-model' } } }
-        }
 
-        return method === 'setup.runtime_check' ? { ok: ready } : { ready: true }
-      })
-      f.api.mockImplementation(async () => { ready = true })
-
-      expect(matrixCloudAgentNeedsLocalReadiness({ cloudRoute: true, role })).toBe(true)
-      expect(await prepareMatrixHermesModel(f.connection, value, signal())).toEqual({
-        ownModel: false,
-        readiness: { state: 'ready' }
-      })
-      expect(f.api).toHaveBeenCalledWith(
-        '/api/providers/custom-endpoints',
-        expect.objectContaining({ id: MATRIX_MANAGED_ENDPOINT.id, make_default: true })
-      )
-      expect(matrixSetupBlock({ setup: undefined, planSignIn: false, enrolled: true })).toBeUndefined()
-    }
-  )
   it('repairs a managed profile and initializes a fresh one, not a failed own-provider selection', async () => {
     for (const provider of ['auto', MATRIX_MANAGED_ENDPOINT.id]) {
       const f = fixture()

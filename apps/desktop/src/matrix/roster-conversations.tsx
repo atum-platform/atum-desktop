@@ -32,7 +32,6 @@ import { matrixAgentAccessEnded, useMatrixCloudAccess } from './cloud-access'
 import { useConversationCopy } from './conversation-copy'
 import { resolveProjectedConversation } from './conversation-marker'
 import { useMatrixCopy } from './copy'
-import { executionPolicyAvailability, executionPolicyRosterLine } from './execution-policy-trigger'
 import { FounderAvatar } from './founder/founder-avatar'
 import { useFounderCopy } from './founder/founder-copy'
 import { $founderDraftOpen, closeFounderDraft, openFounderDraft, openFounderProfile } from './founder/founder-store'
@@ -604,20 +603,6 @@ export function matrixAgentDot(
   // Mirror `agentStatus`'s cloud exemption: the dot follows the destination that answers, never
   // this Mac's runtime. Grey only when no destination can take a turn (paused, or all down).
   if (agent.answering === 'cloud' && agent.macRole !== 'answering') {
-    const availability = executionPolicyAvailability(agent.executionPolicy)
-
-    if (availability === 'paused') {
-      return { dot: 'off', label: matrixAgentAccessPausedLabel(locale) }
-    }
-
-    if (availability === 'unavailable') {
-      return { dot: 'off', label: shell.agentDotUnreachable }
-    }
-
-    // `unknown` is a stale cache or no status yet, never a fact that the agent is down: the
-    // availability contract (`executionPolicyAvailability`) says unknown is never "down" and the
-    // title bar paints its own muted loading icon for the same state. The dot stays green rather
-    // than claiming a paused or unreachable agent from an absent fact.
     return { dot: 'live', label: shell.agentDotReady }
   }
 
@@ -853,17 +838,6 @@ export function matrixAgentStatusLine(
 
       case 'device_replaced':
         return words.signInAgainShort
-    }
-  }
-
-  // A standby Mac is not "not ready" while the policy answers elsewhere (§9.6). A specific
-  // readiness reason above still wins: it says what this Mac needs, which stays true. So does an
-  // error with a retry button: the button and a line saying it answers fine would disagree.
-  if (status === 'agentUnavailable' && agent.executionPolicy && !offersRetry) {
-    const answersElsewhere = executionPolicyRosterLine(locale, agent.executionPolicy, cloudOnly)
-
-    if (answersElsewhere) {
-      return answersElsewhere
     }
   }
 

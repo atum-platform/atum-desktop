@@ -16,8 +16,8 @@ import {
   phoneSettingsCopy
 } from '../../shared/matrix-settings-revamp-copy'
 
+import { scenarioSnapshot } from './__fixtures__/fixtures'
 import { $assistantCard } from './assistant-card/store'
-import { scenarioSnapshot } from './playground/fixtures'
 import {
   normalizeMatrixSettingsPane,
   settingsLocalRuntimeControlsShown,

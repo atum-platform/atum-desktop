@@ -5,8 +5,6 @@ import { $accountConnect, $accountConnections, resetAccountConnectionsForTest } 
 import { $work, $workActive, resetWorkStoreForTests } from '@/app/work/store'
 import { I18nProvider } from '@/i18n'
 
-import ownerSnapshotFixture from '../../contracts/atum-agent-home-v2.5/fixtures/owner.placement.snapshot.json'
-import { ownerHomeViewFor } from '../../electron/matrix/agent-home-placement/view'
 import { ACCOUNT_CONNECTIONS_FIXTURE } from '../../shared/account-connections'
 import type {
   MatrixAgentHomeBridge,
@@ -1036,43 +1034,7 @@ describe('the thinking column only where a level can be chosen', () => {
       )
     )
   })
-  it('clears a refused home effort and waits for the saved effort projection independently of conversation effort', async () => {
-    const multi = { ...CLOUD_NGUYET, efforts: ['low', 'medium', 'high'] as const }
-    const home = cloudHome(multi)
-    home.placement!.destinations = home.placement!.destinations.map(destination => ({
-      ...destination, models: destination.models.map(option => option.model === multi.model ? multi : option)
-    }))
 
-    const model = vi.fn().mockResolvedValueOnce({ status: 'refused', reason: 'connection_unavailable' })
-      .mockResolvedValue({ status: 'saved' })
-
-    const view = picker(ROOM, {
-      agentPrincipal: 'agent-luna', home, managed: true, cloud: true, local: true, here: 'cloud',
-      cloudChoice: { offered: ['nguyet-thuc'], current: 'nguyet-thuc', effort: 'low',
-        models: [{ alias: 'nguyet-thuc', efforts: ['low', 'high'] }] },
-      bridge: { agentHome: homeBridge(model) }
-    })
-
-    const card = await open('Model: Nguyệt Thực 1.3')
-    const high = () => card.querySelector<HTMLButtonElement>('[data-matrix-model-effort-level="high"]')!
-    fireEvent.click(high())
-    await waitFor(() => expect(view.fail).toHaveBeenCalledOnce())
-    expect(high().disabled).toBe(false)
-    fireEvent.click(high())
-    await waitFor(() => expect(model).toHaveBeenCalledTimes(2))
-    expect(high().disabled).toBe(true)
-    expect(view.command).not.toHaveBeenCalled()
-
-    const refreshedHome = ownerHomeViewFor(cloudHome(multi), {
-      snapshot: ownerSnapshotFixture as Parameters<typeof ownerHomeViewFor>[1]['snapshot'], catalogs: {}
-    }, null, null, { source: 'atum', model: multi.model, effort: 'high' }, [
-      { alias: multi.model, efforts: multi.efforts, defaultEffort: 'medium', eligible: true }
-    ])
-
-    view.rerender(ROOM, { home: refreshedHome })
-    await waitFor(() => expect(high().disabled).toBe(false))
-    expect(high().getAttribute('aria-checked')).toBe('true')
-  })
 
 })
 

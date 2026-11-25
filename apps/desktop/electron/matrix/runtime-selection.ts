@@ -6,7 +6,7 @@ import path from 'node:path'
 import { BUNDLED_PYTHON_VERSION, bundledRuntimeLayout, cleanupVerifiedBundledRuntime, resolveBundledHermesRuntime } from '../bundled-runtime'
 import { resolveSharedAuthDirEnv } from '../hermes-home'
 
-import { type MatrixHermesRuntimeConfig, readMatrixHermesRuntime } from './hermes-runtime'
+import { type MatrixHermesRuntimeConfig, readMatrixHermesRuntime } from './hermes-utilities'
 
 /** Reuse the verified bundle's existing Node payload; no second runtime or Electron Node mode. */
 export function selectMatrixLocalBrainProcess(packaged: boolean, runtime?: MatrixHermesRuntimeConfig):

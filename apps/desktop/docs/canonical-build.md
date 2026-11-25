@@ -18,9 +18,8 @@ to public Atum services; it does not supply credentials. For a separate service,
 build and run `electron dist-matrix --matrix-config=/absolute/path/dev-config.json`
 from `apps/desktop`. `npm run preview --workspace apps/desktop` serves the built
 `dist-matrix` renderer (without the Electron capability bridge).
-There is no alternate legacy Electron target or hot-reload authority. For fixture UI iteration, run Vite from
-the desktop workspace and open `/matrix-playground.html`. Playground source is
-retained but excluded from the shipped renderer.
+There is no alternate legacy Electron target or hot-reload authority. Renderer
+tests use the fixtures under `src/matrix/__fixtures__`.
 
 The build includes Matrix chat, management pages, pet overlay, SDK, all Matrix
 preloads and the Work sidecar preload. Its module manifests reject legacy
@@ -59,7 +58,7 @@ node apps/desktop/scripts/legacy-dependency-closure.mjs matrix-closure.json
 It starts at Matrix HTML/native entries and retained scripts, then conservatively
 protects surviving presentation/type imports. Test-only Matrix fixtures and the
 recovery/update suites remain. Candidates are inventoried, never auto-deleted.
-Legacy Electron E2E/performance/installer harnesses were removed with their
-retired target; the existing Matrix playground proof scripts remain. Signed
+Legacy Electron E2E, performance, and installer harnesses were removed with their
+retired target. The playground and its dependent proofs were removed in the cloud-agent cutover. Signed
 install, upgrade, hardware recovery and installed-client HTTP route usage are
 separate acceptance work, not inferred from this source closure.

@@ -14,7 +14,6 @@ const bundled = [{ name: 'matrix-js-sdk', version: '42.4.0' }]
 const dependencies = () => ({
   readStamp: vi.fn(() => ({ commit, dirty: false })),
   stage: vi.fn(() => ({ identity: { runtimeCommit: commit }, hermes: { dirtyCheckoutIgnored: false } })),
-  stageBrain: vi.fn(async () => ({})),
   stageDrive: vi.fn(() => ({})),
   auditRuntime: vi.fn(async () => ({ issues: [] })),
   assertRuntimePolicy: vi.fn(),
@@ -74,11 +73,6 @@ describe('Matrix-only runtime staging', () => {
       environment: process.env,
       outputPath: '/fixture/output/Atum Matrix Candidate.app/Contents/Resources/atum-desktop-services.json'
     })
-    expect(deps.stageBrain).toHaveBeenCalledWith({
-      targetRoot: '/fixture/output/Atum Matrix Candidate.app/Contents/Resources/local-brain',
-      platform: 'darwin',
-      arch: 'arm64'
-    })
     // A fresh install opens on the production endpoints carried in Resources (AC1).
     expect(deps.stagePublicConfig).toHaveBeenCalledWith({
       resources: '/fixture/output/Atum Matrix Candidate.app/Contents/Resources'
@@ -99,9 +93,8 @@ describe('Matrix-only runtime staging', () => {
     expect(deps.readBundled).toHaveBeenCalledWith(resources)
     expect(deps.writeNotices).toHaveBeenCalledWith({ resources, electronVersion: '40.10.2', bundled })
     expect(deps.assertNotices).toHaveBeenCalledWith({ resources })
-    // After the engine and the local brain are staged, so the notice covers them.
+    // After the engine is staged, so the notice covers them.
     expect(deps.writeNotices.mock.invocationCallOrder[0]).toBeGreaterThan(deps.stageDrive.mock.invocationCallOrder[0])
-    expect(deps.writeNotices.mock.invocationCallOrder[0]).toBeGreaterThan(deps.stageBrain.mock.invocationCallOrder[0])
     expect(deps.assertNotices.mock.invocationCallOrder[0]).toBeGreaterThan(deps.writeNotices.mock.invocationCallOrder[0])
   })
   it('refuses a bundle whose notice is missing or incomplete before recording service configuration', async () => {
@@ -172,13 +165,7 @@ describe('Matrix-only runtime staging', () => {
     await expect(matrixAfterPack(context, deps)).rejects.toThrow('drive_engine_package_invalid')
     expect(deps.writeServicesConfig).not.toHaveBeenCalled()
   })
-  it('refuses packaging when the pinned local-brain resource cannot be staged', async () => {
-    const deps = dependencies()
-    deps.stageBrain.mockRejectedValue(new Error('local_brain_package_invalid'))
-    await expect(matrixAfterPack(context, deps)).rejects.toThrow('local_brain_package_invalid')
-    expect(deps.writeServicesConfig).not.toHaveBeenCalled()
-  })
-  it('refuses a staged restricted runtime before local-brain staging or signing can continue', async () => {
+  it('refuses a staged restricted runtime before signing can continue', async () => {
     const deps = dependencies()
     const inventory = {
       schema: RUNTIME_LICENSE_INVENTORY_SCHEMA,
@@ -190,7 +177,6 @@ describe('Matrix-only runtime staging', () => {
     await expect(matrixAfterPack(context, deps)).rejects.toThrow('packaged_restricted_skill')
     expect(deps.stage).toHaveBeenCalledTimes(1)
     expect(deps.stageDrive).not.toHaveBeenCalled()
-    expect(deps.stageBrain).not.toHaveBeenCalled()
     expect(deps.writeServicesConfig).not.toHaveBeenCalled()
   })
   it.each([

@@ -3,11 +3,11 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { I18nProvider } from '@/i18n'
 
+import { playgroundCompanyDesktopAdapter } from './__fixtures__/company-ai-fixtures'
+import { TEAM_COMPANY_ID } from './__fixtures__/team-space-fixtures'
 import type { CompanyDesktopAdapter } from './company-desktop-adapter'
 import { CompanyWalletDrawer } from './company-wallet'
 import { companyFundProtons } from './company-wallet-fund'
-import { playgroundCompanyDesktopAdapter } from './playground/company-ai-fixtures'
-import { TEAM_COMPANY_ID } from './playground/team-space-fixtures'
 
 function install(adapter: CompanyDesktopAdapter) {
   ;(window as unknown as { atumMatrix: unknown }).atumMatrix = { companyDesktop: adapter }

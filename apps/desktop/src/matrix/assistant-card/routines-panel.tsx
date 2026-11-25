@@ -28,8 +28,6 @@ import type {
 } from '../../../shared/agent-routines'
 import { matrixRoutineTitle } from '../../../shared/agent-routines'
 import type { MatrixAgentView } from '../../../shared/matrix'
-import { executionMachineName } from '../execution-machines-copy'
-import { executionPolicyTrigger } from '../execution-policy-trigger'
 
 import type { AssistantCardCopy } from './copy'
 import {
@@ -180,24 +178,8 @@ function routineErrorCopy(error: MatrixRoutineError): 'failure' | 'conflict' | '
 
 /** Where the assistant answers now, said the same way the card's Nơi trả lời row says it:
  * the policy's current destination when known, else the cloud/local route this Mac holds. */
-function routineRunsOn(agent: MatrixAgentView, locale: string, copy: AssistantCardCopy): string {
-  const view = agent.executionPolicy
-
-  if (view) {
-    const trigger = executionPolicyTrigger(locale, view)
-
-    if (trigger.kind === 'destination') {
-      return executionMachineName(locale, trigger.destination, view.deviceNames)
-    }
-  }
-
-  if (matrixRoutineRunsInCloud(agent)) {
-    return copy.routineCloudPlace
-  }
-
-  const thisMac = view?.deviceNames ? Object.values(view.deviceNames).find(device => device.thisMac) : undefined
-
-  return thisMac?.displayName ?? copy.routineThisMac
+function routineRunsOn(agent: MatrixAgentView, copy: AssistantCardCopy): string {
+  return matrixRoutineRunsInCloud(agent) ? copy.routineCloudPlace : copy.routineThisMac
 }
 
 /** Every assistant card's scheduled tasks: the row ("3 việc" / "Chưa có") and its in-card
@@ -663,7 +645,7 @@ export function RoutinesRow({
   const quota = routineCount >= MAX_ROUTINES
   const addable = legacy === 'clear' && !quota
   const runsInCloud = matrixRoutineRunsInCloud(agent)
-  const runsOnPlace = routineRunsOn(agent, locale, copy)
+  const runsOnPlace = routineRunsOn(agent, copy)
 
   return (
     <>

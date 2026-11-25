@@ -9,10 +9,8 @@ import { $bindings, resetAllBindings, setBinding } from '@/store/keybinds'
 
 import { assistantRooms } from '../../electron/matrix/assistant-policy'
 import type { AppDescriptor } from '../../shared/app-catalog'
-import type { MatrixExecutionPolicyBridge } from '../../shared/execution-policy'
 import {
   MATRIX_MAX_FILE_BYTES,
-  type MatrixAgentHomeBridge,
   type MatrixAgentView,
   type MatrixAppMenu,
   type MatrixHermesPrompt,
@@ -40,6 +38,7 @@ import { MATRIX_NOTES_SELF_ROOM_TYPE } from '../../shared/matrix-notes-self'
 import type { MatrixPagesBridge } from '../../shared/matrix-pages'
 import type { MatrixPermissionsSnapshot } from '../../shared/matrix-permissions'
 
+import { COMPANY_AI_ANSWER_FIXTURE, playgroundCompanyDesktopAdapter } from './__fixtures__/company-ai-fixtures'
 import { MatrixApp } from './app'
 import { $assistantCard, $assistantNameOverrides, openAssistantCard } from './assistant-card'
 import { ATUM_LINKS } from './atum-links'
@@ -59,7 +58,6 @@ import { resetMatrixGoogleNudgeDismissals } from './google-connection-settings'
 import { $matrixLastChatByAccount } from './last-chat'
 import { $outgoingEchoes } from './outgoing-echo'
 import { matrixHandleAccount, rememberMatrixHandle, resetMatrixHandlesForTest } from './person-handles'
-import { COMPANY_AI_ANSWER_FIXTURE, playgroundCompanyDesktopAdapter } from './playground/company-ai-fixtures'
 import { setMatrixRightPanel } from './right-panel'
 import { normalizeMatrixSettingsPane, settingsPageOf } from './settings-revamp'
 import { MATRIX_LAUNCH_HOLD_MS } from './startup-screen'
@@ -10324,223 +10322,7 @@ describe('the local assistant path (plan 2026-09-26-reliable-local-first-chat)',
     expect(bridge.sendTurn).not.toHaveBeenCalled()
   })
 
-  describe('the title bar’s placement control', () => {
-    const principal = '00000000-0000-4000-8000-bd7662a5eeb4'
-    const MAC_A = 'mac:00000000-0000-4000-8000-b454f82c5857' as const
-    const MAC_B = 'mac:00000000-0000-4000-8000-f6222a1106ee' as const
 
-    /** The main assistant with a saved policy over `order` (every destination ready). */
-    function withPolicy(order: Array<'cloud' | typeof MAC_A | typeof MAC_B>) {
-      const base = promotedMainSnapshot()
-
-      const policy = {
-        profile: 'atum.execution-policy/1' as const,
-        agentPrincipal: principal,
-        revision: 2,
-        source: 'saved' as const,
-        order,
-        disabled: []
-      }
-
-      const status = {
-        profile: 'atum.execution-status/1' as const,
-        agentPrincipal: principal,
-        policyRevision: 2,
-        asOf: 10,
-        state: 'idle' as const,
-        current: null,
-        desired: 'cloud' as const,
-        order,
-        disabled: [],
-        destinations: Object.fromEntries(order.map(id => [id, { state: 'ready' as const, observedAt: 9 }]))
-      } as never
-
-      const snapshot: MatrixSnapshot = {
-        ...base,
-        roomId: '!main:test',
-        agents: base.agents?.map(agent =>
-          agent.principal === 'main'
-            ? { ...agent, principal, executionPolicy: { policy, status, stale: false } }
-            : agent
-        ),
-        rooms: base.rooms.map(room => (room.id === '!main:test' ? { ...room, agentPrincipal: principal } : room))
-      }
-
-      const executionPolicy: MatrixExecutionPolicyBridge = {
-        read: vi.fn(async () => ({ policy, status, stale: false })),
-        save: vi.fn<MatrixExecutionPolicyBridge['save']>(async (_agentPrincipal, update) => ({
-          ok: true as const,
-          value: { ...policy, revision: 3, order: update.order, disabled: update.disabled }
-        }))
-      }
-
-      return { executionPolicy, snapshot }
-    }
-
-    const migratedHome = (): NonNullable<MatrixAgentView['home']> => ({
-      lives: { kind: 'cloud' },
-      move: null,
-      targets: [{ id: MAC_A.slice(4), name: 'Mac mini' }],
-      issue: null,
-      placement: {
-        profile: 'atum.agent-home/2.5',
-        moveAvailable: true,
-        current: 'cloud',
-        reachability: 'reachable',
-        modelStatus: 'applied',
-        destinations: [
-          { id: 'cloud', kind: 'cloud', name: '', thisMac: false, eligibility: 'ready', catalogRevision: 0, models: [] },
-          {
-            id: MAC_A.slice(4),
-            kind: 'mac',
-            name: 'Mac mini',
-            thisMac: false,
-            eligibility: 'ready',
-            catalogRevision: 1,
-            models: []
-          }
-        ]
-      }
-    })
-
-    it('hides the legacy execution-policy control under cloud-only even with multiple Macs', async () => {
-      const { executionPolicy, snapshot } = withPolicy(['cloud', MAC_A, MAC_B])
-      const { bridge, emit } = fixture(undefined, 'en', undefined, undefined, undefined, undefined, undefined, {}, true)
-      bridge.executionPolicy = executionPolicy
-      emit(snapshot)
-
-      await screen.findByRole('textbox', { name: COMPOSER })
-      expect(document.querySelector('[data-matrix-chat-subtitle]')).toBeNull()
-      expect(document.querySelector('[data-matrix-execution-policy]')).toBeNull()
-      expect(screen.queryByRole('button', { name: /About to answer on|Answering on/ })).toBeNull()
-      expect(executionPolicy.read).not.toHaveBeenCalled()
-    })
-
-    it('composes the strict execution-policy machine control with cloud-only switched off', async () => {
-      const { executionPolicy, snapshot } = withPolicy(['cloud', MAC_A, MAC_B])
-      const { bridge, emit } = fixture(undefined, 'en', undefined, undefined, undefined, undefined, undefined, {}, false)
-      bridge.executionPolicy = executionPolicy
-      emit(snapshot)
-
-      expect(document.querySelector('[data-matrix-chat-subtitle]')).toBeNull()
-      fireEvent.click(await screen.findByRole('button', { name: 'About to answer on Cloud' }))
-      expect(await screen.findByRole('heading', { name: 'Where this assistant answers' })).toBeTruthy()
-      expect(executionPolicy.read).toHaveBeenCalledExactlyOnceWith(principal)
-    })
-
-    it('hides the settled cloud home icon while keeping both native bridges idle', async () => {
-      const { executionPolicy, snapshot } = withPolicy(['cloud', MAC_A, MAC_B])
-      const home = migratedHome()
-
-      const migrated: MatrixSnapshot = {
-        ...snapshot,
-        agents: snapshot.agents?.map(agent => {
-          if (agent.principal !== principal) {
-            return agent
-          }
-
-          const legacy = agent.executionPolicy!
-
-          return {
-            ...agent,
-            home,
-            executionPolicy: {
-              ...legacy,
-              status: {
-                ...legacy.status!,
-                destinations: {
-                  ...legacy.status!.destinations,
-                  [MAC_A]: { state: 'offline', reason: 'not_present', observedAt: 9 }
-                }
-              }
-            }
-          }
-        })
-      }
-
-      const agentHome: MatrixAgentHomeBridge = {
-        read: vi.fn(async () => home),
-        preflight: vi.fn(),
-        move: vi.fn(),
-        cancel: vi.fn(),
-        model: vi.fn(),
-        prepare: vi.fn()
-      }
-
-      const { bridge, emit } = fixture(undefined, 'vi', undefined, undefined, undefined, undefined, undefined, {}, true)
-      bridge.executionPolicy = executionPolicy
-      bridge.agentHome = agentHome
-      emit(migrated)
-
-      await waitFor(() => expect(document.querySelector('[data-atum-chat]')).toBeTruthy())
-      expect(document.querySelector('[data-matrix-agent-home]')).toBeNull()
-      expect(document.querySelector('[data-matrix-execution-policy]')).toBeNull()
-      expect(agentHome.read).not.toHaveBeenCalled()
-      expect(executionPolicy.read).not.toHaveBeenCalled()
-    })
-
-    it('uses D1 home with cloud-only switched off', async () => {
-      const { executionPolicy, snapshot } = withPolicy(['cloud', MAC_A, MAC_B])
-      const home = migratedHome()
-
-      const migrated: MatrixSnapshot = {
-        ...snapshot,
-        agents: snapshot.agents?.map(agent =>
-          agent.principal === principal ? { ...agent, home } : agent
-        )
-      }
-
-      const agentHome: MatrixAgentHomeBridge = {
-        read: vi.fn(async () => home),
-        preflight: vi.fn(),
-        move: vi.fn(),
-        cancel: vi.fn(),
-        model: vi.fn(),
-        prepare: vi.fn()
-      }
-
-      const { bridge, emit } = fixture(undefined, 'vi', undefined, undefined, undefined, undefined, undefined, {}, false)
-      bridge.executionPolicy = executionPolicy
-      bridge.agentHome = agentHome
-      emit(migrated)
-
-      const trigger = await waitFor(() => {
-        const found = document.querySelector<HTMLElement>('[data-matrix-agent-home]')
-        expect(found).toBeTruthy()
-
-        return found!
-      })
-
-      fireEvent.click(trigger)
-
-      const popover = await waitFor(() => {
-        const found = document.querySelector<HTMLElement>('[data-agent-home-popover]')
-        expect(found).toBeTruthy()
-
-        return found!
-      })
-
-      expect(popover.querySelector('[data-agent-home-current]')?.textContent).toBe('Đám mây')
-      expect(popover.querySelector('[data-agent-home-destination]')).toBeTruthy()
-      expect(agentHome.read).toHaveBeenCalledWith(principal)
-      expect(document.querySelector('[data-matrix-execution-policy]')).toBeNull()
-    })
-
-    it.each([
-      ['the cloud alone', ['cloud'] as Array<'cloud' | typeof MAC_A>],
-      ['the cloud and this one Mac', ['cloud', MAC_A] as Array<'cloud' | typeof MAC_A>]
-    ])('draws no placement control in the first chat when the person has %s', async (_name, order) => {
-      const { executionPolicy, snapshot } = withPolicy(order)
-      const { bridge, emit } = fixture()
-      bridge.executionPolicy = executionPolicy
-      emit(snapshot)
-
-      // Wait for the chat itself, then see that no priority list or switches are on offer in it.
-      await screen.findByRole('textbox', { name: COMPOSER })
-      expect(document.querySelector('[data-matrix-execution-policy]')).toBeNull()
-      expect(screen.queryByRole('button', { name: /About to answer on|Answering on/ })).toBeNull()
-    })
-  })
 
   it('with assistantPath=server keeps today’s listening branch (parity)', async () => {
     const { bridge } = await openChat({
@@ -13748,6 +13530,7 @@ describe('the rail goes where it is clicked, the first time', () => {
   // should show last convo." The last Chat outlives the window; with none, the primary agent's.
   describe('Chat never opens empty', () => {
     const personalRoom = { id: '!friend:test', name: 'Friend', membership: 'join' as const, direct: true, encrypted: true }
+
     const selected = (issued: Parameters<MatrixUiBridge['command']>[0][]) =>
       // Both launch paths may ask for the same room; what matters is that no other room is asked for.
       [...new Set(issued.flatMap(input => (input.kind === 'select' ? [input.roomId] : [])))]
