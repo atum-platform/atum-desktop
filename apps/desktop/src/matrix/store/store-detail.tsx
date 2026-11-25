@@ -98,6 +98,8 @@ function ready(outcome: StoreAcquireOutcome | null) {
 
 interface StoreDetailProps {
   item: MatrixStoreListing | null
+  /** "Coming soon" for a hire or skill without beta features: read about it, nothing to buy yet. */
+  comingSoon?: string
   agents: MatrixAgentView[]
   entitlements: MatrixStoreEntitlement[]
   /** The person's Protons: the balance under the price, and why a top-up is offered. */
@@ -199,6 +201,7 @@ function StoreDetailFacts({ item }: { item: MatrixStoreItem }) {
 
 function StoreDetailContent({
   item,
+  comingSoon,
   agents,
   entitlements,
   wallet,
@@ -292,8 +295,11 @@ function StoreDetailContent({
   const ownership = itemStoreOwnership(item, entitlements)
   const ownedLabel = installed ? copy.installed : ownership.source === 'gift' ? copy.gift : copy.owned
   const done = owned || ready(outcome)
+  // What is already owned stays usable; only getting something new waits.
+  const soon = done ? undefined : comingSoon
   const canTopUp = Boolean(checkout || onTopUp)
-  const canAcquire = Boolean(onAcquire) && Boolean(item.offer) && !owned && (!scopedSkill || Boolean(assistantId))
+  const canAcquire =
+    !soon && Boolean(onAcquire) && Boolean(item.offer) && !owned && (!scopedSkill || Boolean(assistantId))
   const balance = wallet?.state === 'ready' ? wallet.wallet.balances.available : null
   const refusedShort = outcome?.outcome === 'refused' && outcome.code === 'insufficient_protons'
   const priced = Boolean(item.offer && item.offer.priceMicroProtons > 0)
@@ -473,7 +479,7 @@ function StoreDetailContent({
           {hatchCredit ? copy.hatchCreditReady : copy.hatchChargedOnHatch}
         </p>
       )}
-      {perAssistant &&
+      {perAssistant && !soon &&
         (availableAgents.length > 0 ? (
           <div className="mt-5 grid gap-2 [font:var(--ak-t-callout)] text-(--ak-ink-3)" data-store-target-agent>
             <p>
@@ -513,12 +519,12 @@ function StoreDetailContent({
             {ownModelLeftOut ? copy.needsAtumAi : copy.noTargetAgent}
           </p>
         ))}
-      {scopedSkill && ownModelLeftOut && availableAgents.length > 0 && (
+      {scopedSkill && !soon && ownModelLeftOut && availableAgents.length > 0 && (
         <p className="mt-1 text-(length:--atum-t-control) text-(--atum-ink-muted)" data-store-needs-atum-ai>
           {copy.needsAtumAi}
         </p>
       )}
-      {monthlyHire && !done && item.offer?.renewalPriceMicroProtons !== undefined && (
+      {monthlyHire && !done && !soon && item.offer?.renewalPriceMicroProtons !== undefined && (
         <div className="mt-4 grid gap-2 text-(length:--atum-t-control) text-(--atum-ink-soft)" data-store-hire-renewal>
           <label className="flex items-start gap-2 font-medium">
             <input
@@ -559,7 +565,7 @@ function StoreDetailContent({
       <div className="mt-6 flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
         <div className="min-w-0 flex-[1_1_8rem] text-(length:--atum-t-control)">
           <p className="text-(--atum-ink-muted)" data-store-balance>
-            {balance !== null && priced && !done ? copy.balance(formatWhole(balance, locale)) : null}
+            {balance !== null && priced && !done && !soon ? copy.balance(formatWhole(balance, locale)) : null}
           </p>
         </div>
         {hatchPanel ? (
@@ -603,6 +609,10 @@ function StoreDetailContent({
               {ownedLabel}
             </Button>
           )
+        ) : soon ? (
+          <Button className="atum-store-action" data-store-coming-soon disabled>
+            {soon}
+          </Button>
         ) : hub ? (
           // The Hub, not the Store, installs it: its own scan and confirmation come first.
           <Button className="atum-store-action" data-store-hub-install disabled={!hubPrincipal} onClick={openHub}>

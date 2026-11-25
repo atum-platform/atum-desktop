@@ -1,5 +1,5 @@
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { I18nProvider } from '@/i18n'
 import { en } from '@/i18n/en'
@@ -7,6 +7,7 @@ import { ja } from '@/i18n/ja'
 import { vi as viLocale } from '@/i18n/vi'
 import { zh } from '@/i18n/zh'
 import { zhHant } from '@/i18n/zh-hant'
+import { $betaFeatures } from '@/store/beta-features'
 
 import agentListings from '../../../electron/matrix/__fixtures__/store-agent-listings.json'
 import hubListings from '../../../electron/matrix/__fixtures__/store-hub-listings.json'
@@ -25,8 +26,12 @@ import type { StoreAcquireOutcome, StoreReadSkills, StoreTryItem } from './store
 import { MatrixStoreSidebar, useMatrixStoreNavigation } from './store-sidebar'
 import { $matrixStoreHubRequest, $matrixStoreListingRequest, $matrixStoreShelfRequest } from './top-up'
 
+// The Store's full shelves are what a beta account sees; `without beta features` below covers the rest.
+beforeEach(() => $betaFeatures.set({ profile: 'store-test', granted: true }))
+
 afterEach(() => {
   cleanup()
+  $betaFeatures.set({ profile: null, granted: false })
   $matrixStoreShelfRequest.set(null)
   $matrixStoreHubRequest.set(null)
   $matrixStoreListingRequest.set(null)
@@ -1382,5 +1387,90 @@ describe('free official Hub skills in the Store', () => {
 
     expect(window.document.querySelector('[data-store-item="skill/retired"]')).toBeNull()
     expect(window.document.querySelectorAll('[data-store-hub-hint]')).toHaveLength(listings.length)
+  })
+})
+
+describe('without beta features (owner, 2026-11-25)', () => {
+  beforeEach(() => $betaFeatures.set({ profile: 'store-test', granted: false }))
+
+  const mentor = item('agent', { itemId: 'agent/mentor', title: { en: 'Mentor' } })
+  const gigi = item('pet', { itemId: 'pet/gigi', title: { en: 'Gigi' } })
+
+  it('greys hires and skills as "Coming soon" and keeps pets for sale', () => {
+    renderStore({ store: { snapshot: snapshot([item('skill'), mentor, gigi]) } })
+
+    for (const id of ['skill/focus', 'agent/mentor']) {
+      const card = window.document.querySelector(`[data-store-item="${id}"]`)!
+      expect(card.hasAttribute('data-store-coming-soon'), id).toBe(true)
+      expect(within(card as HTMLElement).getByRole('button').textContent).toBe('Coming soon')
+    }
+
+    const pet = window.document.querySelector('[data-store-item="pet/gigi"]')!
+    expect(pet.hasAttribute('data-store-coming-soon')).toBe(false)
+    expect(within(pet as HTMLElement).getByRole('button').textContent).not.toBe('Coming soon')
+  })
+
+  it.each([
+    ['a hire', mentor, 'Mentor'],
+    ['a skill', item('skill'), 'Focus skill']
+  ])('%s opens to read about it, with nothing to buy yet', (_, listing, title) => {
+    const { store } = renderStore({ store: { snapshot: snapshot([listing]) }, wallet: wallet(50_000) })
+
+    fireEvent.click(screen.getByText(title))
+    const dialog = screen.getByRole('dialog')
+    // The listing is all there: its name and what it does. Nothing is hidden or broken.
+    expect(within(dialog).getByText('A real provider catalog item.')).toBeTruthy()
+    const soon = dialog.querySelector('[data-store-coming-soon]') as HTMLButtonElement
+    expect(soon.textContent).toBe('Coming soon')
+    expect(soon.disabled).toBe(true)
+    // No checkout parts: no buy button, no assistant picker, no renewal consent, no balance, no failure band.
+    expect(dialog.querySelector('[data-store-acquire]')).toBeNull()
+    expect(dialog.querySelector('[data-store-target-agent]')).toBeNull()
+    expect(dialog.querySelector('[data-store-hire-renewal]')).toBeNull()
+    expect(dialog.querySelector('[data-store-balance]')!.textContent).toBe('')
+    expect(within(dialog).queryByRole('alert')).toBeNull()
+    fireEvent.click(soon)
+    expect(store.onAcquire).not.toHaveBeenCalled()
+  })
+
+  it('a pet can still be bought', () => {
+    const { store } = renderStore({ store: { snapshot: snapshot([gigi]) } })
+
+    fireEvent.click(screen.getByText('Gigi'))
+    const dialog = screen.getByRole('dialog')
+    expect(dialog.querySelector('[data-store-coming-soon]')).toBeNull()
+    const acquire = dialog.querySelector('[data-store-acquire]') as HTMLButtonElement
+    expect(acquire.disabled).toBe(false)
+    fireEvent.click(acquire)
+    expect(store.onAcquire).toHaveBeenCalledWith(gigi, undefined)
+  })
+
+  it('what is already owned is never greyed out', () => {
+    const owned = item('skill', {
+      ownership: { state: 'owned', source: 'purchase', assistantIds: [AGENT_A], until: null }
+    })
+
+    renderStore({
+      store: {
+        snapshot: snapshot([owned], {
+          entitlements: [
+            {
+              id: ENTITLEMENT,
+              itemId: owned.itemId,
+              kind: 'skill',
+              state: 'active',
+              assistantId: AGENT_A,
+              delivery: 'cloud',
+              grantedAt: '2026-10-01T00:00:00Z',
+              subscription: null
+            }
+          ]
+        })
+      }
+    })
+
+    expect(window.document.querySelector('[data-store-item="skill/focus"]')!.hasAttribute('data-store-coming-soon')).toBe(
+      false
+    )
   })
 })

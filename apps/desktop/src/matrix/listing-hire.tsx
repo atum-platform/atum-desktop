@@ -216,10 +216,13 @@ export const LISTING_SECTION = 'text-(length:--atum-t-caption) font-semibold tex
 
 /** The listings, above "make your own": a face, the title, one line and Hire. */
 export function ListingShelf({
+  comingSoon,
   disabled,
   listings,
   onPick
 }: {
+  /** Hires wait for beta accounts (owner, 2026-11-25): the listings show, their button says this. */
+  comingSoon?: string
   disabled?: boolean
   listings: readonly MatrixOpenAgentListing[]
   onPick(listing: MatrixOpenAgentListing): void
@@ -257,14 +260,15 @@ export function ListingShelf({
                 )}
               </div>
               <Button
-                aria-label={`${t.matrixShell.agentHireConfirm} ${title}`}
-                disabled={disabled}
+                aria-label={`${comingSoon ?? t.matrixShell.agentHireConfirm} ${title}`}
+                data-atum-listing-coming-soon={comingSoon ? true : undefined}
+                disabled={disabled || Boolean(comingSoon)}
                 onClick={() => onPick(listing)}
                 size="sm"
                 type="button"
                 variant="secondary"
               >
-                {t.matrixShell.agentHireConfirm}
+                {comingSoon ?? t.matrixShell.agentHireConfirm}
               </Button>
             </li>
           )
