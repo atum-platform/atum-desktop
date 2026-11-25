@@ -1,6 +1,6 @@
 # Legacy desktop dependency closure — 2026-11-25
 
-Fresh public desktop origin/main: dependency inventory, not a filename-glob retirement. The default public build still bundles electron/main.ts; Matrix release/build scripts named in package.json and matrix-playground.html are absent in this projection. Retain that supported default path until build ownership is resolved. No HTTP server routes were removed; installed-client usage evidence remains a separate prerequisite.
+Fresh public desktop origin/main: dependency inventory, not a filename-glob retirement. The default public build still bundles electron/main.ts; Matrix release/build scripts named in package.json and matrix-playground.html are absent in this projection. Retain that declared default path until build ownership is resolved. No HTTP server routes were removed; installed-client usage evidence remains a separate prerequisite.
 
 ## Method
 
@@ -30,7 +30,7 @@ electron/main.ts and legacy messaging stay because package.json build/dev script
 - `apps/desktop/electron/atum-messaging/http-client.ts` (1971 LOC); retained by default legacy build closure.
 - `apps/desktop/electron/atum-messaging/shared-group-device.ts` (638 LOC); retained by default legacy build closure.
 - `apps/desktop/electron/atum-messaging/shared-group-runner.ts` (1115 LOC); retained by default legacy build closure.
-- `apps/desktop/electron/atum-store.ts` (703 LOC); retained by default legacy build closure.
+- `apps/desktop/electron/atum-store.ts` (703 LOC): documentation-only mention of the entitlements endpoint, not an HTTP caller; retained by default build closure.
 
 Generic legacy HTTP-client direct importers:
 
@@ -93,6 +93,37 @@ Base revision: d83d6f40eaab5ad1ffeab67019c38fc1625c11f8. Shared existing Node de
 - Desktop updater/recovery unit tests: exit 0, 47 tests in 2 files.
 - Staged swap updater/recovery suite: exit 0, 104 tests in 5 files.
 - Graph after deletion: exit 0, zero further non-Matrix Electron candidates.
-- Post-deletion full desktop typecheck and full Vitest suite: running at this checkpoint; final outcomes follow. Full Vitest already reports pre-deletion failures, including missing Python dotenv.
+- Post-deletion full desktop typecheck: exit 0. Initial Node 23 full Vitest run interrupted with SIGTERM (exit 143) after detecting the unsupported host runtime; replaced with a full supported Node 24 run. Early failures on unchanged base code include missing Python dotenv.
 
 The release config requires signing. Used the supported default Electron bundle and an additional Matrix-main/preload bundle rather than invoking a signed packaging/release path. These checks do not certify signed install/upgrade or hardware acceptance. No push, PR, CI or deploy.
+
+Reproduction commands (from the repository root unless noted):
+
+```text
+node apps/desktop/scripts/legacy-dependency-closure.mjs graph.json
+npm run typecheck --workspace apps/desktop
+npm run lint --workspace apps/desktop
+# from apps/desktop:
+../../node_modules/.bin/vitest run --maxWorkers=2
+../../node_modules/.bin/vitest run electron/desktop-updater.test.ts electron/desktop-update-recovery.test.ts --maxWorkers=2
+../../node_modules/.bin/vitest run electron/atum-staged-swap --maxWorkers=2
+node scripts/bundle-electron-main.mjs
+# from repository root, after commit:
+python3 scripts/public_guard.py --base origin/main --head HEAD
+```
+
+Post-deletion typecheck: exit 0. Initial committed checkpoint public guard: exit 0. Host default Node was 23.10.0 (outside the package engine range); passing checks here do not certify the supported release runtime. Python dependencies were not installed. The full suite was launched before deletion; its failures appeared on unchanged base code. Neither deleted module has a test or import consumer.
+
+Supported Node 24.21.0 recheck: updater/recovery plus staged swap, 151 tests in 7 files, exit 0. Default Electron main/preload bundle: exit 0. Full suite/typecheck/lint results follow after completion.
+
+Supported Node 24 final typecheck: exit 0. Supported Node 24 full lint: exit 0, 4,067 warnings and zero errors.
+
+## Remaining closure work
+
+The planned broad legacy desktop retirement is not complete. Before a larger cut, restore or reconcile the missing Matrix candidate build/release entry scripts in the public projection, establish its canonical build path, and retire the old default build and its obsolete-only tests together. Re-run the graph against that concrete entry set. Signed install/upgrade/recovery acceptance and supported-client route-use evidence remain outside this source-only local cut. No route retirement was inferred from renderer grep.
+
+## Final full-suite result
+
+Supported Node 24 full Vitest (`vitest run --maxWorkers=4`): exit 1 after 628.93 seconds. Test files: 1,712 passed, 5 failed, 17 skipped (1,734 total). Tests: 25,769 passed, 18 failed, 58 skipped (25,845 total). Failures are in shared/setup-methods.test.ts, electron/atum-messaging/shared-group-runner.test.ts, electron/matrix/mac-job-runner.test.ts, electron/matrix/mac-job-startup.test.ts and electron/matrix/conversation/jobs.test.ts. The setup test reports Python ModuleNotFoundError for dotenv; the native job/cron fixtures cannot load their runtime. These same failures appeared before either deletion in the initial run. No unrelated runtime code was changed to hide them. This is not a green full-suite acceptance.
+
+No dependencies were installed; existing shared dependencies were reused. Temporary generated bundles were removed after verification. The source and audit remain locally committed for coordinating assembly.
