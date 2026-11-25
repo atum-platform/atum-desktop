@@ -2,11 +2,9 @@ import { readFileSync } from 'node:fs'
 import { runInNewContext } from 'node:vm'
 
 import ts from 'typescript'
-import { describe, expect, it, vi } from 'vitest'
+import { expect, it, vi } from 'vitest'
 
-import { matrixAssistantSetupRosterRetry, matrixAssistantSetupRunsLocally } from './assistant-setup'
-
-// Run main's real setup ordering with only account/host I/O replaced.
+// Run main's startup callback with account and SDK I/O replaced.
 const source = ts.createSourceFile('main.ts', readFileSync(new URL('./main.ts', import.meta.url), 'utf8'), ts.ScriptTarget.Latest, true)
 function mainFunction(name: string, context: Record<string, unknown>) {
   const node = source.statements.find(node => ts.isFunctionDeclaration(node) && node.name?.text === name)!
@@ -15,51 +13,41 @@ function mainFunction(name: string, context: Record<string, unknown>) {
   }).outputText, context)
 }
 
-function setupFixture() {
-  const enroll = vi.fn()
-  const startHost = vi.fn()
-  let resolve!: () => void
-  const delayed = new Promise<void>(done => { resolve = done })
-  const context: Record<string, unknown> = {
-    account: { enrollment: () => ({ state: 'absent' }), appScope: () => ({}), readDomain: vi.fn(async () => {}), enrollHermes: enroll },
-    config: { domain: {} }, closing: false, defaultAgent: {},
-    isCloudOnlyAgent: () => false, isMovingAgent: () => false,
-    matrixEnrollmentAuthority: () => ({ ok: true }), unusedRoot: () => false,
-    agentPlacementKnown: () => false, agentRoster: { request: vi.fn() },
-    assistantSetup: undefined, assistantSetupState: undefined, assistantSetupRetryAt: undefined, startupState: undefined,
-    matrixAssistantSetupRosterRetry, matrixAssistantSetupRunsLocally, publish: vi.fn(), state: {},
-    startHost, Date, console,
-    syncAgents: vi.fn(async () => {
-      await delayed
-      context.agentPlacementKnown = () => true
-      context.isCloudOnlyAgent = () => true
-    })
-  }
-  return { context, enroll, startHost, resolve }
-}
-
-describe('cold-start placement before local enrollment', () => {
-  it('does not enroll or show setup while the authenticated roster is delayed, then accepts cloud placement', async () => {
-    const f = setupFixture()
-    const pending = mainFunction('setUpAssistant', f.context)(false)
-    await Promise.resolve()
-    expect(f.enroll).not.toHaveBeenCalled()
-    expect(f.context.assistantSetupState).toBeUndefined()
-    f.resolve()
-    await pending
-    expect(f.enroll).not.toHaveBeenCalled()
-    expect(f.startHost).not.toHaveBeenCalled()
-    expect(f.context.assistantSetupState).toBeUndefined()
+it('starts the owner SDK and waits for the authenticated roster', async () => {
+  const hosts = new Map()
+  const startHost = vi.fn(async (role: string) => {hosts.set(role, {})})
+  const setAgentRosterReadiness = vi.fn()
+  const request = vi.fn()
+  const accountReady = vi.fn(async () => {})
+  let finishRoster!: () => void
+  const syncAgents = vi.fn(async () => new Promise<void>(resolve => {finishRoster = resolve}))
+  const start = mainFunction('startSdk', {
+    account: { identity: () => ({}), appScope: () => ({}), sessionEnded: () => false, signOutPending: () => false },
+    agentRoster: { request },
+    cloudEnrollments: undefined,
+    config: { domain: {} },
+    deviceBootstrap: { accountReady },
+    deviceLaunch: 'interactive',
+    hosts,
+    publish: vi.fn(),
+    setAgentRosterReadiness,
+    startHost,
+    state: {},
+    syncAgents
   })
 
-  it('leaves failed roster discovery pending for retry, never missing setup', async () => {
-    const f = setupFixture()
-    f.context.syncAgents = async () => ({ ok: false, code: 'agent_roster_unavailable' })
-    await mainFunction('setUpAssistant', f.context)(false)
-    expect(f.enroll).not.toHaveBeenCalled()
-    expect(f.context.assistantSetupState).toBeUndefined()
-    expect(f.context.assistantSetupRetryAt).toBeGreaterThan(Date.now())
-  })
+  const pending = start()
+  const finished = vi.fn()
+  void pending.then(finished)
+  await vi.waitFor(() => expect(syncAgents).toHaveBeenCalledOnce())
+  expect(startHost).toHaveBeenCalledExactlyOnceWith('human')
+  expect(accountReady).toHaveBeenCalledExactlyOnceWith('interactive')
+  expect(setAgentRosterReadiness).toHaveBeenCalledExactlyOnceWith('loading')
+  expect(request).toHaveBeenCalledOnce()
+  expect(finished).not.toHaveBeenCalled()
+  finishRoster()
+  await pending
+  expect(finished).toHaveBeenCalledOnce()
 })
 
 it('requires the hub only for authenticated legacy roster agents, including mixed accounts', () => {

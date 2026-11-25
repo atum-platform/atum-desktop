@@ -35,7 +35,6 @@ import {
   matrixRoutineDateInput,
   matrixRoutineInstant,
   matrixRoutineNextWords,
-  matrixRoutineRunsInCloud,
   matrixRoutineScheduleWords,
   matrixRoutineTimeFromInstant,
   matrixRoutineTimeInput,
@@ -176,12 +175,6 @@ function routineErrorCopy(error: MatrixRoutineError): 'failure' | 'conflict' | '
   return error === 'conflict' ? 'conflict' : error === 'legacy' ? 'legacy' : error === 'quota' ? 'quota' : 'failure'
 }
 
-/** Where the assistant answers now, said the same way the card's Nơi trả lời row says it:
- * the policy's current destination when known, else the cloud/local route this Mac holds. */
-function routineRunsOn(agent: MatrixAgentView, copy: AssistantCardCopy): string {
-  return matrixRoutineRunsInCloud(agent) ? copy.routineCloudPlace : copy.routineThisMac
-}
-
 /** Every assistant card's scheduled tasks: the row ("3 việc" / "Chưa có") and its in-card
  * panel (list, add, edit, pause, run now, history, delete). Unknown kinds stay in the list
  * read-only so one newer row cannot hide the rest. The routines snapshot is authoritative. */
@@ -189,16 +182,13 @@ export function RoutinesRow({
   agent,
   copy,
   initiallyOpen = false,
-  locale,
-  onMoveToCloud
+  locale
 }: {
   agent: MatrixAgentView
   copy: AssistantCardCopy
   /** The composer's "Add routines" opens the list (and the add form's way in) on arrival. */
   initiallyOpen?: boolean
   locale: string
-  /** Opens the card's "Nơi trả lời" editor; absent when this card has no such row. */
-  onMoveToCloud?: () => void
 }) {
   const { t } = useI18n()
   const bridge = window.atumMatrix?.routines
@@ -644,8 +634,7 @@ export function RoutinesRow({
   const legacy = snapshot?.legacyState
   const quota = routineCount >= MAX_ROUTINES
   const addable = legacy === 'clear' && !quota
-  const runsInCloud = matrixRoutineRunsInCloud(agent)
-  const runsOnPlace = routineRunsOn(agent, copy)
+  const runsOnPlace = copy.routineCloudPlace
 
   return (
     <>
@@ -672,18 +661,6 @@ export function RoutinesRow({
       </button>
       {open && (
         <div className="px-3.5 pb-3" data-routines-panel>
-          {!runsInCloud && (
-            <div className="mb-2 flex items-start gap-2" data-routines-cloud>
-              <p className="min-w-0 flex-1 text-(length:--atum-t-caption) text-(--atum-ink-muted)">
-                {copy.routineCloudOnly}
-              </p>
-              {onMoveToCloud && (
-                <Button onClick={onMoveToCloud} size="inline" type="button" variant="textStrong">
-                  {copy.routineCloudMove}
-                </Button>
-              )}
-            </div>
-          )}
           {notice && !dialogOpen && <RoutineNotice copy={copy} notice={notice} />}
           {failed ? (
             <div className="flex items-center gap-2 py-1.5">
@@ -814,26 +791,6 @@ export function RoutinesRow({
                 <option value={runsOnPlace}>{runsOnPlace}</option>
               </select>
             </label>
-            {!runsInCloud && (
-              <div className="flex items-start gap-2" data-routine-cloud-note>
-                <p className="min-w-0 flex-1 text-(length:--atum-t-caption) text-(--atum-ink-muted)">
-                  {copy.routineCloudOnly}
-                </p>
-                {onMoveToCloud && (
-                  <Button
-                    onClick={() => {
-                      setDialogOpen(false)
-                      onMoveToCloud()
-                    }}
-                    size="inline"
-                    type="button"
-                    variant="textStrong"
-                  >
-                    {copy.routineCloudMove}
-                  </Button>
-                )}
-              </div>
-            )}
             <label className="block space-y-1">
               <span className="block text-(length:--atum-t-caption) text-(--atum-ink-muted)">
                 {copy.routineTitle}

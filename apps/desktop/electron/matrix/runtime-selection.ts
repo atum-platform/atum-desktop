@@ -8,14 +8,6 @@ import { resolveSharedAuthDirEnv } from '../hermes-home'
 
 import { type MatrixHermesRuntimeConfig, readMatrixHermesRuntime } from './hermes-utilities'
 
-/** Reuse the verified bundle's existing Node payload; no second runtime or Electron Node mode. */
-export function selectMatrixLocalBrainProcess(packaged: boolean, runtime?: MatrixHermesRuntimeConfig):
-  { nodePath: string; runAsNode: boolean } | undefined {
-  if (!packaged) {return { nodePath: process.execPath, runAsNode: true }}
-
-  return runtime?.bundled ? { nodePath: path.join(runtime.bundled.nodeBin, 'node'), runAsNode: false } : undefined
-}
-
 /** Diagnostics are closed codes, never raw filesystem/JSON/provider errors. */
 export function matrixRuntimeFailureCode(error: unknown) {
   if (error && typeof error === 'object' && 'code' in error && error.code === 'bundled_runtime_identity_invalid') {

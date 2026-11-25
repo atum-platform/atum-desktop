@@ -18,9 +18,9 @@ vi.mock('../bundled-runtime', async importOriginal => ({
   ...(await importOriginal<BundledRuntime>()),
   resolveBundledHermesRuntime: mocks.resolve
 }))
-vi.mock('./hermes-runtime', () => ({ readMatrixHermesRuntime: mocks.development }))
+vi.mock('./hermes-utilities', () => ({ readMatrixHermesRuntime: mocks.development }))
 
-import { matrixRuntimeFailureCode, selectMatrixHermesRuntime, selectMatrixLocalBrainProcess } from './runtime-selection'
+import { matrixRuntimeFailureCode, selectMatrixHermesRuntime } from './runtime-selection'
 
 const options = {
   packaged: true,
@@ -36,14 +36,6 @@ beforeEach(() => {
   mocks.probe.mockReturnValue({ status: 0 })
 })
 describe('candidate runtime authority', () => {
-  it('runs the packaged local brain on verified bundled Node and never falls back to Electron', () => {
-    const runtime = selectMatrixHermesRuntime(options)
-    expect(selectMatrixLocalBrainProcess(true, runtime)).toEqual({
-      nodePath: `${options.resources}/runtime/browser/node/bin/node`, runAsNode: false
-    })
-    expect(selectMatrixLocalBrainProcess(true)).toBeUndefined()
-    expect(selectMatrixLocalBrainProcess(false)).toEqual({ nodePath: process.execPath, runAsNode: true })
-  })
   it('retains safe diagnostic codes without logging arbitrary error contents', () => {
     expect(matrixRuntimeFailureCode({ code: 'bundled_runtime_identity_invalid' })).toBe(
       'bundled_runtime_identity_invalid'
