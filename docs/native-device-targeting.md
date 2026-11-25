@@ -1,0 +1,7 @@
+# A4 exact native SSH projection — built-not-live
+
+Owner SECURITY-CONTAINMENT-1123. Branch sec/a4-device-targeting-1124; base bf65af98 (S2 merged). NativeMacSsh now requests authorized shell keys with this Mac's existing deviceServiceId and enrollmentEpoch. No identity store, prompt, fallback or key-format change. Retains incoming S2 session wrapper and key lifecycle unchanged.
+
+Focused `electron/matrix/device/native-ssh.test.ts`: 91 passed, exit 0, including exact request assertion. Used supplied /private/tmp/plan-consent-node/node_modules with temporary defineConfig({test:{environment:'node',include:['electron/matrix/device/native-ssh.test.ts']}}); standard Vitest config first failed exit 1 at missing @vitejs/plugin-react. `tsc --noEmit -p tsconfig.electron.json`: exit 2, supplied TypeScript 5 rejects repository ignoreDeprecations: 6.0. Full typecheck/build remain open. Diff check exit 0. Temporary Node symlink/config removed before commit. No real SSH/Keychain access, push, PR, CI, deploy, paid call or nested agents.
+
+Ship with Platform migration 0541 and matching host/runtime App changes in an admission-off/drain/reconcile cutover. Older servers reject the new strict request; do not fall back to owner-wide keys. Preserve S2 pre-wrapper session drain and rollback gates. Coordinator owns final review and installed two-owner/two-device acceptance. Detailed canonical handoff: atum-app docs/session-logs/2026-11-24-a4-device-targeting.md.
