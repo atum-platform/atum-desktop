@@ -65,6 +65,7 @@ interface Record {
   viewId: string
   scope: Scope
   view: WebContentsView
+  contents: WebContents
   bounds: Bounds | null
   visible: boolean
   overlayActive: boolean
@@ -160,7 +161,7 @@ export class MatrixPagesController {
       this.guarded(() => {
         this.requireChat(event)
         const record = this.requireChatRecord(viewId)
-        record.view.webContents.focus()
+        record.contents.focus()
 
         return { ok: true }
       })
@@ -206,7 +207,7 @@ export class MatrixPagesController {
             this.current !== record ||
             record.closing ||
             this.disposed ||
-            record.view.webContents.isDestroyed() ||
+            record.contents.isDestroyed() ||
             !this.deps.isCurrent(previous) ||
             !this.deps.isCurrent(next) ||
             next.context.page !== page ||
@@ -288,7 +289,7 @@ export class MatrixPagesController {
     this.emit(record, { status: 'loading' })
 
     try {
-      await record.view.webContents.loadURL(this.pageUrl)
+      await record.contents.loadURL(this.pageUrl)
       record.initialNavigationAllowed = false
       this.requireCurrent(record)
       this.emit(record, { status: 'ready' })
@@ -380,10 +381,13 @@ export class MatrixPagesController {
       }
     })
 
+    const contents = view.webContents
+
     const record: Record = {
       viewId,
       scope,
       view,
+      contents,
       bounds: null,
       visible: false,
       overlayActive: false,
@@ -393,7 +397,6 @@ export class MatrixPagesController {
       initialNavigationAllowed: true
     }
 
-    const contents = view.webContents
     const pageUrl = this.pageUrl
 
     contents.session.setPermissionCheckHandler(() => false)
@@ -519,9 +522,9 @@ export class MatrixPagesController {
 
     record.attached = false
 
-    if (!record.view.webContents.isDestroyed()) {
+    if (!record.contents.isDestroyed()) {
       try {
-        record.view.webContents.close({ waitForBeforeUnload: false })
+        record.contents.close({ waitForBeforeUnload: false })
       } catch {
         // Removing the record has already revoked all controller authority.
       }
@@ -570,7 +573,7 @@ export class MatrixPagesController {
       this.destroy(record)
     }
 
-    const contents = record?.view.webContents
+    const contents = record?.contents
 
     if (
       !record ||
@@ -599,7 +602,7 @@ export class MatrixPagesController {
       !record.closing &&
       !record.navigatingConnections &&
       this.current === record &&
-      !record.view.webContents.isDestroyed() &&
+      !record.contents.isDestroyed() &&
       this.deps.isCurrent(record.scope)
     )
   }
