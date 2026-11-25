@@ -1,16 +1,21 @@
-import { timingSafeEqual } from 'node:crypto'
+import { createHmac, timingSafeEqual } from 'node:crypto'
 import { createServer, type Server } from 'node:http'
 
 import type { Caller } from './contract'
 import type { ConnectorService } from './service'
+import { forwardShellMcp, type ShellMcpOptions, shellMcpPath } from './shell-mcp'
+
 export class ConnectorHttp {
   private server?: Server
   constructor(
     private readonly service: ConnectorService,
-    private readonly secret: string
+    private readonly secret: string,
+    private readonly shellMcp?: ShellMcpOptions
   ) {}
   async start(): Promise<string> {
+    const mac = (message: string) => createHmac('sha256', this.secret).update(message).digest('base64url')
     const secret = Buffer.from(`Bearer ${this.secret}`)
+    const mcpSecret = Buffer.from(`Bearer ${mac('atum-work-mcp-bearer-v1')}`)
 
     const server = createServer(async (req, res) => {
       const auth = Buffer.from(req.headers.authorization ?? '')
@@ -21,14 +26,41 @@ export class ConnectorHttp {
         res.end(JSON.stringify(value))
       }
 
-      if (auth.length !== secret.length || !timingSafeEqual(auth, secret)) {
+      const probe = req.method === 'HEAD' && /^\/mcp\/health\?nonce=([a-f0-9-]{36})$/u.exec(req.url ?? '')
+
+      if (probe) {
+        if (req.headers.origin || !this.shellMcp || this.shellMcp.signal.aborted || !this.shellMcp.current()) {
+          res.writeHead(404).end()
+        } else {
+          res.writeHead(204, { 'x-atum-work-mcp-proof': mac(`atum-work-mcp-health-v1:${probe[1]}`) }).end()
+        }
+
+        return
+      }
+
+      const mcpPath = shellMcpPath(req.url)
+      const expected = mcpPath ? mcpSecret : secret
+
+      if (auth.length !== expected.length || !timingSafeEqual(auth, expected)) {
         reply(401, { error: 'unauthorized' })
 
         return
       }
 
-      if (req.headers.origin || req.method !== 'POST' || req.url !== '/ask') {
+      if (req.headers.origin || (!mcpPath && (req.method !== 'POST' || req.url !== '/ask'))) {
         reply(404, { error: 'unavailable' })
+
+        return
+      }
+
+      if (mcpPath) {
+        if (!this.shellMcp) {
+          reply(404, { error: 'unavailable' })
+
+          return
+        }
+
+        await forwardShellMcp(this.shellMcp, mcpPath, req, res)
 
         return
       }

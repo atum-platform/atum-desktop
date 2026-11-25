@@ -305,6 +305,21 @@ describe('createMatrixWork', () => {
     expect(await read()).toBeNull()
   })
 
+  it('removes both legacy manifest files when Desktop starts while signed out', () => {
+    const { deps } = build({ scope: () => null })
+    const root = join(deps.userData, 'work-accounts', 'a'.repeat(32))
+    const { userdata } = workSessionPaths({ root })
+    mkdirSync(userdata, { recursive: true })
+    const manifest = join(userdata, 'managed-mcp-servers.json')
+    writeFileSync(manifest, 'old config')
+    writeFileSync(`${manifest}.next`, 'interrupted write')
+
+    createMatrixWork(deps)
+
+    expect(existsSync(manifest)).toBe(false)
+    expect(existsSync(`${manifest}.next`)).toBe(false)
+  })
+
   it('readies a cloud Hermes agent and exposes Work without any local agent enrollment', async () => {
     const enroll = vi.fn(async () => { throw new Error('matrix_enrollment_unavailable') })
     const identity = vi.fn(async () => '67000000-0000-4000-8000-0000000000a1')

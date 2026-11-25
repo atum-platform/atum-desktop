@@ -1,72 +1,89 @@
-import { mkdtemp, readFile, rm, stat } from 'node:fs/promises'
-import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { createHmac } from 'node:crypto'
 
 import { expect, it, vi } from 'vitest'
 
-import { startShellMcp } from './shell-mcp'
+import { ConnectorHttp } from './http'
+import { ConnectorService } from './service'
 
-it('gives Work both Shell servers, forwards rotated tokens, and revokes the list on sign-out', async () => {
-  const userdata = await mkdtemp(join(tmpdir(), 'work-shell-mcp-'))
-  const config = join(userdata, 'managed-mcp-servers.json')
-  const session = new AbortController()
+it('shares the connector lifecycle and forwards only scoped, current-account MCP requests', async () => {
+  const lifetime = new AbortController()
   let signedIn = true
   let token = 'matrix-initial-fixture'
-  const calls: Array<{ path: string; bearer: string | null }> = []
   const refresh = vi.fn(async () => (token = 'matrix-recovered-fixture'))
+
   const shell = vi.fn<typeof fetch>(async (input, init) => {
     const headers = new Headers(init?.headers)
-    const bearer = headers.get('authorization')
-    calls.push({ path: new URL(String(input)).pathname, bearer })
     expect(init?.redirect).toBe('error')
     expect(headers.has('cookie')).toBe(false)
-    return bearer === 'Bearer matrix-refused-fixture'
-      ? new Response(null, { status: 401 })
-      : Response.json({ jsonrpc: '2.0', id: 1, result: { tools: [] } })
+    expect(new URL(String(input)).origin).toBe('https://shell.example.test')
+
+    switch (headers.get('authorization')) {
+      case 'Bearer matrix-refused-fixture': return new Response(null, { status: 401 })
+
+      case 'Bearer matrix-unavailable-fixture': throw new Error('Shell unavailable')
+
+      default: return Response.json({ jsonrpc: '2.0', id: 1, result: { tools: [] } })
+    }
+  })
+
+  const service = new ConnectorService('unused-receipts', {
+    current: () => signedIn,
+    resolve: async () => undefined,
+    send: async () => '$never',
+    read: async () => undefined,
+    admit: async () => true
+  })
+
+  const secret = 'connector-fixture'
+  const proof = (message: string) => createHmac('sha256', secret).update(message).digest('base64url')
+  const auth = `Bearer ${proof('atum-work-mcp-bearer-v1')}`
+
+  const connector = new ConnectorHttp(service, secret, {
+    resource: 'https://shell.example.test/api/matrix/v1', current: () => signedIn,
+    matrixToken: () => token, refreshMatrixToken: refresh, signal: lifetime.signal, fetch: shell
+  })
+
+  const endpoint = await connector.start()
+  const nonce = 'efe34214-a49e-422c-8ffe-edf197818bb0'
+  const probe = () => fetch(new URL(`/mcp/health?nonce=${nonce}`, endpoint), { method: 'HEAD' })
+
+  const call = (path: string, headers?: Record<string, string>) => fetch(new URL(path, endpoint), {
+    method: 'POST',
+    headers: { Authorization: auth, 'Content-Type': 'application/json', Cookie: 'fixture=not-forwarded', ...headers },
+    body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/list' })
   })
 
   try {
-    await startShellMcp({
-      userdata, resource: 'https://shell.example.test/api/matrix/v1', current: () => signedIn,
-      matrixToken: () => token, refreshMatrixToken: refresh, signal: session.signal, fetch: shell
-    })
-    const manifest = await readFile(config, 'utf8')
-    expect(manifest).not.toContain(token)
-    expect((await stat(config)).mode & 0o077).toBe(0)
-    const servers = JSON.parse(manifest) as Array<{ name: string; url: string; authorizationHeader: string }>
-    expect(servers.map(server => server.name)).toEqual(['atum-google', 'atum-owner-chats'])
-    const call = (server: typeof servers[number], authorization = server.authorizationHeader) => fetch(server.url, {
-      method: 'POST',
-      headers: { Authorization: authorization, 'Content-Type': 'application/json', Cookie: 'fixture=not-forwarded' },
-      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/list' })
-    })
+    const health = await probe()
+    expect(health.status).toBe(204)
+    expect(health.headers.get('x-atum-work-mcp-proof')).toBe(proof(`atum-work-mcp-health-v1:${nonce}`))
+    expect((await call('/mcp/google', { Authorization: `Bearer ${secret}` })).status).toBe(401)
+    expect((await call('/ask')).status).toBe(401)
+    expect((await call('/mcp/google', { Origin: 'https://example.invalid' })).status).toBe(404)
 
-    for (const server of servers) {
-      expect((await call(server)).status).toBe(200)
-    }
-    expect((await call(servers[0], 'Bearer wrong-local-credential')).status).toBe(404)
-
-    token = 'matrix-rotated-fixture'
-    expect((await call(servers[0])).status).toBe(200)
+    expect((await call('/mcp/google')).status).toBe(200)
     token = 'matrix-refused-fixture'
-    expect((await call(servers[1])).status).toBe(200)
+    expect((await call('/mcp/owner-chats')).status).toBe(200)
     expect(refresh).toHaveBeenCalledExactlyOnceWith('matrix-refused-fixture')
-    expect(calls).toEqual([
-      { path: '/api/mcp/google', bearer: 'Bearer matrix-initial-fixture' },
-      { path: '/api/mcp/owner-chats', bearer: 'Bearer matrix-initial-fixture' },
-      { path: '/api/mcp/google', bearer: 'Bearer matrix-rotated-fixture' },
-      { path: '/api/mcp/owner-chats', bearer: 'Bearer matrix-refused-fixture' },
-      { path: '/api/mcp/owner-chats', bearer: 'Bearer matrix-recovered-fixture' }
+    expect(shell.mock.calls.map(([input, init]) => [
+      new URL(String(input)).pathname, new Headers(init?.headers).get('authorization')
+    ])).toEqual([
+      ['/api/mcp/google', 'Bearer matrix-initial-fixture'],
+      ['/api/mcp/owner-chats', 'Bearer matrix-refused-fixture'],
+      ['/api/mcp/owner-chats', 'Bearer matrix-recovered-fixture']
     ])
 
+    token = 'matrix-unavailable-fixture'
+    expect((await call('/mcp/google')).status).toBe(502)
+    expect((await call('/ask', { Authorization: `Bearer ${secret}` })).status).toBe(400)
     signedIn = false
-    expect((await call(servers[0])).status).toBe(404)
-    session.abort()
-    await expect(readFile(config)).rejects.toMatchObject({ code: 'ENOENT' })
-    await expect(call(servers[0])).rejects.toThrow()
-    expect(shell).toHaveBeenCalledTimes(5)
+    expect((await probe()).status).toBe(404)
+    expect((await call('/mcp/google')).status).toBe(404)
+    expect(shell).toHaveBeenCalledTimes(4)
   } finally {
-    session.abort()
-    await rm(userdata, { recursive: true, force: true })
+    lifetime.abort()
+    await connector.close()
   }
+
+  await expect(call('/mcp/google')).rejects.toThrow()
 })
