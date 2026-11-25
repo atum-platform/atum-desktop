@@ -39,26 +39,33 @@ export function createWorkViewFactory(input: {
       }
     })
 
+    const contents = view.webContents
+
     const throttle = setTimeout(() => {
-      if (!view.webContents.isDestroyed()) {view.webContents.setBackgroundThrottling(true)}
+      if (!contents.isDestroyed()) {
+        contents.setBackgroundThrottling(true)
+      }
     }, 15_000)
 
     throttle.unref?.()
 
     input.log?.('view-created', Date.now() - startedAt)
-    view.webContents.on('dom-ready', () => input.log?.('page-dom-ready', Date.now() - startedAt))
-    view.webContents.on('did-finish-load', () => input.log?.('page-load', Date.now() - startedAt))
+    contents.on('dom-ready', () => input.log?.('page-dom-ready', Date.now() - startedAt))
+    contents.on('did-finish-load', () => input.log?.('page-load', Date.now() - startedAt))
 
     // A detached preload still needs a desktop viewport, rather than a zero-width mobile layout.
-    const bounds = input.window()?.getContentBounds()
+    const initialWindow = input.window()
+    const bounds = initialWindow && !initialWindow.isDestroyed() ? initialWindow.getContentBounds() : null
 
-    if (bounds) {view.setBounds({ x: 0, y: 0, width: bounds.width, height: bounds.height })}
+    if (bounds) {
+      view.setBounds({ x: 0, y: 0, width: bounds.width, height: bounds.height })
+    }
 
     // Transparent, so the window's frame (and its vibrancy) shows in the gaps between T3's panels.
     view.setBackgroundColor('#00000000')
 
     // Electron's overloaded `on`/`removeListener` signatures don't narrow to R's structural targets.
-    const disposePolicy = installWorkViewPolicy(view.webContents, session as unknown as Parameters<typeof installWorkViewPolicy>[1], {
+    const disposePolicy = installWorkViewPolicy(contents, session as unknown as Parameters<typeof installWorkViewPolicy>[1], {
       origin: incarnation.origin,
       onBlocked: input.onBlocked
     })
@@ -66,30 +73,32 @@ export function createWorkViewFactory(input: {
     let host: BrowserWindow | null = null
 
     const place = (rect: MatrixWorkRect | null) => {
-      const window = input.window()
+      const window = rect && !contents.isDestroyed() ? input.window() : null
+      const canPlace = window && !window.isDestroyed()
 
       host = placeOwnerView({
         view,
         host,
-        window: view.webContents.isDestroyed() ? null : window,
+        window: canPlace ? window : null,
         rect,
-        zoom: input.zoomFactor?.() ?? 1,
+        zoom: canPlace ? (input.zoomFactor?.() ?? 1) : 1,
         radius: input.radius ?? 0
       })
     }
 
-    view.webContents.once('destroyed', () => {
+    // Electron can clear view.webContents before emitting 'destroyed' on contents.
+    contents.once('destroyed', () => {
       clearTimeout(throttle)
       disposePolicy()
       place(null)
     })
 
     return {
-      port: createElectronOwnerView({ contents: view.webContents, session, origin: incarnation.origin }),
+      port: createElectronOwnerView({ contents, session, origin: incarnation.origin }),
       place,
       focus: () => {
-        if (!view.webContents.isDestroyed()) {
-          view.webContents.focus()
+        if (!contents.isDestroyed()) {
+          contents.focus()
         }
       }
     }

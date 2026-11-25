@@ -15,9 +15,8 @@ export function registerMatrixWorkIpc(
     | 'runCommand'
     | 'setSurfaceMode'
     | 'allowAssistants'
-    | 'readRelay'
+    | 'readAgentPlans'
     | 'selectRelay'
-    | 'stopRelay'
     | 'hide'
     | 'openPlanConnect'
     | 'read'
@@ -53,11 +52,10 @@ export function registerMatrixWorkIpc(
 
       case 'setSurfaceMode': return surface.setSurfaceMode(request.projectId, request.mode)
 
-      case 'readRelay': return surface.readRelay(request.principal, request.roomId)
+      case 'readAgentPlans': return surface.readAgentPlans(request.principal)
 
       case 'selectRelay': return surface.selectRelay(request.principal, request.expectedRevision, request.model, request.plan)
 
-      case 'stopRelay': return surface.stopRelay(request.roomId, request.eventId)
 
       case 'read':
         return surface.read()

@@ -1,9 +1,12 @@
+import type { WorkAgentPlans } from '../../../shared/matrix-work'
+import { WORK_RELAY_PLANS } from '../../../shared/matrix-work-relay'
 import { issueT3McpSession, type PairingCodes, type SecretStore, type SessionIdSource } from '../gate/sessions'
 import { ensureConnectMcpUrl } from '../surface/connect-endpoint'
 
 const RENEW_BEFORE_MS = 7 * 86_400_000
 const SESSION_LABEL = 'Atum Work'
 const STORE_KEY = 't3-mcp-publication'
+const CATALOG_KEY = 't3-mcp-plan-catalog'
 const LINK_KEY = 't3-mcp-desktop-link'
 const FIRST_LINK_RETRY_MS = 2 * 60_000
 const MAX_LINK_RETRY_MS = 30 * 60_000
@@ -77,6 +80,36 @@ export class WorkT3McpPublication {
   allowConnectLink(accountKey: string, store: SecretStore): void {
     store.delete(LINK_KEY)
     if (this.linkRetry?.accountKey === accountKey) {this.linkRetry = undefined}
+  }
+
+  /** Only an acknowledged, unexpired publication counts. No online check is needed. */
+  isPublished(store: SecretStore, deviceServiceId: string): boolean {
+    const { published, retiring } = this.load(store)
+
+    return !retiring && published?.deviceServiceId === deviceServiceId && published.expiresAt > this.now()
+  }
+
+  /** Keep the last native observations across Work restarts and transient probe failures. */
+  planCatalog(store: SecretStore, deviceServiceId: string, observed: WorkAgentPlans['plans']): WorkAgentPlans['plans'] {
+    const raw = store.get(CATALOG_KEY)
+    const cached = raw ? JSON.parse(raw) as { deviceServiceId: string; plans: WorkAgentPlans['plans'] } : undefined
+    const plans = cached?.deviceServiceId === deviceServiceId ? cached.plans : {}
+
+    for (const plan of WORK_RELAY_PLANS) {
+      const capability = observed[plan]
+
+      if (!capability) {continue}
+
+      const models = capability.state === 'connected' ? capability.models ?? plans[plan]?.models : undefined
+
+      plans[plan] = { state: capability.state, ...(models ? { models } : {}) }
+    }
+
+    const next = JSON.stringify({ deviceServiceId, plans })
+
+    if (Object.keys(observed).length && next !== raw) {store.set(CATALOG_KEY, next)}
+
+    return plans
   }
 
   private load(store: SecretStore): PublicationState {

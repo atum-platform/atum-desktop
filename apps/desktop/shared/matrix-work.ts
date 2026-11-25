@@ -1,6 +1,6 @@
 import { type AccountConnectionsView } from './account-connections'
 import { WORK_RELAY_PLANS, type WorkRelayPlan } from './matrix-work-relay'
-import type { WorkRelayLimit, WorkRelayRoomView, WorkRelaySelection } from './matrix-work-relay'
+import type { WorkRelayLimit, WorkRelaySelection } from './matrix-work-relay'
 
 /**
  * The Work surface (self-work slice A, lane DW): what the Matrix window may know about Work on this Mac.
@@ -97,9 +97,18 @@ export interface MatrixWorkAgentActivity {
   stopping: boolean
 }
 
+/** Token-free status and built-in models from this Mac's direct T3 publication. */
+export interface WorkAgentPlans {
+  published: boolean
+  plans: Partial<Record<WorkRelayPlan, {
+    state: 'connected' | 'disconnected'
+    models?: readonly { id: string; displayName: string }[]
+  }>>
+  selection: WorkRelaySelection | null
+}
+
 export interface MatrixWorkProjection {
   relayChats?: string[]
-  planLimit?: WorkRelayLimit
   planLimits?: readonly WorkRelayLimit[]
   connectedPlans?: readonly WorkRelayPlan[]
   relayAccountConsent?: boolean
@@ -169,9 +178,8 @@ export type MatrixWorkRequest =
   | { kind: 'getAttention' }
   | { kind: 'runCommand'; command: WorkBandCommand }
   | { kind: 'setSurfaceMode'; projectId: string; mode: 'work' | 'code' }
-  | { kind: 'readRelay'; principal: string; roomId: string }
+  | { kind: 'readAgentPlans'; principal: string }
   | { kind: 'selectRelay'; principal: string; expectedRevision: number; model: string; plan?: WorkRelayPlan }
-  | { kind: 'stopRelay'; roomId: string; eventId: string }
   | { kind: 'read' }
   | { kind: 'show'; rect: MatrixWorkRect }
   | { kind: 'hide' }
@@ -201,9 +209,8 @@ export interface MatrixWorkBridge {
   /** The view's threads that wait for the person or finished unseen; null before a report. */
   getAttention?(): Promise<WorkAttentionSnapshot | null>
   onAttentionChanged?(listener: (snapshot: WorkAttentionSnapshot | null) => void): () => void
-  readRelay?(principal: string, roomId: string): Promise<WorkRelayRoomView>
+  readAgentPlans?(principal: string): Promise<WorkAgentPlans | null>
   selectRelay?(principal: string, expectedRevision: number, model: string, plan?: WorkRelayPlan): Promise<WorkRelaySelection>
-  stopRelay?(roomId: string, eventId: string): Promise<void>
   /** Null: Work is not available for this account on this build, so the rail has no Work entry. */
   read(): Promise<MatrixWorkProjection | null>
   /** Paint (or move) the owner view over this region. The first call opens and signs the view in. */
@@ -293,19 +300,15 @@ export function parseMatrixWorkRequest(value: unknown): MatrixWorkRequest | null
       return keys.length === 3 && typeof row.projectId === 'string' && row.projectId.length > 0 && row.projectId.length <= 255 && (row.mode === 'work' || row.mode === 'code')
         ? { kind: 'setSurfaceMode', projectId: row.projectId, mode: row.mode } : null
 
-    case 'readRelay':
-      return keys.length === 3 && typeof row.principal === 'string' && UUID.test(row.principal) && typeof row.roomId === 'string' && /^![^\s:]+:[^\s]+$/u.test(row.roomId) && row.roomId.length <= 255
-        ? { kind: 'readRelay', principal: row.principal, roomId: row.roomId } : null
+    case 'readAgentPlans':
+      return keys.length === 2 && typeof row.principal === 'string' && UUID.test(row.principal)
+        ? { kind: 'readAgentPlans', principal: row.principal } : null
     case 'selectRelay': {
       if (row.plan !== undefined && !relayPlan) {return null}
 
       return keys.length === ('plan' in row ? 5 : 4) && typeof row.principal === 'string' && UUID.test(row.principal) && typeof row.expectedRevision === 'number' && Number.isSafeInteger(row.expectedRevision) && row.expectedRevision >= 0 && typeof row.model === 'string' && row.model.length > 0 && row.model.length <= 200
         ? { kind: 'selectRelay', principal: row.principal, expectedRevision: row.expectedRevision, model: row.model, ...(relayPlan ? { plan: relayPlan } : {}) } : null
     }
-
-    case 'stopRelay':
-      return keys.length === 3 && typeof row.roomId === 'string' && /^![^\s:]+:[^\s]+$/u.test(row.roomId) && row.roomId.length <= 255 && typeof row.eventId === 'string' && row.eventId.startsWith('$') && row.eventId.length <= 255
-        ? { kind: 'stopRelay', roomId: row.roomId, eventId: row.eventId } : null
 
     case 'read':
 
