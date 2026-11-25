@@ -6,12 +6,6 @@
  * Source of truth: atum-platform `spec/work-route/v1.3/README.md` and `packages/protocol/src/work-relay.ts`.
  */
 
-export interface WorkRelayRoomView {
-  account: { consent: WorkRelayConsent; facts: readonly WorkRelayFact[] }
-  status: WorkRelayStatus | null
-  turns: { eventId: string; plan?: WorkRelayPlan; sentAt: number; receipt: WorkRelayReceipt }[]
-}
-
 /** Plan IDs shared by the Work route and renderer. */
 export const WORK_RELAY_PLANS = ['codex', 'claude', 'antigravity'] as const
 export type WorkRelayPlan = (typeof WORK_RELAY_PLANS)[number]
@@ -79,43 +73,6 @@ export interface WorkRelayLimit {
   resetsAt?: number
   usedPercent?: number
   scheduledRuns?: number
-}
-
-/** The account's scoped consent for one plan (the 1.2 record; `provider` names the plan). Default off. */
-export interface WorkRelayConsent {
-  provider: WorkRelayPlan
-  state: 'on' | 'off'
-  /** Assistant principals named. */
-  agents: readonly string[] | 'all'
-  /** Mac (device-service) ids named. */
-  devices: readonly string[]
-  alsoWhenScheduled: boolean
-  revision: number
-  grantedAt?: number
-  revokedAt?: number
-}
-
-/** One Mac's plan fact (`work_subscription_read`). `stale` is the last known state of a Mac that has not reported lately. */
-export interface WorkRelayFact {
-  deviceServiceId: string
-  provider: WorkRelayPlan
-  status: 'connected' | 'disconnected' | 'stale'
-  observedAt?: number
-  models?: readonly string[]
-  displayName?: string
-}
-
-/** `status` for one room on one Mac's gate, as 1.3 returns it. */
-export interface WorkRelayStatus {
-  scheduledUsage?: { runs: number; windowStart: number; resetsAt?: number }
-  selection: WorkRelaySelection | null
-  openOperation: WorkRelayOperation | null
-  limits: readonly WorkRelayLimit[]
-  consent: WorkRelayConsent
-  /** The plan is connected on this Mac (T3's own provider status). */
-  connected: boolean
-  /** "Agents may use my ChatGPT plan here" on this Mac. */
-  localSwitch: boolean
 }
 
 /** The receipt classes of 1.3. Only the fields the screens read are kept. */

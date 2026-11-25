@@ -1,16 +1,6 @@
-/**
- * The session-handoff relay's owner chrome, as data (relay slice R1, lane U1; plan 2026-11-22 §3.1, §3.4, §3.6, §6, O4, O12–O14).
- *
- * Pure functions from the 1.3 status fields `{selection, openOperation, limits, consent, connected, localSwitch}`, the account's plan
- * facts and the receipt classes to what the owner sees: whether a plan model can be picked, the one line (and at most one action)
- * on a message, the composer chip's warning, the plan usage line and the shared-context line. No copy here: `relay-copy.ts` words
- * each state. Status is UI chrome, never an agent message.
- */
+/** View models for the native plan picker, turn presentation and plan usage. */
 
 import {
-  WORK_RELAY_ENABLED_PLANS,
-  type WorkRelayConsent,
-  type WorkRelayFact,
   type WorkRelayFallbackReason,
   type WorkRelayLimit,
   type WorkRelayOperation,
@@ -27,21 +17,14 @@ export const WORK_RELAY_UI_WAIT_MS = 10 * 60_000
 // The picker (§3.1, O1, O4, O9)
 
 /** Why a plan's rows are greyed. Only `connect` and `allow` have a fixing action in R1. */
-export type WorkRelayGreyed = 'connect' | 'allow' | 'google' | 'encrypted'
+export type WorkRelayGreyed = 'unavailable' | 'connect' | 'allow' | 'google' | 'encrypted'
 export type WorkRelayFix = 'connect' | 'allow'
 
 export interface WorkRelayPickerInput {
   plan: WorkRelayPlan
-  /** The assistant whose picker this is. */
-  agentPrincipal: string
-  /** The account's consent and every Mac's plan fact. Undefined while not read yet: nothing is drawn, so nothing flaps. */
-  account?: { consent: WorkRelayConsent; facts: readonly WorkRelayFact[] }
-  /** The agent's current selection (`status.selection` or the 1.3 sync's). */
+  published: boolean
+  connected: boolean
   selection: WorkRelaySelection | null
-  /** O1 test scope: an assistant that holds Google keeps the plan rows greyed. */
-  holdsGoogle?: boolean
-  /** O9: an end-to-end encrypted conversation cannot use a plan model. */
-  encrypted?: boolean
   /** The plan's reported limit, when known. */
   limit?: WorkRelayLimit
   /** The chrome of the agent's latest turn here, for the composer chip. */
@@ -56,7 +39,7 @@ export type WorkRelayChip =
 
 export interface WorkRelayPickerView {
   plan: WorkRelayPlan
-  /** `hidden`: not this release's plan, or not read yet. */
+  /** `hidden`: the caller has no plan rows to show yet. */
   rows: 'hidden' | 'selectable' | 'greyed'
   greyed?: WorkRelayGreyed
   /** The one action that fixes `greyed`, when one exists. */
@@ -66,37 +49,12 @@ export interface WorkRelayPickerView {
   chip?: WorkRelayChip
 }
 
-/** A Mac whose plan is connected, as far as the account knows. An asleep or offline Mac (a stale fact) still counts (RT4). */
-function planMacs(plan: WorkRelayPlan, facts: readonly WorkRelayFact[]): string[] {
-  return facts.filter(fact => fact.provider === plan && fact.status !== 'disconnected').map(fact => fact.deviceServiceId)
-}
-
-/**
- * Whether a plan's models can be picked for this assistant. Greyed ONLY when no Mac has the plan connected and consented for it
- * (plus the O1 and O9 scopes); a Mac that is merely asleep or offline never greys it: that turn falls back before dispatch.
- */
+/** Readiness follows publication and the native plan sign-in, independent of reachability. */
 export function workRelayPickerView(input: WorkRelayPickerInput): WorkRelayPickerView {
   const { plan } = input
   const currentModel = input.selection?.plan === plan ? input.selection.model : undefined
-  const base: WorkRelayPickerView = { plan, rows: 'hidden', ...(currentModel ? { currentModel } : {}) }
-
-  if (!WORK_RELAY_ENABLED_PLANS.includes(plan) || !input.account) {
-    return base
-  }
-
-  const greyed: WorkRelayGreyed | undefined = input.encrypted
-    ? 'encrypted'
-    : input.holdsGoogle
-      ? 'google'
-      : (() => {
-          const macs = planMacs(plan, input.account.facts)
-
-          if (macs.length === 0) {
-            return 'connect'
-          }
-
-          return undefined
-        })()
+  const base = { plan, ...(currentModel ? { currentModel } : {}) }
+  const greyed = !input.published ? 'unavailable' : !input.connected ? 'connect' : undefined
 
   const view: WorkRelayPickerView = greyed
     ? { ...base, rows: 'greyed', greyed, ...(greyed === 'connect' ? { fix: greyed } : {}) }
