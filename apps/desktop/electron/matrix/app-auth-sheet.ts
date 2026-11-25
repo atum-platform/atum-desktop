@@ -68,6 +68,8 @@ export async function openAppAuthSheet(
       partition
     }
   })
+
+  const guest = view.webContents
   let expectedClose = false
   let opened = false
   let failed = false
@@ -101,7 +103,7 @@ export async function openAppAuthSheet(
   }
 
   const setBounds = () => {
-    if (window.isDestroyed() || view.webContents.isDestroyed()) {
+    if (window.isDestroyed() || guest.isDestroyed()) {
       return
     }
 
@@ -117,8 +119,8 @@ export async function openAppAuthSheet(
   window.contentView.addChildView(view)
   window.on('resize', setBounds)
   window.on('closed', () => {
-    if (!view.webContents.isDestroyed()) {
-      view.webContents.close({ waitForBeforeUnload: false })
+    if (!guest.isDestroyed()) {
+      guest.close({ waitForBeforeUnload: false })
     }
 
     if (!expectedClose) {
@@ -134,7 +136,6 @@ export async function openAppAuthSheet(
   })
   window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
 
-  const guest = view.webContents
   guest.session.setPermissionRequestHandler((_contents, _permission, callback) => callback(false))
   guest.session.setPermissionCheckHandler(() => false)
   guest.session.on('will-download', event => event.preventDefault())
