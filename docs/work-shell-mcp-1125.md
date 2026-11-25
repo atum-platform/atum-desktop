@@ -18,3 +18,11 @@ The launcher and supervisor are shared with the relay and launcher changes.
 This implementation needs no edits to either because they already deliver the
 connector credentials. The staged Work runtime pin and live Shell acceptance
 remain release work. Strap and Situation still need account-scoped Shell routes.
+
+## 2026-11-26 integration
+
+Rebased on Desktop main and kept its existing direct T3 publication and `/ask`
+route. Account MCP adds its health proof and two routes to that listener. A
+listen error for the current account leaves the sidecar launch without connector
+credentials. Account changes still cancel the launch. The Google write card is
+part of the same Desktop change so Work's pending writes can be acted on.
