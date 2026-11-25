@@ -41,17 +41,20 @@ function fixture() {
   }
   const assertion = vi.fn(async () => 'owner-assertion')
   const disconnect = vi.fn(async () => {})
+  let remembered = false
+  const rememberLink = vi.fn(() => { remembered = true })
 
   return {
-    records, state, link, assertion, disconnect, retire: () => { current = false },
-    options: { origin: LOCAL, ownerFetch, relayFetch, assertion, disconnect, current: () => current, signal: new AbortController().signal }
+    records, state, link, assertion, disconnect, rememberLink, retire: () => { current = false },
+    options: { origin: LOCAL, ownerFetch, relayFetch, assertion, disconnect, canLink: () => !remembered, rememberLink, current: () => current, signal: new AbortController().signal }
   }
 }
 
 it('links an unlinked Work instance through native T3 endpoints and then reads its assigned hostname', async () => {
-  const { options, records, assertion, link } = fixture()
+  const { options, records, assertion, link, rememberLink } = fixture()
   expect(await ensureConnectMcpUrl(options)).toBe('https://mac.example.test/mcp')
   expect(assertion).toHaveBeenCalledTimes(2)
+  expect(rememberLink).toHaveBeenCalledOnce()
   expect(records.map(row => row.url)).toEqual([
     `${LOCAL}/api/connect/link-state`,
     `${LOCAL}/.well-known/t3/environment`,

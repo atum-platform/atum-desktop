@@ -9,6 +9,8 @@ interface ConnectOptions {
   current(): boolean
   signal: AbortSignal
   disconnect(): Promise<void>
+  canLink(): boolean
+  rememberLink(): void
 }
 
 function text(value: unknown): value is string {
@@ -47,7 +49,7 @@ export async function ensureConnectMcpUrl(options: ConnectOptions): Promise<stri
   if (state.linked === false) {
     await options.disconnect()
 
-    if (state.linkableHere === false) {return undefined}
+    if (state.linkableHere === false || !options.canLink()) {return undefined}
 
     const relay = async (path: string, payload: object, timeout: number) => {
       if (!current()) {throw new Error('work_account_changed')}
@@ -85,6 +87,9 @@ export async function ensureConnectMcpUrl(options: ConnectOptions): Promise<stri
       throw new Error('work_connect_invalid_link')
     }
 
+    // Record custody before applying the config. An interrupted response may still have enabled the link.
+    if (!current()) {throw new Error('work_account_changed')}
+    options.rememberLink()
     await json(ownerFetch, `${origin}/api/connect/relay-config`, {
       ...post({
         relayUrl: RELAY, relayIssuer: link.relayIssuer, cloudUserId: link.cloudUserId,

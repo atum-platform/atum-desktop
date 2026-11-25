@@ -4,6 +4,9 @@ import { ensureConnectMcpUrl } from '../surface/connect-endpoint'
 const RENEW_BEFORE_MS = 7 * 86_400_000
 const SESSION_LABEL = 'Atum Work'
 const STORE_KEY = 't3-mcp-publication'
+const LINK_KEY = 't3-mcp-desktop-link'
+const FIRST_LINK_RETRY_MS = 2 * 60_000
+const MAX_LINK_RETRY_MS = 30 * 60_000
 
 interface Published {
   deviceServiceId: string
@@ -46,10 +49,17 @@ interface ClearOptions {
   revokedDeviceServiceId?: string
 }
 
+export class T3McpWithdrawalError extends Error {
+  constructor(readonly failures: readonly string[]) {
+    super(failures.join(', '))
+  }
+}
+
 export class WorkT3McpPublication {
   private running?: { accountKey: string; deviceServiceId: string; abort: AbortController; done: Promise<void> }
   private clearing?: Promise<void>
   private checked?: { accountKey: string; workOrigin: string }
+  private linkRetry?: { accountKey: string; delay: number; at: number }
 
   constructor(private readonly request: typeof fetch = fetch, private readonly now: () => number = Date.now) {}
 
@@ -62,6 +72,11 @@ export class WorkT3McpPublication {
     this.running = { accountKey: target.accountKey, deviceServiceId: target.deviceServiceId, abort, done }
 
     return done
+  }
+
+  allowConnectLink(accountKey: string, store: SecretStore): void {
+    store.delete(LINK_KEY)
+    if (this.linkRetry?.accountKey === accountKey) {this.linkRetry = undefined}
   }
 
   private load(store: SecretStore): PublicationState {
@@ -85,13 +100,51 @@ export class WorkT3McpPublication {
 
     const { accountKey, deviceServiceId, workOrigin, auth, store } = target
     let state = this.load(store)
+    const shell = { deviceServiceId, call: target.call }
+    const otherDevice = [state.published, state.pending].some(record => record && record.deviceServiceId !== deviceServiceId)
 
-    if (state.retiring || [state.published, state.pending].some(record => record && record.deviceServiceId !== deviceServiceId)) {
-      await this.withdraw(target)
+    if (state.retiring || otherDevice) {
+      await this.withdraw(target, otherDevice ? {} : { shell })
       state = {}
+      this.checked = { accountKey, workOrigin }
     }
 
-    if (this.checked?.accountKey !== accountKey || this.checked.workOrigin !== workOrigin) {
+    const checked = () => this.checked?.accountKey === accountKey && this.checked.workOrigin === workOrigin
+    const retry = this.linkRetry?.accountKey === accountKey ? this.linkRetry : undefined
+    let attemptedLink = false
+    const connectUrl = await ensureConnectMcpUrl({
+      origin: workOrigin, ownerFetch: target.ownerFetch, relayFetch: this.request,
+      assertion: target.assertion, signal, current,
+      canLink: () => {
+        attemptedLink = !store.get(LINK_KEY) && (!retry || this.now() >= retry.at)
+
+        return attemptedLink
+      },
+      rememberLink: () => store.set(LINK_KEY, 'linked'),
+      disconnect: async () => {
+        if (!current()) {return}
+
+        if (state.published || state.pending) {
+          await this.withdraw(target, { shell })
+          state = {}
+        } else if (!checked()) {
+          // An interrupted mint may have left a native session before a record could be written.
+          await this.withdraw(target)
+        }
+        this.checked = { accountKey, workOrigin }
+      }
+    }).catch((error: unknown) => {
+      if (attemptedLink && current()) {
+        const delay = retry ? Math.min(retry.delay * 2, MAX_LINK_RETRY_MS) : FIRST_LINK_RETRY_MS
+        this.linkRetry = { accountKey, delay, at: this.now() + delay }
+      }
+      throw error
+    })
+
+    if (attemptedLink || connectUrl) {this.linkRetry = undefined}
+    if (!current()) {return}
+
+    if (!checked()) {
       const sessions = await auth.sessionIds(SESSION_LABEL)
       const known = [state.published?.sessionId, state.pending?.sessionId]
       await Promise.all(sessions.filter(id => !known.includes(id)).map(id => this.revoke(auth, id)))
@@ -108,17 +161,6 @@ export class WorkT3McpPublication {
 
       this.checked = { accountKey, workOrigin }
     }
-
-    const connectUrl = await ensureConnectMcpUrl({
-      origin: workOrigin, ownerFetch: target.ownerFetch, relayFetch: this.request,
-      assertion: target.assertion, signal, current,
-      disconnect: async () => {
-        if (!current() || !(state.published || state.pending)) {return}
-
-        await this.withdraw(target, { shell: { deviceServiceId, call: target.call } })
-        state = {}
-      }
-    })
 
     if (!connectUrl || !current()) {return}
 
@@ -188,35 +230,44 @@ export class WorkT3McpPublication {
   private async withdraw(target: Custody, options: ClearOptions = {}): Promise<void> {
     const { shell, revokedDeviceServiceId } = options
 
+    // If the keychain is locked, the native session list can still identify the relay sessions by label.
+    let state: PublicationState = {}
+
     try {
-      // If the keychain is locked, the native session list can still identify the relay sessions by label.
-      let state: PublicationState = {}
+      state = this.load(target.store)
+      const recorded = state.pending ?? state.published
 
-      try {
-        state = this.load(target.store)
-        const recorded = state.pending ?? state.published
-
-        if (revokedDeviceServiceId && recorded && recorded.deviceServiceId !== revokedDeviceServiceId) {return}
-        if ((state.published || state.pending) && !state.retiring) {
-          target.store.set(STORE_KEY, JSON.stringify({ ...state, retiring: true }))
-        }
-      } catch {
-        // A failed keychain write must never stop the native revoke.
+      if (revokedDeviceServiceId && recorded && recorded.deviceServiceId !== revokedDeviceServiceId) {return}
+      if ((recorded || shell) && !state.retiring) {
+        target.store.set(STORE_KEY, JSON.stringify({ ...state, retiring: true }))
       }
-      const ids = new Set([state.published?.sessionId, state.pending?.sessionId].filter(id => id !== undefined))
+    } catch {
+      // A failed keychain write must never stop the native revoke.
+    }
 
+    const ids = new Set([state.published?.sessionId, state.pending?.sessionId].filter(id => id !== undefined))
+    const revokeNative = async () => {
       // Revoke recorded sessions even if session listing fails. Also recover mints interrupted before the store write.
       const results = await Promise.allSettled([...ids].map(id => this.revoke(target.auth, id)))
-      const failed = results.find(result => result.status === 'rejected')
-      if (failed) {throw failed.reason}
+
+      if (results.some(result => result.status === 'rejected')) {throw new Error('t3_mcp_native_revoke_failed')}
 
       const orphans = await target.auth.sessionIds(SESSION_LABEL)
       await Promise.all(orphans.filter(id => !ids.has(id)).map(id => this.revoke(target.auth, id)))
-      target.store.delete(STORE_KEY)
-    } finally {
-      this.checked = undefined
-      if (shell) {await shell.call('work_t3_mcp_clear', { deviceServiceId: shell.deviceServiceId })}
     }
+
+    this.checked = undefined
+    const [native, remote] = await Promise.allSettled([
+      revokeNative(),
+      shell && Promise.resolve().then(() => shell.call('work_t3_mcp_clear', { deviceServiceId: shell.deviceServiceId }))
+    ])
+    const failures: string[] = []
+
+    if (native.status === 'rejected') {failures.push('t3_mcp_native_revoke_failed')}
+    if (remote.status === 'rejected') {failures.push('t3_mcp_shell_clear_failed')}
+    if (failures.length) {throw new T3McpWithdrawalError(failures)}
+
+    target.store.delete(STORE_KEY)
   }
 
   async clear(target: Custody, options: ClearOptions = {}): Promise<void> {

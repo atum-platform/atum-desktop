@@ -29,19 +29,29 @@ Hermes changes and a desktop release.
   Only the relay receives the Atum assertion. Work receives its existing owner
   cookie on loopback. The managed link defaults to notifications and Live
   Activities off, following the local Connect acceptance fixture. A linked
-  tunnel can come up asynchronously. An explicit native link-revoked state
-  withdraws the MCP credential and preserves that revocation.
-- The old native OAuth consent, agent connector routes, and renewal UI were
-  removed. The loopback Ask connector remains. D9 route events and agent grants
-  also serve the retained atum-work model provider, whose `work_runtime.py`
-  calls `GateClient.relay_call` through the signed desktop gate using staged
-  Work enrollments. Removing that machinery would break subscription-backed
-  responses, including scheduled ones. Subscription consent, facts, selection,
-  and settlement remain on that path.
+  tunnel can come up asynchronously.
+- **Unlink and retry.** Main records a desktop-created link in the per-account
+  encrypted Work store before applying its local config. An unlink then
+  withdraws the Shell credential and revokes the native T3 session without
+  recreating the link. Turning Work back on from Settings allows a fresh
+  automatic link. Native Connect still controls its explicit revocation state.
+  Relay attempts back off from two minutes up to 30 minutes while native link
+  state is still checked on the usual cadence. If local config application has
+  an ambiguous result, the record is retained so an applied link followed by an
+  owner unlink cannot be mistaken for a failed first attempt.
+- **Withdrawal diagnostics.** Shell clear and native revoke each report a
+  fixed failure code. When either fails, the publication is retained for retry.
+  Device revocation notifications are accepted only for the Mac's local
+  enrollment, whose ID remains available after it is marked revoked.
+- The old native OAuth consent, agent connector routes and renewal UI were
+  removed. The loopback Ask connector remains. The app branch's Mode B provider
+  calls the staged native T3 MCP endpoint directly, and removes
+  `work_runtime.py` and `work_relay.py`. Mode B does not consume the desktop
+  gate, D9 route events or agent grants. The desktop gate still serves
+  settlement and subscription facts. Gate removal is a separate decision.
 
-Focused local Vitest passed 87 tests in nine files and covers the native request sequence and auth boundaries,
-concurrent OAuth mints, relaunch and interrupted publication, credential
-rotation, orphan cleanup and native withdrawal with an unusable Shell call.
-Electron TypeScript checking and `git diff --check` ran locally. The coordinator
-owns the full pre-push and installed/cloud acceptance. No real Connect or
-Cloudflare requests were made in this implementation session.
+Local verification passed 81 focused tests covering fixture-driven Connect,
+native auth and Shell calls, including unlink across restart, explicit opt-in,
+relay backoff, withdrawal failures and device-scoped revoke. Electron type
+checking, the client boundary check and lint for errors in changed files also
+passed. Installed-app and cloud acceptance remain with the coordinator.

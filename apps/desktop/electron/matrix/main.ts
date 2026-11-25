@@ -20616,6 +20616,7 @@ async function start() {
 
         return enrollment?.state === 'active' ? enrollment.deviceServiceId : undefined
       },
+      localDeviceServiceId: () => deviceIdentity?.enrollment()?.deviceServiceId,
       deviceServicesEndpoint: () => `${domain.resource}/device-services`,
       bearer: () => account.s1Request(accessToken => Promise.resolve(accessToken), AbortSignal.timeout(15_000)),
       connectAssertion: () => account.s1Request(

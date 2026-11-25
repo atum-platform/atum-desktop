@@ -36,8 +36,8 @@ import { createWorkHistory } from '../work/mount/history'
 import { homeRunningFromRuntimeFile, partitionFor, type PinRef, type UpdateOutcome, WorkSession, workSessionPaths } from '../work/session'
 import { createT3AuthCli } from '../work/session/t3-auth'
 import { type WorkAccess, WorkHost } from '../work/sidecar/host'
-import { type WorkIncarnation, workRelayRuntimeReady } from '../work/sidecar/process'
-import { WorkT3McpPublication } from '../work/sidecar/t3-mcp'
+import { workRelayRuntimeReady } from '../work/sidecar/process'
+import { T3McpWithdrawalError, WorkT3McpPublication } from '../work/sidecar/t3-mcp'
 import {
   createWorkViewFactory,
   type GateSurfaceState,
@@ -105,6 +105,8 @@ export interface MatrixWorkDeps {
   /* Verified account identity (/me), independent of any agent executor. */
   ownerPrincipal(): string | undefined | Promise<string | undefined>
   deviceServiceId(): string | undefined
+  /** The local enrollment ID remains readable after its state is set to revoked. */
+  localDeviceServiceId(): string | undefined
   /** The platform's `device-services` endpoint: `${resource}/device-services`. */
   deviceServicesEndpoint(): string | undefined
   /** The signed-in owner's current domain bearer. */
@@ -447,16 +449,24 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
       }
     })
 
+  const mcpStore = (bound: { root: string }) => createKeychainSecretStore({
+    account: bound, safeStorage: deps.safeStorage,
+    onFailure: () => {throw new Error('t3_mcp_store_unavailable')}
+  })
+
+  const logMcpFailure = (error: unknown, fallback: string) => {
+    const failures = error instanceof T3McpWithdrawalError ? error.failures : [fallback]
+
+    for (const code of failures) {deps.log(`[atum-work] ${code}`)}
+  }
+
   const mcpCustody = (bound: { key: string; root: string }) => {
     const paths = workSessionPaths(bound)
     const cli = { ...host.authTools(paths), home: paths.home }
 
     return {
       accountKey: bound.key,
-      store: createKeychainSecretStore({
-        account: bound, safeStorage: deps.safeStorage,
-        onFailure: () => {throw new Error('t3_mcp_store_unavailable')}
-      }),
+      store: mcpStore(bound),
       auth: createT3AuthCli(cli),
       pairing: createT3PairingCodes(cli)
     }
@@ -476,9 +486,7 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
     await t3Mcp.clear(mcpCustody(bound), {
       revokedDeviceServiceId,
       shell: deviceServiceId && call ? { deviceServiceId, call } : undefined
-    }).catch(() => {
-      deps.log('[atum-work] t3_mcp_clear_failed')
-    })
+    }).catch(error => logMcpFailure(error, 't3_mcp_clear_failed'))
   }
 
   const refreshT3Mcp = () => {
@@ -506,9 +514,7 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
       call: deviceCall(endpoint, scope, current),
       ownerFetch: ownerPartition.fetch.bind(ownerPartition),
       assertion: () => deps.connectAssertion?.() ?? Promise.reject(new Error('work_connect_unavailable'))
-    }).catch(() => {
-      deps.log('[atum-work] t3_mcp_refresh_failed')
-    })
+    }).catch(error => logMcpFailure(error, 't3_mcp_refresh_failed'))
   }
 
   const host = new WorkHost({
@@ -717,6 +723,9 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
     log: line => deps.log(line),
     setWork: async on => {
       if (on) {
+        const bound = account()
+
+        if (bound && !host.enabled()) {t3Mcp.allowConnectLink(bound.key, mcpStore(bound))}
         await mount.workOn()
       } else {
         await mount.workOff()
@@ -865,6 +874,8 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
       }
     },
     revokeT3Mcp(deviceServiceId) {
+      if (deviceServiceId !== deps.localDeviceServiceId()) {return Promise.resolve()}
+
       const pending = revokedDevices.get(deviceServiceId)
 
       if (pending) {return pending}
