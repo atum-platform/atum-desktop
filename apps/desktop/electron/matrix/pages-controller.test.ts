@@ -86,7 +86,7 @@ vi.mock('electron', () => ({
   WebContentsView: electron.WebContentsView
 }))
 
-import type { MatrixHermesConnection } from './hermes-runtime'
+import type { MatrixHermesConnection } from './hermes-utilities'
 import { MatrixPagesController, type Scope } from './pages-controller'
 import { MatrixPagesManagementTransport } from './pages-management-transport'
 import { MatrixPagesMcpScope } from './pages-mcp'

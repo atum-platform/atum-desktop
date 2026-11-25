@@ -71,6 +71,5 @@ test('window title and native fallback name are Atum', () => {
 
   // Hidden developer/SDK documents keep their technical labels; neither is a product window.
   assert.match(read('matrix-sdk.html'), /<title>Atum Matrix SDK<\/title>/)
-  assert.match(read('matrix-playground.html'), /<title>Atum Matrix playground<\/title>/)
   assert.match(read('matrix-builder.json'), /Atum Matrix Candidate/)
 })

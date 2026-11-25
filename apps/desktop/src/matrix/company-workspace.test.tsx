@@ -19,9 +19,9 @@ import type {
   MatrixCompanyPrivateCosView
 } from '../../shared/matrix-company-private-cos'
 
+import { playgroundCompanyDesktopAdapter } from './__fixtures__/company-ai-fixtures'
+import { TEAM_COMPANY_ID } from './__fixtures__/team-space-fixtures'
 import { MatrixCompanyWorkspace } from './company-workspace'
-import { playgroundCompanyDesktopAdapter } from './playground/company-ai-fixtures'
-import { TEAM_COMPANY_ID } from './playground/team-space-fixtures'
 import { $companyDirectories, companyDirectoryCache } from './team-space/directory-store'
 import { teamSpaceKey } from './team-space/keys'
 import {

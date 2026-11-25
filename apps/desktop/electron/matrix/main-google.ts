@@ -2,7 +2,7 @@ import type { MatrixGoogleAssistantAccess, MatrixGoogleServices } from '../../sh
 import type { EncryptedStore } from '../encrypted-store'
 
 import type { MatrixGoogleTools, MatrixGoogleToolsGate } from './google-tools'
-import { matrixGoogleHermesEnvironment } from './hermes-runtime'
+import { matrixGoogleHermesEnvironment } from './hermes-utilities'
 
 /** The default assistant's host role: the one agent whose Google use the protected path (latch, fence) is built for. */
 export const MATRIX_GOOGLE_ASSISTANT_ROLE = 'agent'

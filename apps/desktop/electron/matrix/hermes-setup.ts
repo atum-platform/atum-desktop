@@ -5,7 +5,7 @@ import { MATRIX_NARRATION_DISPLAY } from '../../shared/matrix-turn-style'
 import { REQUIRED_SETUP_METHODS } from '../../shared/setup-methods'
 import { ATUM_APPROVALS_DEFAULT_MODE } from '../atum-approval-default'
 
-import type { MatrixHermesConnection } from './hermes-runtime'
+import type { MatrixHermesConnection } from './hermes-utilities'
 
 /** Hermes derives the auth-pool slug from name. Setup and cleanup share this
  * identity; the native layer must not duplicate Hermes's slug algorithm. */

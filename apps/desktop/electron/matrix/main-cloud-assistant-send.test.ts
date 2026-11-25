@@ -4,15 +4,8 @@ import { runInNewContext } from 'node:vm'
 import ts from 'typescript'
 import { describe, expect, it, vi } from 'vitest'
 
-import { AgentHomeHolds, type HoldReason } from './agent-home-placement/holds'
-import { AgentHomeJournal } from './agent-home-placement/journal'
-import { MemoryStore } from './agent-home-placement/mac.fixture'
 import { logAppChatFailures } from './app-bots/open-chat'
-import { assistantBlocked } from './assistant-policy'
-import { sendAssistantMessage } from './assistant-send'
-import { matrixCloudAgentAnswersInCloud } from './cloud-agent-placement'
 import { parseMatrixCommand, requireMatrixCaller } from './ipc-policy'
-import { dispatchMatrixCommand } from './message-dispatch'
 import { logNotesSelfOpenFailures } from './notes-self-log'
 
 // Execute the actual main IPC and hold decisions, replacing external boundaries only.
@@ -70,108 +63,60 @@ function mainCode(name: string, context: Record<string, unknown>, ipc = false) {
   return executable
 }
 
-
-function fixture(options: { cloud?: boolean; reasons?: HoldReason[]; moving?: boolean; migration?: boolean; hostReady?: boolean } = {}) {
+function fixture() {
   const ui = { webContents: { mainFrame: { url: 'atum-matrix://ui/matrix.html' } } }
-  const agent = { role: 'agent', operation: false, listener: { snapshot: () => ({ state: 'idle' }) } }
   const human = { queue: { command: vi.fn(async () => '$sent') } }
-  const journal = new AgentHomeJournal(new MemoryStore())
-  let holds = new AgentHomeHolds(journal)
-
-  for (const reason of options.reasons ?? []) {
-    holds.add('luna', reason)
-  }
-
-  // A completed move's durable stand-down survives restart; the IPC must accept that fact.
-  if (options.reasons?.length === 1 && options.reasons[0] === 'standDown') {
-    holds = new AgentHomeHolds(journal)
-    holds.seed('luna')
-  }
+  const hosts = new Map([['human', human]])
+  const identity = { userId: '@owner:test', deviceId: 'desktop' }
+  const agent = { answering: 'cloud' }
+  const guardRoomCommand = vi.fn(async () => {})
 
   const context: Record<string, unknown> = {
     ui, UI_URL: ui.webContents.mainFrame.url, requireMatrixCaller, logAppChatFailures,
     fenceDeviceBeforeOperationLock: vi.fn(), matrixDeviceStopFence: undefined,
     state: { state: 'ready' }, closing: false, operation: false, domainOperation: false,
-    parseMatrixCommand, requireRoomAgent: () => agent,
-    cloudPrincipal: () => 'luna', movingAgents: new Set(options.moving ? ['luna'] : []),
-    homeMigrationForOwner: () => ({ holds: { held: () => options.migration ?? false } }),
-    agentHome: { isHeld: (principal: string) => holds.has(principal), holds },
-    isCloudAgent: () => options.cloud ?? true, isCloudOnlyAgent: () => false,
-    cloudAgentMacRole: () => 'standby', matrixCloudAgentAnswersInCloud,
-    account: { identity: () => ({ userId: '@owner:test' }) },
-    hosts: new Map<string, unknown>([['human', human], ['agent', { ready: options.hostReady ?? false }]]),
-    guardRoomCommand: vi.fn(async () => {}), dispatchMatrixCommand,
-    matrixSdkCommandTimeout: () => 20_000, pendingMatrixDrafts: undefined,
-    runtime: options.cloud === false ? {} : undefined, assistantBlocked,
-    holdOperation: vi.fn(), noteCheckInOwnerMessage: vi.fn(),
-    requireAssistantRoom: vi.fn(async () => {}), sendAssistantMessage,
-    observeMessage: (send: () => unknown) => send(), rememberSentHere: vi.fn(),
-    runHermes: vi.fn(async () => ({ state: 'published' })), matrixInvocationResult: (result: unknown) => result
+    parseMatrixCommand, requireRoomAgent: () => agent, agentOfRoom: () => agent,
+    account: { identity: () => identity },
+    hosts, guardRoomCommand, matrixSdkCommandTimeout: () => 20_000, pendingMatrixDrafts: undefined,
+    observeMessage: (send: () => unknown) => send()
   }
 
   context.dispatchSdkCommand = mainCode('dispatchSdkCommand', context)
   context.command = mainCode('command', context)
-  context.isActivelyMovingAgent = mainCode('isActivelyMovingAgent', context)
-  context.isMovingAgent = mainCode('isMovingAgent', context)
-  context.refuseCloudAgent = mainCode('refuseCloudAgent', context)
+
   const invoke = mainCode('ui', context, true)
 
-  const send = () => invoke({ sender: ui.webContents, senderFrame: ui.webContents.mainFrame }, {
-    kind: 'sendAssistant', roomId: '!luna:test', body: 'Hello Luna', locale: 'en'
+  const send = (replyTo?: string) => invoke({ sender: ui.webContents, senderFrame: ui.webContents.mainFrame }, {
+    kind: 'sendAssistant', roomId: '!luna:test', body: 'Hello Luna', replyTo
   })
 
-  return { context, human, send }
+  return { human, guardRoomCommand, hosts, send }
 }
 
 describe('cloud assistant owner send IPC', () => {
-  it.each([[['standDown'] as HoldReason[]], [[] as HoldReason[]]])('posts with holds %j and an idle/unavailable standby without a local turn', async reasons => {
-    const f = fixture({ reasons })
-    await expect(f.send()).resolves.toEqual({ eventId: '$sent', result: { state: 'published' } })
-    expect(f.context.guardRoomCommand).toHaveBeenCalledWith('send', '!luna:test')
-    expect(f.human.queue.command).toHaveBeenCalledExactlyOnceWith({ kind: 'send', roomId: '!luna:test', body: 'Hello Luna' }, 20_000)
-    expect(f.context.rememberSentHere).toHaveBeenCalledExactlyOnceWith('$sent')
-    expect(f.context.runHermes).not.toHaveBeenCalled()
-    expect(f.context.holdOperation).not.toHaveBeenCalled()
-    expect(f.context.requireAssistantRoom).not.toHaveBeenCalled()
-  })
-
-  it.each<HoldReason>(['drain', 'quiesce', 'model'])('refuses a %s hold alongside stand-down', async reason => {
-    const f = fixture({ reasons: ['standDown', reason] })
-    await expect(f.send()).rejects.toThrow('matrix_agent_unavailable')
-    expect(f.human.queue.command).not.toHaveBeenCalled()
-    expect(f.context.runHermes).not.toHaveBeenCalled()
-  })
-
-  it.each([{ moving: true }, { migration: true }])('refuses an active migration %j', async options => {
-    const f = fixture(options)
-    await expect(f.send()).rejects.toThrow('matrix_agent_unavailable')
-    expect(f.human.queue.command).not.toHaveBeenCalled()
-  })
-
-  it('refuses if a move starts while the room guard is pending', async () => {
+  it('posts one Matrix message through the owner SDK without an agent SDK host', async () => {
     const f = fixture()
+    await expect(f.send()).resolves.toEqual({ eventId: '$sent', result: { state: 'published' } })
+    expect(f.guardRoomCommand).toHaveBeenCalledWith('send', '!luna:test')
+    expect(f.human.queue.command).toHaveBeenCalledExactlyOnceWith(
+      { kind: 'send', roomId: '!luna:test', body: 'Hello Luna' }, 20_000
+    )
+  })
 
-    f.context.guardRoomCommand = async () => { (f.context.movingAgents as Set<string>).add('luna') }
-
-    // The IPC closes over its own sandbox, so construct it after replacing this boundary.
-    const invoke = mainCode('ui', f.context, true)
-    const ui = f.context.ui as { webContents: { mainFrame: object } }
-    await expect(invoke({ sender: ui.webContents, senderFrame: ui.webContents.mainFrame }, {
-      kind: 'sendAssistant', roomId: '!luna:test', body: 'Hello Luna'
-    })).rejects.toThrow('matrix_agent_unavailable')
+  it('drops a send if the owner SDK changes during the room check', async () => {
+    const f = fixture()
+    f.guardRoomCommand.mockImplementation(async () => { f.hosts.delete('human') })
+    await expect(f.send()).rejects.toThrow('matrix_not_ready')
     expect(f.human.queue.command).not.toHaveBeenCalled()
   })
 
-  it('retains local room preflight and exactly one local invocation', async () => {
-    const f = fixture({ cloud: false, hostReady: true })
-    await expect(f.send()).resolves.toMatchObject({ eventId: '$sent' })
-    expect(f.context.requireAssistantRoom).toHaveBeenCalled()
-    expect(f.context.runHermes).toHaveBeenCalledExactlyOnceWith({ roomId: '!luna:test', eventId: '$sent' }, 'en', undefined, undefined, expect.anything())
-  })
-
-  it('keeps a stood-down local agent fenced', async () => {
-    const f = fixture({ cloud: false, hostReady: true, reasons: ['standDown'] })
-    await expect(f.send()).rejects.toThrow('matrix_agent_unavailable')
+  it('passes only a validated Matrix reply target to the owner SDK', async () => {
+    const f = fixture()
+    await expect(f.send('not-an-event')).rejects.toThrow('matrix_command_invalid')
     expect(f.human.queue.command).not.toHaveBeenCalled()
+    await expect(f.send('$answer')).resolves.toMatchObject({ eventId: '$sent' })
+    expect(f.human.queue.command).toHaveBeenCalledExactlyOnceWith(
+      { kind: 'send', roomId: '!luna:test', body: 'Hello Luna', replyTo: '$answer' }, 20_000
+    )
   })
 })

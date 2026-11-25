@@ -6,15 +6,7 @@ import path from 'node:path'
 import { BUNDLED_PYTHON_VERSION, bundledRuntimeLayout, cleanupVerifiedBundledRuntime, resolveBundledHermesRuntime } from '../bundled-runtime'
 import { resolveSharedAuthDirEnv } from '../hermes-home'
 
-import { type MatrixHermesRuntimeConfig, readMatrixHermesRuntime } from './hermes-runtime'
-
-/** Reuse the verified bundle's existing Node payload; no second runtime or Electron Node mode. */
-export function selectMatrixLocalBrainProcess(packaged: boolean, runtime?: MatrixHermesRuntimeConfig):
-  { nodePath: string; runAsNode: boolean } | undefined {
-  if (!packaged) {return { nodePath: process.execPath, runAsNode: true }}
-
-  return runtime?.bundled ? { nodePath: path.join(runtime.bundled.nodeBin, 'node'), runAsNode: false } : undefined
-}
+import { type MatrixHermesRuntimeConfig, readMatrixHermesRuntime } from './hermes-utilities'
 
 /** Diagnostics are closed codes, never raw filesystem/JSON/provider errors. */
 export function matrixRuntimeFailureCode(error: unknown) {

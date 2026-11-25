@@ -8,7 +8,6 @@ import { assertMatrixUsageDescriptions } from './matrix-usage-descriptions.mjs'
 import { stageAtumDisclaimLauncher } from './stage-atum-disclaim-launcher.mjs'
 import { stageBundledRuntime } from './stage-bundled-runtime.mjs'
 import { stageDriveEngine } from './stage-drive-engine.mjs'
-import { stageLocalBrain } from './stage-local-brain.mjs'
 import { stageMatrixPublicConfig } from './stage-matrix-public-config.mjs'
 import { stageWorkRuntime } from './stage-work-runtime.mjs'
 import { assertThirdPartyNotices, readBundledPackagesFromAsar, writeThirdPartyNotices } from './third-party-notices.mjs'
@@ -24,9 +23,7 @@ import { desktopServicesConfigFromEnvironment, writeDesktopServicesConfig } from
  * - `EnableEmbeddedAsarIntegrityValidation` ON + `OnlyLoadAppFromAsar` ON: the app only runs its signed
  *   `app.asar`, so a tampered or substituted bundle will not load.
  *
- * `RunAsNode` OFF: the local-brain supervisor uses the bundle's existing verified
- * browser Node payload, preserving its detached process-group cleanup. No extra
- * runtime or changed provider transport is needed.
+ * `RunAsNode` OFF: keep Electron from serving as a standalone Node executable.
  */
 export async function applyDeviceRuntimeFuses(appPath, { flip } = {}) {
   const fuses = await import('@electron/fuses')
@@ -53,7 +50,6 @@ export default async function matrixAfterPack(
   context,
   {
     stage = stageBundledRuntime,
-    stageBrain = stageLocalBrain,
     stageDrive = stageDriveEngine,
     auditRuntime = auditRuntimeLicenses,
     assertRuntimePolicy = assertRuntimeLicensePolicy,
@@ -105,7 +101,6 @@ export default async function matrixAfterPack(
     targetRoot: path.join(resources, 'drive-engine'),
     requireDeveloperId: context.packager.config?.forceCodeSigning === true
   })
-  await stageBrain({ targetRoot: path.join(resources, 'local-brain'), platform: 'darwin', arch })
   // Work (self-work slice A): T3's standalone server, pinned by digest, beside the Hermes runtime it drives. Without
   // `ATUM_WORK_ARCHIVE` nothing is staged and the composition draws no Work entry (main-work.ts), so a build without
   // the archive is honest about it. Developer ID signing of the staged files is `verify-work-runtime-signatures.mjs`'s
@@ -124,7 +119,7 @@ export default async function matrixAfterPack(
   // Application Support still wins (electron/matrix/launch-config.ts).
   stagePublicConfig({ resources })
   // The device host (WS-4) is spawned through this signed launcher so agent commands never inherit
-  // Atum's TCC grants. It lives in Resources next to local-brain and is signed with the app.
+  // Atum's TCC grants. It lives in Resources and is signed with the app.
   stageDisclaimLauncher({ platform: 'darwin', arch, output: path.join(resources, 'atum-disclaim-launcher') })
   writeServicesConfig({ environment, outputPath: path.join(resources, 'atum-desktop-services.json') })
   // Flip the device-runtime fuses just before the packager signs the bundle.

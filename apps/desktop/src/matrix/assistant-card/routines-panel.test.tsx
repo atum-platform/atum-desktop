@@ -86,7 +86,7 @@ afterEach(() => {
 
 function renderRow(
   locale: 'vi' | 'en' = 'vi',
-  options: { agent?: MatrixAgentView; onMoveToCloud?: () => void } = {}
+  options: { agent?: MatrixAgentView } = {}
 ) {
   return render(
     <I18nProvider configClient={null} initialLocale={locale}>
@@ -94,7 +94,6 @@ function renderRow(
         agent={options.agent ?? agent}
         copy={assistantCardCopies[locale]}
         locale={locale}
-        onMoveToCloud={options.onMoveToCloud}
       />
     </I18nProvider>
   )
@@ -518,23 +517,8 @@ describe('the coordinator’s round-2 review', () => {
     )
   })
 
-  it('says routines only run while the assistant answers in the cloud, with a way there', async () => {
-    const onMoveToCloud = vi.fn()
-    renderRow('vi', { agent: { ...agent, macRole: 'answering' }, onMoveToCloud })
-    await waitFor(() => expect(screen.getByText('1 việc')).toBeTruthy())
-    await openPanel()
-
-    const panel = document.querySelector('[data-routines-panel]') as HTMLElement
-    const warning = document.querySelector('[data-routines-cloud]') as HTMLElement
-
-    expect(panel.firstElementChild).toBe(warning)
-    expect(warning.textContent).toContain('Lịch chỉ chạy khi trợ lý trả lời trên đám mây.')
-    fireEvent.click(screen.getByText('Chuyển lên đám mây'))
-    expect(onMoveToCloud).toHaveBeenCalledOnce()
-  })
-
   it('says nothing about the cloud while the cloud answers', async () => {
-    renderRow('vi', { onMoveToCloud: vi.fn() })
+    renderRow()
     await waitFor(() => expect(screen.getByText('1 việc')).toBeTruthy())
     await openPanel()
 
@@ -595,36 +579,6 @@ describe('the coordinator’s round-3 review', () => {
 })
 
 describe('the coordinator’s round-4 review', () => {
-  const macPolicy = {
-    policy: {
-      profile: 'atum.execution-policy/1',
-      agentPrincipal: PRINCIPAL,
-      revision: 1,
-      source: 'saved',
-      order: ['cloud', 'mac:00000000-0000-4000-8000-b454f82c5857'],
-      disabled: []
-    },
-    status: {
-      profile: 'atum.execution-status/1',
-      agentPrincipal: PRINCIPAL,
-      policyRevision: 1,
-      asOf: Date.now(),
-      state: 'working',
-      current: 'mac:00000000-0000-4000-8000-b454f82c5857',
-      desired: 'mac:00000000-0000-4000-8000-b454f82c5857',
-      order: ['cloud', 'mac:00000000-0000-4000-8000-b454f82c5857'],
-      disabled: [],
-      destinations: {
-        cloud: { state: 'ready', observedAt: Date.now() },
-        'mac:00000000-0000-4000-8000-b454f82c5857': { state: 'working', observedAt: Date.now() }
-      }
-    },
-    stale: false,
-    deviceNames: {
-      '00000000-0000-4000-8000-b454f82c5857': { displayName: "Example's MacBook Air", thisMac: true }
-    }
-  } as unknown as MatrixAgentView['executionPolicy']
-
   it('opens the edit dialog from a row and the add dialog from Thêm lịch', async () => {
     renderRow()
     await waitFor(() => expect(screen.getByText('1 việc')).toBeTruthy())
@@ -692,26 +646,15 @@ describe('the coordinator’s round-4 review', () => {
     expect(screen.getByRole('radio', { name: 'Vào lúc' }).getAttribute('aria-checked')).toBe('true')
   })
 
-  it('names the Mac it runs on and offers the way to the cloud', async () => {
-    const onMoveToCloud = vi.fn()
-    renderRow('vi', {
-      agent: { ...agent, macRole: 'answering', executionPolicy: macPolicy },
-      onMoveToCloud
-    })
+  it('shows the cloud as the routine destination', async () => {
+    renderRow()
     await waitFor(() => expect(screen.getByText('1 việc')).toBeTruthy())
     await openPanel()
     fireEvent.click(screen.getByText('Thêm lịch'))
 
     const runsOn = document.querySelector('[data-routine-runs-on]') as HTMLSelectElement
-
-    expect(runsOn.value).toContain('MacBook Air')
-    expect(runsOn.value).toContain('(máy này)')
-    expect(document.querySelector('[data-routine-cloud-note]')?.textContent).toContain(
-      'Lịch chỉ chạy khi trợ lý trả lời trên đám mây.'
-    )
-
-    fireEvent.click(within(document.querySelector('[data-routine-dialog]') as HTMLElement).getByText('Chuyển lên đám mây'))
-    expect(onMoveToCloud).toHaveBeenCalledOnce()
+    expect(runsOn.value).toBe(assistantCardCopies.vi.routineCloudPlace)
+    expect(runsOn.disabled).toBe(true)
   })
 
   it('keeps Chạy ngay and the collapsed history below the form', async () => {

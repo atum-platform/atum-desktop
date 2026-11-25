@@ -7,51 +7,9 @@ import type {
 
 import type { NativeGrant } from './authorization'
 import { readDomainJson } from './domain'
-import type { MatrixAppTurn } from './invocation'
 
 /** One delivery attempt. The platform consumes the dispatch fence, strips
  * Matrix mentions and constructs the external provider envelope itself. */
-export async function requestAppTurn(
-  resource: string,
-  grant: NativeGrant,
-  app: string,
-  input: MatrixAppTurn
-): Promise<{ text: string }> {
-  input.signal.throwIfAborted()
-  const remaining = input.deadlineAt - Date.now()
-
-  if (!Number.isFinite(remaining) || remaining <= 0) {
-    throw new Error('matrix_invocation_expired')
-  }
-
-  const signal = AbortSignal.any([input.signal, AbortSignal.timeout(Math.min(90_000, remaining))])
-
-  const response = await fetch(`${resource}${matrixExecutorPath(app)}/turns`, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${grant.accessToken}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      invocationId: input.invocationId,
-      text: input.text,
-      mentionedUserIds: input.mentionedUserIds
-    }),
-    redirect: 'error',
-    signal
-  })
-
-  if (!response.ok || !response.headers.get('content-type')?.startsWith('application/json')) {
-    await response.body?.cancel()
-    throw new Error('matrix_app_turn_unavailable')
-  }
-
-  const value = (await readDomainJson(response, 128_000)) as { text?: unknown } | null
-  signal.throwIfAborted()
-
-  if (typeof value?.text !== 'string' || !value.text.trim() || value.text.length > 16000) {
-    throw new Error('matrix_app_turn_invalid')
-  }
-
-  return { text: value.text }
-}
 
 /** Main-only credential. Never returned from UI IPC or human SDK configuration. */
 export interface AgentCredential extends MatrixEnrollmentIdentity {
@@ -94,50 +52,7 @@ export function matrixExecutorPath(app?: string): string {
   return `/apps/${app}/proxy`
 }
 
-export async function requestInvocation(
-  resource: string,
-  grant: NativeGrant,
-  input: Record<string, unknown>,
-  app?: string
-): Promise<unknown> {
-  const response = await fetch(`${resource}${matrixExecutorPath(app)}/invocations`, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${grant.accessToken}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify(input),
-    redirect: 'error',
-    signal: AbortSignal.timeout(10_000)
-  })
-
-  if (response.status === 429 && response.headers.get('content-type')?.startsWith('application/json')) {
-    const value = await readDomainJson(response).catch(() => null) as { details?: { reason?: unknown } } | null
-    throw new Error(value?.details?.reason === 'room_cap' ? 'matrix_group_room_cap' : 'matrix_invocation_unavailable')
-  }
-
-  if (!response.ok || !response.headers.get('content-type')?.startsWith('application/json')) {
-    await response.body?.cancel()
-    throw new Error('matrix_invocation_unavailable')
-  }
-
-  return readDomainJson(response)
-}
-
 /** Free group notice authority; unavailable routes never permit a local send. */
-export async function requestGroupNotice(resource: string, grant: NativeGrant, input: unknown): Promise<unknown> {
-  const response = await fetch(`${resource}/local-hermes/group-notice`, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${grant.accessToken}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify(input),
-    redirect: 'error',
-    signal: AbortSignal.timeout(10_000)
-  })
-
-  if (!response.ok || !response.headers.get('content-type')?.startsWith('application/json')) {
-    await response.body?.cancel()
-    throw new Error('matrix_group_notice_unavailable')
-  }
-
-  return readDomainJson(response)
-}
 
 /** The answering-executor lease (platform 0145), taken once per session. A missing
  * route or service outage leaves authority to the existing per-message provider;

@@ -1,7 +1,7 @@
 import { spawn } from 'node:child_process'
 import path from 'node:path'
 
-import { matrixHermesEnvironment, type MatrixHermesRuntimeConfig } from '../hermes-runtime'
+import { matrixHermesEnvironment, type MatrixHermesRuntimeConfig } from '../hermes-utilities'
 
 const FENCE_READY_TIMEOUT_MS = 10_000
 const FENCE_RELEASE_TIMEOUT_MS = 2_000

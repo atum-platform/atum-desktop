@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url'
 import { afterAll, expect, test } from 'vitest'
 
 import { matrixCodexStoreMode } from './codex-accounts'
-import { matrixAccountCodexScope, matrixHermesEnvironment, matrixHermesHome } from './hermes-runtime'
+import { matrixAccountCodexScope, matrixHermesEnvironment, matrixHermesHome } from './hermes-utilities'
 
 /**
  * Where an approved ChatGPT sign-in lands, with the real Hermes split OAuth owner and

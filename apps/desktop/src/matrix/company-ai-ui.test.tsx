@@ -3,6 +3,13 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { I18nProvider } from '@/i18n'
 
+import {
+  COMPANY_AI_ANSWER_FIXTURE,
+  COMPANY_AI_CHANNEL_ID,
+  COMPANY_BRAIN_FIXTURE,
+  playgroundCompanyDesktopAdapter
+} from './__fixtures__/company-ai-fixtures'
+import { TEAM_COMPANY_ID, TEAM_PROJECT_ID } from './__fixtures__/team-space-fixtures'
 import { CompanyAIAnswer } from './company-ai-answer'
 import { companyAIMentionMatch, companyAIMentionUserIds, insertCompanyAIMention } from './company-ai-mention'
 import { CompanyAIAvatar, CompanyAIStatus } from './company-ai-status'
@@ -11,13 +18,6 @@ import { CompanyProjectBrief } from './company-project-brief'
 import { $companyAIStatuses, $companySpacePreferences } from './company-space-store'
 import { CompanySpaceTabs } from './company-space-tabs'
 import { CompanyWalletDrawer } from './company-wallet'
-import {
-  COMPANY_AI_ANSWER_FIXTURE,
-  COMPANY_AI_CHANNEL_ID,
-  COMPANY_BRAIN_FIXTURE,
-  playgroundCompanyDesktopAdapter
-} from './playground/company-ai-fixtures'
-import { TEAM_COMPANY_ID, TEAM_PROJECT_ID } from './playground/team-space-fixtures'
 import { CompanyMenu } from './team-space/company-menu'
 
 const MEMBER = 'RiUVmyo5zEPwmNwDTzUkOZ9pssoNpuFAbofjwAsJyS8'

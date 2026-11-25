@@ -6,10 +6,10 @@ import { I18nProvider, type Locale } from '@/i18n'
 import { ATUM_MAILBOXES } from '../../shared/atum-company'
 import type { MatrixSnapshot } from '../../shared/matrix'
 
+import { scenarioSnapshot } from './__fixtures__/fixtures'
 import { ATUM_LINKS } from './atum-links'
 import { matrixLegalCopy } from './legal-copy'
 import { MatrixDeleteAccount, MatrixLegalSettings } from './legal-settings'
-import { scenarioSnapshot } from './playground/fixtures'
 import { type MatrixSettingsPane, MatrixSettingsSheet } from './settings-sheet'
 
 const LOCALES = ['en', 'vi', 'ja', 'zh', 'zh-hant'] as const

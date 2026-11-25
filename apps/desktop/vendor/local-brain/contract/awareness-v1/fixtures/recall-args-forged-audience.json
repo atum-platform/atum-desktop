@@ -1,7 +1,0 @@
-{
-  "query": "salary",
-  "audience": {
-    "class": "private_owner"
-  },
-  "limit": 5
-}

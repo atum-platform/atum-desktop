@@ -49,13 +49,13 @@ await renderer({
         // must not silently pull the retired account/gateway roots into Matrix.
         const forbidden = modules.filter(
           file =>
-            file.startsWith('src/matrix/playground/') ||
+            file.startsWith('src/matrix/__fixtures__/') ||
             file === 'src/hermes.ts' ||
             file === 'src/themes/context.tsx' ||
             /^src\/store\/(gateway|profile|session|atum-messaging)([./]|$)/.test(file)
         )
         if (forbidden.length)
-          this.error(`Matrix renderer imported playground or legacy authority roots: ${forbidden.join(', ')}`)
+          this.error(`Matrix renderer imported test fixtures or legacy authority roots: ${forbidden.join(', ')}`)
         this.emitFile({
           type: 'asset',
           fileName: 'matrix-renderer-modules.json',
@@ -88,13 +88,13 @@ await renderer({
           .sort()
         const forbidden = modules.filter(
           file =>
-            file.startsWith('src/matrix/playground/') ||
+            file.startsWith('src/matrix/__fixtures__/') ||
             file === 'src/hermes.ts' ||
             file === 'src/themes/context.tsx' ||
             /^src\/store\/(gateway|profile|session|atum-messaging)([./]|$)/.test(file)
         )
         if (forbidden.length)
-          this.error(`Matrix pages imported playground or legacy authority roots: ${forbidden.join(', ')}`)
+          this.error(`Matrix pages imported test fixtures or legacy authority roots: ${forbidden.join(', ')}`)
         this.emitFile({
           type: 'asset',
           fileName: 'matrix-pages-modules.json',

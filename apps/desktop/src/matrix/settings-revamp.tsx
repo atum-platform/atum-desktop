@@ -43,7 +43,6 @@ import { MatrixGoogleConnectionSettings } from './google-connection-settings'
 import { HermesSetup } from './hermes-setup'
 import { IgnoredPeople } from './ignored-people'
 import { MatrixKeepAwakeSettings } from './keep-awake-settings'
-import { MatrixKnowledgeSourcesSettings } from './knowledge-sources-settings'
 import { MatrixLanguageSettings } from './language'
 import { MatrixDeleteAccount, MatrixLegalSettings } from './legal-settings'
 import { MatrixLoginStartupSettings } from './login-startup-settings'
@@ -443,10 +442,6 @@ function ConnectionsPane({ onClose, snapshot }: { onClose(): void; snapshot: Mat
       <SettingsSection title={copy.apps}>
         <AppBotSettings snapshot={snapshot} />
       </SettingsSection>
-      <MatrixKnowledgeSourcesSettings
-        // Account-wide: the open chat or assistant never remounts (or re-fences) these switches.
-        key={`knowledge-sources:${snapshot.petScope ?? snapshot.identity?.userId ?? 'none'}`}
-      />
     </div>
   )
 }

@@ -9,7 +9,7 @@ import { type AtumSkillBundle, parseSkillBundle } from '../../shared/atum-agent-
 import { type AtumPortableAssistantDefinition, parseAtumPortableDefinition } from '../../shared/atum-agent-portability'
 
 import { MatrixAgentDefinitionError, type MatrixAgentDefinitionSnapshot } from './agent-definition'
-import { matrixHermesEnvironment, type MatrixHermesRuntimeConfig } from './hermes-runtime'
+import { matrixHermesEnvironment, type MatrixHermesRuntimeConfig } from './hermes-utilities'
 
 /** Native-selected path plus the exact revision selected, journaled before account writes. */
 export interface MatrixProfileImport {

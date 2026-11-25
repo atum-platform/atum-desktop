@@ -2,7 +2,7 @@ import { execFile } from 'node:child_process'
 import path from 'node:path'
 
 import { buildConversationMarker } from '../../../shared/agent-conversation'
-import { matrixHermesEnvironment, type MatrixHermesRuntimeConfig } from '../hermes-runtime'
+import { matrixHermesEnvironment, type MatrixHermesRuntimeConfig } from '../hermes-utilities'
 
 // Imported from the agent's verified runtime, using the shipped cron store's lock/API.
 const JOB_ORIGINS = `import json, sys

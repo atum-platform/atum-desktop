@@ -1,4 +1,4 @@
-import type { MatrixHermesConnection } from './hermes-runtime'
+import type { MatrixHermesConnection } from './hermes-utilities'
 import type { MatrixPagesForwardRequest } from './pages-bridge'
 import type { MatrixHermesTurnLock } from './turn-lock'
 

@@ -12,7 +12,7 @@ import os from 'node:os'
 import path from 'node:path'
 
 import { matrixCodexStoreMode } from './codex-accounts'
-import type { MatrixHermesRuntimeConfig } from './hermes-runtime'
+import type { MatrixHermesRuntimeConfig } from './hermes-utilities'
 
 /** Written to userData once the 0.18.3 Codex migration has finished; it then never runs again. */
 export const MATRIX_CODEX_MIGRATION_MARKER = 'matrix-codex-accounts-0.18.3.json'

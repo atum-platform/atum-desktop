@@ -2269,7 +2269,8 @@ export interface MatrixUiBridge {
   sendAssistant(
     roomId: string,
     body: string,
-    locale?: string
+    locale?: string,
+    replyTo?: string
   ): Promise<{ eventId: string; result: MatrixInvocationResult }>
   recoverHermes(roomId: string, eventId: string): Promise<MatrixRecoveredResult>
   /** Local path: main accepts the text and returns at once; the turn shows in the snapshot.

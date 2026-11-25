@@ -2,12 +2,10 @@ import { describe, expect, it, vi } from 'vitest'
 
 import { CONSUMER_BROWSER_IPC } from '../../shared/browser/ipc'
 import type { MatrixUiBridge } from '../../shared/matrix'
-import { MATRIX_AGENT_SOURCES_IPC } from '../../shared/matrix-agent-sources'
 import { MATRIX_CLIPBOARD_IPC } from '../../shared/matrix-clipboard'
 import { MATRIX_INVITE_LINK_IPC } from '../../shared/matrix-invite-link'
 import { MATRIX_KEEP_AWAKE, type MatrixKeepAwakeBridge } from '../../shared/matrix-keep-awake'
 import { MATRIX_LOGIN_STARTUP, type MatrixLoginStartupBridge } from '../../shared/matrix-login-startup'
-import { MATRIX_MAC_SOURCES_IPC } from '../../shared/matrix-mac-sources'
 import { MATRIX_MESSAGE_LINK_IPC } from '../../shared/matrix-message-link'
 import { MATRIX_NATIVE_APPS } from '../../shared/matrix-native-apps'
 import { MATRIX_PAGES_IPC } from '../../shared/matrix-pages'
@@ -229,41 +227,14 @@ describe('Matrix UI preload consumer browser bridge', () => {
       [MATRIX_PERMISSIONS_IPC.relaunch]
     ])
   })
-  it('exposes only closed per-account source reads and boolean switches', async () => {
-    electron.invoke.mockClear()
-    const sources = bridge().macSources!
-    await sources.read()
-    await sources.set('messages', false)
-    expect(electron.invoke.mock.calls).toEqual([
-      [MATRIX_MAC_SOURCES_IPC.read],
-      [MATRIX_MAC_SOURCES_IPC.set, 'messages', false]
-    ])
+  it('omits the retired Mac assistant configuration and voice routes', () => {
+    expect(bridge().macSources).toBeUndefined()
+    expect(bridge().agentSources).toBeUndefined()
+    expect(bridge().agentHome).toBeUndefined()
+    expect(bridge().executionPolicy).toBeUndefined()
+    expect(bridge().voice).toBeUndefined()
   })
-  it('exposes account-wide sources without an account or assistant selector', async () => {
-    electron.invoke.mockClear()
-    electron.on.mockClear()
-    electron.removeListener.mockClear()
-    const sources = bridge().agentSources!
-    expect(Object.keys(sources).sort()).toEqual(['presented', 'read', 'set', 'subscribe'])
-    await sources.presented?.()
-    await sources.read()
-    await sources.set('team_spaces', false)
-    expect(electron.invoke.mock.calls).toEqual([
-      [MATRIX_AGENT_SOURCES_IPC.presented],
-      [MATRIX_AGENT_SOURCES_IPC.read],
-      [MATRIX_AGENT_SOURCES_IPC.set, 'team_spaces', false]
-    ])
 
-    // A change announcement carries nothing from main; the listener just re-reads.
-    const listener = vi.fn()
-    const stop = sources.subscribe!(listener)
-    const [[channel, receive]] = electron.on.mock.calls as unknown as [[string, (...args: unknown[]) => void]]
-    expect(channel).toBe(MATRIX_AGENT_SOURCES_IPC.changed)
-    receive({}, { private: 'payload' })
-    expect(listener).toHaveBeenCalledExactlyOnceWith()
-    stop()
-    expect(electron.removeListener).toHaveBeenCalledWith(MATRIX_AGENT_SOURCES_IPC.changed, receive)
-  })
   it("exposes the recovery key's write-down as two fixed operations that take nothing from the window", async () => {
     electron.invoke.mockClear()
     const recovery = bridge().recoveryKey!

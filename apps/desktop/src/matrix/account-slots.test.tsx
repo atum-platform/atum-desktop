@@ -5,7 +5,7 @@ import { I18nProvider } from '@/i18n'
 
 import type { MatrixWalletState } from '../../shared/matrix-wallet'
 
-import { scenarioSnapshot } from './playground/fixtures'
+import { scenarioSnapshot } from './__fixtures__/fixtures'
 import { MatrixRailAccount } from './rail-account'
 import { type MatrixSettingsPane, MatrixSettingsSheet } from './settings-sheet'
 

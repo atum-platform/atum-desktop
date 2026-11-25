@@ -9,10 +9,8 @@ import { $bindings, resetAllBindings, setBinding } from '@/store/keybinds'
 
 import { assistantRooms } from '../../electron/matrix/assistant-policy'
 import type { AppDescriptor } from '../../shared/app-catalog'
-import type { MatrixExecutionPolicyBridge } from '../../shared/execution-policy'
 import {
   MATRIX_MAX_FILE_BYTES,
-  type MatrixAgentHomeBridge,
   type MatrixAgentView,
   type MatrixAppMenu,
   type MatrixHermesPrompt,
@@ -40,9 +38,9 @@ import { MATRIX_NOTES_SELF_ROOM_TYPE } from '../../shared/matrix-notes-self'
 import type { MatrixPagesBridge } from '../../shared/matrix-pages'
 import type { MatrixPermissionsSnapshot } from '../../shared/matrix-permissions'
 
+import { COMPANY_AI_ANSWER_FIXTURE, playgroundCompanyDesktopAdapter } from './__fixtures__/company-ai-fixtures'
 import { MatrixApp } from './app'
 import { $assistantCard, $assistantNameOverrides, openAssistantCard } from './assistant-card'
-import { ATUM_LINKS } from './atum-links'
 import { matrixChatCopy } from './chat-copy'
 import { matrixCheckInsCopy } from './check-ins-copy'
 import { companyPrivateCosRecipient } from './company-ai-sdk'
@@ -59,7 +57,6 @@ import { resetMatrixGoogleNudgeDismissals } from './google-connection-settings'
 import { $matrixLastChatByAccount } from './last-chat'
 import { $outgoingEchoes } from './outgoing-echo'
 import { matrixHandleAccount, rememberMatrixHandle, resetMatrixHandlesForTest } from './person-handles'
-import { COMPANY_AI_ANSWER_FIXTURE, playgroundCompanyDesktopAdapter } from './playground/company-ai-fixtures'
 import { setMatrixRightPanel } from './right-panel'
 import { normalizeMatrixSettingsPane, settingsPageOf } from './settings-revamp'
 import { MATRIX_LAUNCH_HOLD_MS } from './startup-screen'
@@ -1152,17 +1149,16 @@ function fixture(
   return { bridge, view, unsubscribe, emit: (state: MatrixSnapshot) => act(() => listener?.(projectLocale(state))) }
 }
 
-function legacyFixture(
-  snapshot: () => Promise<MatrixSnapshot> = async () => signedOut,
-  locale: 'en' | 'vi' | 'ja' | 'zh' | 'zh-hant' = 'en',
-  pages?: MatrixPagesBridge,
-  command: MatrixUiBridge['command'] = vi.fn(async () => null),
-  drive?: MatrixDriveBridge,
-  companies?: MatrixCompanyBridge,
-  agentSources?: NonNullable<MatrixUiBridge['agentSources']>,
-  bridgeOverrides: Partial<MatrixUiBridge> = {}
-) {
-  return fixture(snapshot, locale, pages, command, drive, companies, agentSources, bridgeOverrides, false)
+function cloudPrimary(snapshot: MatrixSnapshot, principal: string): MatrixSnapshot {
+  return {
+    ...snapshot,
+    hermes: 'unavailable',
+    rooms: snapshot.rooms.map(room => room.assistant ? { ...room, agentPrincipal: principal } : room),
+    agents: [{
+      principal, userId: '@atum:test', isDefault: true, ready: true,
+      hermes: 'unavailable', atumModel: true, answering: 'cloud'
+    }]
+  }
 }
 
 describe('isolated Matrix composition', () => {
@@ -3340,13 +3336,6 @@ describe('isolated Matrix composition', () => {
     toggleDetails('Technical details')
   }
 
-  /** Reply settings: the conversation menu's first item in an assistant's chat. */
-  function openAssistantOptions(locale: 'en' | 'vi' | 'zh' | 'zh-hant' | 'ja' = 'en') {
-    const chat = matrixChatCopy(locale)
-    fireEvent.keyDown(screen.getByRole('button', { name: chat.conversationOptions }), { key: 'Enter' })
-    fireEvent.click(screen.getByRole('menuitem', { name: chat.replySettings }))
-  }
-
   it('hides Reply settings from an assistant conversation under cloud-only', async () => {
     const { emit } = fixture(undefined, 'en', undefined, undefined, undefined, undefined, undefined, {}, true)
     emit(controlsState)
@@ -4332,18 +4321,20 @@ describe('isolated Matrix composition', () => {
   ] as const)(
     'keeps secondary controls behind localized dialogs and menus in %s without dispatching anything',
     async (locale, setup, actions) => {
-      const { emit, bridge } = legacyFixture(undefined, locale)
+      const { emit, bridge } = fixture(undefined, locale)
       emit(controlsState)
 
       expect(settingsSheet().hidden).toBe(true)
       openAccountSettings()
-      showSettingsPane('assistant')
+      showSettingsPane('advanced')
       expect(within(settingsSheet()).getByRole('heading', { name: setup })).toBeTruthy()
       closeAccountSettings()
 
-      openAssistantOptions(locale)
-      expect(screen.getByRole('dialog')).toBeTruthy()
-      fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' })
+      const chat = matrixChatCopy(locale)
+      fireEvent.keyDown(screen.getByRole('button', { name: chat.conversationOptions }), { key: 'Enter' })
+      expect(screen.getByRole('menu')).toBeTruthy()
+      expect(screen.queryByRole('menuitem', { name: chat.replySettings })).toBeNull()
+      fireEvent.keyDown(screen.getByRole('menu'), { key: 'Escape' })
 
       const actionsTrigger = screen.getByRole('button', { name: new RegExp(`^${actions}`) })
       expect(actionsTrigger.getAttribute('aria-expanded')).toBe('false')
@@ -4392,15 +4383,15 @@ describe('isolated Matrix composition', () => {
     expect(screen.getAllByRole('button', { name: /^Atum Main$/ })).toHaveLength(1)
     expect(bridge.command).not.toHaveBeenCalled()
     fireEvent.click(primary)
-    await waitFor(() => expect(bridge.connectHermes).toHaveBeenCalledExactlyOnceWith('!main:test'))
     expect(bridge.command).toHaveBeenCalledExactlyOnceWith({ kind: 'select', roomId: '!main:test' })
     fireEvent.keyDown(window, { key: 'n', code: 'KeyN', metaKey: true })
     const start = await screen.findByRole('dialog', { name: 'Start a chat' })
     fireEvent.click(
       within(within(start).getByRole('group', { name: 'Assistants' })).getByRole('button', { name: /^Atum Main/ })
     )
-    await waitFor(() => expect(bridge.connectHermes).toHaveBeenLastCalledWith('!main:test'))
-    expect(bridge.command).toHaveBeenLastCalledWith({ kind: 'select', roomId: '!main:test' })
+    await waitFor(() => expect(bridge.command).toHaveBeenLastCalledWith({ kind: 'select', roomId: '!main:test' }))
+    expect(bridge.command).toHaveBeenCalledTimes(2)
+    expect(bridge.connectHermes).not.toHaveBeenCalled()
     expect(bridge.command).not.toHaveBeenCalledWith(expect.objectContaining({ kind: 'create' }))
   })
 
@@ -4837,65 +4828,6 @@ describe('isolated Matrix composition', () => {
     $matrixStoreShelfRequest.set(null)
   })
 
-  it('keeps warnings in the conversation while healthy listening is one switch in reply settings', async () => {
-    const { emit, bridge } = legacyFixture()
-    emit({ ...controlsState, hermes: 'invalid' })
-    expect(screen.getByText(/Your assistant couldn.t start on this Mac/).closest('details')).toBeNull()
-    emit({
-      ...controlsState,
-      hermesListening: { state: 'listening', roomId: '!assistant:test', expiresAt: Date.now() + 60000, queued: 0 }
-    })
-    expect(screen.queryByRole('button', { name: 'Stop listening' })).toBeNull()
-    expect(window.document.querySelector('[data-matrix-status-stack]')?.textContent).not.toContain(
-      matrixActionCopy.en.listening
-    )
-    openAssistantOptions()
-    const reply = within(screen.getByRole('dialog')).getByRole('switch', { name: 'Reply in this conversation' })
-    expect(reply.getAttribute('aria-checked')).toBe('true')
-    // Healthy listening is the switch itself: no status paragraph, no Stop button beside it.
-    expect(within(screen.getByRole('dialog')).queryByRole('button', { name: 'Stop listening' })).toBeNull()
-    fireEvent.click(reply)
-    await waitFor(() => expect(bridge.stopListeningHermes).toHaveBeenCalledExactlyOnceWith('!assistant:test'))
-  })
-
-  it('says nothing in the conversation about paused listening; its switch in reply settings stays on', async () => {
-    const { emit, bridge } = legacyFixture()
-    emit({
-      ...controlsState,
-      hermesListening: {
-        state: 'paused',
-        mode: 'continuous',
-        roomId: '!assistant:test',
-        expiresAt: Date.now() + 60000,
-        queued: 0,
-        reason: 'overflow'
-      }
-    })
-
-    const stack = () => window.document.querySelector('[data-matrix-status-stack]')?.textContent ?? ''
-    expect(stack()).not.toContain(matrixActionCopy.en.continuousListeningPaused)
-    expect(screen.queryByRole('button', { name: 'Resume listening' })).toBeNull()
-    expect(screen.queryByRole('button', { name: 'Stop listening' })).toBeNull()
-    openAssistantOptions()
-    const dialog = within(screen.getByRole('dialog'))
-    // Paused but on: the switch stays on, with no recovery button beside it; the rare paths
-    // wait under Advanced, and cannot start a second watch.
-    const reply = dialog.getByRole('switch', { name: 'Reply in this conversation' })
-    expect(reply.getAttribute('aria-checked')).toBe('true')
-    expect(dialog.queryByRole('button', { name: 'Resume listening' })).toBeNull()
-    expect(dialog.queryByText(matrixActionCopy.en.continuousListeningPaused)).toBeNull()
-    fireEvent.click(dialog.getByRole('button', { name: 'Advanced' }))
-    expect((dialog.getByRole('button', { name: 'Only for the next 15 minutes' }) as HTMLButtonElement).disabled).toBe(
-      true
-    )
-
-    // The person's durable off is the switch.
-    fireEvent.click(reply)
-    await waitFor(() =>
-      expect(bridge.setContinuousListening).toHaveBeenCalledExactlyOnceWith('!assistant:test', false, 'en')
-    )
-  })
-
   it('shows nothing for an interrupted automatic request: it recovers by itself', async () => {
     const { emit, bridge } = fixture()
     emit({
@@ -4919,64 +4851,6 @@ describe('isolated Matrix composition', () => {
     expect(bridge.recoverHermes).not.toHaveBeenCalled()
     await act(async () => {})
   })
-
-  it('says a Stop this Mac could not save in reply settings, where the switch presses Stop again', async () => {
-    const { emit, bridge } = legacyFixture()
-    emit({
-      ...controlsState,
-      hermesListening: {
-        state: 'paused',
-        mode: 'continuous',
-        roomId: '!assistant:test',
-        expiresAt: 0,
-        queued: 0,
-        reason: 'storage'
-      }
-    })
-    expect(window.document.querySelector('[data-matrix-status-stack]')?.textContent ?? '').not.toMatch(
-      /couldn.t save that/
-    )
-    openAssistantOptions()
-    const dialog = within(screen.getByRole('dialog'))
-    expect(dialog.getByText(matrixActionCopy.en.listeningPausedStorage)).toBeTruthy()
-    fireEvent.click(dialog.getByRole('switch', { name: 'Reply in this conversation' }))
-    await waitFor(() => expect(bridge.setContinuousListening).toHaveBeenCalledWith('!assistant:test', false, 'en'))
-  })
-
-  it.each(['vi', 'en', 'ja', 'zh', 'zh-hant'] as const)(
-    'notes in %s reply settings, and only there, that this Mac keeps handing the assistant over',
-    async locale => {
-      const { emit } = legacyFixture(async () => signedOut, locale)
-
-      const agent = {
-        principal: 'default',
-        userId: '@atum:test',
-        isDefault: true,
-        ready: true,
-        hermes: 'ready' as const,
-        atumModel: true
-      }
-
-      const note = matrixChatCopy(locale).replyHandover('Atum')
-
-      emit({ ...controlsState, agents: [agent] })
-      openAssistantOptions(locale)
-      expect(within(screen.getByRole('dialog')).queryByText(note)).toBeNull()
-      fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' })
-      await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
-
-      emit({ ...controlsState, agents: [{ ...agent, answeringTrouble: 'handover' }] })
-      expect(screen.queryByText(note)).toBeNull()
-      openAssistantOptions(locale)
-      expect(within(screen.getByRole('dialog')).getByText(note)).toBeTruthy()
-      // A note, never a button.
-      expect(
-        within(screen.getByRole('dialog'))
-          .getAllByRole('button')
-          .some(each => each.textContent === note)
-      ).toBe(false)
-    }
-  )
 
   it.each(['default', 'named'] as const)('never says a %s agent listening outcome in any chat', async kind => {
     const { emit } = fixture()
@@ -5102,30 +4976,6 @@ describe('isolated Matrix composition', () => {
     expect(screen.getByText('Atum (@atum:foreign.test)')).toBeTruthy()
     expect(window.document.querySelector('[data-slot="aui_assistant-message-root"] [title^="@"]')).toBeNull()
     await act(async () => {})
-  })
-
-  it('keeps document pending state and failure until room controls can safely close', async () => {
-    const { emit, bridge } = legacyFixture()
-    let reject!: (error: Error) => void
-
-    vi.mocked(bridge.document).mockImplementation(
-      () =>
-        new Promise<void>((_resolve, fail) => {
-          reject = fail
-        })
-    )
-
-    emit({ ...controlsState, linkedDocument: { name: 'notes.txt', state: 'linked' } })
-    openAssistantOptions()
-    const dialog = screen.getByRole('dialog')
-    expect(screen.getAllByRole('button', { name: 'Remove document' })).toHaveLength(1)
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Remove document' }))
-    fireEvent.keyDown(dialog, { key: 'Escape' })
-    expect(screen.getByRole('dialog')).toBeTruthy()
-    await act(async () => reject(new Error('synthetic')))
-    expect(within(dialog).getByText(/Choose a file under 20 MB/)).toBeTruthy()
-    fireEvent.keyDown(dialog, { key: 'Escape' })
-    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
   })
 
   it('clears hidden setup secrets without discarding pending setup or triggering another save', async () => {
@@ -6058,40 +5908,7 @@ describe('isolated Matrix composition', () => {
   })
 
   it('keeps one fixed Settings navigation and a pane into named sections of rows', async () => {
-    const sourceGates = {
-      google: true,
-      folders: true,
-      messages: true,
-      browser: true,
-      location: true,
-      team_spaces: true
-    }
-
-    const agentSources = {
-      read: vi.fn(async () => ({
-        macs: [],
-        gates: sourceGates,
-        sources: [
-          ['google.mail', 'google'],
-          ['google.calendar', 'google'],
-          ['google.drive', 'google'],
-          ['mac.files', 'folders'],
-          ['mac.message-metadata', 'messages'],
-          ['mac.browser-history', 'browser'],
-          ['mac.location', 'location'],
-          ['matrix.owner-rooms', 'team_spaces']
-        ].map(([kind, optOutGate]) => ({
-          kind,
-          optOutGate,
-          grantable: true,
-          availability: 'available' as const,
-          status: 'ready' as const
-        }))
-      })),
-      set: vi.fn()
-    }
-
-    const { emit } = fixture(undefined, 'en', undefined, undefined, undefined, undefined, agentSources)
+    const { emit } = fixture()
 
     const settingsState: MatrixSnapshot = {
       ...controlsState,
@@ -6120,40 +5937,10 @@ describe('isolated Matrix composition', () => {
       expect(within(nav).getByRole('button', { name })).toBeTruthy()
     }
 
-    // Main's source controls and account subscriptions share the one Connections page.
     showSettingsPane('cloud')
-    const knowledge = screen.getByRole('dialog', { name: 'Connections' })
-    const sourceControls = await within(knowledge).findByRole('region', { name: 'What Atum can read' })
-    expect(
-      within(sourceControls)
-        .getAllByRole('switch')
-        .map(row => row.getAttribute('aria-label'))
-    ).toEqual(['Google', 'Mac folders', 'Messages', 'Browser', 'Location', 'Team spaces'])
-    expect(within(knowledge).queryByText(/Forget what Atum learned/)).toBeNull()
-
-    // Account-wide: opening another assistant's chat neither re-reads nor resets these switches.
-    const reads = agentSources.read.mock.calls.length
-    emit({
-      ...settingsState,
-      roomId: '!alfred:test',
-      rooms: [
-        ...settingsState.rooms,
-        {
-          ...assistantFields,
-          id: '!alfred:test',
-          name: 'Alfred',
-          membership: 'join',
-          encrypted: true,
-          assistant: true,
-          agentPrincipal: 'cloud-alfred'
-        }
-      ]
-    })
-    await waitFor(() => expect(within(sourceControls).getAllByRole('switch')).toHaveLength(6))
-    // At most the composer's one-time Mac sources check (once per account in this window); the
-    // switches themselves are not re-read.
-    expect(agentSources.read.mock.calls.length - reads).toBeLessThanOrEqual(1)
-    expect(within(knowledge).queryByText(/this assistant/i)).toBeNull()
+    const connections = screen.getByRole('dialog', { name: 'Connections' })
+    expect(within(connections).getByRole('region', { name: 'Apps' })).toBeTruthy()
+    expect(within(connections).queryByRole('region', { name: 'What Atum can read' })).toBeNull()
 
     // Each setting is a row in the section it belongs to, never a loose paragraph.
     showSettingsPane('general')
@@ -6705,8 +6492,8 @@ describe('isolated Matrix composition', () => {
     fireEvent.click(
       within(within(again).getByRole('group', { name: 'Assistants' })).getByRole('button', { name: /^Atum/ })
     )
-    await waitFor(() => expect(bridge.connectHermes).toHaveBeenCalledWith('!atum:test'))
-    expect(bridge.command).toHaveBeenLastCalledWith({ kind: 'select', roomId: '!atum:test' })
+    await waitFor(() => expect(bridge.command).toHaveBeenLastCalledWith({ kind: 'select', roomId: '!atum:test' }))
+    expect(bridge.connectHermes).not.toHaveBeenCalled()
     expect(drawer().hasAttribute('inert')).toBe(true)
   })
 
@@ -7382,11 +7169,10 @@ describe('isolated Matrix composition', () => {
     expect(screen.getByRole('button', { name: 'Chats' }).getAttribute('aria-current')).toBeNull()
   })
 
-  it('retries a pending assistant room, then uses the one permitted first-contact route', async () => {
+  it('reuses the one first-contact room from the primary shortcut and New message before sync', async () => {
     const { emit, bridge } = fixture()
     await screen.findByRole('button', { name: 'Continue with Google' })
     vi.mocked(bridge.command).mockResolvedValueOnce('!created:test')
-    vi.mocked(bridge.connectHermes).mockRejectedValueOnce(new Error('sync is behind'))
     emit({
       ...signedOut,
       state: 'ready',
@@ -7396,7 +7182,7 @@ describe('isolated Matrix composition', () => {
 
     const assistant = await screen.findByRole('button', { name: 'Atum' })
     fireEvent.click(assistant)
-    await waitFor(() => expect(bridge.connectHermes).toHaveBeenCalledWith('!created:test'))
+    await waitFor(() => expect(bridge.command).toHaveBeenCalledExactlyOnceWith({ kind: 'create', name: '', invite: ['@atum:test'], direct: true }))
     emit({
       ...signedOut,
       state: 'ready',
@@ -7416,12 +7202,11 @@ describe('isolated Matrix composition', () => {
       within(within(start).getByRole('group', { name: 'Assistants' })).getByRole('button', { name: /^Atum/ })
     )
     await waitFor(() => expect(bridge.command).toHaveBeenCalledTimes(3))
-    expect(bridge.command).toHaveBeenLastCalledWith({
-      kind: 'create',
-      name: '',
-      invite: ['@atum:test'],
-      direct: true
-    })
+    expect(vi.mocked(bridge.command).mock.calls.map(([command]) => command)).toEqual([
+      { kind: 'create', name: '', invite: ['@atum:test'], direct: true },
+      { kind: 'select', roomId: '!created:test' },
+      { kind: 'select', roomId: '!created:test' }
+    ])
   })
 
   it('retires the pre-sync assistant retry pointer so a left room cannot trap the shortcut', async () => {
@@ -7437,9 +7222,8 @@ describe('isolated Matrix composition', () => {
 
     emit(state)
     vi.mocked(bridge.command).mockResolvedValueOnce('!created:test')
-    vi.mocked(bridge.connectHermes).mockRejectedValueOnce(new Error('sync is behind'))
     fireEvent.click(await screen.findByRole('button', { name: 'Atum' }))
-    await waitFor(() => expect(bridge.connectHermes).toHaveBeenCalledWith('!created:test'))
+    await waitFor(() => expect(bridge.command).toHaveBeenCalledExactlyOnceWith({ kind: 'create', name: '', invite: ['@atum:test'], direct: true }))
     emit({
       ...state,
       roomId: '!created:test',
@@ -7663,17 +7447,16 @@ describe('isolated Matrix composition', () => {
     }
 
     vi.mocked(bridge.command).mockResolvedValueOnce('!old:test').mockResolvedValueOnce('!new:test')
-    vi.mocked(bridge.connectHermes).mockRejectedValueOnce(new Error('sync pending'))
     emit(state)
     fireEvent.click(await screen.findByRole('button', { name: 'Atum' }))
-    await waitFor(() => expect(bridge.connectHermes).toHaveBeenCalledWith('!old:test'))
+    await waitFor(() => expect(bridge.command).toHaveBeenCalledExactlyOnceWith({ kind: 'create', name: '', invite: ['@old:test'], direct: true }))
     emit({ ...state, assistant: { userId: '@new:test', deviceId: 'NEW' } })
     const current = screen.getByRole('button', { name: 'Atum' })
     await waitFor(() => expect(current.hasAttribute('disabled')).toBe(false))
     fireEvent.click(current)
     await waitFor(() => expect(bridge.command).toHaveBeenCalledTimes(2))
     expect(bridge.command).toHaveBeenLastCalledWith({ kind: 'create', name: '', direct: true, invite: ['@new:test'] })
-    await waitFor(() => expect(bridge.connectHermes).toHaveBeenLastCalledWith('!new:test'))
+    expect(bridge.command).not.toHaveBeenCalledWith({ kind: 'select', roomId: '!old:test' })
   })
 
   it("renders the assistant's posted answers as markdown, hides adjacent reply quotes, and retains non-adjacent context", async () => {
@@ -8175,73 +7958,8 @@ describe('isolated Matrix composition', () => {
     }
   )
 
-  it('offers an explicit saved-document link, disables listening, and keeps late failures in their original room', async () => {
-    const { emit, bridge } = legacyFixture()
-    await screen.findByRole('button', { name: 'Continue with Google' })
-
-    const state: MatrixSnapshot = {
-      ...signedOut,
-      state: 'ready',
-      domainEnabled: true,
-      hermes: 'ready',
-      identity: { userId: '@alice:test', deviceId: 'A' },
-      roomId: '!a:test',
-      assistant: { userId: '@atum:test', deviceId: 'ATUM' },
-      rooms: [
-        {
-          ...assistantFields,
-          participants: [{ userId: '@alice:test', membership: 'join' }, assistantFields.participants[1]],
-          id: '!a:test',
-          name: 'A',
-          membership: 'join',
-          encrypted: true,
-          assistant: true
-        },
-        { id: '!b:test', name: 'B', membership: 'join', encrypted: true }
-      ]
-    }
-
-    emit(state)
-    openAssistantOptions()
-    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Open a document…' }))
-    await waitFor(() => expect(bridge.document).toHaveBeenCalledWith('!a:test', 'choose'))
-    emit({ ...state, linkedDocument: { name: 'notes.txt', state: 'linked' } })
-    expect(screen.getAllByText(/notes.txt/).length).toBeGreaterThan(0)
-    expect(screen.getAllByText(/reads the saved file each time you ask/).length).toBeGreaterThan(0)
-    // A linked document keeps replies on its own confirmed path: no listening while it is linked.
-    const reply = () => within(screen.getByRole('dialog')).getByRole('switch', { name: 'Reply in this conversation' })
-
-    const briefly = () =>
-      within(screen.getByRole('dialog')).getByRole('button', { name: 'Only for the next 15 minutes' })
-
-    expect(reply().hasAttribute('disabled')).toBe(true)
-    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Advanced' }))
-    expect(briefly().hasAttribute('disabled')).toBe(true)
-    let reject!: (error: Error) => void
-    vi.mocked(bridge.document).mockImplementationOnce(
-      () =>
-        new Promise((_resolve, fail) => {
-          reject = fail
-        })
-    )
-    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Choose another document…' }))
-    emit({ ...state, roomId: '!b:test', linkedDocument: null })
-    await act(async () => reject(new Error('old room')))
-    expect(screen.queryByText(/notes.txt/)).toBeNull()
-    expect(screen.queryByText(/Choose a file under 20 MB/)).toBeNull()
-    emit({ ...state, linkedDocument: { name: 'notes.txt', state: 'reconnect_required' } })
-    expect(screen.getByText('Choose this document again to keep using it.')).toBeTruthy()
-    openAssistantOptions()
-    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Remove document' }))
-    await waitFor(() => expect(bridge.document).toHaveBeenCalledWith('!a:test', 'remove'))
-    emit({ ...state, linkedDocument: null })
-    expect(reply().hasAttribute('disabled')).toBe(false)
-    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Advanced' }))
-    expect(briefly().hasAttribute('disabled')).toBe(false)
-  })
-
-  it('isolates a pending document failure across users in the same room and hides an unreadable name', async () => {
-    const { emit, bridge } = legacyFixture()
+  it('isolates a pending saved-document removal across accounts in the same room', async () => {
+    const { emit, bridge } = fixture()
     await screen.findByRole('button', { name: 'Continue with Google' })
 
     const state: MatrixSnapshot = {
@@ -8266,23 +7984,25 @@ describe('isolated Matrix composition', () => {
       linkedDocument: { name: 'alice.txt', state: 'linked' }
     }
 
-    emit(state)
     let reject!: (error: Error) => void
-    vi.mocked(bridge.document).mockImplementationOnce(
-      () =>
-        new Promise((_resolve, fail) => {
-          reject = fail
-        })
-    )
-    openAssistantOptions()
-    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Choose another document…' }))
-    emit({
+    vi.mocked(bridge.document).mockImplementationOnce(() => new Promise((_resolve, fail) => { reject = fail }))
+    emit(cloudPrimary(state, 'default'))
+    expect(screen.getByText(/alice.txt · Saved file/)).toBeTruthy()
+    const remove = screen.getByRole('button', { name: 'Remove document' })
+    fireEvent.click(remove)
+    await waitFor(() => expect(bridge.document).toHaveBeenCalledExactlyOnceWith('!shared:test', 'remove'))
+    expect((remove as HTMLButtonElement).disabled).toBe(true)
+    emit(cloudPrimary({
       ...state,
       identity: { userId: '@bob:test', deviceId: 'SAME' },
+      rooms: state.rooms.map(room => ({
+        ...room,
+        participants: [{ userId: '@bob:test', membership: 'join' }, assistantFields.participants[1]]
+      })),
       linkedDocument: { name: '', state: 'unavailable' }
-    })
+    }, 'default'))
     await act(async () => reject(new Error('old account')))
-    expect(screen.queryByText(/alice.txt|Choose a file under 20 MB|· Saved file/)).toBeNull()
+    expect(screen.queryByText(/alice.txt|Something went wrong|· Saved file/)).toBeNull()
     expect(screen.getByText('This document can’t be opened. Choose it again or remove it.')).toBeTruthy()
   })
 
@@ -8524,137 +8244,6 @@ describe('isolated Matrix composition', () => {
     }
   )
 
-  it("explicitly listens in one room, stops it from that room's switch, and never says it in a chat", async () => {
-    const { emit, bridge } = legacyFixture()
-    await screen.findByRole('button', { name: 'Continue with Google' })
-
-    const room = {
-      ...assistantFields,
-      id: '!room:test',
-      name: 'Agent room',
-      membership: 'join',
-      encrypted: true,
-      assistant: true
-    }
-
-    const other = { ...room, id: '!other:test', name: 'Other room' }
-
-    const state: MatrixSnapshot = {
-      ...signedOut,
-      state: 'ready',
-      identity: { userId: '@owner:test', deviceId: 'DEVICE' },
-      domainEnabled: true,
-      hermes: 'ready',
-      rooms: [room, other],
-      assistant: { userId: '@atum:test', deviceId: 'ATUM' },
-      roomId: room.id
-    }
-
-    emit(state)
-    openAssistantOptions()
-    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Advanced' }))
-    fireEvent.click(
-      await within(screen.getByRole('dialog')).findByRole('button', { name: 'Only for the next 15 minutes' })
-    )
-    await waitFor(() => expect(bridge.listenHermes).toHaveBeenCalledExactlyOnceWith(room.id, 'en'))
-    expect(bridge.setContinuousListening).not.toHaveBeenCalled()
-    emit({
-      ...state,
-      roomId: other.id,
-      hermesListening: { state: 'listening', roomId: room.id, expiresAt: Date.now() + 60000, queued: 0 }
-    })
-    // Another chat's reply settings say nothing of it; that chat's own switch stops it.
-    openAssistantOptions()
-    expect(within(screen.getByRole('dialog')).queryByText(matrixActionCopy.en.listening)).toBeNull()
-    expect(within(screen.getByRole('dialog')).queryByText(matrixActionCopy.en.continuousListening)).toBeNull()
-    expect(within(screen.getByRole('dialog')).queryByRole('button', { name: 'Stop listening' })).toBeNull()
-    fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' })
-    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
-    emit({
-      ...state,
-      hermesListening: { state: 'listening', roomId: room.id, expiresAt: Date.now() + 60000, queued: 0 }
-    })
-    openAssistantOptions()
-    const reply = within(screen.getByRole('dialog')).getByRole('switch', { name: 'Reply in this conversation' })
-    expect(reply.getAttribute('aria-checked')).toBe('true')
-    fireEvent.click(reply)
-    await waitFor(() => expect(bridge.stopListeningHermes).toHaveBeenCalledExactlyOnceWith(room.id))
-    // An outcome nobody knows is never said in the chat.
-    emit({
-      ...state,
-      hermesListening: {
-        state: 'stopped',
-        roomId: room.id,
-        expiresAt: Date.now(),
-        queued: 0,
-        reason: 'unavailable',
-        result: 'unknown'
-      }
-    })
-    expect(screen.queryByText(/couldn.t confirm how this finished/)).toBeNull()
-    emit(state)
-    expect(bridge.listenHermes).toHaveBeenCalledTimes(1)
-  })
-
-  it.each([
-    ['the default agent', '!default:test', undefined],
-    ['another agent', '!other-agent:test', 'other-agent']
-  ] as const)('enables continuous listening only for %s selected room', async (_name, roomId, agentPrincipal) => {
-    const { emit, bridge } = legacyFixture()
-    const assistantUserId = agentPrincipal ? '@other-agent:test' : '@atum:test'
-
-    const room = {
-      id: roomId,
-      name: 'Agent room',
-      membership: 'join' as const,
-      encrypted: true,
-      assistant: true,
-      roomType: MATRIX_ASSISTANT_ROOM_TYPE,
-      participants: [
-        { userId: '@owner:test', membership: 'join' as const },
-        { userId: assistantUserId, membership: 'join' as const }
-      ],
-      ...(agentPrincipal ? { agentPrincipal } : {})
-    }
-
-    emit({
-      ...signedOut,
-      state: 'ready',
-      identity: { userId: '@owner:test', deviceId: 'OWNER' },
-      assistant: { userId: '@atum:test', deviceId: 'ATUM' },
-      hermes: 'ready',
-      roomId,
-      rooms: [room],
-      agents: agentPrincipal
-        ? [
-            {
-              principal: 'default',
-              userId: '@atum:test',
-              isDefault: true,
-              ready: true,
-              hermes: 'ready',
-              atumModel: true
-            },
-            {
-              principal: agentPrincipal,
-              userId: assistantUserId,
-              isDefault: false,
-              ready: true,
-              hermes: 'ready',
-              atumModel: true
-            }
-          ]
-        : undefined
-    })
-
-    openAssistantOptions()
-    fireEvent.click(
-      await within(screen.getByRole('dialog')).findByRole('switch', { name: 'Reply in this conversation' })
-    )
-    await waitFor(() => expect(bridge.setContinuousListening).toHaveBeenCalledExactlyOnceWith(roomId, true, 'en'))
-    expect(bridge.listenHermes).not.toHaveBeenCalled()
-  })
-
   it('reuses the approval UI without stealing focus, broad grants or global shortcuts', async () => {
     const { emit, bridge } = fixture()
     const room = { id: '!room:test', name: 'Test room', membership: 'join', encrypted: true }
@@ -8814,84 +8403,6 @@ describe('isolated Matrix composition', () => {
     }
   )
 
-  it.each([false, true])(
-    'runs only an explicit own-message action (file=%s), reports cancellation, and exposes stop while running',
-    async attachment => {
-      const { emit, bridge } = legacyFixture()
-
-      const state: MatrixSnapshot = {
-        ...signedOut,
-        state: 'ready',
-        identity: { userId: '@alice:test', deviceId: 'A' },
-        domainEnabled: true,
-        hermes: 'ready',
-        roomId: '!room:test',
-        assistant: { userId: '@atum:test', deviceId: 'ATUM' },
-        rooms: [
-          {
-            ...assistantFields,
-            participants: [{ userId: '@alice:test', membership: 'join' }, assistantFields.participants[1]],
-            id: '!room:test',
-            name: 'Test room',
-            membership: 'join',
-            encrypted: true,
-            assistant: true
-          }
-        ],
-        messages: [
-          {
-            id: '$message',
-            sender: '@alice:test',
-            body: 'Run pwd',
-            timestamp: 1,
-            own: true,
-            encrypted: true,
-            decryptionFailed: false,
-            pending: false,
-            failed: false,
-            attachment
-          }
-        ]
-      }
-
-      emit(state)
-      openMessageActions()
-      const run = await screen.findByRole('menuitem', { name: 'Retry' })
-      expect(bridge.invokeHermes).not.toHaveBeenCalled()
-      fireEvent.click(run)
-      await screen.findByText('Cancelled. Nothing was run.')
-      expect(bridge.invokeHermes).toHaveBeenCalledWith('!room:test', '$message', 'en')
-      openAssistantOptions()
-      fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Advanced' }))
-      fireEvent.click(screen.getByRole('button', { name: 'Reconnect your assistant' }))
-      await waitFor(() => expect(bridge.connectHermes).toHaveBeenCalledWith('!room:test'))
-      fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' })
-      const retry = () => screen.getByRole('menuitem', { name: 'Retry' }).getAttribute('aria-disabled')
-      emit({ ...state, hermes: 'running' })
-      openMessageActions()
-      expect(retry()).toBe('true')
-      fireEvent.keyDown(screen.getByRole('menu'), { key: 'Escape' })
-      fireEvent.click(screen.getByRole('button', { name: 'Stop' }))
-      await waitFor(() => expect(bridge.cancelHermes).toHaveBeenCalledTimes(1))
-      emit({ ...state, hermes: 'unconfigured' })
-      await screen.findByText('Your assistant isn’t set up on this Mac yet.')
-      openMessageActions()
-      expect(retry()).toBe('true')
-      fireEvent.keyDown(screen.getByRole('menu'), { key: 'Escape' })
-      emit({ ...state, hermes: 'invalid' })
-      await screen.findByText(
-        'Your assistant couldn’t start on this Mac. Reinstall Atum to fix it; your chats are safe.'
-      )
-      openMessageActions()
-      expect(retry()).toBe('true')
-      fireEvent.keyDown(screen.getByRole('menu'), { key: 'Escape' })
-      expect(screen.getByText('Run pwd')).toBeTruthy()
-      emit({ ...state, messages: [{ ...state.messages[0], decryptionFailed: true }] })
-      await waitFor(() => expect(window.document.querySelector('[data-matrix-message-actions]')).toBeNull())
-      emit({ ...state, messages: [{ ...state.messages[0], own: false, sender: '@other:test' }] })
-      await waitFor(() => expect(window.document.querySelector('[data-matrix-message-actions]')).toBeNull())
-    }
-  )
   it('keeps a failed sign-in on the sign-in screen, saying which way failed, and never turns it into an account error', async () => {
     const { emit, bridge } = fixture()
     vi.mocked(bridge.signIn).mockImplementationOnce(async () => {
@@ -9247,7 +8758,7 @@ describe('cold-start preparation screen', () => {
     await waitFor(() =>
       expect(bridge.command).toHaveBeenCalledWith({ kind: 'create', name: '', invite: ['@atum:test'], direct: true })
     )
-    expect(bridge.connectHermes).toHaveBeenCalledWith('!assistant:test')
+    expect(bridge.connectHermes).not.toHaveBeenCalled()
   })
 
   it('lands automatically on the roster cloud primary without a local assistant', async () => {
@@ -9486,9 +8997,8 @@ describe('a session the sign-in server ended ', () => {
   })
 })
 
-describe('the local assistant path (plan 2026-09-26-reliable-local-first-chat)', () => {
+describe('assistant composer and launch', () => {
   const owner = { userId: '@owner:test', deviceId: 'DEVICE' }
-  const turnId = '00000000-0000-4000-8000-31f949766961'
   const plate = () => window.document.querySelector('[data-slot="matrix-startup"]')
 
   const ready: MatrixSnapshot = {
@@ -9513,6 +9023,8 @@ describe('the local assistant path (plan 2026-09-26-reliable-local-first-chat)',
       }
     ]
   }
+
+  const cloudReady = { ...cloudPrimary(ready, 'default'), readiness: undefined }
 
   const gate = (readiness: MatrixSnapshot['readiness']): MatrixSnapshot => ({ ...ready, readiness })
 
@@ -9705,51 +9217,14 @@ describe('the local assistant path (plan 2026-09-26-reliable-local-first-chat)',
     expect(bridge.signIn).not.toHaveBeenCalled()
   })
 
-  it('opens automatically during a setup cooldown while assistant sending remains paused', async () => {
-    vi.useFakeTimers({ shouldAdvanceTime: true })
-    const { emit, bridge } = fixture(async () => gate({ phase: 'starting', step: 'signed_in', since: 1 }))
-    await screen.findByRole('progressbar', { name: 'Opening Atum' })
-    const retryAt = Date.now() + 12 * 60 * 60_000
-    const waiting = gate({ phase: 'starting', step: 'assistant', code: 'rate_limited', since: 1, retryAt })
-    emit(waiting)
-    await passLaunch()
-    await waitForLaunchToOpen()
-    const notice = await screen.findByText(/Assistant setup is waiting for a limit to reset/)
-    expect(notice.textContent).toContain('Next setup attempt:')
-    expect(notice.textContent).toContain('resumes setup automatically')
-    // Paused with words in the box (an empty box is muted anyway).
-    fireEvent.change(screen.getByRole('textbox', { name: COMPOSER }), { target: { value: 'Hi' } })
-    expect((screen.getByRole('button', { name: 'Send' }) as HTMLButtonElement).disabled).toBe(true)
-    const account = screen.getByRole('button', { name: 'Account: owner' })
-    expect(account.closest('[data-matrix-shell-layer]')?.hasAttribute('inert')).toBe(false)
-    fireEvent.pointerDown(account, { button: 0 })
-    expect(await screen.findByRole('menu')).toBeTruthy()
-    expect(bridge.retryReadiness).not.toHaveBeenCalled()
-    expect(bridge.setupAssistant).not.toHaveBeenCalled()
-    expect(waiting.readiness?.phase).toBe('starting')
-    emit(ready)
-    await waitFor(() => expect(screen.queryByText(/Assistant setup is waiting for a limit to reset/)).toBeNull())
-  })
-
   it('shows a valid unseen starter allowance only in the settled default assistant chat', async () => {
     const command = vi.fn(() => new Promise<unknown>(() => {}))
 
     const starter: MatrixSnapshot = {
-      ...ready,
+      ...cloudReady,
       petScope: 'starter-scope',
       starterMarker: 'unseen',
-      starter: { kind: 'founding', amount: 50_000_999_999 },
-      agents: [
-        {
-          principal: 'default',
-          userId: '@atum:test',
-          isDefault: true,
-          ready: true,
-          hermes: 'ready',
-          readiness: { phase: 'ready', since: 1 },
-          atumModel: true
-        }
-      ]
+      starter: { kind: 'founding', amount: 50_000_999_999 }
     }
 
     const { bridge } = fixture(async () => starter, 'en', undefined, command)
@@ -9768,30 +9243,8 @@ describe('the local assistant path (plan 2026-09-26-reliable-local-first-chat)',
     const composer = screen.getByRole('textbox', { name: COMPOSER })
     fireEvent.change(composer, { target: { value: 'First message' } })
     fireEvent.click(screen.getByRole('button', { name: 'Send' }))
-    await waitFor(() => expect(bridge.sendTurn).toHaveBeenCalledWith('!assistant:test', 'First message'))
+    await waitFor(() => expect(bridge.sendAssistant).toHaveBeenCalledWith('!assistant:test', 'First message', 'en'))
     await waitFor(() => expect(window.document.querySelector('[data-matrix-starter-notice]')).toBeNull())
-  })
-
-  it('says a start after launch only in the message box, however slow, never as lines in its chat', async () => {
-    const { emit } = fixture(async () => ready)
-    await waitFor(() => expect(plate()).toBeNull(), LAUNCH_OPENS)
-    emit(gate({ phase: 'starting', step: 'hermes', since: Date.now() }))
-    const notice = () => window.document.querySelector('[data-matrix-launch-notice]')
-    const placeholder = () => screen.getByRole('textbox', { name: COMPOSER }).getAttribute('placeholder')
-    await waitFor(() => expect(placeholder()).toBe('Atum is starting… You can type ahead.'))
-    expect(notice()).toBeNull()
-    expect(plate()).toBeNull()
-    // A slow one says nothing more in the chat: no "Preparing its workspace…".
-    emit(gate({ phase: 'starting', step: 'hermes', since: Date.now() - 31_000 }))
-    await waitFor(() => expect(placeholder()).toBe('Atum is starting… You can type ahead.'))
-    expect(notice()).toBeNull()
-    expect(screen.queryByText(/Preparing its workspace…|Atum is getting ready…/)).toBeNull()
-    expect(window.document.querySelector('[data-matrix-shell-layer]')?.hasAttribute('inert')).toBe(false)
-    emit(gate({ phase: 'starting', step: 'ai', since: Date.now() - 31_000 }))
-    await waitFor(() => expect((screen.getByRole('button', { name: 'Send' }) as HTMLButtonElement).disabled).toBe(true))
-    expect(screen.queryByText("Connecting to Atum's AI…")).toBeNull()
-    emit(ready)
-    await waitFor(() => expect(placeholder()).not.toBe('Atum is starting… You can type ahead.'))
   })
 
   it('says an AI outage in the assistant’s chat with Try again, and keeps the window open', async () => {
@@ -9816,21 +9269,6 @@ describe('the local assistant path (plan 2026-09-26-reliable-local-first-chat)',
 
   // A cause every assistant shares is said once, as the title bar's indicator item (quiet
   // verification, 2026-10-06 check): the open chat has no card for it, its message box names it.
-  it('offers the latest Atum, not a retry that cannot help, when the install itself is damaged', async () => {
-    const { bridge } = fixture(async () =>
-      gate({ phase: 'blocked', step: 'hermes', code: 'runtime_invalid', since: Date.now() })
-    )
-
-    await waitForLaunchToOpen()
-    const indicator = await screen.findByRole('button', { name: /Needs you: Update Atum$/ })
-    expect(window.document.querySelector('[data-matrix-launch-notice]')).toBeNull()
-    expect(screen.getByRole('textbox', { name: COMPOSER }).getAttribute('placeholder')).toBe('Update Atum')
-    expect(screen.queryByRole('button', { name: 'Try again' })).toBeNull()
-    fireEvent.pointerDown(indicator, { button: 0, ctrlKey: false, pointerType: 'mouse' })
-    fireEvent.click(await screen.findByRole('button', { name: /^Update Atum/ }))
-    await waitFor(() => expect(bridge.openLink).toHaveBeenCalledWith(ATUM_LINKS.download))
-    expect(bridge.retryReadiness).not.toHaveBeenCalled()
-  })
 
   it('explains withdrawn execution without reconnect, retry or an irrelevant network hint', async () => {
     const { bridge } = fixture(async () =>
@@ -9847,23 +9285,6 @@ describe('the local assistant path (plan 2026-09-26-reliable-local-first-chat)',
     expect(bridge.setupAssistant).not.toHaveBeenCalled()
   })
 
-  it('says running out of Protons once, in the indicator, and tops up from there', async () => {
-    const { bridge } = fixture(async () =>
-      gate({ phase: 'blocked', step: 'ai', code: 'out_of_protons', since: Date.now() })
-    )
-
-    await waitForLaunchToOpen()
-    const indicator = await screen.findByRole('button', { name: /Needs you: Out of Protons$/ })
-    expect(window.document.querySelector('[data-matrix-launch-notice]')).toBeNull()
-    expect(screen.getByRole('textbox', { name: COMPOSER }).getAttribute('placeholder')).toBe(
-      'Top up Protons to continue.'
-    )
-    expect(screen.queryByRole('button', { name: 'Proton purchase terms' })).toBeNull()
-    fireEvent.pointerDown(indicator, { button: 0, ctrlKey: false, pointerType: 'mouse' })
-    fireEvent.click(await screen.findByRole('button', { name: /^Out of Protons/ }))
-    await waitFor(() => expect(bridge.openTopUp).toHaveBeenCalledOnce())
-  })
-
   it('opens Connections from the cloud-only out-of-Protons model action', async () => {
     fixture(async () => ({
       ...gate({ phase: 'blocked', step: 'ai', code: 'out_of_protons', since: Date.now() }),
@@ -9878,66 +9299,6 @@ describe('the local assistant path (plan 2026-09-26-reliable-local-first-chat)',
     await waitFor(() => expect(settings.hidden).toBe(false))
     expect(settings.querySelector('[data-matrix-settings-pane="connections"]')?.getAttribute('aria-current')).toBe('page')
     expect(settings.querySelector('[data-matrix-settings-section="subscriptions"]')).toBeTruthy()
-  })
-
-  it('pauses sending when Protons run out mid-chat, with the top-up and a model of their own', async () => {
-    const pages: MatrixPagesBridge = {
-      open: vi.fn(async () => ({ viewId: 'runtime-page' })),
-      setBounds: vi.fn(async () => ({ ok: true as const })),
-      setVisibility: vi.fn(async () => ({ ok: true as const })),
-      focus: vi.fn(async () => ({ ok: true as const })),
-      close: vi.fn(async () => ({ ok: true as const })),
-      onState: vi.fn(() => vi.fn())
-    }
-
-    const { bridge } = fixture(
-      async () => ({
-        ...ready,
-        readiness: { phase: 'degraded', step: 'ai', code: 'out_of_protons', since: 1 },
-        atumModel: true,
-        rooms: [{ ...ready.rooms[0]!, agentPrincipal: 'agent-atum' }],
-        agents: [
-          {
-            principal: 'agent-atum',
-            userId: '@atum:test',
-            name: 'Atum',
-            isDefault: true,
-            ready: true,
-            hermes: 'ready',
-            // As main publishes it: each agent's own readiness (main.ts `readinessOf`).
-            readiness: { phase: 'degraded', step: 'ai', code: 'out_of_protons', since: 1 },
-            atumModel: true
-          }
-        ]
-      }),
-      'en',
-      pages
-    )
-
-    await waitFor(() => expect(plate()).toBeNull(), LAUNCH_OPENS)
-    // Said once, in the indicator; the message box says sending waits on it.
-    const indicator = await screen.findByRole('button', { name: /Needs you: Out of Protons$/ })
-    expect(window.document.querySelector('[data-matrix-launch-notice]')).toBeNull()
-    expect(screen.getByRole('textbox', { name: COMPOSER }).getAttribute('placeholder')).toBe(
-      'Top up Protons to continue.'
-    )
-    fireEvent.change(screen.getByRole('textbox', { name: COMPOSER }), { target: { value: 'Hi' } })
-    expect((screen.getByRole('button', { name: 'Send' }) as HTMLButtonElement).disabled).toBe(true)
-    // No Store checkout in this build: the top-up is Atum's payments page.
-    fireEvent.pointerDown(indicator, { button: 0, ctrlKey: false, pointerType: 'mouse' })
-    fireEvent.click(await screen.findByRole('button', { name: /^Out of Protons/ }))
-    await waitFor(() => expect(bridge.openTopUp).toHaveBeenCalledOnce())
-    // A model of their own stays one step away, in the message box's model menu.
-    fireEvent.click(screen.getByRole('button', { name: 'Model: Nguyệt Thực 1.3' }))
-    const modelCard = within(await screen.findByRole('dialog', { name: 'Model' }))
-    fireEvent.click(modelCard.getByRole('button', { name: CONNECTIONS }))
-    const settings = () => window.document.querySelector<HTMLElement>('[data-matrix-settings]')!
-    await waitFor(() => expect(settings().hidden).toBe(false))
-    expect(
-      settings().querySelector('[data-matrix-settings-pane="connections"]')?.getAttribute('aria-current')
-    ).toBe('page')
-    expect(settings().querySelector('[data-matrix-settings-section="subscriptions"]')).toBeTruthy()
-    expect(pages.open).not.toHaveBeenCalled()
   })
 
   it('sends an out-of-Protons top-up to the Store’s own checkout when the build has one', async () => {
@@ -9976,17 +9337,20 @@ describe('the local assistant path (plan 2026-09-26-reliable-local-first-chat)',
     await waitFor(() => expect(plate()).toBeNull(), LAUNCH_OPENS)
   })
 
-  it('keeps preparation behind loading until ready and never reads 100 before completion', async () => {
+  it('keeps launch behind the cloud roster read and never reads 100 before completion', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true })
-    const { emit } = fixture(async () => gate({ phase: 'starting', step: 'signed_in', since: Date.now() }))
+    const { emit } = fixture(async () => ({ ...cloudReady, state: 'connecting', agents: undefined }))
     await waitFor(() => expect(plate()?.textContent).toContain('Signing you in…'))
     const bar = within(plate() as HTMLElement).getByRole('progressbar', { name: 'Opening Atum' })
     expect(Number(bar.getAttribute('aria-valuenow'))).toBeLessThan(100)
-    // The assistant's own start, once it has run long enough to say so in its chat.
-    emit(gate({ phase: 'starting', step: 'hermes', since: Date.now() - 31_000 }))
-    // A synced account does not dismiss active preparation.
+    emit({
+      ...cloudReady,
+      agents: undefined,
+      agentRoster: { state: 'loading', since: Date.now() }
+    })
+    await waitFor(() => expect(plate()?.textContent).toContain('Loading your assistants…'))
     expect(window.document.querySelector('[data-phase="lit"]')).toBeNull()
-    await passLaunch()
+    await act(async () => vi.advanceTimersByTimeAsync(2_000))
     expect(window.document.querySelector('[data-phase="lit"]')).toBeNull()
     expect(plate()).not.toBeNull()
     expect(
@@ -9996,27 +9360,9 @@ describe('the local assistant path (plan 2026-09-26-reliable-local-first-chat)',
           .getAttribute('aria-valuenow')
       )
     ).toBeLessThan(100)
-    emit(ready)
+    emit(cloudReady)
     await passLaunch()
     await waitFor(() => expect(plate()).toBeNull(), LAUNCH_OPENS)
-    // Later reconnects stay local to the affected chat, in its message box: no loading screen,
-    // and no progress lines in the chat.
-    emit(gate({ phase: 'starting', step: 'hermes', since: Date.now() - 31_000 }))
-    await waitFor(() =>
-      expect(screen.getByRole('textbox', { name: COMPOSER }).getAttribute('placeholder')).toBe(
-        'Atum is starting… You can type ahead.'
-      )
-    )
-    expect(plate()).toBeNull()
-    expect(window.document.querySelector('[data-matrix-launch-notice]')).toBeNull()
-    // Typing ahead hides the placeholder: the same words stay, faint, under the box, so Enter
-    // doing nothing yet is never unexplained.
-    const hint = () => window.document.querySelector('[data-matrix-paused-hint]')
-    expect(hint()).toBeNull()
-    fireEvent.change(screen.getByRole('textbox', { name: COMPOSER }), { target: { value: 'Hi' } })
-    await waitFor(() => expect(hint()?.textContent).toBe('Atum is starting… You can type ahead.'))
-    emit(ready)
-    await waitFor(() => expect(hint()).toBeNull())
   })
 
   it('says so when the chats keep loading, then that it can take a minute', async () => {
@@ -10149,27 +9495,16 @@ describe('the local assistant path (plan 2026-09-26-reliable-local-first-chat)',
     expect(seen.some(Boolean)).toBe(false)
   })
 
-  it('sends straight to this Mac: no assistant server path, no dialog', async () => {
-    const { bridge } = await openChat()
-    const composer = await screen.findByRole('textbox', { name: COMPOSER })
-    fireEvent.change(composer, { target: { value: 'Plan the next task' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Send' }))
-
-    await waitFor(() => expect(bridge.sendTurn).toHaveBeenCalledWith('!assistant:test', 'Plan the next task'))
-    expect(bridge.sendAssistant).not.toHaveBeenCalled()
-    expect(bridge.command).not.toHaveBeenCalledWith(expect.objectContaining({ kind: 'send' }))
-  })
-
   /** The transcript's messages holding these words (never the message box). */
   const bubbles = (words: string) =>
     [...window.document.querySelectorAll<HTMLElement>('[data-matrix-message-id]')].filter(found =>
       found.textContent?.includes(words)
     )
 
-  it('shows your message the moment you press Send, before this Mac has even kept it, then never twice', async () => {
-    const { bridge, emit } = await openChat()
-    let accept!: (value: { turnId: string }) => void
-    vi.mocked(bridge.sendTurn).mockImplementationOnce(() => new Promise(resolve => (accept = resolve)))
+  it('shows your message the moment you press Send, before Matrix acknowledges it, then never twice', async () => {
+    const { bridge, emit } = await openChat(cloudReady)
+    let accept!: (value: Awaited<ReturnType<MatrixUiBridge['sendAssistant']>>) => void
+    vi.mocked(bridge.sendAssistant).mockImplementationOnce(() => new Promise(resolve => (accept = resolve)))
     const composer = await screen.findByRole('textbox', { name: COMPOSER })
     fireEvent.change(composer, { target: { value: 'Hi there' } })
     fireEvent.click(screen.getByRole('button', { name: 'Send' }))
@@ -10186,24 +9521,15 @@ describe('the local assistant path (plan 2026-09-26-reliable-local-first-chat)',
     expect(root.dataset.matrixMessageId).toMatch(/^echo-/)
     expect(within(root).getByRole('status', { name: 'Sending' })).toBeTruthy()
 
-    const turnId = '00000000-0000-4000-8000-87d96e07d1bf'
+    await act(async () => accept({ eventId: '$mine', result: { state: 'published' } }))
     emit({
-      ...ready,
-      localTurns: [
-        {
-          turnId,
-          roomId: '!assistant:test',
-          text: 'Hi there',
-          createdAt: Date.now(),
-          state: 'waiting',
-          synced: { question: false, answer: false }
-        }
-      ]
+      ...cloudReady,
+      messages: [{
+        id: '$mine', sender: owner.userId, body: 'Hi there', timestamp: Date.now(),
+        own: true, encrypted: true, decryptionFailed: false, pending: false, failed: false, attachment: false
+      }]
     })
-    await act(async () => accept({ turnId }))
-    await waitFor(() =>
-      expect(bubbles('Hi there').map(found => found.dataset.matrixMessageId)).toEqual([`local-q-${turnId}`])
-    )
+    await waitFor(() => expect(bubbles('Hi there').map(found => found.dataset.matrixMessageId)).toEqual(['$mine']))
     expect(screen.queryByRole('status', { name: 'Sending' })).toBeNull()
   })
 
@@ -10212,9 +9538,9 @@ describe('the local assistant path (plan 2026-09-26-reliable-local-first-chat)',
 
   // Preserve user-visible identity, state and recovery behavior across connection changes.
   // finishing another step" while the assistant could not start at all.
-  it('keeps the words of a send this Mac could not take in the box, says why in one line, and Try again sends them', async () => {
-    const { bridge } = await openChat()
-    vi.mocked(bridge.sendTurn).mockRejectedValueOnce(new Error('matrix_not_ready'))
+  it('keeps the words of a send Matrix refused in the box, says why in one line, and Try again sends them', async () => {
+    const { bridge } = await openChat(cloudReady)
+    vi.mocked(bridge.sendAssistant).mockRejectedValueOnce(new Error('matrix_not_ready'))
     const composer = (await screen.findByRole('textbox', { name: COMPOSER })) as HTMLTextAreaElement
     fireEvent.change(composer, { target: { value: 'Try me' } })
     fireEvent.click(screen.getByRole('button', { name: 'Send' }))
@@ -10227,52 +9553,26 @@ describe('the local assistant path (plan 2026-09-26-reliable-local-first-chat)',
     await waitFor(() => expect(bubbles('Try me')).toHaveLength(0))
 
     fireEvent.click(within(band()!).getByRole('button', { name: 'Retry' }))
-    await waitFor(() => expect(bridge.sendTurn).toHaveBeenCalledTimes(2))
-    expect(bridge.sendTurn).toHaveBeenLastCalledWith('!assistant:test', 'Try me')
+    await waitFor(() => expect(bridge.sendAssistant).toHaveBeenCalledTimes(2))
+    expect(bridge.sendAssistant).toHaveBeenLastCalledWith('!assistant:test', 'Try me', 'en')
     await waitFor(() => expect(composer.value).toBe(''))
     expect(band()).toBeNull()
   })
 
-  it('names an assistant whose setup is failing on this Mac, and keeps the words', async () => {
-    const { bridge } = await openChat(gate({ phase: 'degraded', step: 'assistant', code: 'setup_failed', since: 1 }))
-    const composer = (await screen.findByRole('textbox', { name: COMPOSER })) as HTMLTextAreaElement
-    fireEvent.change(composer, { target: { value: 'Are you there?' } })
-    // Send is off while it is paused; a send that gets through anyway (Enter) is the case here.
-    fireEvent.submit(composer.closest('form')!)
-
-    await waitFor(() => expect(band()?.dataset.matrixFailure).toBe('assistant_cant_start'))
-    expect(band()!.textContent).toContain('Atum can’t start on this Mac right now, so nothing was sent.')
-    expect(composer.value).toBe('Are you there?')
-    expect(bridge.sendTurn).not.toHaveBeenCalled()
-    expect(within(band()!).getByRole('button', { name: 'Retry' })).toBeTruthy()
-  })
-
-  it('says busy only when the assistant really is busy', async () => {
-    const { bridge } = await openChat()
-    vi.mocked(bridge.sendTurn).mockRejectedValueOnce(new Error('matrix_agent_busy'))
-    const composer = (await screen.findByRole('textbox', { name: COMPOSER })) as HTMLTextAreaElement
-    fireEvent.change(composer, { target: { value: 'One more thing' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Send' }))
-
-    await waitFor(() => expect(band()?.dataset.matrixFailure).toBe('busy'))
-    expect(band()!.textContent).toContain('Atum is finishing another step. Try again in a moment.')
-    await waitFor(() => expect(composer.value).toBe('One more thing'))
-  })
-
   it('clears the box once a send went out', async () => {
-    const { bridge } = await openChat()
+    const { bridge } = await openChat(cloudReady)
     const composer = (await screen.findByRole('textbox', { name: COMPOSER })) as HTMLTextAreaElement
     fireEvent.change(composer, { target: { value: 'Gone for good' } })
     fireEvent.click(screen.getByRole('button', { name: 'Send' }))
 
-    await waitFor(() => expect(bridge.sendTurn).toHaveBeenCalledWith('!assistant:test', 'Gone for good'))
+    await waitFor(() => expect(bridge.sendAssistant).toHaveBeenCalledWith('!assistant:test', 'Gone for good', 'en'))
     await waitFor(() => expect(composer.value).toBe(''))
     expect(band()).toBeNull()
   })
 
   it('Try again sends what the box holds now, and a second failure gives those words back', async () => {
-    const { bridge } = await openChat()
-    vi.mocked(bridge.sendTurn).mockRejectedValueOnce(new Error('matrix_not_ready')).mockRejectedValueOnce(new Error('matrix_not_ready'))
+    const { bridge } = await openChat(cloudReady)
+    vi.mocked(bridge.sendAssistant).mockRejectedValueOnce(new Error('matrix_not_ready')).mockRejectedValueOnce(new Error('matrix_not_ready'))
     const composer = (await screen.findByRole('textbox', { name: COMPOSER })) as HTMLTextAreaElement
     fireEvent.change(composer, { target: { value: 'First words' } })
     fireEvent.click(screen.getByRole('button', { name: 'Send' }))
@@ -10281,38 +9581,25 @@ describe('the local assistant path (plan 2026-09-26-reliable-local-first-chat)',
     // The person types something else; Try again from the band sends what the box holds now.
     fireEvent.change(composer, { target: { value: 'Other words' } })
     fireEvent.click(within(band()!).getByRole('button', { name: 'Retry' }))
-    await waitFor(() => expect(bridge.sendTurn).toHaveBeenLastCalledWith('!assistant:test', 'Other words'))
+    await waitFor(() => expect(bridge.sendAssistant).toHaveBeenLastCalledWith('!assistant:test', 'Other words', 'en'))
     await waitFor(() => expect(composer.value).toBe('Other words'))
   })
 
   it('sends a long message, and keeps one too long for a single message in the box with the reason (FR20)', async () => {
-    const { bridge } = await openChat()
+    const { bridge } = await openChat(cloudReady)
     const composer = await screen.findByRole('textbox', { name: COMPOSER })
     const long = 'Plan the next task in detail. '.repeat(700)
     fireEvent.change(composer, { target: { value: long } })
     fireEvent.click(screen.getByRole('button', { name: 'Send' }))
-    await waitFor(() => expect(bridge.sendTurn).toHaveBeenCalledWith('!assistant:test', long))
+    await waitFor(() => expect(bridge.sendAssistant).toHaveBeenCalledWith('!assistant:test', long, 'en'))
 
-    vi.mocked(bridge.sendTurn).mockClear()
+    vi.mocked(bridge.sendAssistant).mockClear()
     const tooLong = '字'.repeat(16_000)
     fireEvent.change(composer, { target: { value: tooLong } })
     fireEvent.click(screen.getByRole('button', { name: 'Send' }))
     expect(await screen.findByText(/too long to send in one go/)).toBeTruthy()
-    expect(bridge.sendTurn).not.toHaveBeenCalled()
+    expect(bridge.sendAssistant).not.toHaveBeenCalled()
     await waitFor(() => expect((composer as HTMLTextAreaElement).value).toBe(tooLong))
-  })
-
-  it('keeps the listening room on the local path too (the composer branch is gone)', async () => {
-    const { bridge } = await openChat({
-      ...ready,
-      hermesListening: { roomId: '!assistant:test', expiresAt: Date.now() + 60_000, queued: 0, state: 'listening' }
-    })
-
-    const composer = await screen.findByRole('textbox', { name: COMPOSER })
-    fireEvent.change(composer, { target: { value: 'Hello' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Send' }))
-    await waitFor(() => expect(bridge.sendTurn).toHaveBeenCalledWith('!assistant:test', 'Hello'))
-    expect(bridge.command).not.toHaveBeenCalledWith(expect.objectContaining({ kind: 'send' }))
   })
 
   it('keeps a linked document on the server path, where it is confirmed', async () => {
@@ -10322,224 +9609,6 @@ describe('the local assistant path (plan 2026-09-26-reliable-local-first-chat)',
     fireEvent.click(screen.getByRole('button', { name: 'Send' }))
     await waitFor(() => expect(bridge.sendAssistant).toHaveBeenCalledWith('!assistant:test', 'Summarize it', 'en'))
     expect(bridge.sendTurn).not.toHaveBeenCalled()
-  })
-
-  describe('the title bar’s placement control', () => {
-    const principal = '00000000-0000-4000-8000-bd7662a5eeb4'
-    const MAC_A = 'mac:00000000-0000-4000-8000-b454f82c5857' as const
-    const MAC_B = 'mac:00000000-0000-4000-8000-f6222a1106ee' as const
-
-    /** The main assistant with a saved policy over `order` (every destination ready). */
-    function withPolicy(order: Array<'cloud' | typeof MAC_A | typeof MAC_B>) {
-      const base = promotedMainSnapshot()
-
-      const policy = {
-        profile: 'atum.execution-policy/1' as const,
-        agentPrincipal: principal,
-        revision: 2,
-        source: 'saved' as const,
-        order,
-        disabled: []
-      }
-
-      const status = {
-        profile: 'atum.execution-status/1' as const,
-        agentPrincipal: principal,
-        policyRevision: 2,
-        asOf: 10,
-        state: 'idle' as const,
-        current: null,
-        desired: 'cloud' as const,
-        order,
-        disabled: [],
-        destinations: Object.fromEntries(order.map(id => [id, { state: 'ready' as const, observedAt: 9 }]))
-      } as never
-
-      const snapshot: MatrixSnapshot = {
-        ...base,
-        roomId: '!main:test',
-        agents: base.agents?.map(agent =>
-          agent.principal === 'main'
-            ? { ...agent, principal, executionPolicy: { policy, status, stale: false } }
-            : agent
-        ),
-        rooms: base.rooms.map(room => (room.id === '!main:test' ? { ...room, agentPrincipal: principal } : room))
-      }
-
-      const executionPolicy: MatrixExecutionPolicyBridge = {
-        read: vi.fn(async () => ({ policy, status, stale: false })),
-        save: vi.fn<MatrixExecutionPolicyBridge['save']>(async (_agentPrincipal, update) => ({
-          ok: true as const,
-          value: { ...policy, revision: 3, order: update.order, disabled: update.disabled }
-        }))
-      }
-
-      return { executionPolicy, snapshot }
-    }
-
-    const migratedHome = (): NonNullable<MatrixAgentView['home']> => ({
-      lives: { kind: 'cloud' },
-      move: null,
-      targets: [{ id: MAC_A.slice(4), name: 'Mac mini' }],
-      issue: null,
-      placement: {
-        profile: 'atum.agent-home/2.5',
-        moveAvailable: true,
-        current: 'cloud',
-        reachability: 'reachable',
-        modelStatus: 'applied',
-        destinations: [
-          { id: 'cloud', kind: 'cloud', name: '', thisMac: false, eligibility: 'ready', catalogRevision: 0, models: [] },
-          {
-            id: MAC_A.slice(4),
-            kind: 'mac',
-            name: 'Mac mini',
-            thisMac: false,
-            eligibility: 'ready',
-            catalogRevision: 1,
-            models: []
-          }
-        ]
-      }
-    })
-
-    it('hides the legacy execution-policy control under cloud-only even with multiple Macs', async () => {
-      const { executionPolicy, snapshot } = withPolicy(['cloud', MAC_A, MAC_B])
-      const { bridge, emit } = fixture(undefined, 'en', undefined, undefined, undefined, undefined, undefined, {}, true)
-      bridge.executionPolicy = executionPolicy
-      emit(snapshot)
-
-      await screen.findByRole('textbox', { name: COMPOSER })
-      expect(document.querySelector('[data-matrix-chat-subtitle]')).toBeNull()
-      expect(document.querySelector('[data-matrix-execution-policy]')).toBeNull()
-      expect(screen.queryByRole('button', { name: /About to answer on|Answering on/ })).toBeNull()
-      expect(executionPolicy.read).not.toHaveBeenCalled()
-    })
-
-    it('composes the strict execution-policy machine control with cloud-only switched off', async () => {
-      const { executionPolicy, snapshot } = withPolicy(['cloud', MAC_A, MAC_B])
-      const { bridge, emit } = fixture(undefined, 'en', undefined, undefined, undefined, undefined, undefined, {}, false)
-      bridge.executionPolicy = executionPolicy
-      emit(snapshot)
-
-      expect(document.querySelector('[data-matrix-chat-subtitle]')).toBeNull()
-      fireEvent.click(await screen.findByRole('button', { name: 'About to answer on Cloud' }))
-      expect(await screen.findByRole('heading', { name: 'Where this assistant answers' })).toBeTruthy()
-      expect(executionPolicy.read).toHaveBeenCalledExactlyOnceWith(principal)
-    })
-
-    it('hides the settled cloud home icon while keeping both native bridges idle', async () => {
-      const { executionPolicy, snapshot } = withPolicy(['cloud', MAC_A, MAC_B])
-      const home = migratedHome()
-
-      const migrated: MatrixSnapshot = {
-        ...snapshot,
-        agents: snapshot.agents?.map(agent => {
-          if (agent.principal !== principal) {
-            return agent
-          }
-
-          const legacy = agent.executionPolicy!
-
-          return {
-            ...agent,
-            home,
-            executionPolicy: {
-              ...legacy,
-              status: {
-                ...legacy.status!,
-                destinations: {
-                  ...legacy.status!.destinations,
-                  [MAC_A]: { state: 'offline', reason: 'not_present', observedAt: 9 }
-                }
-              }
-            }
-          }
-        })
-      }
-
-      const agentHome: MatrixAgentHomeBridge = {
-        read: vi.fn(async () => home),
-        preflight: vi.fn(),
-        move: vi.fn(),
-        cancel: vi.fn(),
-        model: vi.fn(),
-        prepare: vi.fn()
-      }
-
-      const { bridge, emit } = fixture(undefined, 'vi', undefined, undefined, undefined, undefined, undefined, {}, true)
-      bridge.executionPolicy = executionPolicy
-      bridge.agentHome = agentHome
-      emit(migrated)
-
-      await waitFor(() => expect(document.querySelector('[data-atum-chat]')).toBeTruthy())
-      expect(document.querySelector('[data-matrix-agent-home]')).toBeNull()
-      expect(document.querySelector('[data-matrix-execution-policy]')).toBeNull()
-      expect(agentHome.read).not.toHaveBeenCalled()
-      expect(executionPolicy.read).not.toHaveBeenCalled()
-    })
-
-    it('uses D1 home with cloud-only switched off', async () => {
-      const { executionPolicy, snapshot } = withPolicy(['cloud', MAC_A, MAC_B])
-      const home = migratedHome()
-
-      const migrated: MatrixSnapshot = {
-        ...snapshot,
-        agents: snapshot.agents?.map(agent =>
-          agent.principal === principal ? { ...agent, home } : agent
-        )
-      }
-
-      const agentHome: MatrixAgentHomeBridge = {
-        read: vi.fn(async () => home),
-        preflight: vi.fn(),
-        move: vi.fn(),
-        cancel: vi.fn(),
-        model: vi.fn(),
-        prepare: vi.fn()
-      }
-
-      const { bridge, emit } = fixture(undefined, 'vi', undefined, undefined, undefined, undefined, undefined, {}, false)
-      bridge.executionPolicy = executionPolicy
-      bridge.agentHome = agentHome
-      emit(migrated)
-
-      const trigger = await waitFor(() => {
-        const found = document.querySelector<HTMLElement>('[data-matrix-agent-home]')
-        expect(found).toBeTruthy()
-
-        return found!
-      })
-
-      fireEvent.click(trigger)
-
-      const popover = await waitFor(() => {
-        const found = document.querySelector<HTMLElement>('[data-agent-home-popover]')
-        expect(found).toBeTruthy()
-
-        return found!
-      })
-
-      expect(popover.querySelector('[data-agent-home-current]')?.textContent).toBe('Đám mây')
-      expect(popover.querySelector('[data-agent-home-destination]')).toBeTruthy()
-      expect(agentHome.read).toHaveBeenCalledWith(principal)
-      expect(document.querySelector('[data-matrix-execution-policy]')).toBeNull()
-    })
-
-    it.each([
-      ['the cloud alone', ['cloud'] as Array<'cloud' | typeof MAC_A>],
-      ['the cloud and this one Mac', ['cloud', MAC_A] as Array<'cloud' | typeof MAC_A>]
-    ])('draws no placement control in the first chat when the person has %s', async (_name, order) => {
-      const { executionPolicy, snapshot } = withPolicy(order)
-      const { bridge, emit } = fixture()
-      bridge.executionPolicy = executionPolicy
-      emit(snapshot)
-
-      // Wait for the chat itself, then see that no priority list or switches are on offer in it.
-      await screen.findByRole('textbox', { name: COMPOSER })
-      expect(document.querySelector('[data-matrix-execution-policy]')).toBeNull()
-      expect(screen.queryByRole('button', { name: /About to answer on|Answering on/ })).toBeNull()
-    })
   })
 
   it('with assistantPath=server keeps today’s listening branch (parity)', async () => {
@@ -10558,20 +9627,33 @@ describe('the local assistant path (plan 2026-09-26-reliable-local-first-chat)',
     expect(bridge.sendTurn).not.toHaveBeenCalled()
   })
 
-  it('pauses the composer while degraded, with a banner, and keeps the draft', async () => {
-    const { bridge } = await openChat({
-      ...ready,
-      readiness: { phase: 'degraded', step: 'ai', code: 'offline', since: 1 }
+  it('pauses the cloud composer with a linked local document, and keeps the draft', async () => {
+    const { bridge, emit } = await openChat({
+      ...cloudReady,
+      linkedDocument: { name: 'notes.txt', state: 'linked' }
     })
 
-    expect(await screen.findByText(/You're offline\. I'll be back when you are\./)).toBeTruthy()
+    await waitFor(() => expect(window.document.querySelector('[data-linked-document-notice]')).toBeTruthy())
     const composer = await screen.findByRole('textbox', { name: COMPOSER })
     fireEvent.change(composer, { target: { value: 'Draft kept' } })
     expect((composer as HTMLTextAreaElement).value).toBe('Draft kept')
     expect((screen.getByRole('button', { name: 'Send' }) as HTMLButtonElement).disabled).toBe(true)
     fireEvent.keyDown(composer, { key: 'Enter' })
-    expect(bridge.sendTurn).not.toHaveBeenCalled()
+    expect(bridge.sendAssistant).not.toHaveBeenCalled()
     expect((composer as HTMLTextAreaElement).value).toBe('Draft kept')
+
+    vi.mocked(bridge.document).mockRejectedValueOnce(new Error('matrix_document_unavailable'))
+    const remove = screen.getByRole('button', { name: 'Remove document' })
+    fireEvent.click(remove)
+    expect(await screen.findByText('Something went wrong')).toBeTruthy()
+    expect((screen.getByRole('button', { name: 'Send' }) as HTMLButtonElement).disabled).toBe(true)
+    fireEvent.click(remove)
+    await waitFor(() => expect(bridge.document).toHaveBeenCalledTimes(2))
+    expect(bridge.document).toHaveBeenLastCalledWith('!assistant:test', 'remove')
+    emit(cloudReady)
+    expect((screen.getByRole('button', { name: 'Send' }) as HTMLButtonElement).disabled).toBe(false)
+    fireEvent.click(screen.getByRole('button', { name: 'Send' }))
+    await waitFor(() => expect(bridge.sendAssistant).toHaveBeenCalledExactlyOnceWith('!assistant:test', 'Draft kept', 'en'))
   })
 
   it('sends staged Drive files through cloud even while this Mac is paused', async () => {
@@ -10788,6 +9870,7 @@ describe('the local assistant path (plan 2026-09-26-reliable-local-first-chat)',
 
   it('shows the echo from the snapshot at once and never twice once room events arrive', async () => {
     const { emit } = await openChat()
+    const turnId = '00000000-0000-4000-8000-31f949766961'
 
     const waiting = {
       turnId,
@@ -10828,25 +9911,6 @@ describe('the local assistant path (plan 2026-09-26-reliable-local-first-chat)',
     expect(screen.queryByRole('status', { name: 'Atum is typing…' })).toBeNull()
   })
 
-  it('offers Try again on an interrupted turn', async () => {
-    const { bridge } = await openChat({
-      ...ready,
-      localTurns: [
-        {
-          turnId,
-          roomId: '!assistant:test',
-          text: 'Do it',
-          createdAt: 5,
-          state: 'interrupted',
-          synced: { question: true, answer: false }
-        }
-      ]
-    })
-
-    expect(await screen.findByText('Something went wrong while I was working on this. Try again?')).toBeTruthy()
-    fireEvent.click(screen.getByRole('button', { name: 'Try again' }))
-    expect(bridge.retryTurn).toHaveBeenCalledWith(turnId)
-  })
 })
 
 describe("the person's other agents (per-agent runtime plan §2.8)", () => {
@@ -10933,6 +9997,10 @@ describe("the person's other agents (per-agent runtime plan §2.8)", () => {
     }))
   })
 
+  const cloudAlfred = agentView('alfred', '@alfred:test', {
+    name: 'Alfred', hermes: 'unavailable', answering: 'cloud', readiness: undefined
+  })
+
   const agentRow = () => within(window.document.querySelector<HTMLElement>('[data-matrix-agent="alfred"]')!)
   // The chat's notice, not the roster row that also names the trouble in its description.
   const notRoster = { ignore: 'script, style, [data-atum-roster] *' }
@@ -11015,9 +10083,10 @@ describe("the person's other agents (per-agent runtime plan §2.8)", () => {
     }
   )
 
-  it('keeps human sends and a healthy named agent usable after a cold withdrawn-default launch', async () => {
+  it('keeps human sends and a healthy named agent usable while a former Mac-hosted default is withdrawn', async () => {
     const human = { id: '!human:test', name: 'Morgan', membership: 'join', encrypted: true, direct: true }
-    const cold = { ...coldWithdrawn(), rooms: [...ready.rooms, human], roomId: human.id }
+    const withdrawn = coldWithdrawn()
+    const cold = { ...withdrawn, agents: [withdrawn.agents![0]!, cloudAlfred], rooms: [...ready.rooms, human], roomId: human.id }
     const { bridge, emit } = await open(cold)
     const composer = await screen.findByRole('textbox', { name: COMPOSER })
     fireEvent.change(composer, { target: { value: 'Hi Morgan' } })
@@ -11034,7 +10103,7 @@ describe("the person's other agents (per-agent runtime plan §2.8)", () => {
     expect(screen.queryByText(/This Mac can no longer run this assistant/, notRoster)).toBeNull()
     fireEvent.change(screen.getByRole('textbox', { name: COMPOSER }), { target: { value: 'Brief me' } })
     fireEvent.click(screen.getByRole('button', { name: 'Send' }))
-    await waitFor(() => expect(bridge.sendTurn).toHaveBeenCalledWith('!alfred:test', 'Brief me'))
+    await waitFor(() => expect(bridge.sendAssistant).toHaveBeenCalledWith('!alfred:test', 'Brief me', 'en'))
     expect(bridge.setupAssistant).not.toHaveBeenCalled()
     expect(bridge.enrollHermes).not.toHaveBeenCalled()
     expect(bridge.retryReadiness).not.toHaveBeenCalled()
@@ -11067,6 +10136,7 @@ describe("the person's other agents (per-agent runtime plan §2.8)", () => {
     // The default agent is degraded; Alfred is ready, so Alfred's room sends.
     const alfredSelected = {
       ...ready,
+      agents: [ready.agents![0]!, cloudAlfred],
       roomId: '!alfred:test',
       readiness: { phase: 'degraded' as const, step: 'ai' as const, code: 'offline', since: 1 }
     }
@@ -11075,20 +10145,13 @@ describe("the person's other agents (per-agent runtime plan §2.8)", () => {
     const composer = await screen.findByRole('textbox', { name: COMPOSER })
     fireEvent.change(composer, { target: { value: 'Brief me' } })
     fireEvent.click(screen.getByRole('button', { name: 'Send' }))
-    await waitFor(() => expect(bridge.sendTurn).toHaveBeenCalledWith('!alfred:test', 'Brief me'))
+    await waitFor(() => expect(bridge.sendAssistant).toHaveBeenCalledWith('!alfred:test', 'Brief me', 'en'))
 
-    // Alfred degraded while the default is ready: Alfred's room pauses, and its row says so.
-    emit({
-      ...ready,
-      roomId: '!alfred:test',
-      agents: [
-        agentView('default', '@atum:test'),
-        agentView('alfred', '@alfred:test', { name: 'Alfred', readiness: { phase: 'degraded', since: 1 } })
-      ]
-    })
-    fireEvent.change(await screen.findByRole('textbox', { name: COMPOSER }), { target: { value: 'Hi' } })
-    await waitFor(() => expect((screen.getByRole('button', { name: 'Send' }) as HTMLButtonElement).disabled).toBe(true))
-    expect(agentRow().getByRole('button', { name: /^Alfred/ }).textContent).toContain('Unavailable')
+    // The same named chat stays writable when the default’s Mac readiness changes.
+    emit({ ...alfredSelected, readiness: { phase: 'blocked', step: 'hermes', code: 'runtime_invalid', since: 2 } })
+    fireEvent.change(screen.getByRole('textbox', { name: COMPOSER }), { target: { value: 'Still there' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Send' }))
+    await waitFor(() => expect(bridge.sendAssistant).toHaveBeenLastCalledWith('!alfred:test', 'Still there', 'en'))
   })
 
   it('keeps chats, Drive and Settings usable when every optional ChatGPT plan needs reconnecting', async () => {
@@ -11178,7 +10241,7 @@ describe("the person's other agents (per-agent runtime plan §2.8)", () => {
     const { bridge } = await open({
       ...ready,
       roomId: '!alfred:test',
-      agents: [ready.agents![0]!, { ...ready.agents![1]!, content: { state: 'error', error: 'denied' } }]
+      agents: [ready.agents![0]!, { ...cloudAlfred, content: { state: 'error', error: 'denied' } }]
     })
 
     fireEvent.click(await agentRow().findByRole('button', { name: 'Alfred' }))
@@ -11189,42 +10252,9 @@ describe("the person's other agents (per-agent runtime plan §2.8)", () => {
     fireEvent.keyDown(screen.getByRole('menu'), { key: 'Escape' })
     fireEvent.change(screen.getByRole('textbox', { name: COMPOSER }), { target: { value: 'Still ready' } })
     fireEvent.click(screen.getByRole('button', { name: 'Send' }))
-    await waitFor(() => expect(bridge.sendTurn).toHaveBeenCalledWith('!alfred:test', 'Still ready'))
+    await waitFor(() => expect(bridge.sendAssistant).toHaveBeenCalledWith('!alfred:test', 'Still ready', 'en'))
     expect(agentRow().getByRole('button', { name: 'Alfred' })).toBeTruthy()
   })
-
-  it.each(['blocked', 'degraded'] as const)(
-    'keeps other agents usable while a %s withdrawn selected agent explains its stopped permission',
-    async phase => {
-      const { bridge, emit } = await open(ready)
-      emit({
-        ...ready,
-        roomId: '!alfred:test',
-        agents: [
-          agentView('default', '@atum:test'),
-          agentView('alfred', '@alfred:test', {
-            name: 'Alfred',
-            ready: false,
-            readiness: { phase, step: 'authority', code: 'authority_withdrawn', since: 1 }
-          })
-        ]
-      })
-      await screen.findByText(/This Mac can no longer run this assistant/, notRoster)
-      expect(screen.getByText(/Your chats and saved setup are kept/)).toBeTruthy()
-      expect(screen.queryByText(/Sending is paused until it's back/)).toBeNull()
-      fireEvent.change(screen.getByRole('textbox', { name: COMPOSER }), { target: { value: 'Hi' } })
-      expect((screen.getByRole('button', { name: 'Send' }) as HTMLButtonElement).disabled).toBe(true)
-      expect(bridge.retryReadiness).not.toHaveBeenCalled()
-      expect(bridge.sendTurn).not.toHaveBeenCalled()
-      emit(ready)
-      expect(await screen.findByRole('textbox', { name: COMPOSER })).toBeTruthy()
-      fireEvent.change(screen.getByRole('textbox', { name: COMPOSER }), {
-        target: { value: 'Default still works' }
-      })
-      fireEvent.click(screen.getByRole('button', { name: 'Send' }))
-      await waitFor(() => expect(bridge.sendTurn).toHaveBeenCalledWith('!assistant:test', 'Default still works'))
-    }
-  )
 
   it('creates an assistant from the "+" in one sheet, then opens its conversation and nothing else', async () => {
     const { bridge, emit } = await open(ready)
@@ -11463,6 +10493,8 @@ describe("Home's chat (launch night, second wave)", () => {
     ]
   }
 
+  const cloudReady = { ...cloudPrimary(ready, 'atum'), readiness: undefined }
+
   async function openChat(snapshot: MatrixSnapshot = ready, command?: MatrixUiBridge['command']) {
     const harness = fixture(async () => snapshot, 'en', undefined, command)
     await waitFor(() => expect(plate()).toBeNull(), LAUNCH_OPENS)
@@ -11541,7 +10573,7 @@ describe("Home's chat (launch night, second wave)", () => {
     fireEvent.keyDown(answerToolbar(container).querySelector('[data-matrix-answer-menu]')!, { key: 'Enter' })
 
   it('draws an answer like a normal chat message: no row under it, the toolbar on hover (owner 11-18)', async () => {
-    const { view } = await openChat()
+    const { view } = await openChat(cloudReady)
     const toolbar = answerToolbar(view.container)
     const answer = view.container.querySelector<HTMLElement>('[data-matrix-message-id="$a"]')!
 
@@ -11563,12 +10595,12 @@ describe("Home's chat (launch night, second wave)", () => {
   it("asks an answer's question again and copies it from the answer's menu", async () => {
     const writeText = vi.fn(async () => {})
     Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } })
-    const { bridge, view } = await openChat()
+    const { bridge, view } = await openChat(cloudReady)
 
     openAnswerMenu(view.container)
     fireEvent.click(screen.getByRole('menuitem', { name: 'Retry' }))
     await waitFor(() =>
-      expect(bridge.sendTurn).toHaveBeenCalledExactlyOnceWith('!assistant:test', 'Plan a trip to Đà Lạt')
+      expect(bridge.sendAssistant).toHaveBeenCalledExactlyOnceWith('!assistant:test', 'Plan a trip to Đà Lạt', 'en')
     )
     openAnswerMenu(view.container)
     fireEvent.click(screen.getByRole('menuitem', { name: 'Copy' }))
@@ -11720,7 +10752,7 @@ describe("Home's chat (launch night, second wave)", () => {
 
   it('edits your newest question for real, then asks it again as the next turn', async () => {
     const command = vi.fn<MatrixUiBridge['command']>(async () => '$edit')
-    const { bridge } = await openChat(ready, command)
+    const { bridge } = await openChat(cloudReady, command)
     const box = () => screen.getByRole('textbox', { name: COMPOSER }) as HTMLTextAreaElement
     fireEvent.change(box(), { target: { value: 'a draft' } })
     const trigger = window.document.querySelector<HTMLButtonElement>('[data-matrix-message-actions]')!
@@ -11729,7 +10761,7 @@ describe("Home's chat (launch night, second wave)", () => {
     await waitFor(() => expect(box().value).toBe('Plan a trip to Đà Lạt'))
     // Your newest question in your assistant's chat: it answers again once changed.
     expect(screen.getByText('Editing · Atum will answer again')).toBeTruthy()
-    expect(bridge.sendTurn).not.toHaveBeenCalled()
+    expect(bridge.sendAssistant).not.toHaveBeenCalled()
 
     fireEvent.change(box(), { target: { value: 'Plan a trip to Huế' } })
     fireEvent.click(screen.getByRole('button', { name: 'Save' }))
@@ -11743,7 +10775,7 @@ describe("Home's chat (launch night, second wave)", () => {
     )
     // Append-only: the changed words are the next turn, nothing earlier is rewritten.
     await waitFor(() =>
-      expect(bridge.sendTurn).toHaveBeenCalledExactlyOnceWith('!assistant:test', 'Plan a trip to Huế')
+      expect(bridge.sendAssistant).toHaveBeenCalledExactlyOnceWith('!assistant:test', 'Plan a trip to Huế', 'en')
     )
     // The draft that was in the box comes back.
     await waitFor(() => expect(box().value).toBe('a draft'))
@@ -11754,12 +10786,12 @@ describe("Home's chat (launch night, second wave)", () => {
   })
 
   it('never drops a send that still reaches the box while the assistant is paused', async () => {
-    const { bridge, emit, view } = await openChat()
+    const { bridge, emit, view } = await openChat(cloudReady)
     const box = () => screen.getByRole('textbox', { name: COMPOSER }) as HTMLTextAreaElement
     fireEvent.change(box(), { target: { value: 'Book the train' } })
     // The assistant pauses between typing and sending: Send goes off at once, and so does an
     // answer's Retry…
-    emit({ ...ready, readiness: { phase: 'degraded', step: 'ai', code: 'offline', since: 2 } })
+    emit({ ...cloudReady, linkedDocument: { name: 'notes.txt', state: 'linked' } })
     await waitFor(() => expect((screen.getByRole('button', { name: 'Send' }) as HTMLButtonElement).disabled).toBe(true))
     openAnswerMenu(view.container)
     expect(screen.getByRole('menuitem', { name: 'Retry' }).hasAttribute('data-disabled')).toBe(true)
@@ -11768,15 +10800,15 @@ describe("Home's chat (launch night, second wave)", () => {
     fireEvent.submit(box().closest('form')!)
     expect(await screen.findByText('Atum isn’t ready yet, so nothing was sent. Try again in a moment.')).toBeTruthy()
     expect(box().value).toBe('Book the train')
-    expect(bridge.sendTurn).not.toHaveBeenCalled()
+    expect(bridge.sendAssistant).not.toHaveBeenCalled()
 
     // Back to ready, the same words go out.
-    emit(ready)
+    emit(cloudReady)
     await waitFor(() =>
       expect((screen.getByRole('button', { name: 'Send' }) as HTMLButtonElement).disabled).toBe(false)
     )
     fireEvent.click(screen.getByRole('button', { name: 'Send' }))
-    await waitFor(() => expect(bridge.sendTurn).toHaveBeenCalledExactlyOnceWith('!assistant:test', 'Book the train'))
+    await waitFor(() => expect(bridge.sendAssistant).toHaveBeenCalledExactlyOnceWith('!assistant:test', 'Book the train', 'en'))
   })
 
   it('never lets a retry of an older message too long to send replace the draft in the box', async () => {
@@ -11803,13 +10835,13 @@ describe("Home's chat (launch night, second wave)", () => {
 
   it('keeps an edit that asks again in its bar while the assistant is paused, saving nothing', async () => {
     const command = vi.fn<MatrixUiBridge['command']>(async () => '$edit')
-    const { bridge, emit } = await openChat(ready, command)
+    const { bridge, emit } = await openChat(cloudReady, command)
     const box = () => screen.getByRole('textbox', { name: COMPOSER }) as HTMLTextAreaElement
     fireEvent.keyDown(box(), { key: 'ArrowUp' })
     await waitFor(() => expect(box().value).toBe('Plan a trip to Đà Lạt'))
     expect(screen.getByText('Editing · Atum will answer again')).toBeTruthy()
     fireEvent.change(box(), { target: { value: 'Plan a trip to Huế' } })
-    emit({ ...ready, readiness: { phase: 'starting', step: 'hermes', since: 2 } })
+    emit({ ...cloudReady, linkedDocument: { name: 'notes.txt', state: 'linked' } })
     await waitFor(() => expect((screen.getByRole('button', { name: 'Save' }) as HTMLButtonElement).disabled).toBe(true))
     fireEvent.submit(box().closest('form')!)
 
@@ -11817,7 +10849,7 @@ describe("Home's chat (launch night, second wave)", () => {
     expect(box().value).toBe('Plan a trip to Huế')
     expect(screen.getByText('Editing · Atum will answer again')).toBeTruthy()
     expect(command).not.toHaveBeenCalledWith(expect.objectContaining({ kind: 'edit' }))
-    expect(bridge.sendTurn).not.toHaveBeenCalled()
+    expect(bridge.sendAssistant).not.toHaveBeenCalled()
   })
 
   it('stages a chosen file as a chip, sends it before the words, and says plainly when it is too big', async () => {
@@ -12051,26 +11083,6 @@ describe("Home's chat (launch night, second wave)", () => {
       expect(screen.queryByRole('button', { name: 'Restore messages' })).toBeNull()
     }
   )
-
-  it('logs an automatic existing-room refresh failure without raising the window band', async () => {
-    const { bridge } = await openChat()
-    const diagnostic = vi.fn()
-    bridge.windowFailureDiagnostic = diagnostic
-    vi.mocked(bridge.connectHermes).mockRejectedValueOnce(
-      new Error("Error invoking remote method 'matrix:ui': Error: matrix_agent_unavailable")
-    )
-    fireEvent.click(screen.getByRole('button', { name: /^Atum$/ }))
-    await waitFor(() => expect(bridge.connectHermes).toHaveBeenCalledWith('!assistant:test'))
-    await waitFor(() =>
-      expect(diagnostic).toHaveBeenCalledWith({
-        source: 'connectHermes',
-        code: 'matrix_agent_unavailable',
-        retryable: true
-      })
-    )
-    expect(screen.queryByText('That didn’t work. Try again.')).toBeNull()
-    expect(screen.queryByText('This assistant isn’t available right now. Try again in a moment.')).toBeNull()
-  })
 
   it('holds the existing launch while the roster is delayed and suppresses provisional setup notices', async () => {
     const cold: MatrixSnapshot = {
@@ -12658,7 +11670,7 @@ describe("Home's chat (launch night, second wave)", () => {
 
   it('opens New message (the start sheet) from Cmd+N and returns to the assistant’s existing conversation', async () => {
     const command = vi.fn<MatrixUiBridge['command']>(async () => null)
-    const { bridge } = await openChat(ready, command)
+    const { bridge } = await openChat(cloudReady, command)
     fireEvent.keyDown(screen.getByRole('textbox', { name: COMPOSER }), {
       key: 'n',
       code: 'KeyN',
@@ -12669,13 +11681,13 @@ describe("Home's chat (launch night, second wave)", () => {
       within(within(start).getByRole('group', { name: 'Assistants' })).getByRole('button', { name: /^Atum/ })
     )
     await waitFor(() => expect(command).toHaveBeenCalledWith({ kind: 'select', roomId: '!assistant:test' }))
-    await waitFor(() => expect(bridge.connectHermes).toHaveBeenCalledWith('!assistant:test'))
+    expect(bridge.connectHermes).not.toHaveBeenCalled()
     expect(command).not.toHaveBeenCalledWith({ kind: 'create', name: '', invite: ['@atum:test'], direct: true })
   })
 
   it('moves to the main when the open room becomes earlier, with the draft, and the next send goes there', async () => {
     const command = vi.fn<MatrixUiBridge['command']>(async () => null)
-    const { bridge, emit } = await openChat(ready, command)
+    const { bridge, emit } = await openChat(cloudReady, command)
     fireEvent.change(screen.getByRole('textbox', { name: COMPOSER }), {
       target: { value: 'Keep this draft with Atum' }
     })
@@ -12703,7 +11715,8 @@ describe("Home's chat (launch night, second wave)", () => {
         name: 'Atum',
         isDefault: true,
         ready: true,
-        hermes: 'ready' as const,
+        hermes: 'unavailable' as const,
+        answering: 'cloud' as const,
         atumModel: true
       }
     ]
@@ -12714,22 +11727,22 @@ describe("Home's chat (launch night, second wave)", () => {
     })
     // The 0.20 move made a plain main while the old chat was open: the agent no longer answers
     // there, so the window goes to the main by itself. No Earlier banner, no button.
-    emit({ ...ready, rooms: [earlier, main, group], agents })
+    emit({ ...cloudReady, rooms: [earlier, main, group], agents })
     await waitFor(() => expect(command).toHaveBeenCalledWith({ kind: 'select', roomId: main.id }))
     expect(command).toHaveBeenCalledTimes(1)
     expect(screen.queryByText(/This conversation is closed/)).toBeNull()
     expect(screen.queryByRole('button', { name: 'Continue' })).toBeNull()
 
     // Main selects it: the draft is in the main's box, and sending it goes to the main.
-    emit({ ...ready, roomId: main.id, rooms: [earlier, main, group], agents })
+    emit({ ...cloudReady, roomId: main.id, rooms: [earlier, main, group], agents })
     await waitFor(() =>
       expect((screen.getByRole('textbox', { name: COMPOSER }) as HTMLTextAreaElement).value).toBe(
         'Keep this draft with Atum'
       )
     )
     fireEvent.click(screen.getByRole('button', { name: 'Send' }))
-    await waitFor(() => expect(bridge.sendTurn).toHaveBeenCalledWith(main.id, 'Keep this draft with Atum'))
-    expect(bridge.sendTurn).not.toHaveBeenCalledWith(earlier.id, expect.anything())
+    await waitFor(() => expect(bridge.sendAssistant).toHaveBeenCalledWith(main.id, 'Keep this draft with Atum', 'en'))
+    expect(bridge.sendAssistant).toHaveBeenCalledTimes(1)
     expect(command).toHaveBeenCalledTimes(1)
   })
 
@@ -12997,7 +12010,7 @@ describe("Home's chat (launch night, second wave)", () => {
     })
 
     it("replies to your assistant's answer with the answer's words as context", async () => {
-      const { bridge } = await openChat()
+      const { bridge } = await openChat(cloudReady)
       const actions = root('$a').querySelector<HTMLElement>('[data-matrix-message-toolbar]')!
 
       fireEvent.click(within(actions).getByRole('button', { name: 'Reply' }))
@@ -13007,10 +12020,7 @@ describe("Home's chat (launch night, second wave)", () => {
       })
       fireEvent.click(screen.getByRole('button', { name: 'Send' }))
       await waitFor(() =>
-        expect(bridge.sendTurn).toHaveBeenCalledExactlyOnceWith('!assistant:test', 'Make it two days', {
-          eventId: '$a',
-          quote: 'Here is a **plan**.'
-        })
+        expect(bridge.sendAssistant).toHaveBeenCalledExactlyOnceWith('!assistant:test', 'Make it two days', 'en', '$a')
       )
     })
 
@@ -13748,6 +12758,7 @@ describe('the rail goes where it is clicked, the first time', () => {
   // should show last convo." The last Chat outlives the window; with none, the primary agent's.
   describe('Chat never opens empty', () => {
     const personalRoom = { id: '!friend:test', name: 'Friend', membership: 'join' as const, direct: true, encrypted: true }
+
     const selected = (issued: Parameters<MatrixUiBridge['command']>[0][]) =>
       // Both launch paths may ask for the same room; what matters is that no other room is asked for.
       [...new Set(issued.flatMap(input => (input.kind === 'select' ? [input.roomId] : [])))]

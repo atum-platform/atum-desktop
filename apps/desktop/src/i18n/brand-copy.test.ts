@@ -79,7 +79,6 @@ const COPY_MODULES: ReadonlyArray<readonly [string, () => Promise<Record<string,
   ['src/matrix/drive-copy', () => import('../matrix/drive-copy')],
   ['src/matrix/drive-import-copy', () => import('../matrix/drive-import-copy')],
   ['src/matrix/execution-machines-copy', () => import('../matrix/execution-machines-copy')],
-  ['src/matrix/execution-policy-editor-copy', () => import('../matrix/execution-policy-editor-copy')],
   ['src/matrix/founder/founder-copy', () => import('../matrix/founder/founder-copy')],
   ['src/matrix/google-write-card-copy', () => import('../matrix/google-write-card-copy')],
   ['src/matrix/group-picker-copy', () => import('../matrix/group-picker-copy')],
@@ -152,9 +151,6 @@ const EXPLICIT_PLANS: Record<string, unknown[][]> = {
   'src/matrix/check-ins-copy::matrixCheckInClock': eachLocale(locale => [[new Date(2000, 0, 2, 8, 5), locale]]),
   'src/matrix/check-ins-copy::matrixCheckInTime': eachLocale(locale => [['08:05', locale]]),
   'src/matrix/check-ins-copy::matrixCheckInProtons': eachLocale(locale => [[12, locale]]),
-  'src/matrix/execution-policy-editor-copy::executionPolicyStatusAge': eachLocale(locale => [
-    [locale, Date.now() - 90_000, Date.now()]
-  ]),
   'src/matrix/attention-copy::matrixComposerHint': eachLocale(locale => [
     [{ readiness: { phase: 'starting' } }, 'Moon', matrixAttentionCopy(locale)],
     [{}, 'Moon', matrixAttentionCopy(locale), Date.now()]

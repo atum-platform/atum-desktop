@@ -13,7 +13,7 @@ import {
   matrixAccountCodexScope,
   matrixHermesEnvironment,
   matrixHermesHome
-} from '../electron/matrix/hermes-runtime'
+} from '../electron/matrix/hermes-utilities'
 import { readMatrixPlanAcknowledgment, saveMatrixPlanAcknowledgment } from '../electron/matrix/plan-acknowledgment'
 
 const source = path.resolve(import.meta.dirname, '../../..')

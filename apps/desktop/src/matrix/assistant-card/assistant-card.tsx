@@ -22,7 +22,7 @@ import {
   isAssistantNameLocked
 } from '../../../shared/matrix-assistant-name'
 import { type ParsedPersona, parsePersona, renderPersona } from '../../../shared/matrix-assistant-persona'
-import { MatrixAgentHomeRow, MatrixAgentPlaceRow } from '../agent-home-control'
+import { agentHomeCopy } from '../agent-home-copy'
 import { agentStatus, RetireAgent } from '../agent-roster'
 import { changeMatrixCheckIns } from '../check-in-card'
 import { matrixCheckInTime } from '../check-ins-copy'
@@ -36,9 +36,7 @@ import { SettingsSection } from '../settings-row'
 import { $matrixStoreShelfRequest } from '../store/top-up'
 import { runMatrixCommand } from '../text-document-actions'
 
-import { BackgroundSweepRow } from './background-sweep-row'
 import { type AssistantCardCopy, useAssistantCardCopy } from './copy'
-import { ModelDestinationsRow } from './model-destinations-row'
 import { InlineNameField } from './name-field'
 import { type PersonaChange, PersonaFields } from './persona-fields'
 import type { PreparedPhoto } from './photo'
@@ -623,6 +621,7 @@ function CardAvatar({
 
     try {
       const result = await bridge.avatar({ principal: agent.principal, avatar: photo ?? null })
+
       if (!result.ok) {throw new Error(result.error)}
       setAvatarUrl(result.avatarUrl)
     } catch {
@@ -656,6 +655,7 @@ function CardAvatar({
 
     if (file) {
       event.preventDefault()
+
       if (!pending) {setCropFile(file)}
     }
   }
@@ -740,48 +740,14 @@ function CardRows({
     void runMatrixCommand({ kind: 'discoverApps' }).catch(() => $matrixStoreShelfRequest.set(null))
   }
 
-  // The routines panel's "Chuyển lên đám mây" opens the card's one placement surface (D1 home).
-  const openAnswerWhere = () => {
-    const trigger = window.document.querySelector<HTMLElement>('[data-assistant-card-home]')
+  const placement = agentHomeCopy(locale)
 
-    if (trigger) {
-      trigger.scrollIntoView({ block: 'nearest' })
-      trigger.click()
-    }
-  }
-
-  const rows: ReactNode[] = []
-  // `agent.home` is main's data boundary for a migrated D1 assistant. Only then does this card show
-  // the authoritative home, its owner-placement readiness, and manual moves.
-  const homeBridge = window.atumMatrix.agentHome
-
-  if (agent.home && homeBridge) {
-    rows.push(
-      <MatrixAgentHomeRow
-        agentName={agent.name}
-        agentPrincipal={agent.principal}
-        bridge={homeBridge}
-        key="agent-home"
-        view={agent.home}
-      />
-    )
-  }
-
-  // Cloud-only U1: an assistant without `agent.home` gets the same row, read-only (where it answers
-  // and the Macs it can use). The legacy execution-order editor is gone from the card.
-  if (!(agent.home && homeBridge)) {
-    rows.push(<MatrixAgentPlaceRow agent={agent} key="agent-home" />)
-  }
-
-  if (agent.modelDestinations) {
-    rows.push(
-      <ModelDestinationsRow
-        agent={agent}
-        key="model-destinations"
-        preferenceScope={`account:${snapshot.identity?.userId ?? 'signed-out'}`}
-      />
-    )
-  }
+  const rows: ReactNode[] = [
+    <div className="atum-settings-row" data-assistant-card-home="cloud" key="cloud">
+      <span className="atum-settings-row-title min-w-0 flex-1">{placement.rowTitle}</span>
+      <span className="atum-card-row-value">{placement.cloudPlace}</span>
+    </div>
+  ]
 
   if (store) {
     rows.push(
@@ -806,18 +772,6 @@ function CardRows({
     )
   }
 
-  if (snapshot.identity && window.atumMatrix?.backgroundSweep) {
-    rows.push(
-      <BackgroundSweepRow
-        agentPrincipal={agent.principal}
-        bridge={window.atumMatrix.backgroundSweep}
-        copy={copy}
-        key="background-sweep"
-        ownerKey={`${snapshot.identity.userId}\n${snapshot.identity.deviceId}`}
-      />
-    )
-  }
-
   if (window.atumMatrix?.routines) {
     rows.push(
       <RoutinesRow
@@ -826,7 +780,6 @@ function CardRows({
         initiallyOpen={focusRoutines}
         key="routines"
         locale={locale}
-        onMoveToCloud={agent.home && homeBridge ? openAnswerWhere : undefined}
       />
     )
   } else if (agent.isDefault && snapshot.checkIns && snapshot.identity) {

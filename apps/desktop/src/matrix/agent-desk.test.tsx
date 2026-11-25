@@ -784,10 +784,10 @@ describe('round 3: frame, files and controls', () => {
     expect(command).toHaveBeenCalledWith({ kind: 'mute', roomId: ROOM, muted: true })
   })
 
-  it('reuses the one model picker row when the agent has a model choice', () => {
+  it('omits the retired model destination row for older agent snapshots', () => {
     render(panel({ ...hermesBase(), agents: [hermes] }))
     const controls = document.querySelector<HTMLElement>('[data-agent-desk-controls]')!
-    expect(controls.querySelector('[data-agent-desk-model]')).toBeTruthy()
+    expect(controls.querySelector('[data-agent-desk-model]')).toBeNull()
   })
 
   it('keeps rare controls behind one More: its routines as the host reads them, and the agent’s card', async () => {

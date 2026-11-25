@@ -10,7 +10,7 @@ import {
   matrixSubscriptionPlanSignInGate,
   updateMatrixSubscriptionSignIn
 } from './account-subscription-flow'
-import { matrixHermesHome } from './hermes-runtime'
+import { matrixHermesHome } from './hermes-utilities'
 
 // The SSH ChatGPT relay is gone (self-work plan §12): the follow-up after a ChatGPT sign-in is the assistant refresh alone.
 

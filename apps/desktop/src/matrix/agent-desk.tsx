@@ -25,7 +25,6 @@ import {
   matrixAgentDeskSteers,
   type MatrixProgressStep
 } from './agent-desk-model'
-import { ModelDestinationsRow } from './assistant-card/model-destinations-row'
 import { openAssistantCard } from './assistant-card/store'
 import { formatDriveSize } from './drive'
 import { HermesPrompt } from './hermes-prompts'
@@ -841,15 +840,6 @@ function Controls({
   return (
     <section aria-label={copy.controls} data-agent-desk-controls>
       <h2 className="atum-launcher-heading">{copy.controls}</h2>
-      {agent.modelDestinations && (
-        <div className="atum-settings-group mt-2 atum-desk-model" data-agent-desk-model>
-          <ModelDestinationsRow
-            agent={agent}
-            cloudOnly
-            preferenceScope={`account:${snapshot.identity?.userId ?? 'signed-out'}`}
-          />
-        </div>
-      )}
       <div className="ak-group mt-2" role="list">
         {schedule.canControl && (
           <label className="ak-row" data-agent-desk-pause={paused ? 'paused' : 'running'} role="listitem" title={copy.pauseHint}>

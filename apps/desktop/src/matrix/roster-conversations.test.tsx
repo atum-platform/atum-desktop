@@ -26,7 +26,6 @@ import { $founderDraftOpen, closeFounderDraft } from './founder/founder-store'
 import { $matrixMemberAvatars } from './member-avatars'
 import { bindMatrixHandleOwner, rememberMatrixHandle, resetMatrixHandlesForTest } from './person-handles'
 import { matrixAgentDot, matrixListenerStatus, MatrixRosterConversations } from './roster-conversations'
-import { matrixAgentConversationRoom } from './roster-preview'
 
 const owner = '@owner:test'
 
@@ -931,87 +930,11 @@ describe('MatrixRosterConversations', () => {
     }
   })
 
-  it('reads a cloud answerer’s dot from the destination that answers, not this Mac’s runtime', () => {
-    const base = readySnapshot().agents![0]!
+  it('shows a cloud assistant as ready without local runtime readiness', () => {
+    const agent = { ...readySnapshot().agents![0]!, answering: 'cloud' as const, readiness: undefined }
+    const shell = { ...en.matrixShell, agentDotReady: 'ready' }
 
-    const shell = {
-      ...en.matrixShell,
-      agentSettingUp: 'setting up',
-      agentDotReady: 'ready',
-      agentDotNeedsYou: 'needs you',
-      agentDotOffline: 'offline',
-      agentDotUnreachable: "can't connect"
-    }
-
-    const policy = parseExecutionPolicySnapshot(policyFixture)!
-    const status = parseExecutionStatusSnapshot(statusFixture)!
-
-    const policyView = (patch: Partial<MatrixExecutionPolicyView> = {}): MatrixExecutionPolicyView => ({
-      policy,
-      status,
-      stale: false,
-      ...patch
-    })
-
-    // The fixture answers on another Mac while the cloud is ready.
-    const answeredElsewhere = policyView()
-    const paused = policyView({ status: { ...status, state: 'paused' } })
-
-    const allDown = policyView({
-      status: {
-        ...status,
-        current: null,
-        desired: null,
-        destinations: {
-          'mac:00000000-0000-4000-8000-b454f82c5857': { state: 'offline', reason: 'not_present', observedAt: 1 },
-          cloud: { state: 'degraded', reason: 'server_down', observedAt: 1 },
-          'mac:00000000-0000-4000-8000-f6222a1106ee': { state: 'disabled', reason: 'owner_disabled', observedAt: 1 }
-        }
-      }
-    })
-
-    const cloudOnly = { ...base, answering: 'cloud' as const }
-    const localBlip = { readiness: { phase: 'degraded' as const, code: 'platform_unavailable', since: 1 } }
-
-    // A cloud answerer stays green through this Mac's own runtime blips, including a standby
-    // Mac whose local authority watch lost the platform for a moment.
-    expect(matrixAgentDot({ ...cloudOnly, ...localBlip }, 'en', shell, 'opening')).toEqual({
-      dot: 'live',
-      label: 'ready'
-    })
-    expect(
-      matrixAgentDot(
-        {
-          ...cloudOnly,
-          macRole: 'standby',
-          readiness: { phase: 'degraded', code: 'assistant_unreachable', since: 1 },
-          executionPolicy: answeredElsewhere
-        },
-        'en',
-        shell,
-        'opening'
-      )
-    ).toEqual({ dot: 'live', label: 'ready' })
-
-    // Grey only when the cloud's destination cannot answer anywhere, with the reason in words.
-    expect(matrixAgentDot({ ...cloudOnly, ...localBlip, executionPolicy: paused }, 'en', shell, 'opening')).toEqual({
-      dot: 'off',
-      label: 'Paused'
-    })
-    expect(matrixAgentDot({ ...cloudOnly, ...localBlip, executionPolicy: allDown }, 'en', shell, 'opening')).toEqual({
-      dot: 'off',
-      label: "can't connect"
-    })
-
-    // The Mac that answers for a cloud agent is not exempt from its own runtime going down.
-    expect(
-      matrixAgentDot(
-        { ...cloudOnly, macRole: 'answering', ...localBlip, executionPolicy: answeredElsewhere },
-        'en',
-        shell,
-        'opening'
-      )
-    ).toEqual({ dot: 'off', label: "can't connect" })
+    expect(matrixAgentDot(agent, 'en', shell, 'opening')).toEqual({ dot: 'live', label: 'ready' })
   })
 
   it('keeps a cloud answerer green while the policy cache is stale, never reading unknown as down', () => {
@@ -1081,59 +1004,9 @@ describe('MatrixRosterConversations', () => {
       agentDotOffline: 'offline',
       agentDotUnreachable: "can't connect"
     }
-    const policy = parseExecutionPolicySnapshot(policyFixture)!
-    const status = parseExecutionStatusSnapshot(statusFixture)!
-    const policyView = (patch: Partial<MatrixExecutionPolicyView> = {}): MatrixExecutionPolicyView => ({
-      policy,
-      status,
-      stale: false,
-      ...patch
-    })
-    const reachable = policyView()
-    const paused = policyView({ status: { ...status, state: 'paused' } })
-    const allDown = policyView({
-      status: {
-        ...status,
-        current: null,
-        desired: null,
-        destinations: {
-          'mac:00000000-0000-4000-8000-b454f82c5857': { state: 'offline', reason: 'not_present', observedAt: 1 },
-          cloud: { state: 'degraded', reason: 'server_down', observedAt: 1 },
-          'mac:00000000-0000-4000-8000-f6222a1106ee': { state: 'disabled', reason: 'owner_disabled', observedAt: 1 }
-        }
-      }
-    })
-
     for (const projection of projections) {
-      // One main, the same room, twice: the row opens the conversation the pick wrote.
-      expect(projection.source).toBe('marked')
       expect(projection.main).toBe(firstPick)
-      expect(projection.earlier).toEqual(['!atum-old:test'])
-      expect(matrixAgentConversationRoom(rooms, projection.main)?.id).toBe(firstPick)
-
-      // Every non-main room already says Earlier under that main, so the sweep has nothing to
-      // write: the second projection cannot start another migration.
-      expect(
-        projection.earlier.filter(roomId => {
-          const marker = marked.find(room => room.id === roomId)?.conversation
-          return marker?.role !== 'earlier' || marker.main !== projection.main
-        })
-      ).toEqual([])
-
-      // The dot's answerer fact follows the destination that answers, never this Mac: live
-      // while any enabled destination is reachable, off only when none can take the turn.
-      expect(matrixAgentDot({ ...agent, executionPolicy: reachable }, 'en', shell, 'opening')).toEqual({
-        dot: 'live',
-        label: 'ready'
-      })
-      expect(matrixAgentDot({ ...agent, executionPolicy: paused }, 'en', shell, 'opening')).toEqual({
-        dot: 'off',
-        label: 'Paused'
-      })
-      expect(matrixAgentDot({ ...agent, executionPolicy: allDown }, 'en', shell, 'opening')).toEqual({
-        dot: 'off',
-        label: "can't connect"
-      })
+      expect(matrixAgentDot(agent, 'en', shell, 'opening')).toEqual({ dot: 'live', label: 'ready' })
     }
   })
 
@@ -2193,21 +2066,6 @@ describe('a Mac that is not ready while the policy answers elsewhere', () => {
     const moon = view.container.querySelector<HTMLElement>('[data-matrix-agent="moon"]')!
     expect(within(moon).queryByText('Trên Mac mini')).toBeNull()
     expect(within(moon).getByText('Chưa sẵn sàng')).toBeTruthy()
-  })
-
-  it('says where it answers, briefly, with cloud-only switched off (§9.6)', () => {
-    const snapshot = readySnapshot()
-    snapshot.agents![1] = {
-      ...snapshot.agents![1]!,
-      ready: false,
-      readiness: { phase: 'blocked', step: 'ai', code: 'runtime_unavailable', since: 1 },
-      executionPolicy: policyView()
-    }
-    const { view } = setup(snapshot, '', 'vi', undefined, false)
-
-    const moon = view.container.querySelector<HTMLElement>('[data-matrix-agent="moon"]')!
-    expect(within(moon).getByText('Trên Mac mini')).toBeTruthy()
-    expect(within(moon).queryByText('Chưa sẵn sàng')).toBeNull()
   })
 
   it('lets the error win while the row offers Try again: never “Trên Mac mini” beside the button', () => {

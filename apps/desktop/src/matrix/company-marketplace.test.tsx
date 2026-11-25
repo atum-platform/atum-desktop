@@ -7,6 +7,15 @@ import { matrixCompanyBoardCopy } from '../../shared/matrix-company-board-copy'
 import type { MatrixCompanyStoreSnapshot } from '../../shared/matrix-company-store'
 import type { MatrixStoreOffer } from '../../shared/matrix-store'
 
+import { playgroundCompanyDesktopAdapter } from './__fixtures__/company-ai-fixtures'
+import {
+  PLAYGROUND_BOOKKEEPER_AGENT,
+  PLAYGROUND_CHIEF_PRINCIPAL,
+  PLAYGROUND_MARKETER_AGENT,
+  playgroundCompanyStore,
+  type PlaygroundCompanyStoreMode
+} from './__fixtures__/company-store-fixtures'
+import { TEAM_COMPANY_ID } from './__fixtures__/team-space-fixtures'
 import { CompanyMarketplace } from './company-marketplace'
 import {
   $companyMarketplaces,
@@ -17,15 +26,6 @@ import {
 } from './company-marketplace-store'
 import { $companySpacePreferences, patchCompanySpacePreferences } from './company-space-store'
 import { CompanySpaceTabs } from './company-space-tabs'
-import { playgroundCompanyDesktopAdapter } from './playground/company-ai-fixtures'
-import {
-  PLAYGROUND_BOOKKEEPER_AGENT,
-  PLAYGROUND_CHIEF_PRINCIPAL,
-  PLAYGROUND_MARKETER_AGENT,
-  playgroundCompanyStore,
-  type PlaygroundCompanyStoreMode
-} from './playground/company-store-fixtures'
-import { TEAM_COMPANY_ID } from './playground/team-space-fixtures'
 import { companyActionText, companyTermsText } from './store/company-store-detail'
 import { matrixStoreCopy } from './store/store-copy'
 

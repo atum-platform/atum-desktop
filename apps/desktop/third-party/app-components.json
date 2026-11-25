@@ -287,66 +287,6 @@
           "files": ["runtime/tools/uv/bin/uv", "runtime/tools/uv/bin/uvx"]
         }
       ]
-    },
-    {
-      "id": "local-brain",
-      "folder": "local-brain",
-      "title": "The local brain (Resources/local-brain)",
-      "pins": [
-        {
-          "file": "local-brain/pin.json",
-          "key": "gbrain.tag",
-          "value": "v0.59.20.0"
-        },
-        {
-          "file": "local-brain/pin.json",
-          "key": "gbrain.commit",
-          "value": "a9c46ffbf68447cf0b157cac6843e994e61fc4b8"
-        },
-        {
-          "file": "local-brain/pin.json",
-          "key": "pglite.version",
-          "value": "0.4.3"
-        }
-      ],
-      "components": [
-        {
-          "name": "GBrain (local-brain/bin/gbrain and local-brain/src)",
-          "version": "v0.59.20.0",
-          "license": "MIT",
-          "source": "https://github.com/garrytan/gbrain/tree/a9c46ffbf68447cf0b157cac6843e994e61fc4b8",
-          "notes": [
-            "local-brain/bin/gbrain is GBrain's own release binary, compiled by its authors with Bun 1.4.2 (bun build --compile). It therefore contains the Bun runtime and the libraries Bun links statically, listed below."
-          ],
-          "shippedFiles": ["local-brain/licenses/GBRAIN-LICENSE"]
-        },
-        {
-          "name": "Bun",
-          "version": "1.4.2",
-          "license": "MIT, with the licences of the libraries it links statically (listed in its licence file)",
-          "source": "https://github.com/oven-sh/bun/tree/bun-v1.4.2",
-          "licenseFiles": ["local-brain/bun-LICENSE.md"]
-        },
-        {
-          "name": "JavaScriptCore and WebKit, in Bun's fork",
-          "version": "commit 2e2aa2290fac856d6f451ceacb58f7f5b44dd057",
-          "license": "LGPL-2.0-or-later and LGPL-2.1-or-later (per file), and BSD-style licences",
-          "source": "https://github.com/oven-sh/WebKit/tree/2e2aa2290fac856d6f451ceacb58f7f5b44dd057",
-          "notes": [
-            "Bun links JavaScriptCore statically, so the gbrain binary contains it. To use a modified JavaScriptCore: build Bun 1.4.2 from its source with your WebKit (Bun's licence file above gives the steps), build GBrain from its source at the commit above with that Bun (bun build --compile), sign the result ad hoc (codesign --force --sign - <file>) and put it at local-brain/bin/gbrain. Atum runs that binary only if its size and SHA-256 match the \"signed\" entry of local-brain/SIGNED-BINARY.json, so record the new size and SHA-256 there, then re-sign Atum ad hoc (codesign --force --deep --sign - <path of the Atum app>)."
-          ],
-          "licenseFiles": ["texts/LGPL-2.0.txt", "texts/LGPL-2.1.txt"]
-        },
-        {
-          "name": "PGlite, embedded in the gbrain binary",
-          "version": "0.4.3",
-          "license": "Apache-2.0 OR PostgreSQL",
-          "source": "https://github.com/electric-sql/pglite/tree/%40electric-sql/pglite%400.4.3",
-          "licenseFiles": ["local-brain/pglite-POSTGRES-LICENSE.txt"],
-          "shippedFiles": ["local-brain/licenses/PGLITE-LICENSE"],
-          "notes": ["PGlite includes PostgreSQL, under the PostgreSQL licence."]
-        }
-      ]
     }
   ]
 }

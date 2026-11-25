@@ -8,9 +8,7 @@ import {
   MatrixEnrollmentRateLimited,
   matrixRetryAfterMs,
   printableDeviceId,
-  requestAppTurn,
   requestEnrollment,
-  requestInvocation,
   requestLease,
   requestLocalEnrollmentCapabilities,
   sameMatrixEnrollment,
@@ -42,67 +40,6 @@ const turn = () => ({
   mentionedUserIds: ['@app:test'],
   signal: new AbortController().signal,
   deadlineAt: Date.now() + 30000
-})
-
-it('delivers a bounded one-shot app turn with only the dispatch-bound text and mentions', async () => {
-  const request = vi.fn(async () => Response.json({ text: 'Reply', secretExtra: 'ignored' }))
-  vi.stubGlobal('fetch', request)
-  const input = { ...turn(), history: ['private canary'], accessToken: 'not forwarded' }
-  expect(await requestAppTurn('https://api.test', grant, 'river', input)).toEqual({ text: 'Reply' })
-  expect(request).toHaveBeenCalledOnce()
-  const [url, init] = request.mock.calls[0] as unknown as [string, RequestInit]
-  expect(url).toBe('https://api.test/apps/river/proxy/turns')
-  expect(init.redirect).toBe('error')
-  expect(JSON.parse(init.body as string)).toEqual({
-    invocationId: executor,
-    text: input.text,
-    mentionedUserIds: input.mentionedUserIds
-  })
-  expect(init.headers).toEqual({ Authorization: 'Bearer domain-only', 'Content-Type': 'application/json' })
-})
-
-it.each([401, 409, 500])('never replays an ambiguous app delivery after HTTP %s', async status => {
-  const request = vi.fn(async () => new Response(null, { status }))
-  vi.stubGlobal('fetch', request)
-  await expect(requestAppTurn('https://api.test', grant, 'river', turn())).rejects.toThrow(
-    'matrix_app_turn_unavailable'
-  )
-  expect(request).toHaveBeenCalledOnce()
-})
-
-it.each([null, {}, { text: '' }, { text: ' '.repeat(4) }, { text: 'x'.repeat(16001) }])(
-  'rejects malformed provider result %j',
-  async value => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(async () => Response.json(value))
-    )
-    await expect(requestAppTurn('https://api.test', grant, 'river', turn())).rejects.toThrow('matrix_app_turn_invalid')
-  }
-)
-
-it('rejects expired/cancelled turns before fetch and propagates in-flight cancellation', async () => {
-  const request = vi.fn(async (_url: unknown, init: RequestInit) => {
-    return new Promise<Response>((_resolve, reject) =>
-      init.signal!.addEventListener('abort', () => reject(init.signal!.reason))
-    )
-  })
-
-  vi.stubGlobal('fetch', request)
-  await expect(
-    requestAppTurn('https://api.test', grant, 'river', { ...turn(), deadlineAt: Date.now() - 1 })
-  ).rejects.toThrow()
-  const abort = new AbortController()
-  abort.abort()
-  await expect(
-    requestAppTurn('https://api.test', grant, 'river', { ...turn(), signal: abort.signal })
-  ).rejects.toThrow()
-  expect(request).not.toHaveBeenCalled()
-  const active = new AbortController()
-  const pending = requestAppTurn('https://api.test', grant, 'river', { ...turn(), signal: active.signal })
-  active.abort()
-  await expect(pending).rejects.toThrow()
-  expect(request).toHaveBeenCalledOnce()
 })
 
 it('sends only main-chosen executor ID and domain bearer to a fixed nonredirecting endpoint', async () => {
@@ -168,6 +105,7 @@ it('adds a printable native host device only to a local POST and rejects every o
   for (const value of ['', 'has a space', 'x'.repeat(256), '\n', null, 7]) {
     expect(printableDeviceId(value)).toBe(false)
   }
+
   expect(printableDeviceId('!~OWNER-DEVICE')).toBe(true)
 
   await expect(requestEnrollment('https://api.test', grant, executor, 'POST', {
@@ -256,46 +194,6 @@ it('forwards an opted-in v2 lease token only in the lease request body', async (
       })
     })
   )
-})
-
-it('uses the fixed app route and explicit disclosure/version, while revoke needs neither approval nor disclosure', async () => {
-  const request = vi.fn(async () => Response.json({}))
-  vi.stubGlobal('fetch', request)
-  const app = { slug: 'fixture-app', appVersionId, disclosureAccepted: true as const }
-  await requestEnrollment('https://api.test', grant, executor, 'POST', app)
-  expect(request).toHaveBeenCalledWith(
-    'https://api.test/apps/fixture-app/proxy',
-    expect.objectContaining({
-      redirect: 'error',
-      body: JSON.stringify({ executorId: executor, appVersionId, disclosureAccepted: true })
-    })
-  )
-  request.mockResolvedValueOnce(new Response(null, { status: 204 }))
-  await requestEnrollment('https://api.test', grant, executor, 'DELETE', { slug: app.slug })
-  expect(request).toHaveBeenLastCalledWith(
-    'https://api.test/apps/fixture-app/proxy',
-    expect.objectContaining({
-      body: JSON.stringify({ executorId: executor }),
-      method: 'DELETE'
-    })
-  )
-  await requestInvocation('https://api.test', grant, { operation: 'claim' }, app.slug)
-  expect(request).toHaveBeenLastCalledWith(
-    'https://api.test/apps/fixture-app/proxy/invocations',
-    expect.objectContaining({
-      body: JSON.stringify({ operation: 'claim' }),
-      headers: { Authorization: 'Bearer domain-only', 'Content-Type': 'application/json' }
-    })
-  )
-
-  for (const slug of ['', '../other', 'https://foreign.test', 'foo/bar', 'foo?bar', 'foo%2fbar']) {
-    await expect(requestInvocation('https://api.test', grant, {}, slug)).rejects.toThrow('matrix_enrollment_invalid')
-  }
-
-  await expect(requestEnrollment('https://api.test', grant, executor, 'POST', { slug: app.slug })).rejects.toThrow(
-    'matrix_enrollment_invalid'
-  )
-  expect(request).toHaveBeenCalledTimes(3)
 })
 
 it('binds proxy credentials to the approved app and projects no bearer to metadata', () => {
@@ -436,15 +334,4 @@ it('sees a renewed enrollment as the same one, and any other change as a differe
 
   expect(sameMatrixEnrollment({ state: 'expired', identity: ready.identity }, ready)).toBe(false)
   expect(sameMatrixEnrollment({ state: 'pending', identity: null }, { state: 'pending', identity: null })).toBe(true)
-})
-
- it.each([
-  [429, { details: { reason: 'room_cap' } }, 'matrix_group_room_cap'],
-  [429, { details: { reason: 'other', raw: 'private SQL' } }, 'matrix_invocation_unavailable'],
-  [503, { details: { reason: 'room_cap' } }, 'matrix_invocation_unavailable']
-] as const)('maps only the closed canonical room cap from HTTP %s', async (status, body, error) => {
-  const request = vi.fn(async () => Response.json(body, { status }))
-  vi.stubGlobal('fetch', request)
-  await expect(requestInvocation('https://api.test', grant, { operation: 'claim' })).rejects.toThrow(error)
-  expect(request).toHaveBeenCalledOnce()
 })

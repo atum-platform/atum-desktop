@@ -9,7 +9,7 @@ import type { MatrixAgentRoutine, MatrixAgentRoutinesSnapshot, MatrixRoutinesBri
 import { ACME, botApp } from '../../../shared/app-catalog.test-support'
 import type { MatrixBackgroundSweepBridge } from '../../../shared/background-sweep'
 import { MATRIX_BACKGROUND_SWEEP_SETTING_PROFILE } from '../../../shared/background-sweep'
-import type { MatrixExecutionPolicyBridge, MatrixExecutionPolicyView } from '../../../shared/execution-policy'
+import type { MatrixExecutionPolicyView } from '../../../shared/execution-policy'
 import { parseExecutionPolicySnapshot, parseExecutionStatusSnapshot } from '../../../shared/execution-policy'
 import policyFixture from '../../../shared/execution-policy/fixtures/execution-policy/v1/fixtures/policy-saved.response.json'
 import statusFixture from '../../../shared/execution-policy/fixtures/execution-policy/v1/fixtures/status-working.response.json'
@@ -140,65 +140,7 @@ async function openLan(focus?: 'name', base: MatrixSnapshot = snapshot()) {
   await waitFor(() => expect(assistants.read).toHaveBeenCalledWith(LAN))
 }
 
-describe('background follow-ups on the card', () => {
-  const backgroundSweep = (): MatrixBackgroundSweepBridge => ({
-    read: vi.fn(async () => ({
-      profile: MATRIX_BACKGROUND_SWEEP_SETTING_PROFILE,
-      assistantId: '00000000-0000-4000-8000-288c0dd127cf',
-      enabled: true,
-      revision: 1,
-      activeForOwner: true
-    })),
-    save: vi.fn()
-  })
 
-  it('shows exactly one short Vietnamese switch for a personal agent beside, not inside, routines', async () => {
-    const bridge = backgroundSweep()
-
-    const routines = {
-      read: vi.fn(async (principal: string) => ({
-        ok: true as const,
-        snapshot: {
-          assistantId: '00000000-0000-4000-8000-5b3379da4cd1',
-          assistantPrincipal: principal,
-          serverTime: 1,
-          legacyState: 'clear' as const,
-          routines: []
-        }
-      }))
-    } as unknown as MatrixRoutinesBridge
-
-    window.atumMatrix = { ...window.atumMatrix, backgroundSweep: bridge, routines } as MatrixUiBridge
-
-    await openLan()
-
-    const row = await waitFor(() => {
-      const found = document.querySelector<HTMLElement>('[data-assistant-card-background-sweep]')
-      expect(found).toBeTruthy()
-
-      return found!
-    })
-
-    expect(document.querySelectorAll('[data-assistant-card-background-sweep]')).toHaveLength(1)
-    expect(row.textContent).toBe('Theo dõi nền')
-    expect(within(row).getAllByRole('switch', { name: 'Theo dõi nền' })).toHaveLength(1)
-    expect(row.closest('[data-routines-panel]')).toBeNull()
-  })
-
-  it('uses the same server setting for the Main assistant even when it answers from cloud', async () => {
-    const bridge = backgroundSweep()
-    window.atumMatrix = { ...window.atumMatrix, backgroundSweep: bridge } as MatrixUiBridge
-    const base = snapshot()
-    base.agents = base.agents?.map(each => each.principal === ATUM ? { ...each, answering: 'cloud' } : each)
-
-    render(<Window base={base} />)
-    act(() => openAssistantCard({ kind: 'agent', principal: ATUM }))
-    await waitFor(() => expect(bridge.read).toHaveBeenCalledWith(ATUM))
-
-    const toggle = screen.getByRole('switch', { name: 'Theo dõi nền' })
-    await waitFor(() => expect(toggle.getAttribute('aria-checked')).toBe('true'))
-  })
-})
 
 it('shows the routines row on a card that is not the primary’s', async () => {
   const read = vi.fn(
@@ -869,91 +811,7 @@ it('never says Matrix, Hermes or bot', async () => {
   expect(text).not.toMatch(/Matrix|Hermes|\bbot\b|MB/i)
 })
 
-describe('where an assistant answers is said once, in its read-only place row (U1 supersedes 0.19.4 Q4)', () => {
-  const LOCATION = /đám mây|Mac này|Trả lời trên/i
 
-  /** Everything on the card except the one "Nơi ở" row every card shows (U1 parity). */
-  function outsidePlaceRow(card: Element): string {
-    const copy = card.cloneNode(true) as Element
-    copy.querySelectorAll('[data-assistant-card-place], [data-assistant-card-home]').forEach(row => row.remove())
-
-    return copy.textContent ?? ''
-  }
-
-  function openWith(agents: MatrixAgentView[], principal: string) {
-    const base = { ...snapshot(), agents }
-    render(<Window base={base} />)
-    act(() => openAssistantCard({ kind: 'agent', principal }))
-  }
-
-  it('a cloud assistant’s card says nothing of where it answers and offers nothing it cannot do', async () => {
-    const cloudAgent = vi.fn()
-    Object.assign(window.atumMatrix, { cloudAgent })
-    openWith([agent(ATUM, 'Atum'), agent(LAN, 'Lan', { ready: false, answering: 'cloud', readiness: undefined })], LAN)
-    await waitFor(() => expect(assistants.read).toHaveBeenCalledWith(LAN))
-    await screen.findByRole('textbox', { name: 'Lan giúp bạn việc gì?' })
-    const card = window.document.querySelector<HTMLElement>('[data-assistant-card]')!
-
-    // The read-only row says where it lives and nothing on the card offers to move it.
-    expect(card.querySelector('[data-assistant-card-place]')?.textContent).toContain('Đám mây')
-    expect(card.querySelector('[data-agent-move], [data-assistant-card-answer-where]')).toBeNull()
-    expect(outsidePlaceRow(card)).not.toMatch(LOCATION)
-    // Canonical photos do not need the cloud agent's host; setup, move and Advanced stay absent.
-    expect(card.querySelector('[data-assistant-card-avatar]')).toBeTruthy()
-    expect(card.querySelector('[data-assistant-card-setup]')).toBeNull()
-    expect(card.querySelector('[data-agent-advanced]')).toBeNull()
-    // Hovering or focusing the face says nothing either.
-    expect(card.querySelector('[data-matrix-tip], [role="tooltip"]')).toBeNull()
-    expect(cloudAgent).not.toHaveBeenCalled()
-  })
-
-  it('renaming a cloud assistant leaves no note about when others see it', async () => {
-    openWith([agent(ATUM, 'Atum'), agent(LAN, 'Lan', { ready: false, answering: 'cloud', readiness: undefined })], LAN)
-    fireEvent.click(await screen.findByRole('button', { name: 'Tên hiển thị, Lan. Nhấn để đổi' }))
-    const field = screen.getByRole('textbox', { name: 'Tên hiển thị' })
-    fireEvent.change(field, { target: { value: 'Lan Anh' } })
-    fireEvent.keyDown(field, { key: 'Enter' })
-    await waitFor(() => expect(assistants.save).toHaveBeenCalledOnce())
-    expect(await screen.findByText('Đã đổi tên')).toBeTruthy()
-    const text = outsidePlaceRow(window.document.querySelector('[data-assistant-card]')!)
-
-    expect(text).not.toMatch(/trực tuyến/)
-    expect(text).not.toMatch(LOCATION)
-  })
-
-  it('an assistant that runs here keeps its photo and offers no move and no Advanced section', async () => {
-    const cloudAgent = vi.fn(async () => ({ state: 'cancelled' as const }))
-    Object.assign(window.atumMatrix, { cloudAgent })
-    // Main would still allow the move here; every assistant is cloud-first now, so nothing offers it.
-    openWith([agent(ATUM, 'Atum'), agent(LAN, 'Lan')], LAN)
-    await waitFor(() => expect(assistants.read).toHaveBeenCalledWith(LAN))
-    await screen.findByRole('textbox', { name: 'Lan giúp bạn việc gì?' })
-    const card = window.document.querySelector<HTMLElement>('[data-assistant-card]')!
-
-    expect(card.querySelector('[data-assistant-card-avatar]')).toBeTruthy()
-    expect(card.querySelector('[data-agent-advanced], [data-agent-move]')).toBeNull()
-    expect(screen.queryByText('Nâng cao')).toBeNull()
-    expect(card.textContent).not.toMatch(LOCATION)
-    expect(cloudAgent).not.toHaveBeenCalled()
-  })
-
-  it('an assistant that runs here but is not ready says so plainly, with its action', async () => {
-    openWith(
-      [agent(ATUM, 'Atum'), agent(LAN, 'Lan', { ready: false, readiness: { phase: 'blocked', code: 'x', since: 1 } })],
-      LAN
-    )
-
-    const row = await waitFor(() => {
-      const found = window.document.querySelector<HTMLElement>('[data-assistant-card-setup]')
-      expect(found).toBeTruthy()
-
-      return found!
-    })
-
-    expect(row.textContent).not.toMatch(LOCATION)
-    expect(within(row).getByRole('button', { name: 'Thiết lập' })).toBeTruthy()
-  })
-})
 
 describe('a cloud-route assistant this Mac runs', () => {
   const blocked = { phase: 'blocked' as const, code: 'x', since: 1 }
@@ -1241,186 +1099,9 @@ describe('the assistant’s public handle', () => {
   })
 })
 
-describe('the failover policy on the card', () => {
-  it('has no “Nơi trả lời” row when the assistant has no policy', async () => {
-    await openLan()
-    expect(window.document.querySelector('[data-assistant-card-answer-where]')).toBeNull()
-  })
 
-  it('shows the read-only place row, never the legacy execution-order editor, without an authoritative home', async () => {
-    const base = snapshot()
-    const policy = policyView()
-    const read = vi.fn(async () => policy)
-    base.agents = base.agents?.map(each =>
-      each.principal === LAN ? { ...each, answering: 'cloud' as const, executionPolicy: policy } : each
-    )
 
-    const sourcesRead = vi.fn(async () => ({
-      gates: { google: true, folders: true, messages: true, browser: true, location: true, team_spaces: true },
-      sources: [],
-      macs: [
-        { id: 'air', name: 'MacBook Air', thisMac: true, state: 'needs_permission' as const },
-        { id: 'mini', name: 'Mac mini', thisMac: false, state: 'ready' as const }
-      ]
-    }))
 
-    window.atumMatrix = {
-      assistants,
-      command: vi.fn().mockResolvedValue(null),
-      executionPolicy: { read, save: vi.fn() } as unknown as MatrixExecutionPolicyBridge,
-      agentSources: { read: sourcesRead, set: vi.fn() }
-    } as unknown as MatrixUiBridge
-
-    render(<Window base={base} />)
-    act(() => openAssistantCard({ kind: 'agent', principal: LAN }))
-    await waitFor(() => expect(assistants.read).toHaveBeenCalledWith(LAN))
-
-    expect(window.document.querySelector('[data-assistant-card-answer-where]')).toBeNull()
-    const row = window.document.querySelector<HTMLElement>('[data-assistant-card-place]')!
-    expect(row.textContent).toContain('Đám mây')
-    fireEvent.click(row)
-
-    // The popover: where it lives, then the Macs it can use; the one needing a fix opens Connections.
-    const popover = await waitFor(() => {
-      const found = window.document.querySelector<HTMLElement>('[data-agent-home-popover] [data-agent-home-can-use]')
-      expect(found).toBeTruthy()
-
-      return found!
-    })
-
-    expect(popover.textContent).toContain('Dùng được')
-    expect(popover.querySelector('button[data-agent-home-can-use-mac="needs_permission"]')?.textContent).toContain('Cần cấp quyền')
-    expect(popover.querySelector('button[data-agent-home-can-use-mac="ready"]')).toBeNull()
-    expect(popover.querySelector('[data-agent-home-can-use-mac="ready"]')?.textContent).toContain('Sẵn sàng')
-    expect(read).not.toHaveBeenCalled()
-  })
-
-  it('shows only D1 home when an authoritative home and a legacy policy coexist', async () => {
-    const base = snapshot()
-    const policy = policyView()
-
-    const home: NonNullable<MatrixAgentView['home']> = {
-      lives: { kind: 'cloud' },
-      move: null,
-      targets: [{ id: '00000000-0000-4000-8000-b454f82c5857', name: 'Mac mini' }],
-      issue: null,
-      placement: {
-        profile: 'atum.agent-home/2.5',
-        moveAvailable: true,
-        current: 'cloud',
-        reachability: 'reachable',
-        modelStatus: 'applied',
-        destinations: [
-          { id: 'cloud', kind: 'cloud', name: '', thisMac: false, eligibility: 'ready', catalogRevision: 0, models: [] },
-          {
-            id: '00000000-0000-4000-8000-b454f82c5857',
-            kind: 'mac',
-            name: 'Mac mini',
-            thisMac: false,
-            eligibility: 'ready',
-            catalogRevision: 1,
-            models: []
-          }
-        ]
-      }
-    }
-
-    base.agents = base.agents?.map(each =>
-      each.principal === LAN ? { ...each, executionPolicy: policy, home } : each
-    )
-    window.atumMatrix = {
-      assistants,
-      command: vi.fn().mockResolvedValue(null),
-      executionPolicy: { read: vi.fn(), save: vi.fn() } as unknown as MatrixExecutionPolicyBridge,
-      agentHome: {
-        read: vi.fn(async () => home),
-        preflight: vi.fn(),
-        move: vi.fn(),
-        cancel: vi.fn(),
-        model: vi.fn(),
-        prepare: vi.fn()
-      }
-    } as unknown as MatrixUiBridge
-
-    render(<Window base={base} />)
-    act(() => openAssistantCard({ kind: 'agent', principal: LAN }))
-    await waitFor(() => expect(assistants.read).toHaveBeenCalledWith(LAN))
-
-    expect(window.document.querySelector('[data-assistant-card-home]')).toBeTruthy()
-    expect(window.document.querySelector('[data-assistant-card-answer-where]')).toBeNull()
-  })
-})
-
-describe('where the assistant lives on the card', () => {
-  const home: MatrixAgentView['home'] = {
-    lives: { kind: 'mac', name: 'MacBook', thisMac: true },
-    move: null,
-    targets: [{ id: '00000000-0000-4000-8000-b454f82c5857', name: 'Mac mini' }],
-    issue: null
-  }
-
-  const bridge = {
-    read: vi.fn(),
-    preflight: vi.fn(),
-    move: vi.fn(),
-    cancel: vi.fn(),
-    model: vi.fn(),
-    prepare: vi.fn()
-  }
-
-  async function open(agentHome: MatrixAgentView['home'], withBridge: boolean) {
-    const base = snapshot()
-    base.agents = base.agents?.map(each => (each.principal === LAN && agentHome ? { ...each, home: agentHome } : each))
-    window.atumMatrix = {
-      assistants,
-      command: vi.fn().mockResolvedValue(null),
-      ...(withBridge ? { agentHome: bridge } : {})
-    } as unknown as MatrixUiBridge
-
-    render(<Window base={base} />)
-    act(() => openAssistantCard({ kind: 'agent', principal: LAN }))
-    await waitFor(() => expect(assistants.read).toHaveBeenCalledWith(LAN))
-  }
-
-  it('shows the Mac it lives on, in the owner’s name for it', async () => {
-    await open(home, true)
-
-    const row = window.document.querySelector<HTMLElement>('[data-assistant-card-home]')!
-    expect(row.textContent).toContain('Đang ở trên')
-    expect(row.textContent).toContain('MacBook · máy này')
-  })
-
-  it('does not claim a D1 home before authoritative home data exists', async () => {
-    await open(undefined, true)
-
-    expect(window.document.querySelector('[data-assistant-card-home]')).toBeNull()
-    cleanup()
-
-    // A window without the bridge has nothing to read or move with, so it draws no row at all.
-    await open(home, false)
-    expect(window.document.querySelector('[data-assistant-card-home]')).toBeNull()
-  })
-
-  it('keeps the known cloud place on a stale snapshot and Retry performs another read', async () => {
-    const stale: MatrixAgentView['home'] = {
-      lives: { kind: 'cloud' },
-      move: null,
-      targets: [],
-      issue: 'placement_stale'
-    }
-
-    bridge.read.mockResolvedValue(stale)
-    await open(stale, true)
-
-    fireEvent.click(window.document.querySelector<HTMLElement>('[data-assistant-card-home]')!)
-    await waitFor(() => expect(bridge.read).toHaveBeenCalledTimes(1))
-    expect(window.document.querySelector('[data-agent-home-current]')?.textContent).toContain('Đám mây')
-    expect(window.document.querySelector('[data-agent-home-popover]')?.textContent).toContain('cần sửa vị trí đã lưu')
-
-    fireEvent.click(screen.getByRole('button', { name: 'Thử lại' }))
-    await waitFor(() => expect(bridge.read).toHaveBeenCalledTimes(2))
-  })
-})
 
 describe('one assistant card, the primary included', () => {
   const home: MatrixAgentView['home'] = {
@@ -1556,7 +1237,7 @@ describe('one assistant card, the primary included', () => {
     expect(customPersona).toBe(1)
     expect(customField.value).toBe('You are Mai, a hand-written research partner.\n\n## Rules\n\nKeep citations exact.')
     expect(primary.some(row => row.includes('data-assistant-card-home'))).toBe(true)
-    expect(primary.some(row => row.includes('data-assistant-card-model-destination'))).toBe(true)
+    expect(primary.some(row => row.includes('data-assistant-card-model-destination'))).toBe(false)
     cleanup()
 
     await openCard(ATUM, withModel)

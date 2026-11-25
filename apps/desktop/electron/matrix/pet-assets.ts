@@ -20,7 +20,7 @@ import type { AtumSkillBundle } from '../../shared/atum-agent-content'
 import { MATRIX_BUNDLED_PETS } from '../../shared/matrix-pet'
 import { hasValidPetPresentationMetadata, type PetInfo } from '../../shared/pet'
 
-import type { MatrixHermesRuntimeConfig } from './hermes-runtime'
+import type { MatrixHermesRuntimeConfig } from './hermes-utilities'
 
 /** Both the checked-out and packaged Hermes trees ship these same assets.
  * Read them in place: never install over a personal pet with the same slug. */

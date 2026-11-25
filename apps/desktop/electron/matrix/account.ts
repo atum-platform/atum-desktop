@@ -20,11 +20,6 @@ import type { AtumPersonalPet } from '../../shared/atum-account-pets'
 import type { AtumPetBinding } from '../../shared/atum-account-preferences'
 import type { AtumCloudMemory, AtumMemorySnapshot, AtumSkillBundle } from '../../shared/atum-agent-content'
 import type { AtumAssistantDefinitionWrite } from '../../shared/atum-agent-portability'
-import type {
-  MatrixBackgroundSweepSaveResult,
-  MatrixBackgroundSweepSetting,
-  MatrixBackgroundSweepSettingWrite
-} from '../../shared/background-sweep'
 import { LOOK_PACK_NEGOTIATION_HEADER, LOOK_PACK_NEGOTIATION_VALUE } from '../../shared/look-pack'
 import type {
   MatrixAppEnrollment,
@@ -49,7 +44,6 @@ import { parseMatrixCompanyPrivateCosRequest } from '../../shared/matrix-company
 import { parseMatrixCompanyBrainRequest } from '../../shared/matrix-company-project-brain'
 import { isDefinitiveCompanyRefusal } from '../../shared/matrix-company-team-space'
 import type { MatrixOfficialAccounts } from '../../shared/matrix-founder'
-import type { MatrixGroupNoticeRequest } from '../../shared/matrix-group-notice'
 import type { MatrixOwnerLocationView } from '../../shared/matrix-owner-location'
 import type { MatrixPetCatalog } from '../../shared/matrix-pet'
 import type { MatrixWalletHistory, MatrixWalletView } from '../../shared/matrix-wallet'
@@ -102,10 +96,6 @@ import {
 } from './agent-routines'
 import { MatrixAliasError, parseMatrixAliasRequest, requestMatrixAlias } from './aliases'
 import { authorizeNative, type NativeGrant } from './authorization'
-import {
-  readMatrixBackgroundSweepSetting,
-  writeMatrixBackgroundSweepSetting
-} from './background-sweep-settings'
 import { isMatrixCompanyMutation, MatrixCompanyError, parseMatrixCompanyRequest, requestMatrixCompany } from './company'
 import { requestMatrixCompanyAI } from './company-ai'
 import { requestMatrixCompanyBoard } from './company-board'
@@ -141,16 +131,12 @@ import {
   matrixExecutorPath,
   printableDeviceId,
   requestAgentIdentity,
-  requestAppTurn,
   requestEnrollment,
-  requestGroupNotice,
-  requestInvocation,
   requestLease,
   requestLocalEnrollmentCapabilities,
   validateAppEnrollmentSelection
 } from './enrollment'
 import type { FirstRunGoogleAuthority } from './first-run-google'
-import type { MatrixAppTurn } from './invocation'
 import { MatrixOfficialAccountsError, requestMatrixOfficialAccounts } from './official-accounts'
 import type { OwnerReaderTrustEnrollment, OwnerReaderVerification } from './owner-reader-trust'
 import {
@@ -232,7 +218,7 @@ function revokingParticipant(enrollment: EnrollmentRecord, app: boolean): Enroll
 
 /**
  * Whose vault slot: the default agent (`undefined`), an integrated app (its slug), or
- * another of the person's agents (`{ agent }`; 
+ * another of the person's agents (`{ agent }`;
  * §2.2). An agent is never a bare string, so it can never reach an app's or the default
  * agent's slot.
  */
@@ -373,6 +359,7 @@ const COMPANY_FILE_ROOM = /^![!-9;-~]{1,255}:[!-~]{1,255}$/u
 const COMPANY_FILE_EVENT = /^\$[!-~]{1,511}$/u
 const COMPANY_FILE_TYPE = /^[A-Za-z0-9!#$&^_.+-]{1,64}\/[A-Za-z0-9!#$&^_.+-]{1,63}$/u
 const COMPANY_FILE_HASH = /^[a-f0-9]{64}$/u
+
 const COMPANY_FILE_PHASES = new Set<MatrixCompanyFilePending['phase']>([
   'reserved', 'writing', 'unknown', 'ready', 'published', 'cancelled'
 ])
@@ -390,10 +377,13 @@ export function parseMatrixCompanyFilePending(value: unknown): MatrixCompanyFile
   if (!companyFileRecord(value)) {
     throw new MatrixCompanyFileError('invalid')
   }
+
   const optional = ['fileId', 'revision', 'eventId', 'threadRootId', 'replyTo'].filter(key => Object.hasOwn(value, key))
   const names = ['schemaVersion', 'phase', 'requestId', 'companyId', 'channelId', 'roomId', 'name', 'contentType', 'size', 'sha256', 'transactionId', ...optional]
+
   const name = (candidate: unknown) => typeof candidate === 'string' && candidate.trim().length > 0 && [...candidate].length <= 255 &&
     [...candidate].every(character => character.codePointAt(0)! > 31 && character.codePointAt(0) !== 127)
+
   const event = (candidate: unknown) => typeof candidate === 'string' && COMPANY_FILE_EVENT.test(candidate)
   const hasFile = Object.hasOwn(value, 'fileId')
   const hasRevision = Object.hasOwn(value, 'revision')
@@ -1251,9 +1241,11 @@ export class MatrixAccount {
     if (this.ownerRepair || this.login) {
       throw new Error('matrix_operation_pending')
     }
+
     if (method !== 'google' && method !== 'email') {
       throw new Error('matrix_owner_repair_method_invalid')
     }
+
     this.currentRecord(expected)
     this.assertOwnerRepairIdle()
     const repair = { cancelled: false, committed: false }
@@ -1312,14 +1304,17 @@ export class MatrixAccount {
     } else {
       this.cancel()
     }
+
     const generation = this.generation
     const repair = this.ownerRepair
     const cancelled = () => generation !== this.generation || Boolean(repair?.cancelled)
+
     // Grants nobody holds, revoked first; one the server keeps refusing, or never answers, never
     // holds up a sign-in: after two seconds the browser opens and the drain goes on behind it.
     if (!repairOwner) {
       await within(this.drainRevocations().catch(() => {}), REVOCATION_DRAIN_WAIT_MS)
     }
+
     const config = await this.oidc()
 
     if (cancelled()) {
@@ -1410,9 +1405,11 @@ export class MatrixAccount {
           if (repairOwner) {
             this.assertOwnerRepairIdle()
           }
+
           const resumed = ended
             ? this.resumedRecord(ended, record, () => (mismatch = true), Boolean(repairOwner))
             : { record }
+
           const held = this.held?.storageKey === ended?.storageKey ? this.held : undefined
 
           try {
@@ -1431,6 +1428,7 @@ export class MatrixAccount {
           if (repair) {
             repair.committed = true
           }
+
           this.ended = undefined
           this.held = undefined
 
@@ -1451,6 +1449,7 @@ export class MatrixAccount {
           if (resumed.replaced) {
             replacedGrants.push(resumed.replaced)
             this.queueReplaced(resumed.replaced, this.config.nativeClientId)
+
             if (held) {
               replacedGrants.push({ ...resumed.replaced, ...held })
               this.queueReplaced({ ...resumed.replaced, ...held }, this.config.nativeClientId)
@@ -2722,6 +2721,7 @@ export class MatrixAccount {
     signal: AbortSignal | undefined
   ): Promise<MatrixOwnerLocationView> {
     const grant = await this.agentGrant()
+
     const response = await fetch(`${this.config.domain!.resource}/owner-location`, {
       method,
       headers: {
@@ -2734,6 +2734,7 @@ export class MatrixAccount {
       cache: 'no-store',
       credentials: 'omit'
     })
+
     const value = response.ok ? ((await response.json().catch(() => null)) as unknown) : null
 
     if (
@@ -2848,6 +2849,7 @@ export class MatrixAccount {
     await this.readDomain(false)
     const generation = this.generation
     const owner = this.domainOwner()
+
     const response = await fetch(`${this.config.domain!.resource}/looks/gallery`, {
       method: 'GET',
       headers: {
@@ -2899,6 +2901,7 @@ export class MatrixAccount {
     const generation = this.generation
     const owner = this.domainOwner()
     const suffix = action === 'read' ? 'bot' : action === 'outcome' ? 'bot/outcome' : 'bot/consent'
+
     const response = await fetch(`${this.config.domain!.resource}/apps/${slug}/${suffix}`, {
       method: action === 'read' ? 'GET' : action === 'revoke' ? 'DELETE' : 'POST',
       headers: { Authorization: `Bearer ${owner.domain!.accessToken}`, ...(action === 'read' || action === 'revoke' ? {} : { 'Content-Type': 'application/json' }) },
@@ -2910,11 +2913,14 @@ export class MatrixAccount {
       await response.body?.cancel()
       throw new Error('matrix_app_bot_unavailable')
     }
+
     const value = await readDomainJson(response, 64 * 1024)
     const current = this.domainOwner()
+
     if (generation !== this.generation || current.domain?.sessionId !== owner.domain?.sessionId || !response.ok) {
       throw new Error('matrix_app_bot_unavailable')
     }
+
     return value
   }
 
@@ -3029,6 +3035,7 @@ export class MatrixAccount {
     await this.readDomain(false)
     const generation = this.generation
     const owner = this.domainOwner()
+
     const response = await fetch(
       `${this.config.domain!.resource}/apps/${encodeURIComponent(slug)}/bot/intake`,
       {
@@ -3065,6 +3072,7 @@ export class MatrixAccount {
       const body = value !== null && typeof value === 'object' && !Array.isArray(value)
         ? value as Record<string, unknown>
         : null
+
       const field = typeof body?.field === 'string' && APP_INTAKE_FIELD_NAME.test(body.field)
         ? body.field
         : null
@@ -3294,42 +3302,8 @@ export class MatrixAccount {
 
   /** Main-only resource call. UI cannot select an endpoint or read the grant.
    * Never automatically repeat a mutation after a lost response or 401. */
-  async invocation(input: Record<string, unknown>, app?: string): Promise<unknown> {
-    await this.readDomain(input.operation !== 'recover')
-    const generation = this.generation
-    const record = this.domainOwner()
-
-    const value = await requestInvocation(
-      this.config.domain!.resource,
-      record.domain!,
-      !app && input.operation !== 'recover' && input.protocol === undefined
-        ? { ...input, protocol: 2, admission: 'interactive' }
-        : input,
-      app
-    )
-
-    const current = this.domainOwner()
-
-    if (generation !== this.generation || current.domain?.sessionId !== record.domain?.sessionId) {
-      throw new Error('matrix_invocation_cancelled')
-    }
-
-    return value
-  }
 
   /** Native-only free publication reservation; no automatic mutation retries. */
-  async groupNotice(input: MatrixGroupNoticeRequest): Promise<unknown> {
-    await this.readDomain(true)
-    const generation = this.generation
-    const record = this.domainOwner()
-    const value = await requestGroupNotice(this.config.domain!.resource, record.domain!, input)
-
-    if (generation !== this.generation || this.domainOwner().domain?.sessionId !== record.domain?.sessionId) {
-      throw new Error('matrix_invocation_cancelled')
-    }
-
-    return value
-  }
 
   /** Never include provider text, status detail, headers, or a bearer in a local log. */
   private reportLeaseFailure(error: unknown): void {
@@ -3550,6 +3524,7 @@ export class MatrixAccount {
       if (!(error instanceof Error) || error.message !== 'matrix_wallet_authentication') {
         throw error
       }
+
       live()
       const current = this.domainOwner().domain!
       grant = current.accessToken === grant.accessToken ? await this.refreshDomain() : current
@@ -3624,6 +3599,7 @@ export class MatrixAccount {
     const deadline = AbortSignal.any([signal, AbortSignal.timeout(options.timeoutMs ?? 15_000)])
     deadline.throwIfAborted()
     let aborted: (() => void) | undefined
+
     try {
       return await Promise.race([this.s1RequestWithin(send, deadline), new Promise<never>((_resolve, reject) => {
         aborted = () => reject(deadline.reason)
@@ -3655,6 +3631,7 @@ export class MatrixAccount {
     try {
       const result = await send(grant.accessToken, this.config.domain.resource, signal)
       live()
+
       return result
     } catch (error) {
       if (!(error instanceof Error) || error.message !== 'matrix_s1_authentication') {
@@ -3668,26 +3645,35 @@ export class MatrixAccount {
 
       const result = await send(grant.accessToken, this.config.domain.resource, signal)
       live()
+
       return result
     }
   }
 
   private aliasJournalKey(): string {
     const scope = this.appScope()
+
     if (!scope) { throw new Error('matrix_domain_signed_out') }
+
     return `matrix-alias-pending:${scope.accountKey}`
   }
 
   /** Unknown claims and renames retain the same encrypted intent across renderer loss/restart. */
   aliasPending(): MatrixAliasChange | null {
     const raw = this.store.getItem(this.aliasJournalKey())
+
     if (this.store.failureCode()) { throw new MatrixAliasError('unavailable') }
+
     if (raw === null) { return null }
+
     try {
       const record = JSON.parse(raw)
+
       if (!record || record.schemaVersion !== 1 || Object.keys(record).length !== 2) { throw new Error('invalid') }
       const input = parseMatrixAliasRequest(record.input)
+
       if (input.action !== 'claim' && input.action !== 'rename') { throw new Error('invalid') }
+
       return input
     } catch { throw new MatrixAliasError('unavailable') }
   }
@@ -3697,30 +3683,39 @@ export class MatrixAccount {
     signal.throwIfAborted()
     const scope = this.appScope()
     const owner = this.domainOwner()
+
     if (!scope) { throw new MatrixAliasError('authentication') }
     const journalKey = this.aliasJournalKey()
     const change = input.action === 'claim' || input.action === 'rename'
+
     if (change) {
       const pending = this.aliasPending()
+
       if (pending && JSON.stringify(pending) !== JSON.stringify(input)) { throw new MatrixAliasError('conflict') }
       // Synchronous admission precedes the first await, so different concurrent
       // intents cannot both issue. A failed durable write must not send a change.
       this.store.setItem(journalKey, JSON.stringify({ schemaVersion: 1, input }))
     }
+
     let grant = await this.agentGrant()
+
     const live = () => {
       signal.throwIfAborted()
       const current = this.appScope()
+
       if (!current || current.accountKey !== scope.accountKey || current.generation !== scope.generation ||
         this.domainOwner().storageKey !== owner.storageKey || this.domainOwner().domain?.sessionId !== grant.sessionId) { throw new MatrixAliasError('cancelled') }
     }
+
     const clear = () => {
       if (change && JSON.stringify(this.aliasPending()) === JSON.stringify(input)) { this.store.removeItem(journalKey) }
     }
+
     try {
       live()
       const send = () => requestMatrixAlias(this.config.domain!.resource, grant, input, signal)
       let result
+
       try { result = await send() }
       catch (error) {
         if (!(error instanceof MatrixAliasError) || error.code !== 'authentication') { throw error }
@@ -3730,13 +3725,16 @@ export class MatrixAccount {
         live()
         result = await send()
       }
+
       live()
       clear()
+
       return result
     } catch (error) {
       // Confirmed refusals end the intent; a rename's 429 is its 30-day wait, as definite as a 409.
       if (error instanceof MatrixAliasError && (['invalid', 'denied', 'closed', 'missing', 'conflict'].includes(error.code) ||
         (input.action === 'rename' && error.code === 'limit'))) { live(); clear() }
+
       throw error
     }
   }
@@ -3815,6 +3813,7 @@ export class MatrixAccount {
       if (!record || record.schemaVersion !== 1 || Object.keys(record).length !== 2) {
         throw new Error('invalid')
       }
+
       const input = parseMatrixCompanyRequest(record.input)
 
       if (!isMatrixCompanyMutation(input)) {
@@ -3843,6 +3842,7 @@ export class MatrixAccount {
       if (pending && JSON.stringify(pending) !== JSON.stringify(input)) {
         throw new MatrixCompanyError('conflict')
       }
+
       this.store.setItem(journalKey, JSON.stringify({ schemaVersion: 1, input }))
     }
 
@@ -3878,6 +3878,7 @@ export class MatrixAccount {
         if (!(error instanceof MatrixCompanyError) || error.code !== 'authentication') {
           throw error
         }
+
         live()
         const current = this.domainOwner().domain!
         grant = current.accessToken === grant.accessToken ? await this.refreshDomain() : current
@@ -3917,6 +3918,7 @@ export class MatrixAccount {
 
   private companyNativeJournal(key: string): MatrixCompanyIntentJournal {
     const store = this.store
+
     const decode = (raw: string): string => {
       const record = JSON.parse(raw)
 
@@ -3932,6 +3934,7 @@ export class MatrixAccount {
         if (store.failureCode()) {
           throw new MatrixCompanyNativeError('unavailable')
         }
+
         const raw = store.getItem(key)
 
         return raw === null ? null : decode(raw)
@@ -3947,6 +3950,7 @@ export class MatrixAccount {
         if (store.failureCode()) {
           return
         }
+
         const raw = store.getItem(key)
 
         if (raw !== null && decode(raw) === value) {
@@ -3974,6 +3978,7 @@ export class MatrixAccount {
     const journal = this.companyNativeJournal(this.companyNativeJournalKey(family, companyId))
     const scope = `${accountScope.accountKey}\u0000${companyId}`
     let grant = await this.agentGrant()
+
     const live = () => {
       signal.throwIfAborted()
       const current = this.domainOwner()
@@ -3986,6 +3991,7 @@ export class MatrixAccount {
         throw new MatrixCompanyNativeError('cancelled')
       }
     }
+
     const make = (): MatrixCompanyNativeContext => ({
       resource: this.config.domain!.resource,
       accessToken: grant.accessToken,
@@ -4003,6 +4009,7 @@ export class MatrixAccount {
       if (!(error instanceof MatrixCompanyNativeError) || error.code !== 'authentication') {
         throw error
       }
+
       live()
       const current = this.domainOwner().domain!
 
@@ -4084,6 +4091,7 @@ export class MatrixAccount {
   writeCompanyFilePending(value: MatrixCompanyFilePending): void {
     const pending = parseMatrixCompanyFilePending(value)
     this.store.setItem(this.companyFileJournalKey(), JSON.stringify(pending))
+
     if (this.store.failureCode()) {
       throw new MatrixCompanyFileError('unavailable')
     }
@@ -4091,6 +4099,7 @@ export class MatrixAccount {
 
   clearCompanyFilePending(): void {
     this.store.removeItem(this.companyFileJournalKey())
+
     if (this.store.failureCode()) {
       throw new MatrixCompanyFileError('unavailable')
     }
@@ -4127,6 +4136,7 @@ export class MatrixAccount {
       if (!(error instanceof MatrixCompanyFileError) || error.code !== 'authentication') {
         throw error
       }
+
       live()
       const current = this.domainOwner().domain!
       grant = current.accessToken === grant.accessToken ? await this.refreshDomain() : current
@@ -4135,6 +4145,7 @@ export class MatrixAccount {
     }
 
     live()
+
     return result
   }
 
@@ -4149,6 +4160,7 @@ export class MatrixAccount {
     const live = () => {
       signal.throwIfAborted()
       const current = this.domainOwner()
+
       if (generation !== this.generation || current.storageKey !== owner.storageKey ||
           current.domain?.sessionId !== grant.sessionId) {
         throw new MatrixCompanyFileError('cancelled')
@@ -4157,20 +4169,24 @@ export class MatrixAccount {
 
     const request = () => requestMatrixCompanyFileV2(this.config.domain!.resource, grant, input, signal)
     live()
+
     try {
       const result = await request()
       live()
+
       return result
     } catch (error) {
       if (!(error instanceof MatrixCompanyFileError) || error.code !== 'authentication') {
         throw error
       }
+
       live()
       const current = this.domainOwner().domain!
       grant = current.accessToken === grant.accessToken ? await this.refreshDomain() : current
       live()
       const result = await request()
       live()
+
       return result
     }
   }
@@ -4204,15 +4220,19 @@ export class MatrixAccount {
       method: 'POST', headers: { Authorization: `Bearer ${(await this.agentGrant()).accessToken}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ requestId }), signal, redirect: 'error', cache: 'no-store', credentials: 'omit'
     })
+
     if (response.status === 409) {
       const body = await response.json().catch(() => null) as { details?: { reason?: string } } | null
+
       if (body?.details?.reason === 'hire_insufficient_protons') {
         return { refused: 'short' }
       }
     }
+
     if (!response.ok) {
       throw new Error('agent_hire_renew_unavailable')
     }
+
     return { renewed: true }
   }
 
@@ -4264,32 +4284,8 @@ export class MatrixAccount {
   }
 
   /** The platform-owned background follow-up flag for one owned assistant. */
-  async agentBackgroundSweep(
-    assistantId: string,
-    signal: AbortSignal
-  ): Promise<MatrixBackgroundSweepSetting> {
-    return readMatrixBackgroundSweepSetting(
-      this.config.domain!.resource,
-      (await this.agentGrant()).accessToken,
-      assistantId,
-      signal
-    )
-  }
 
   /** One revision-fenced owner update; no renderer identity or runtime authority crosses here. */
-  async writeAgentBackgroundSweep(
-    assistantId: string,
-    write: MatrixBackgroundSweepSettingWrite,
-    signal: AbortSignal
-  ): Promise<MatrixBackgroundSweepSaveResult> {
-    return writeMatrixBackgroundSweepSetting(
-      this.config.domain!.resource,
-      (await this.agentGrant()).accessToken,
-      assistantId,
-      write,
-      signal
-    )
-  }
 
   /** One routine mutation; the caller's request id makes a retry one mutation. */
   async mutateAgentRoutine(
@@ -4405,14 +4401,18 @@ export class MatrixAccount {
     const scope = this.appScope()
     const grant = await this.agentGrant()
     signal.throwIfAborted()
+
     if (!scope || generation !== this.generation || this.appScope()?.accountKey !== scope.accountKey) {
       throw new Error('matrix_pet_cancelled')
     }
+
     const result = await readMatrixPetRoaming(this.config.domain!.resource, grant, owner, signal)
     signal.throwIfAborted()
+
     if (generation !== this.generation || this.appScope()?.accountKey !== scope.accountKey) {
       throw new Error('matrix_pet_cancelled')
     }
+
     return result
   }
 
@@ -4429,6 +4429,7 @@ export class MatrixAccount {
       if (error instanceof Error && error.message === 'matrix_domain_unavailable') {
         throw new MatrixAgentDefinitionError('unavailable')
       }
+
       throw error
     })
 
@@ -4437,6 +4438,7 @@ export class MatrixAccount {
     if (generation !== this.generation || !this.appScope()) {
       throw new Error('matrix_pet_cancelled')
     }
+
     const result = await requestMatrixAgentPet(
       this.config.domain!.resource,
       grant,
@@ -4460,17 +4462,21 @@ export class MatrixAccount {
     signal: AbortSignal
   ): Promise<MatrixPetCatalog> {
     const generation = this.generation
+
     const grant = await this.agentGrant().catch(error => {
       if (error instanceof Error && error.message === 'matrix_domain_unavailable') {
         throw new MatrixAgentDefinitionError('unavailable')
       }
+
       throw error
     })
 
     signal.throwIfAborted()
+
     if (generation !== this.generation || !this.appScope()) {
       throw new Error('matrix_pet_cancelled')
     }
+
     const result = await requestMatrixAgentPetCatalog(
       this.config.domain!.resource,
       grant,
@@ -4478,6 +4484,7 @@ export class MatrixAccount {
       expected,
       signal
     )
+
     if (generation !== this.generation || !this.appScope()) {
       throw new Error('matrix_pet_cancelled')
     }
@@ -4489,18 +4496,23 @@ export class MatrixAccount {
    * visit. It is idempotent and intentionally has no local-clock fallback. */
   async beginAgentPetVisit(assistantId: string, signal: AbortSignal): Promise<void> {
     const generation = this.generation
+
     const grant = await this.agentGrant().catch(error => {
       if (error instanceof Error && error.message === 'matrix_domain_unavailable') {
         throw new MatrixAgentDefinitionError('unavailable')
       }
+
       throw error
     })
 
     signal.throwIfAborted()
+
     if (generation !== this.generation || !this.appScope()) {
       throw new Error('matrix_pet_cancelled')
     }
+
     await requestMatrixAgentPetVisit(this.config.domain!.resource, grant, assistantId, signal)
+
     if (generation !== this.generation || !this.appScope()) {
       throw new Error('matrix_pet_cancelled')
     }
@@ -4593,10 +4605,13 @@ export class MatrixAccount {
   async personalPets(signal: AbortSignal): Promise<AtumPersonalPet[]> {
     const generation = this.generation
     const grant = await this.agentGrant()
+
     if (generation !== this.generation || !this.appScope()) {
       throw new Error('matrix_pet_cancelled')
     }
+
     const result = await listMatrixPersonalPets(this.config.domain!.resource, grant, signal)
+
     if (generation !== this.generation || !this.appScope()) {
       throw new Error('matrix_pet_cancelled')
     }
@@ -4607,10 +4622,13 @@ export class MatrixAccount {
   async personalPetContent(sha256: string, signal: AbortSignal): Promise<AtumSkillBundle> {
     const generation = this.generation
     const grant = await this.agentGrant()
+
     if (generation !== this.generation || !this.appScope()) {
       throw new Error('matrix_pet_cancelled')
     }
+
     const result = await getMatrixPersonalPetContent(this.config.domain!.resource, grant, sha256, signal)
+
     if (generation !== this.generation || !this.appScope()) {
       throw new Error('matrix_pet_cancelled')
     }
@@ -4631,13 +4649,17 @@ export class MatrixAccount {
   ): Promise<AtumPersonalPet> {
     const generation = this.generation
     const grant = await this.agentGrant()
+
     if (generation !== this.generation || !this.appScope()) {
       throw new Error('matrix_pet_cancelled')
     }
+
     const result = await publishMatrixPersonalPet(this.config.domain!.resource, grant, input, signal)
+
     if (generation !== this.generation || !this.appScope()) {
       throw new Error('matrix_pet_cancelled')
     }
+
     return result
   }
 
@@ -4652,32 +4674,6 @@ export class MatrixAccount {
     return record.domain.expiresAt !== undefined && record.domain.expiresAt <= Date.now() + 30_000
       ? this.refreshDomain()
       : record.domain
-  }
-
-  async appTurn(slug: string, input: MatrixAppTurn): Promise<{ text: string }> {
-    input.signal.throwIfAborted()
-    const generation = this.generation
-    const enrolled = JSON.stringify(this.appEnrollment(slug))
-    await this.readDomain(false)
-    const record = this.domainOwner()
-
-    const live = () => {
-      input.signal.throwIfAborted()
-
-      if (
-        generation !== this.generation ||
-        JSON.stringify(this.appEnrollment(slug)) !== enrolled ||
-        this.domainOwner().domain?.sessionId !== record.domain?.sessionId
-      ) {
-        throw new Error('matrix_invocation_cancelled')
-      }
-    }
-
-    live()
-    const result = await requestAppTurn(this.config.domain!.resource, record.domain!, slug, input)
-    live()
-
-    return result
   }
 
   enrollment(slug?: string): MatrixEnrollment {
@@ -5462,6 +5458,7 @@ export class MatrixAccount {
   ): Promise<void> {
     const slotName = (slot: Participant) => (slot === undefined ? 'root' : 'named')
     const agentName = (agentPrincipal ?? 'unknown').slice(0, 8)
+
     const stale = (slot: Participant) => {
       const value = participant(record, slot)
 
@@ -5478,6 +5475,7 @@ export class MatrixAccount {
     const named = selector === undefined ? duplicate : selector
     const namedValue = participant(record, named)
     const rootValue = participant(record, root)
+
     const release =
       agentPrincipal !== undefined && root === undefined && typeof named === 'object'
         ? stale(root) && namedValue !== undefined && namedValue.state !== 'withdrawn'

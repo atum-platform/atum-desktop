@@ -25,11 +25,11 @@ import { matrixKnowledgeSourcesCopy } from '../../shared/matrix-knowledge-source
 import type { MatrixPermissionsSnapshot } from '../../shared/matrix-permissions'
 
 import { MatrixFirstRunFolderRows } from './folder-access-rows'
+import { MatrixKnowledgeSourceIcon } from './knowledge-source-icon'
 import {
   type MatrixKnowledgeSourceRow,
   projectMatrixKnowledgeSourceRows
 } from './knowledge-source-projection'
-import { MatrixKnowledgeSourceIcon } from './knowledge-sources-settings'
 import { useNoticePresented } from './notice-presented'
 import { SettingsTip } from './settings-row'
 
