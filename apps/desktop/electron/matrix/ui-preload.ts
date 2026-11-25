@@ -31,6 +31,7 @@ import { MATRIX_DRIVE_IPC, type MatrixDriveView } from '../../shared/matrix-driv
 import { MATRIX_FOLDER_ACCESS_IPC } from '../../shared/matrix-folder-access'
 import { MATRIX_GOOGLE_CONNECTION_IPC, MATRIX_GOOGLE_WRITE_IPC } from '../../shared/matrix-google-connections'
 import { MATRIX_INVITE_LINK_IPC } from '../../shared/matrix-invite-link'
+import { MATRIX_LINK_PREVIEW_IPC } from '../../shared/matrix-link-preview'
 import { MATRIX_MESSAGE_LINK_IPC, type MatrixMessageLinkTarget } from '../../shared/matrix-message-link'
 import { MATRIX_NATIVE_APPS } from '../../shared/matrix-native-apps'
 import { MATRIX_NATIVE_MAC_IPC } from '../../shared/matrix-native-mac'
@@ -316,6 +317,31 @@ const bridge: MatrixUiBridge = {
     refresh: () => invoke('walletRefresh'),
     history: before => ipcRenderer.invoke(channel.ui, { kind: 'walletHistory', before })
   },
+  profiles: {
+    read: target => ipcRenderer.invoke('matrix:profiles:read', target),
+    open: target => ipcRenderer.invoke('matrix:profiles:open', target),
+    change: (scope, change) => ipcRenderer.invoke('matrix:profiles:change', scope, change),
+    close: scope => ipcRenderer.invoke('matrix:profiles:close', scope),
+    member: userId => ipcRenderer.invoke('matrix:profiles:member', userId)
+  },
+  linkPreviews: {
+    read: (roomId, eventId) => ipcRenderer.invoke(MATRIX_LINK_PREVIEW_IPC.read, roomId, eventId)
+  },
+  assistants: {
+    read: principal => ipcRenderer.invoke('matrix:assistants:read', principal),
+    save: change => ipcRenderer.invoke('matrix:assistants:save', change),
+    avatar: change => ipcRenderer.invoke('matrix:assistants:avatar', change)
+  },
+  routines: {
+    read: principal => ipcRenderer.invoke('matrix:routines:read', principal),
+    create: input => ipcRenderer.invoke('matrix:routines:create', input),
+    update: input => ipcRenderer.invoke('matrix:routines:update', input),
+    run: input => ipcRenderer.invoke('matrix:routines:run', input),
+    delete: input => ipcRenderer.invoke('matrix:routines:delete', input),
+    runs: (principal, routineId) => ipcRenderer.invoke('matrix:routines:runs', principal, routineId),
+    ownerZone: () => ipcRenderer.invoke('matrix:routines:owner-zone')
+  },
+
   nativeApps: {
     list: refresh => ipcRenderer.invoke(MATRIX_NATIVE_APPS.list, refresh),
     launch: request => ipcRenderer.invoke(MATRIX_NATIVE_APPS.launch, request),

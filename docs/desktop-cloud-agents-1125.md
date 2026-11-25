@@ -13,3 +13,5 @@ The cutover removes the offline assistant path. Operations that depend on an ass
 Local production builds reduced the generated `dist-matrix` tree from 175,736 KiB to about 168,600 KiB, including source maps. The main bundle went from 9,572 KiB to 7,492 KiB. These are build-tree measurements. The installed app and its data were left alone, so launch time and final packaged size were not measured.
 
 The focused cloud-send, lifecycle, account, owner-device repair, loopback proxy, and package-hook run passed 355 tests. The prepush adapter's pinned public-client workflow digest predates the workflow in this branch's unmodified base.
+
+The roster and assistant-card tests cover the cloud-only presentation. The preload tests cover the removed Mac assistant routes alongside the preserved profile, assistant editor, routine, and device contracts.
