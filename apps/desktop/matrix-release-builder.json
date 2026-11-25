@@ -9,14 +9,21 @@
     "app": "dist-matrix",
     "output": "release-matrix"
   },
-  "files": ["**/*", "!**/*.map", "!node_modules{,/**/*}"],
+  "files": [
+    "**/*",
+    "!**/*.map",
+    "!node_modules{,/**/*}"
+  ],
   "npmRebuild": false,
   "forceCodeSigning": true,
   "asar": true,
-  "asarUnpack": ["atum-app-window", "atum-device-key", "cloudflared"],
+  "asarUnpack": [
+    "atum-app-window",
+    "atum-device-key",
+    "cloudflared"
+  ],
   "beforePack": "scripts/stage-cloudflared.mjs",
   "afterPack": "scripts/matrix-after-pack.mjs",
-  "afterSign": "scripts/matrix-after-sign.mjs",
   "artifactName": "Atum-Matrix-Candidate-${version}-${os}-${arch}.${ext}",
   "mac": {
     "category": "public.app-category.developer-tools",
@@ -49,19 +56,40 @@
       "NSLocalNetworkUsageDescription": "Để trợ lý kết nối với thiết bị trong mạng của bạn, như máy in hay máy tính khác, khi bạn nhờ.\nSo your assistant can reach devices on your network, such as a printer or another computer, when you ask."
     },
     "extraResources": [
-      { "from": "assets/macos/vi.lproj/InfoPlist.strings", "to": "vi.lproj/InfoPlist.strings" },
-      { "from": "assets/macos/ja.lproj/InfoPlist.strings", "to": "ja.lproj/InfoPlist.strings" },
-      { "from": "assets/macos/zh_CN.lproj/InfoPlist.strings", "to": "zh_CN.lproj/InfoPlist.strings" },
-      { "from": "assets/macos/zh_TW.lproj/InfoPlist.strings", "to": "zh_TW.lproj/InfoPlist.strings" },
-      { "from": "build/atum-keys", "to": "atum-keys" },
-      { "from": "third-party/licenses", "to": "licenses" }
+      {
+        "from": "assets/macos/vi.lproj/InfoPlist.strings",
+        "to": "vi.lproj/InfoPlist.strings"
+      },
+      {
+        "from": "assets/macos/ja.lproj/InfoPlist.strings",
+        "to": "ja.lproj/InfoPlist.strings"
+      },
+      {
+        "from": "assets/macos/zh_CN.lproj/InfoPlist.strings",
+        "to": "zh_CN.lproj/InfoPlist.strings"
+      },
+      {
+        "from": "assets/macos/zh_TW.lproj/InfoPlist.strings",
+        "to": "zh_TW.lproj/InfoPlist.strings"
+      },
+      {
+        "from": "build/atum-keys",
+        "to": "atum-keys"
+      },
+      {
+        "from": "third-party/licenses",
+        "to": "licenses"
+      }
     ],
     "signIgnore": [
       "/Contents/Resources/runtime/.*",
       "/Contents/Resources/drive-engine/.*",
       "/Contents/Resources/atum-keys/.*"
     ],
-    "target": ["dmg", "zip"]
+    "target": [
+      "dmg",
+      "zip"
+    ]
   },
   "dmg": {
     "title": "Atum",
@@ -84,5 +112,13 @@
         "path": "/Applications"
       }
     ]
-  }
+  },
+  "protocols": [
+    {
+      "name": "Atum Protocol",
+      "schemes": [
+        "atum"
+      ]
+    }
+  ]
 }

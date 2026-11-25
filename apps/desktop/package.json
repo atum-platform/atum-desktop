@@ -3,62 +3,32 @@
   "productName": "Atum",
   "private": true,
   "version": "0.20.55",
-  "description": "Atum \u2014 AI Superapp cho ng\u01b0\u1eddi Vi\u1ec7t.",
+  "description": "Atum — AI Superapp cho người Việt.",
   "author": "Anka Ventures Vietnam Company Limited",
   "type": "module",
-  "main": "dist/electron-main.mjs",
+  "main": "dist-matrix/matrix-main.mjs",
   "engines": {
     "node": ">=22.22.0"
   },
   "scripts": {
     "matrix:repair-agent-home": "tsx scripts/repair-matrix-agent-home.ts",
-    "matrix:release:mac": "node scripts/release-matrix-mac.mjs",
     "reporting:sourcemaps:matrix": "node scripts/upload-reporting-sourcemaps.mjs --matrix",
-    "matrix:pack": "npm run matrix:build && electron-builder --config matrix-builder.json --dir",
+    "matrix:pack": "npm run pack",
     "local-brain:prepare": "node scripts/stage-local-brain.mjs --prepare",
     "local-brain:stage": "node scripts/stage-local-brain.mjs",
-    "clean": "npm run clean:e2e && npm run clean:renderer && npm run clean:electron",
-    "clean:e2e": "tsc --build tsconfig.e2e.json --clean",
+    "clean": "npm run clean:renderer && npm run clean:electron",
     "clean:renderer": "tsc --build tsconfig.json --clean ",
     "clean:electron": "tsc --build tsconfig.electron.json --clean",
-    "dev": "concurrently -k \"npm:dev:renderer\" \"npm:dev:electron\"",
-    "dev:fake-boot": "cross-env HERMES_DESKTOP_BOOT_FAKE=1 HERMES_DESKTOP_BOOT_FAKE_STEP_MS=650 npm run dev",
-    "dev:mock": "node scripts/dev-mock.mjs",
-    "dev:renderer": "node scripts/assert-root-install.mjs && npm run clean:renderer && vite --host 127.0.0.1 --port 5174",
-    "dev:electron": "tsc --build tsconfig.electron.json && wait-on http://127.0.0.1:5174 && node scripts/bundle-electron-main.mjs --dev && cross-env XCURSOR_SIZE=24 HERMES_DESKTOP_DEV_SERVER=http://127.0.0.1:5174 electron .",
-    "profile:main": "tsc --build tsconfig.electron.json && wait-on http://127.0.0.1:5174 && node scripts/bundle-electron-main.mjs --dev && cross-env XCURSOR_SIZE=24 HERMES_DESKTOP_DEV_SERVER=http://127.0.0.1:5174 electron --inspect=9229 .",
-    "profile:main:cpu": "tsc --build tsconfig.electron.json && wait-on http://127.0.0.1:5174 && node scripts/bundle-electron-main.mjs --dev && cross-env XCURSOR_SIZE=24 NODE_OPTIONS=--cpu-prof HERMES_DESKTOP_DEV_SERVER=http://127.0.0.1:5174 electron .",
-    "start": "npm run build && electron .",
-    "prebuild": "npm run clean",
-    "build": "node scripts/assert-root-install.mjs && node scripts/write-build-stamp.mjs && vite build && node scripts/bundle-electron-main.mjs && node scripts/stage-native-deps.mjs",
-    "postbuild": "node scripts/assert-dist-built.mjs",
+    "dev": "npm run start",
+    "start": "npm run build && electron dist-matrix",
+    "build": "node scripts/assert-root-install.mjs && node scripts/build-matrix-candidate.mjs",
     "runtime:stage": "node scripts/stage-bundled-runtime.mjs build/runtime-test",
     "verify:bundled-app": "node scripts/verify-packaged-bundled-runtime.mjs",
     "verify:bundled-browser": "node scripts/verify-packaged-bundled-browser.mjs",
     "verify:cloud-data-v1": "node contracts/atum-cloud-data-v1/validate.mjs && python3 contracts/atum-cloud-data-v1/validate.py",
-    "prebuilder": "node scripts/patch-electron-builder-mac-binary.mjs",
-    "builder": "cross-env NODE_OPTIONS=--max-old-space-size=16384 node scripts/run-electron-builder.mjs",
-    "pack": "npm run build && npm run builder -- --dir",
-    "pack:prod": "node scripts/pack-prod.mjs",
-    "install:local:mac": "node scripts/install-local-mac.mjs",
-    "dist": "npm run build && npm run builder",
-    "dist:mac": "npm run build && npm run builder -- --mac",
-    "dist:mac:dmg": "npm run build && npm run builder -- --mac dmg",
-    "dist:mac:zip": "npm run build && npm run builder -- --mac zip",
-    "dist:win": "npm run build && npm run builder -- --win",
-    "dist:win:msi": "npm run build && npm run builder -- --win msi",
-    "dist:win:nsis": "npm run build && npm run builder -- --win nsis",
-    "dist:linux": "npm run build && npm run builder -- --linux AppImage deb rpm",
-    "perf": "node scripts/perf/run.mjs",
-    "perf:serve": "node scripts/perf/serve.mjs",
-    "shots:shell": "node scripts/shell-shots.mjs",
-    "test:desktop": "node scripts/test-desktop.mjs",
-    "test:desktop:all": "node scripts/test-desktop.mjs all",
-    "test:desktop:dmg": "node scripts/test-desktop.mjs dmg",
-    "test:desktop:nsis": "node scripts/test-desktop.mjs nsis",
-    "test:desktop:existing": "node scripts/test-desktop.mjs existing",
-    "test:desktop:fresh": "node scripts/test-desktop.mjs fresh",
-    "typecheck": "npm run check:boundary && tsc -p . --noEmit && tsc -p tsconfig.consumer-browser.json --noEmit && tsc -p tsconfig.electron.json --noEmit && tsc -p tsconfig.e2e.json --noEmit",
+    "pack": "npm run build && electron-builder --config matrix-builder.json --dir",
+    "dist": "npm run package",
+    "typecheck": "npm run check:boundary && tsc -p . --noEmit && tsc -p tsconfig.consumer-browser.json --noEmit && tsc -p tsconfig.electron.json --noEmit",
     "lint": "eslint src/ electron/ 'scripts/**/*.ts'",
     "lint:fix": "eslint src/ electron/ 'scripts/**/*.ts' --fix",
     "fmt": "prettier --write 'src/**/*.{ts,tsx}' 'electron/**/*.ts' 'vite.config.ts'",
@@ -66,28 +36,19 @@
     "test:ui": "npm run test:ui:parallel && npm run test:ui:device-approval",
     "test:ui:parallel": "vitest run --project ui --exclude src/matrix/device-approval.integration.test.ts",
     "test:ui:device-approval": "vitest run --project ui src/matrix/device-approval.integration.test.ts --maxWorkers=1 --no-file-parallelism",
-    "test:desktop:platforms": "vitest run --project electron",
     "test": "vitest run && node --test scripts/atum-branding.test.mjs",
     "preview": "node scripts/assert-root-install.mjs && vite preview --host 127.0.0.1 --port 4174",
     "check:test:desktop:platforms": "vitest run --project electron --maxWorkers=2",
     "check:test:ui": "npm run test:ui",
-    "check:test:desktop:all": "npm run test:desktop:all",
     "check:lint": "npm run typecheck && npm run lint",
-    "check": "npm run verify:cloud-data-v1 && npm run check:lint && npm run check:test:ui && npm run test:desktop:platforms && npm run test:desktop:all",
-    "build:e2e": "npm run build && node scripts/bundle-electron-main.mjs --dev",
-    "test:e2e": "npm run build:e2e && playwright test e2e/",
-    "test:e2e:visual": "npm run build:e2e && WLR_BACKENDS=headless WLR_NO_HARDWARE_CURSORS=1 cage -- npx playwright test e2e/ --reporter=list",
-    "test:e2e:update-snapshots": "npm run build:e2e && WLR_BACKENDS=headless WLR_NO_HARDWARE_CURSORS=1 cage -- npx playwright test e2e/ --reporter=list --update-snapshots",
-    "reporting:sourcemaps": "node scripts/upload-reporting-sourcemaps.mjs",
-    "reporting:smoke:matrix": "node scripts/smoke-matrix-services.mjs",
+    "check": "npm run verify:cloud-data-v1 && npm run check:lint && npm test",
+    "reporting:sourcemaps": "npm run reporting:sourcemaps:matrix",
     "check:test:upstream-watch": "node --test ../../scripts/upstream-watch/core.test.mjs",
-    "reporting:smoke": "node scripts/smoke-reporting.mjs",
-    "release:mac": "node scripts/release-mac.mjs",
-    "release:publish": "node scripts/publish-release.mjs",
-    "matrix:candidate:publish": "node scripts/publish-matrix-candidate.mjs",
     "runtime:audit-licenses": "node scripts/audit-runtime-licenses.mjs",
     "matrix:audit:ship": "node scripts/audit-matrix-ship-artifact.mjs",
-    "check:boundary": "node scripts/check-client-boundary.mjs"
+    "check:boundary": "node scripts/check-client-boundary.mjs",
+    "matrix:build": "npm run build",
+    "package": "npm run build && electron-builder --config matrix-release-builder.json --publish never"
   },
   "dependencies": {
     "@assistant-ui/react": "^0.14.23",
@@ -233,129 +194,5 @@
     "vite": "^8.1.6",
     "vitest": "^4.1.5",
     "wait-on": "^9.0.5"
-  },
-  "build": {
-    "electronVersion": "44.10.1",
-    "appId": "com.atum.desktop",
-    "productName": "Atum",
-    "executableName": "Atum",
-    "protocols": [
-      {
-        "name": "Atum Protocol",
-        "schemes": [
-          "hermes"
-        ]
-      },
-      {
-        "name": "Atum Protocol",
-        "schemes": [
-          "atum"
-        ]
-      }
-    ],
-    "artifactName": "Atum-${version}-${os}-${arch}.${ext}",
-    "icon": "assets/icon",
-    "directories": {
-      "output": "release"
-    },
-    "files": [
-      "dist/**",
-      "!dist/**/*.map",
-      "assets/**",
-      "public/**",
-      "package.json"
-    ],
-    "beforeBuild": "scripts/before-build.mjs",
-    "beforePack": "scripts/before-pack.mjs",
-    "afterPack": "scripts/after-pack.mjs",
-    "extraResources": [
-      {
-        "from": "build/install-stamp.json",
-        "to": "install-stamp.json"
-      },
-      {
-        "from": "assets/icon.ico",
-        "to": "icon.ico"
-      }
-    ],
-    "asar": true,
-    "afterSign": "scripts/notarize.mjs",
-    "asarUnpack": [
-      "**/*.node",
-      "**/prebuilds/**",
-      "dist/**",
-      "assets/pets/**"
-    ],
-    "mac": {
-      "category": "public.app-category.developer-tools",
-      "minimumSystemVersion": "13.0",
-      "entitlements": "electron/entitlements.mac.plist",
-      "entitlementsInherit": "electron/entitlements.mac.inherit.plist",
-      "icon": "assets/icon-mac.icns",
-      "extendInfo": {
-        "CFBundleDisplayName": "Atum",
-        "CFBundleExecutable": "Atum",
-        "CFBundleName": "Atum",
-        "NSCalendarsUsageDescription": "Atum reads selected calendars and creates or edits personal events after you confirm each change.",
-        "NSCalendarsFullAccessUsageDescription": "Atum reads selected calendars and creates or edits personal events after you confirm each change.",
-        "NSAppleEventsUsageDescription": "Atum opens your chosen Word document beside chat, reads its current text, and applies text edits you request.",
-        "NSAudioCaptureUsageDescription": "Atum c\u1ea7n truy c\u1eadp \u00e2m thanh cho c\u00e1c cu\u1ed9c tr\u00f2 chuy\u1ec7n b\u1eb1ng gi\u1ecdng n\u00f3i.",
-        "NSMicrophoneUsageDescription": "Atum c\u1ea7n d\u00f9ng micr\u00f4 \u0111\u1ec3 b\u1ea1n c\u00f3 th\u1ec3 tr\u00f2 chuy\u1ec7n b\u1eb1ng gi\u1ecdng n\u00f3i."
-      },
-      "gatekeeperAssess": false,
-      "hardenedRuntime": true,
-      "target": [
-        "dmg",
-        "zip"
-      ]
-    },
-    "dmg": {
-      "title": "C\u00e0i \u0111\u1eb7t Atum",
-      "backgroundColor": "#f5f5f7",
-      "iconSize": 96,
-      "window": {
-        "width": 560,
-        "height": 360
-      },
-      "contents": [
-        {
-          "x": 160,
-          "y": 170,
-          "type": "file"
-        },
-        {
-          "x": 400,
-          "y": 170,
-          "type": "link",
-          "path": "/Applications"
-        }
-      ]
-    },
-    "win": {
-      "legalTrademarks": "Atum",
-      "target": [
-        "nsis",
-        "msi"
-      ],
-      "signAndEditExecutable": false
-    },
-    "linux": {
-      "category": "Development",
-      "maintainer": "Nous Research <support@nousresearch.com>",
-      "synopsis": "Atum \u2014 AI Superapp cho ng\u01b0\u1eddi Vi\u1ec7t.",
-      "target": [
-        "AppImage",
-        "deb",
-        "rpm"
-      ]
-    },
-    "nsis": {
-      "oneClick": false,
-      "allowToChangeInstallationDirectory": true,
-      "perMachine": false,
-      "shortcutName": "Atum",
-      "uninstallDisplayName": "Atum",
-      "warningsAsErrors": false
-    }
   }
 }
