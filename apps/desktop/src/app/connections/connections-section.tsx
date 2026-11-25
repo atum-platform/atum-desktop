@@ -15,7 +15,7 @@ import {
 
 import { AccountPlanMark } from './connect-sheet'
 import { ACCOUNT_PLAN_NAMES, connectionsCopy, type ConnectionsWords } from './copy'
-import { $accountConnections, $nativeRenewal, type ConnectionsBridge, loadAccountConnections, openAccountConnect, refreshNativeRenewal } from './store'
+import { $accountConnections, type ConnectionsBridge, loadAccountConnections, openAccountConnect } from './store'
 import {
   accountPlanMacNames,
   type AccountPlanRow,
@@ -45,7 +45,7 @@ function useAccountConnections() {
   const view = useStore($accountConnections)
 
   useEffect(() => {
-    const refresh = () => { void loadAccountConnections(); void refreshNativeRenewal() }
+    const refresh = () => void loadAccountConnections()
 
     refresh()
     window.addEventListener('focus', refresh)
@@ -74,7 +74,6 @@ export function AccountSubscriptionsSection({
   const { locale } = useI18n()
   const copy = connectionsCopy(locale)
   const view = useAccountConnections()
-  const renewal = useStore($nativeRenewal)
   const rows = accountPlanRows(view)
   const opencode = useMatrixSubscriptions(scopeKey)
   const opencodeConnected = subscriptionProviderStatus(opencode.status, 'opencode-go')?.connected === true
@@ -88,11 +87,6 @@ export function AccountSubscriptionsSection({
 
   return (
     <SettingsSection data-matrix-settings-section="subscriptions" title={copy.subscriptions}>
-      {renewal && (
-        <SettingsRow control={
-          <button className="ak-btn ak-btn--sm" onClick={() => openAccountConnect(renewal, 'renew')} type="button">{copy.renew}</button>
-        } data-atum-native-renewal title={copy.renewal} />
-      )}
       {rows.map(row => (
         <SettingsRow
           control={

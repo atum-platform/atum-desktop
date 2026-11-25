@@ -63,7 +63,7 @@ export function AccountConnectSheet({
           <span className="mb-(--ak-s2)">
             <AccountPlanMark plan={request.plan} />
           </span>
-          <DialogTitle className="ak-state-title">{request.mode === 'renew' ? copy.renewal : words.title(request.plan)}</DialogTitle>
+          <DialogTitle className="ak-state-title">{words.title(request.plan)}</DialogTitle>
           <DialogDescription className="ak-state-body">
             {here ? `${words.line(request.plan)} ${words.consent}` : words.needsMac}
           </DialogDescription>

@@ -29,6 +29,7 @@ export function deviceServiceCall(options: DeviceServicePlatformOptions) {
   return async (operation: string, body: Record<string, unknown>): Promise<unknown> => {
     const response = await doFetch(options.endpoint, {
       method: 'POST',
+      redirect: 'error',
       headers: { 'content-type': 'application/json', authorization: `Bearer ${await options.bearer()}` },
       body: JSON.stringify({ operation, ...body }),
       signal: AbortSignal.timeout(20_000)

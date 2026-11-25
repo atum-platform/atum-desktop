@@ -1827,10 +1827,10 @@ export function MatrixModelPicker({
             new Promise<never>((_, reject) => { timer = setTimeout(() => reject(new Error('work_consent_timeout')), 8_000) })
           ])
           if (!context.current()) {return { status: 'unavailable' }}
-          if (consent.state !== 'on' || !consent.agents.includes(agentPrincipal) || !consent.macs?.some(mac => mac.named) || consent.nativeRenewal === 'needed') {
+          if (consent.state !== 'on' || !consent.agents.includes(agentPrincipal) || !consent.macs?.some(mac => mac.named)) {
             setPendingCloudSubscription(null)
             changeOpen(false)
-            openAccountConnect(picked.relayPlan, consent.nativeRenewal === 'needed' ? 'renew' : 'allow')
+            openAccountConnect(picked.relayPlan, 'allow')
             return { status: 'consent' }
           }
         } finally { clearTimeout(timer) }

@@ -917,6 +917,7 @@ export interface MacDeviceIdentityOptions {
   signerFor?(keyDir: string): OwnerSigner
   /** Main's one notification after every successful enrollment entry point. */
   onEnrolled?(): Promise<void> | void
+  onRevoked?(deviceServiceId: string): void
   log(line: string): void
 }
 
@@ -977,6 +978,7 @@ export class MacDeviceIdentity {
     const enrollment = new DeviceEnrollment({
       store,
       signer: keys,
+      onRevoked: this.options.onRevoked,
       transport: deviceRegistryTransport(this.options.call),
       displayName: () => this.options.displayName(),
       osVersion: () => this.options.osVersion(),

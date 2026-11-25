@@ -36,6 +36,7 @@ interface WorkHostOptions {
   surfaceModeChanged?(snapshot: WorkSurfaceModeSnapshot | null): void
   sidebarChanged?(snapshot: WorkSidebarSnapshot | null): void
   attentionChanged?(snapshot: WorkAttentionSnapshot | null): void
+  ready?(): void
   prepare?(signal: AbortSignal): Promise<void>
   account(): Account | undefined
   gatewayEnvironment(): Record<string, string>
@@ -97,6 +98,7 @@ export class WorkHost {
         resources,
         log: this.options.log,
         prepare: this.options.prepare,
+        ready: this.options.ready,
         gatewayEnvironment: () => {
           const environment = this.options.gatewayEnvironment()
           this.backendToken = environment.ATUM_FILESYSTEM_BROKER_TOKEN

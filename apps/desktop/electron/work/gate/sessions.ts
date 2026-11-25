@@ -204,7 +204,6 @@ export class T3Sessions implements GateSessions {
     this.options.store.delete('owner')
   }
 
-  /** The headless sequence: register, approve with a pairing code, exchange the code with PKCE. */
   private async issue(input: { peer: boolean; name: string; access: string }): Promise<Stored> {
     const origin = this.options.origin()
 
@@ -212,83 +211,90 @@ export class T3Sessions implements GateSessions {
       throw new Error('t3_not_serving')
     }
 
-    const json = { 'content-type': 'application/json' }
-    const before = new Set(await this.options.auth.sessionIds())
+    const { token, sessionId } = await issueT3McpSession({ ...input, origin, pairing: this.options.pairing, fetch: this.doFetch })
 
-    // A peer-link registration is refused (400) unless the server runs with `linkedEnvironmentsEnabled`
-    // (WORK_REQUIRED_SERVER_SETTINGS); every other refusal is a typed failure, never a parse crash.
-    const registration = await this.doFetch(`${origin}/oauth/mcp/register`, {
+    return { token, sessionId }
+  }
+}
+
+interface IssueOptions {
+  origin: string
+  registrationEndpoint?: string
+  pairing: PairingCodes
+  peer: boolean
+  name: string
+  access: string
+  fetch?: typeof fetch
+  now?: () => number
+}
+
+/** The native DCR, pairing approval and PKCE exchange shared by the gate and Connect publication. */
+export async function issueT3McpSession(input: IssueOptions): Promise<Stored & { expiresAt: number }> {
+  const { origin, fetch: request = fetch, now = Date.now } = input
+  const post = async (url: string, body: object | URLSearchParams, failure: string) => {
+    const form = body instanceof URLSearchParams
+    const response = await request(url, {
       method: 'POST',
-      headers: json,
-      body: JSON.stringify({
-        client_name: input.name,
-        redirect_uris: [REDIRECT],
-        token_endpoint_auth_method: 'none',
-        ...(input.peer ? { software_id: 't3code-peer-link' } : {})
-      })
+      headers: { 'content-type': form ? 'application/x-www-form-urlencoded' : 'application/json' },
+      body: form ? body : JSON.stringify(body), redirect: 'error', signal: AbortSignal.timeout(15_000)
     })
 
-    const registered = (registration.ok ? await registration.json().catch(() => ({})) : {}) as { client_id?: string }
+    if (!response.ok) {throw new Error(failure)}
 
-    if (!registered.client_id) {
-      throw new Error('t3_oauth_register_failed')
-    }
-
-    const code = await this.options.pairing.create(`oauth-${input.peer ? 'peer' : 'owner'}`)
-    const verifier = randomBytes(32).toString('base64url')
-    const challenge = createHash('sha256').update(verifier).digest('base64url')
-    const resource = `${origin}/mcp`
-
-    const decision = (await (
-      await this.doFetch(`${origin}/oauth/mcp/decision`, {
-        method: 'POST',
-        headers: json,
-        body: JSON.stringify({
-          authorization: {
-            response_type: 'code',
-            client_id: registered.client_id,
-            redirect_uri: REDIRECT,
-            code_challenge: challenge,
-            code_challenge_method: 'S256',
-            state: randomBytes(8).toString('hex'),
-            resource
-          },
-          decision: { _tag: 'pairing-code', access: input.access, code }
-        })
-      })
-    ).json()) as { redirectTo?: string }
-
-    const authCode = decision.redirectTo ? new URL(decision.redirectTo).searchParams.get('code') : null
-
-    if (!authCode) {
-      throw new Error('t3_oauth_decision_failed')
-    }
-
-    const token = (await (
-      await this.doFetch(`${origin}/oauth/mcp/token`, {
-        method: 'POST',
-        headers: { 'content-type': 'application/x-www-form-urlencoded' },
-        body: new URLSearchParams({
-          grant_type: 'authorization_code',
-          code: authCode,
-          redirect_uri: REDIRECT,
-          client_id: registered.client_id,
-          code_verifier: verifier,
-          resource
-        })
-      })
-    ).json()) as { access_token?: string }
-
-    if (!token.access_token) {
-      throw new Error('t3_oauth_token_failed')
-    }
-
-    const fresh = (await this.options.auth.sessionIds()).filter(id => !before.has(id))
-
-    if (fresh.length !== 1) {
-      throw new Error('t3_session_unidentified')
-    }
-
-    return { token: token.access_token, sessionId: fresh[0] }
+    return response.json().catch(() => {throw new Error(failure)})
   }
+  const { client_id } = await post(input.registrationEndpoint ?? `${origin}/oauth/mcp/register`, {
+    client_name: input.name,
+    redirect_uris: [REDIRECT],
+    token_endpoint_auth_method: 'none',
+    ...(input.peer ? { software_id: 't3code-peer-link' } : {})
+  }, 't3_oauth_register_failed')
+
+  if (typeof client_id !== 'string' || !client_id) {throw new Error('t3_oauth_register_failed')}
+
+  const code = await input.pairing.create(`oauth-${input.peer ? 'peer' : 'owner'}`)
+  const verifier = randomBytes(32).toString('base64url')
+  const state = randomBytes(24).toString('base64url')
+  const resource = `${origin}/mcp`
+  const { redirectTo } = await post(`${origin}/oauth/mcp/decision`, {
+    authorization: {
+      response_type: 'code', client_id, redirect_uri: REDIRECT, state, resource,
+      code_challenge: createHash('sha256').update(verifier).digest('base64url'), code_challenge_method: 'S256'
+    },
+    decision: { _tag: 'pairing-code', access: input.access, code }
+  }, 't3_oauth_decision_failed')
+
+  const callback = typeof redirectTo === 'string' ? new URL(redirectTo) : undefined
+  const authCode = callback?.searchParams.get('code')
+
+  if (!callback || !authCode || callback.searchParams.get('state') !== state ||
+      `${callback.origin}${callback.pathname}` !== REDIRECT || callback.username || callback.password) {
+    throw new Error('t3_oauth_decision_failed')
+  }
+
+  const requestedAt = now()
+  const { access_token, expires_in } = await post(`${origin}/oauth/mcp/token`, new URLSearchParams({
+    grant_type: 'authorization_code', code: authCode, redirect_uri: REDIRECT, client_id, code_verifier: verifier, resource
+  }), 't3_oauth_token_failed')
+
+  // T3 SessionStore signs base64url session claims containing sid. Read it only from the token exchanged
+  // directly with loopback Work. A global list diff races concurrent sign-ins.
+  if (typeof access_token !== 'string' || !/^[\w-]+\.[\w-]+$/u.test(access_token)) {
+    throw new Error('t3_oauth_token_failed')
+  }
+
+  let claims: { kind?: unknown; sid?: unknown } | null
+
+  try {
+    claims = JSON.parse(Buffer.from(access_token.split('.')[0], 'base64url').toString('utf8'))
+  } catch {
+    throw new Error('t3_session_unidentified')
+  }
+
+  if (claims?.kind !== 'session' || typeof claims.sid !== 'string' ||
+      !/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/iu.test(claims.sid)) {
+    throw new Error('t3_session_unidentified')
+  }
+
+  return { token: access_token, sessionId: claims.sid, expiresAt: typeof expires_in === 'number' ? requestedAt + expires_in * 1000 : 0 }
 }

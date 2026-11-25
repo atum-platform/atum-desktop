@@ -161,6 +161,7 @@ export class DeviceEnrollment {
       /** The device store, scoped to this owner. */
       store: DeviceStateStore
       signer: DeviceSigner & { discard?(): Promise<void> }
+      onRevoked?(deviceServiceId: string): void
       transport: DeviceEnrollmentTransport
       displayName(): string
       osVersion(): string
@@ -293,6 +294,7 @@ export class DeviceEnrollment {
 
         if (record) {
           this.write({ ...record, state: 'revoked', updatedAt: this.now() })
+          this.deps.onRevoked?.(record.deviceServiceId)
         }
 
         return this.attempt(owner, signal, false, true)
@@ -605,6 +607,7 @@ export class DeviceEnrollment {
     }
 
     this.write({ ...record, state: 'revoked', revokeSeq: body.revokeSeq, updatedAt: this.now() })
+    this.deps.onRevoked?.(record.deviceServiceId)
     this.deps.log?.(`[Device] enrollment ${record.deviceServiceId.slice(0, 8)} revoked by the controller`)
 
     return { outcome: 'applied' }

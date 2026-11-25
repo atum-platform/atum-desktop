@@ -8,6 +8,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { MATRIX_WORK_IPC, type MatrixWorkProjection, type WorkAttentionSnapshot, type WorkSidebarSnapshot, type WorkSurfaceModeSnapshot } from '../../shared/matrix-work'
 import { type GateEvent, GateLedger, workGatePaths } from '../work/gate'
+import { createKeychainSecretStore } from '../work/mount'
 import { workSessionPaths } from '../work/session'
 
 import { matrixRosterAgentAnswersInCloud } from './cloud-agent-placement'
@@ -273,6 +274,7 @@ describe('createMatrixWork', () => {
       scope: () => ({ accountKey: 'a'.repeat(64), generation: 1 }),
       ownerPrincipal: () => '67000000-0000-4000-8000-0000000000a1',
       deviceServiceId: () => '67000000-0000-4000-8000-0000000000d1',
+      localDeviceServiceId: () => '67000000-0000-4000-8000-0000000000d1',
       deviceServicesEndpoint: () => 'https://api.example.test/api/matrix/v1/device-services',
       bearer: async () => 'bearer',
       prepareChatGptConnect: async () => undefined,
@@ -456,8 +458,56 @@ describe('createMatrixWork', () => {
     expect(build().work.modelKeys()).toEqual([])
   })
 
+  it('clears the enrolled Mac on sign-out even if Work never started this run', async () => {
+    const { work } = build({ deviceServiceId: () => undefined })
+    const request = vi.fn(async () => Response.json({ ok: true }))
+    vi.stubGlobal('fetch', request)
+
+    try {
+      await work.retire('retiring-device')
+      expect(request).toHaveBeenCalledWith('https://api.example.test/api/matrix/v1/device-services', expect.objectContaining({
+        method: 'POST',
+        headers: { 'content-type': 'application/json', authorization: 'Bearer bearer' },
+        body: JSON.stringify({ operation: 'work_t3_mcp_clear', deviceServiceId: 'retiring-device' })
+      }))
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
+
+  it('ignores another Mac’s revoke even without an active enrollment or publication record', async () => {
+    const { work, deps, logs } = build({ deviceServiceId: () => undefined })
+
+    await work.revokeT3Mcp('another-device')
+    expect(logs).toEqual([])
+
+    // A local revocation still reaches native cleanup after the enrollment was marked revoked.
+    // This fixture has no T3 executable, so the cleanup attempt reports a safe failure code.
+    await work.revokeT3Mcp(deps.localDeviceServiceId()!)
+    expect(logs).toEqual(['[atum-work] t3_mcp_native_revoke_failed'])
+  })
+
+  it('clears the remembered desktop link only when the owner turns Work back on', async () => {
+    const { work, deps } = build({}, true)
+    const root = join(deps.userData, 'work-accounts', 'a'.repeat(32))
+    const store = createKeychainSecretStore({ account: { root }, safeStorage: deps.safeStorage })
+    const marker = 't3-mcp-desktop-link'
+    const setWork = (on: boolean) => handlers.get(MATRIX_WORK_IPC.request)!({} as IpcMainInvokeEvent, { kind: 'setWork', on })
+
+    store.set(marker, 'linked')
+    await work.activate()
+    await setWork(true)
+    expect(store.get(marker)).toBe('linked')
+
+    await setWork(false)
+    expect(store.get(marker)).toBe('linked')
+    await setWork(true)
+    expect(store.get(marker)).toBeUndefined()
+    await work.quit()
+  })
+
   it('retire and quit with nothing bound are harmless', async () => {
-    const { work } = build()
+    const { work } = build({ deviceServiceId: () => undefined })
 
     await expect(work.retire()).resolves.toBeUndefined()
     await expect(work.quit()).resolves.toBeUndefined()

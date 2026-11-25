@@ -1563,7 +1563,7 @@ describe('account subscriptions in the model picker', () => {
     expect(card.querySelector<HTMLButtonElement>('[data-matrix-model-route="claude-plan:claude-sonnet-5-5"]')?.disabled).toBe(true)
   })
 
-  it.each(['off', 'needed', 'current'] as const)('checks native %s consent before selecting a plan', async state => {
+  it.each(['off', 'on'] as const)('checks %s subscription consent before selecting a plan', async state => {
     $accountConnections.set(ACCOUNT_CONNECTIONS_FIXTURE)
     const selectRelay = vi.fn()
     picker({ ...ROOM, id: 'assistant-card:raymond:cloud' }, {
@@ -1572,7 +1572,7 @@ describe('account subscriptions in the model picker', () => {
       bridge: { work: {
         readRelay: async () => ({ account: { consent: { provider: 'claude', state: 'on', agents: ['raymond'], devices: ['mac'], alsoWhenScheduled: true, revision: 1 },
           facts: [{ provider: 'claude', deviceServiceId: 'mac', status: 'connected', models: ['claude-sonnet-5-5'] }] }, status: null, turns: [] }),
-        readPlanConsent: async () => ({ state: state === 'off' ? 'off' : 'on', agents: ['raymond'], macs: [{ named: true }], nativeRenewal: state === 'needed' ? 'needed' : 'current' }),
+        readPlanConsent: async () => ({ state, agents: ['raymond'], macs: [{ named: true }] }),
         selectRelay
       } as unknown as NonNullable<MatrixUiBridge['work']> }
     })
@@ -1584,12 +1584,12 @@ describe('account subscriptions in the model picker', () => {
       return model
     })
     fireEvent.click(model)
-    if (state === 'current') {
+    if (state === 'on') {
       await waitFor(() => expect(selectRelay).toHaveBeenCalledWith('raymond', 0, 'claude-sonnet-5-5', 'claude'))
       expect($accountConnect.get()).toBeNull()
       return
     }
-    await waitFor(() => expect($accountConnect.get()).toEqual({ plan: 'claude', mode: state === 'needed' ? 'renew' : 'allow' }))
+    await waitFor(() => expect($accountConnect.get()).toEqual({ plan: 'claude', mode: 'allow' }))
     expect(selectRelay).not.toHaveBeenCalled()
   })
 

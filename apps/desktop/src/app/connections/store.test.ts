@@ -55,11 +55,11 @@ it('keeps an all-owner grant intact during automatic Connect consent', async () 
   expect(b.setPlan).toHaveBeenCalledWith(true)
 })
 
-it.each(['allow', 'renew'] as const)('finishes %s with an existing all-owner grant', async mode => {
+it('finishes Allow with an existing all-owner grant', async () => {
   const b = bridge([])
   b.readPlanConsent.mockResolvedValue({ ...CONSENT, state: 'on', allOwnerAgents: true })
 
-  await continueAccountConnect({ plan: 'codex', mode }, b)
+  await continueAccountConnect({ plan: 'codex', mode: 'allow' }, b)
 
   expect($accountConnectProgress.get()).toEqual({ plan: 'codex', phase: 'done' })
   expect(b.setPlanConsent).not.toHaveBeenCalled()

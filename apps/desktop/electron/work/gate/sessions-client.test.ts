@@ -8,6 +8,9 @@ import { createT3Client } from './t3-client'
 // The headless OAuth sequence (S0-1, S0-4) against a stand-in T3, and the T3 client's one hard property: a launch
 // is STARTED in the same synchronous step that committed the forwarded mark.
 
+const sessionId = (n: number) => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`
+const bearer = (n: number) => `${Buffer.from(JSON.stringify({ kind: 'session', sid: sessionId(n) })).toString('base64url')}.signature`
+
 function fakeT3() {
   const log: { url: string; body: unknown }[] = []
   const codes = new Set<string>()
@@ -33,9 +36,10 @@ function fakeT3() {
       }
 
       codes.delete(decision.code)
-      challenges.set(`auth-${n}`, authorization.code_challenge)
+      const sequence = authorization.client_id.slice(7)
+      challenges.set(`auth-${sequence}`, authorization.code_challenge)
 
-      return Response.json({ redirectTo: `${authorization.redirect_uri}?code=auth-${n}&state=${authorization.state}` })
+      return Response.json({ redirectTo: `${authorization.redirect_uri}?code=auth-${sequence}&state=${authorization.state}` })
     }
 
     if (path === '/oauth/mcp/token') {
@@ -45,9 +49,10 @@ function fakeT3() {
         return Response.json({ error: 'pkce' }, { status: 400 })
       }
 
-      sessions.push(`session-${n}`)
+      const sequence = Number(grant.code.slice(5))
+      sessions.push(sessionId(sequence), `unrelated-${sequence}`)
 
-      return Response.json({ access_token: `bearer-${n}` })
+      return Response.json({ access_token: bearer(sequence), expires_in: 2_592_000 })
     }
 
     return Response.json({}, { status: 404 })
@@ -84,8 +89,8 @@ describe('T3 sessions: register, approve with a pairing code, authorization code
     const agent = await instance.agent('p1')
     const owner = await instance.owner()
 
-    expect(agent).toEqual({ token: 'bearer-1', sessionId: 'session-1' })
-    expect(owner.sessionId).toBe('session-2')
+    expect(agent).toEqual({ token: bearer(1), sessionId: sessionId(1) })
+    expect(owner.sessionId).toBe(sessionId(2))
 
     const registers = t3.log.filter(item => item.url === '/oauth/mcp/register').map(item => item.body as Record<string, unknown>)
 
@@ -107,7 +112,7 @@ describe('T3 sessions: register, approve with a pairing code, authorization code
     await instance.agent('p1')
 
     expect(t3.log.filter(item => item.url === '/oauth/mcp/register')).toHaveLength(1)
-    expect(instance.agentSessionId('p1')).toBe('session-1')
+    expect(instance.agentSessionId('p1')).toBe(sessionId(1))
   })
 
   it('two callers at once share one sign-in', async () => {
@@ -128,6 +133,16 @@ describe('T3 sessions: register, approve with a pairing code, authorization code
     expect(t3.log).toHaveLength(0)
   })
 
+  it('identifies each session when two principals mint alongside unrelated native sessions', async () => {
+    const t3 = fakeT3()
+    const { instance } = sessionsFor(t3)
+    const [agent, owner] = await Promise.all([instance.agent('p1'), instance.owner()])
+
+    expect(agent.sessionId).toBe(sessionId(1))
+    expect(owner.sessionId).toBe(sessionId(2))
+    expect(t3.sessions).toContain('unrelated-2')
+  })
+
   it('persists the session in the secret store and reloads it after a restart', async () => {
     const t3 = fakeT3()
     const first = sessionsFor(t3)
@@ -145,8 +160,8 @@ describe('T3 sessions: register, approve with a pairing code, authorization code
       knownAgents: () => ['p1']
     })
 
-    expect(second.agentSessionId('p1')).toBe('session-1')
-    expect(await second.agent('p1')).toEqual({ token: 'bearer-1', sessionId: 'session-1' })
+    expect(second.agentSessionId('p1')).toBe(sessionId(1))
+    expect(await second.agent('p1')).toEqual({ token: bearer(1), sessionId: sessionId(1) })
   })
 
   it('revokes one agent\'s session through T3 and forgets it; a reset forgets everything without calling T3', async () => {
@@ -158,13 +173,13 @@ describe('T3 sessions: register, approve with a pairing code, authorization code
     await instance.owner()
     await instance.revokeAgent('p1')
 
-    expect(revoked).toEqual(['session-1'])
+    expect(revoked).toEqual([sessionId(1)])
     expect(instance.agentSessionId('p1')).toBeUndefined()
 
     instance.forgetAll()
     expect(instance.agentSessionId('p2')).toBeUndefined()
     expect(store.get('owner')).toBeUndefined()
-    expect(revoked).toEqual(['session-1'])
+    expect(revoked).toEqual([sessionId(1)])
   })
 
   it('fails closed when the sign-in does not complete or the new session cannot be identified', async () => {

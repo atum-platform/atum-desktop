@@ -29,6 +29,7 @@ interface WorkAccount {
 
 interface WorkProcessOptions {
   log?(phase: string, ms: number): void
+  ready?(): void
   prepare?(signal: AbortSignal): Promise<void>
   account: WorkAccount
   resources: string
@@ -219,9 +220,6 @@ async function startProcess(options: WorkProcessOptions, { continuation, trial }
     executable: join(resources, 'work-runtime', 't3'),
     environment: {
       ...environment,
-      ...Object.fromEntries(Object.entries(credentials).filter(([key]) => [
-        'ATUM_WORK_MAC_ID', 'ATUM_WORK_FORWARD_GRANTS_FILE', 'ATUM_WORK_BINDINGS_FILE', 'ATUM_WORK_TOOLS_CONNECTOR_URL'
-      ].includes(key))),
       ...(credentials.ATUM_WORK_CONNECTOR_URL
       ? { ATUM_WORK_CONNECTOR_URL: credentials.ATUM_WORK_CONNECTOR_URL }
       : {}),
@@ -444,6 +442,7 @@ export class WorkSidecar {
         this.readyAt = Date.now()
         // A committed trial recovers as an ordinary run, never replays a trial.
         this.desired = { continuation: false, resources: input.resources }
+        this.options.ready?.()
       }
 
       const trial = input.trial ? nativeTrial(child, input.trial.update.id, exited, () => !signal.aborted && this.options.current(), activate) : undefined
