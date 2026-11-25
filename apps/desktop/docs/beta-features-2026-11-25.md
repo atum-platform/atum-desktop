@@ -19,6 +19,8 @@ out as "Coming soon". Nothing is hidden, and no error state appears.
 | New assistant, "Ready to hire" | Listings show, and each button reads "Coming soon" (disabled). "Make your own" is unchanged. |
 
 All labels reuse `t.surfaces.comingSoon` and `t.surfaces.comingSoonHelp`. No new copy strings were added.
+The phone gets both from the mobile design snapshot as `desktop.surfaces.{comingSoon,comingSoonHelp}`
+(wave 4g, `docs/ports/mobile-export-wave4-copy.md`).
 
 ## How beta is read
 

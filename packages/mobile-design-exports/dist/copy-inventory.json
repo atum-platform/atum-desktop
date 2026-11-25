@@ -6,7 +6,8 @@
         "atum",
         "common",
         "timeline",
-        "dm"
+        "dm",
+        "surfaces"
       ],
       "source": "apps/desktop/src/i18n/en.ts",
       "tables": [
@@ -18,7 +19,8 @@
         "atum",
         "common",
         "timeline",
-        "dm"
+        "dm",
+        "surfaces"
       ],
       "source": "apps/desktop/src/i18n/vi.ts",
       "tables": [
@@ -30,7 +32,8 @@
         "atum",
         "common",
         "timeline",
-        "dm"
+        "dm",
+        "surfaces"
       ],
       "source": "apps/desktop/src/i18n/ja.ts",
       "tables": [
@@ -42,7 +45,8 @@
         "atum",
         "common",
         "timeline",
-        "dm"
+        "dm",
+        "surfaces"
       ],
       "source": "apps/desktop/src/i18n/zh.ts",
       "tables": [
@@ -54,7 +58,8 @@
         "atum",
         "common",
         "timeline",
-        "dm"
+        "dm",
+        "surfaces"
       ],
       "source": "apps/desktop/src/i18n/zh-hant.ts",
       "tables": [
@@ -257,6 +262,12 @@
     },
     {
       "source": "apps/desktop/src/matrix/profile-copy.ts",
+      "tables": [
+        "copies"
+      ]
+    },
+    {
+      "source": "apps/desktop/src/matrix/rail-badge-copy.ts",
       "tables": [
         "copies"
       ]

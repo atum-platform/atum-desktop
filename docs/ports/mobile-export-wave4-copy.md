@@ -420,3 +420,66 @@ Desktop #119 (`2365efe8`) moved the picker's thinking heading, levels and taglin
 - Checks: producer `export.mjs --check` 0 and tests 46/46. As before, six glyph aliases got throwaway mappings
   for the run; `glyphs.json` is not spliced. Desktop `tsc -p . --noEmit` 0. The model-picker and copy vitest
   files pass, 180 tests. All 44 manifest hashes match. The outbound guard passes.
+
+## Wave 4g: the beta gate's "Coming soon" (#132)
+
+W4-C7. Desktop #132 (`70464afa`, merged at `f60b25d6`) greys Team Space, hires and skills as "Coming soon"
+for accounts without beta features. The phone has to show the same state with the same words. Desktop
+added no strings for it (`apps/desktop/docs/beta-features-2026-11-25.md`). Every place reuses two i18n
+keys in the `surfaces` scope:
+
+| Key | Desktop draws it |
+|---|---|
+| `t.surfaces.comingSoon` | the rail's greyed Team space popover title (`app/atum/shell-surface.tsx:209`), the Team Space page title (`matrix/workspace.tsx:363`), the Store card's and sheet's disabled action (`store/discover-view.tsx:257,608`, `store-card.tsx`, `store-detail.tsx`), and the new-assistant sheet's listing button (`agent-roster.tsx:615`, `listing-hire.tsx`), which covers the Researcher hire |
+| `t.surfaces.comingSoonHelp` | the rail popover's line (`shell-surface.tsx:272`) and the Team Space page's description (`workspace.tsx:363`) |
+
+The export read only the `atum`, `common`, `timeline` and `dm` scopes, so neither key was in it. The
+producer now reads `surfaces` too (atum-app `scripts/copy.mjs` `I18N_SCOPES`), and both keys are promoted
+under their own desktop path. Nothing goes into `mobileScreensCopy`. Producer inputs are on atum-app
+`chore/mobile-export-wave4g-keys` (`d266144b`).
+
+- **Added: 2.** Both are plain words with no arguments. Desktop has all five locales:
+  - `desktop.surfaces.comingSoon`: Coming soon / Sắp có / 近日公開 / 即将推出 / 即將推出
+  - `desktop.surfaces.comingSoonHelp`: This place is not ready yet. / Chỗ này chưa sẵn sàng. /
+    この場所はまだ利用できません。 / 此处尚未就绪。 / 此處尚未就緒。
+- **Removed: 3.** Desktop `e8ce4357` (Kit on T3 step 3, "no Mac is full") removed the disk alerts, so the
+  producer can no longer emit `src.matrix.attention-copy.copies.items.disk_critical` ("Mac is out of
+  space"), `items.disk_low` ("Mac almost full") and `snooze` ("Remind me later"). They are recorded as
+  deprecated with no replacement. None was a `phone-copy-map.json` target, and the phone's main branch
+  does not read them.
+- **Refreshed: none.** Every other entry the snapshot shares with the producer is still byte-identical.
+  Catalog: 4138 → 4137 entries. `copy-contract.json` adds 2 entries and drops 3, with no exact selectors.
+  `copy-inventory.json` lists `surfaces` in the five i18n rows and adds `src/matrix/rail-badge-copy.ts`
+  (new in `e8ce4357`; listed, nothing from it exported). The copy map is unchanged.
+- **Already exported, so not added:** the plain "Coming soon" in other tables
+  (`desktop.atum.discover.comingSoon`, `desktop.atum.workspace.launcherComingSoon`, same words in all five
+  locales), and the phone's combined rail label `src.matrix.mobile-device-copy.mobileDeviceCopy.teamSpaceSoon`
+  ("Team space · Coming soon"). The phone should draw the gate with the `desktop.surfaces.*` keys, as desktop
+  does. The listing button's spoken name (`${comingSoon} ${title}`) is a composition, not a new word.
+- **Held back:** the rest of the scope, `surfaces.{needsSetup,needsUpdate,needsUpdateHelp}`. No phone flow
+  needs them yet.
+
+### For the phone repin
+
+- Manifest SHA-256: `8a9f52066a4990850ca3c242e1915da29d166e2adfa2c22f3250b15598d8eacb` (was
+  `2f1c4ea3c95f4b9612817198956306851e2951b123d3873cc851b8d59fa64dc1`).
+- Changed file hashes: `Localizable.xcstrings` `7b1b70d0c20109b87a3b29147710dda72a13fe6c5eeef86045bb0430ce9ad52d`,
+  `copy-contract.json` `9b20a768b5835643183b71eec26c8bc4d9f7066fd6e102b54d51612acbbdeecb`,
+  `copy-inventory.json` `7efc62100014be889525c0c21022e4e05cacd8318547a652923ee657b7d51643`.
+  `schemaVersion` stays 1, and the manifest keeps its 44 members.
+- Rekeys: none. The phone only gains the two keys, and the three removed keys need nothing from it.
+- Which items are greyed is the platform's `betaFeatures: true` on `/me`, the same reader desktop uses
+  (`shared/beta-features.ts`). The Shell does not return it yet, so every account sees "Coming soon" until
+  it does.
+
+### Checks
+
+- Producer: `export.mjs` and `export.mjs --check` exit 0 on this tree's `apps/desktop` and
+  `packages/atum-kit`. Tests pass 47 of 47, including the new beta-gate test, which pins both keys in all
+  five locales against the desktop source and fails if any other `desktop.surfaces.*` key is exported.
+  Eight glyph aliases the producer cannot map yet got throwaway entries for the run only: the six above,
+  plus `Paperclip` and `UserPlus` from `e8ce4357`. `glyphs.json` is not spliced.
+- Splice: `wave4/splice4.mjs` with `wave4g/spec.json` added 2, refreshed 0 and removed 3. All 44 manifest
+  hashes match their files.
+- No desktop source changed, so desktop typecheck, lint and vitest have nothing new to cover. The outbound
+  guard results are in the commit.

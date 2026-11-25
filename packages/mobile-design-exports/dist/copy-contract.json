@@ -2506,6 +2506,8 @@
     ],
     "desktop.dm.yesterday": [],
     "desktop.dm.you": [],
+    "desktop.surfaces.comingSoon": [],
+    "desktop.surfaces.comingSoonHelp": [],
     "desktop.timeline.delegationCountFinished": [
       {
         "kind": "number",
@@ -4727,8 +4729,6 @@
     "src.matrix.attention-copy.copies.items.approval": [],
     "src.matrix.attention-copy.copies.items.connect": [],
     "src.matrix.attention-copy.copies.items.device_damaged": [],
-    "src.matrix.attention-copy.copies.items.disk_critical": [],
-    "src.matrix.attention-copy.copies.items.disk_low": [],
     "src.matrix.attention-copy.copies.items.protons": [],
     "src.matrix.attention-copy.copies.items.recovery": [],
     "src.matrix.attention-copy.copies.items.runtime": [],
@@ -4742,7 +4742,6 @@
         "nullable": false
       }
     ],
-    "src.matrix.attention-copy.copies.snooze": [],
     "src.matrix.attention-copy.copies.verified": [],
     "src.matrix.chat-copy.copies.advanced": [],
     "src.matrix.chat-copy.copies.agentOptions": [
