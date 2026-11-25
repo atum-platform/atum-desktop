@@ -12,6 +12,7 @@ import { admitConnector } from '../work/connector/admission'
 import { ConnectorHttp } from '../work/connector/http'
 import { matrixConnector } from '../work/connector/matrix'
 import { ConnectorService } from '../work/connector/service'
+import { startShellMcp } from '../work/connector/shell-mcp'
 import {
   createDeviceServicePlatform,
   createWorkConsentClient,
@@ -111,6 +112,11 @@ export interface MatrixWorkDeps {
   deviceServicesEndpoint(): string | undefined
   /** The signed-in owner's current domain bearer. */
   bearer(): Promise<string>
+  shellMcp: {
+    resource: string
+    matrixToken(): string
+    refreshMatrixToken(refused: string): Promise<string>
+  }
   connectAssertion?(): Promise<string>
   /** Retire the legacy cloud login before opening native Codex setup. */
   prepareChatGptConnect(): Promise<void>
@@ -372,9 +378,12 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
         })
 
   let connector: ConnectorHttp | undefined
+  let shellMcpLifetime: AbortController | undefined
   let connectorEnvironment: Record<string, string> = {}
 
   const closeConnector = () => {
+    shellMcpLifetime?.abort()
+    shellMcpLifetime = undefined
     const old = connector
     connector = undefined
     connectorEnvironment = {}
@@ -386,11 +395,14 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
 
     if (bound) {
       closeConnector()
+      const lifetime = new AbortController()
+      shellMcpLifetime = lifetime
+      const connectorSignal = AbortSignal.any([signal, lifetime.signal])
 
       const current = () => {
         const active = account()
 
-        return !signal.aborted && active?.key === bound.key && active.generation === bound.generation
+        return !connectorSignal.aborted && active?.key === bound.key && active.generation === bound.generation
       }
 
       const secret = randomBytes(32).toString('base64url')
@@ -421,6 +433,7 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
 
       connector = candidate
       connectorEnvironment = { ATUM_WORK_CONNECTOR_URL: endpoint, ATUM_WORK_CONNECTOR_TOKEN: secret }
+      await startShellMcp({ ...deps.shellMcp, userdata: workSessionPaths(bound).userdata, current, signal: connectorSignal })
     }
   }
 

@@ -20619,6 +20619,18 @@ async function start() {
       localDeviceServiceId: () => deviceIdentity?.enrollment()?.deviceServiceId,
       deviceServicesEndpoint: () => `${domain.resource}/device-services`,
       bearer: () => account.s1Request(accessToken => Promise.resolve(accessToken), AbortSignal.timeout(15_000)),
+      shellMcp: {
+        resource: domain.resource,
+        matrixToken: () => account.sdkConfiguration().accessToken,
+        async refreshMatrixToken(refused) {
+          // The SDK may already have rotated the token while Shell's request was in flight.
+          const current = account.sdkConfiguration().accessToken
+          if (current !== refused) {return current}
+          const result = await account.confirmSession()
+          if (!result.ok) {throw new Error('work_mcp_session_unavailable')}
+          return result.accessToken
+        }
+      },
       connectAssertion: () => account.s1Request(
         (token, base, signal) => fetchConnectAssertion(token, base, signal, session.defaultSession.fetch.bind(session.defaultSession)),
         AbortSignal.timeout(15_000)
