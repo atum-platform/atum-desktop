@@ -6056,40 +6056,7 @@ describe('isolated Matrix composition', () => {
   })
 
   it('keeps one fixed Settings navigation and a pane into named sections of rows', async () => {
-    const sourceGates = {
-      google: true,
-      folders: true,
-      messages: true,
-      browser: true,
-      location: true,
-      team_spaces: true
-    }
-
-    const agentSources = {
-      read: vi.fn(async () => ({
-        macs: [],
-        gates: sourceGates,
-        sources: [
-          ['google.mail', 'google'],
-          ['google.calendar', 'google'],
-          ['google.drive', 'google'],
-          ['mac.files', 'folders'],
-          ['mac.message-metadata', 'messages'],
-          ['mac.browser-history', 'browser'],
-          ['mac.location', 'location'],
-          ['matrix.owner-rooms', 'team_spaces']
-        ].map(([kind, optOutGate]) => ({
-          kind,
-          optOutGate,
-          grantable: true,
-          availability: 'available' as const,
-          status: 'ready' as const
-        }))
-      })),
-      set: vi.fn()
-    }
-
-    const { emit } = fixture(undefined, 'en', undefined, undefined, undefined, undefined, agentSources)
+    const { emit } = fixture()
 
     const settingsState: MatrixSnapshot = {
       ...controlsState,
@@ -6118,40 +6085,10 @@ describe('isolated Matrix composition', () => {
       expect(within(nav).getByRole('button', { name })).toBeTruthy()
     }
 
-    // Main's source controls and account subscriptions share the one Connections page.
     showSettingsPane('cloud')
-    const knowledge = screen.getByRole('dialog', { name: 'Connections' })
-    const sourceControls = await within(knowledge).findByRole('region', { name: 'What Atum can read' })
-    expect(
-      within(sourceControls)
-        .getAllByRole('switch')
-        .map(row => row.getAttribute('aria-label'))
-    ).toEqual(['Google', 'Mac folders', 'Messages', 'Browser', 'Location', 'Team spaces'])
-    expect(within(knowledge).queryByText(/Forget what Atum learned/)).toBeNull()
-
-    // Account-wide: opening another assistant's chat neither re-reads nor resets these switches.
-    const reads = agentSources.read.mock.calls.length
-    emit({
-      ...settingsState,
-      roomId: '!alfred:test',
-      rooms: [
-        ...settingsState.rooms,
-        {
-          ...assistantFields,
-          id: '!alfred:test',
-          name: 'Alfred',
-          membership: 'join',
-          encrypted: true,
-          assistant: true,
-          agentPrincipal: 'cloud-alfred'
-        }
-      ]
-    })
-    await waitFor(() => expect(within(sourceControls).getAllByRole('switch')).toHaveLength(6))
-    // At most the composer's one-time Mac sources check (once per account in this window); the
-    // switches themselves are not re-read.
-    expect(agentSources.read.mock.calls.length - reads).toBeLessThanOrEqual(1)
-    expect(within(knowledge).queryByText(/this assistant/i)).toBeNull()
+    const connections = screen.getByRole('dialog', { name: 'Connections' })
+    expect(within(connections).getByRole('region', { name: 'Apps' })).toBeTruthy()
+    expect(within(connections).queryByRole('region', { name: 'What Atum can read' })).toBeNull()
 
     // Each setting is a row in the section it belongs to, never a loose paragraph.
     showSettingsPane('general')

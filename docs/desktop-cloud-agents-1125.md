@@ -19,3 +19,5 @@ The roster and assistant-card tests cover the cloud-only presentation. The prelo
 The relocated Team Space fixture uses one member key across its mock directory, channel owners, and conversation participants. Its public Matrix identifiers are synthetic and the fixture stays outside the production module graph.
 
 The first full Vitest run reported 80 failed tests and two failed suite loads on an earlier checkout state. Its log includes retired runtime contracts, an intermediate roster error, and timeouts. Follow-up coverage checks owner SDK startup while the cloud roster is pending, the retained utility runtime's development configuration, the Agent Desk with an older snapshot, and the cloud routine destination. All 89 tests in those four files passed.
+
+Eight focused regressions also passed for cloud messaging, Stop, model selection, subscription settings, Drive attachment, and Chief of Staff routing. The Settings navigation test passed after it was updated to check the surviving Connections sections and the absence of the retired Mac source controls.
