@@ -783,7 +783,7 @@ export const vi = defineLocale({
       startChatSearch: 'Tìm trợ lý, người và ứng dụng',
       people: 'Người',
       apps: 'Ứng dụng',
-      addFriends: 'Thêm bạn bè',
+      addFriends: 'Thêm liên hệ',
       pinLimit: 'Chỉ ghim tối đa 5 cuộc trò chuyện',
       title: 'Trò chuyện',
       search: 'Tìm mọi thứ',

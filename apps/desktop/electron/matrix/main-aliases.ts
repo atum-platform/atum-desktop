@@ -14,7 +14,7 @@ interface AliasContext {
 }
 
 const CHECK_CODES = new Set(['alias_invalid', 'alias_bot_suffix_required', 'alias_bot_suffix_reserved', 'alias_reserved', 'alias_unavailable'])
-const ACTIONS = new Set(['current', 'check', 'lookup', 'search', 'contacts', 'claim', 'rename'])
+const ACTIONS = new Set(['current', 'check', 'lookup', 'search', 'contacts', 'claim', 'rename', 'invite', 'accept'])
 
 /**
  * `[Matrix] handle action=claim target=agent outcome=error code=conflict`: closed values only.
@@ -48,6 +48,10 @@ export function matrixAliasLogLine(input: unknown, result: MatrixAliasResult): s
   if (value.kind === 'contacts') {
     // How many were asked and how many had a handle: never who.
     return `[Matrix] handle action=contacts target=${target} outcome=ok asked=${value.contacts.length} found=${value.contacts.filter(contact => contact.handle !== null).length}`
+  }
+
+  if (value.kind === 'invite' || value.kind === 'accept') {
+    return `[Matrix] handle action=${value.kind} target=${target} outcome=ok state=${value.state}`
   }
 
   if (value.kind === 'claim' || value.kind === 'rename') {

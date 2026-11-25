@@ -778,7 +778,7 @@ export const en: Translations = {
       startChatSearch: 'Search assistants, people and apps',
       people: 'People',
       apps: 'Apps',
-      addFriends: 'Add friends',
+      addFriends: 'Add contacts',
       pinLimit: 'Pin up to 5 chats',
       title: 'Chats',
       search: 'Search everything',

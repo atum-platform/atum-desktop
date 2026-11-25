@@ -2,9 +2,11 @@ import { useEffect, useRef, useState } from 'react'
 
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { NoticeBand } from '@/components/ui/error-state'
+import { useI18n } from '@/i18n'
 
 import type { MatrixAgentView, MatrixSnapshot } from '../../shared/matrix'
 
+import { inviteContactByEmail } from './contact-invites'
 import { useCreationAction } from './creation-action'
 import { type FoundPerson, type PersonOffer, PersonSearch } from './person-search'
 import { useRosterCreateCopy } from './roster-create-copy'
@@ -25,8 +27,10 @@ export interface MatrixAddFriendProps {
 }
 
 /**
- * Adding a friend is finding them by their @name and saying hello: Matrix has no friend
- * list, so "Message" opens the conversation you already have with them or starts one.
+ * Adding a contact is finding them by their @name or email and saying hello: Matrix has no
+ * contact list, so "Message" opens the conversation you already have with them or starts one.
+ * An email with no one on Atum behind it is invited to sign up; accepting the invitation opens
+ * the chat with you from their side (`contact-invites.ts`).
  */
 export function MatrixAddFriend({
   initialQuery,
@@ -143,12 +147,14 @@ function AddFriendSearch({
   snapshot: MatrixSnapshot
 }) {
   const copy = useRosterCreateCopy()
+  const { locale } = useI18n()
   const [query, setQuery] = useState(initialQuery)
   const [seed] = useState(initialQuery.trim() ? 1 : undefined)
 
   return (
     <PersonSearch
       autoFocus
+      invite={email => inviteContactByEmail(window.atumMatrix?.aliases, email, locale === 'vi' ? 'vi' : 'en')}
       label={copy.handleLabel}
       offer={offer}
       onQueryChange={value => {

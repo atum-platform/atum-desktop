@@ -503,7 +503,7 @@ export const ja = defineLocale({
     },
     roster: {
       createMenu: '新規作成',
-      addFriends: '友だちを追加',
+      addFriends: '連絡先を追加',
       pinLimit: '固定できるチャットは5件まで',
       title: 'チャット',
       search: 'すべてを検索',
