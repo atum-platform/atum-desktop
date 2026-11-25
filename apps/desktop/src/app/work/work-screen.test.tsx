@@ -314,3 +314,43 @@ describe('WorkScreen: the title band (spec §1.4, §8.2)', () => {
     expect(work.runCommand?.mock.calls).toEqual([['chat.newWorktree']])
   })
 })
+
+describe('Work page Google write card', () => {
+  afterEach(() => {
+    delete (window as { atumMatrix?: unknown }).atumMatrix
+  })
+
+  it('shows a Work request above the view for the account on screen, and nothing without an account', async () => {
+    const { googleWorkEntry, GOOGLE_WORK_OWNER } = await import('../../../shared/matrix-google-write-proposal.test-support')
+    const { parseMatrixGoogleWorkProposalList } = await import('../../../shared/matrix-google-write-proposal')
+    const entry = await googleWorkEntry()
+
+    const writeProposals = vi.fn(async () => ({
+      state: 'ok' as const,
+      proposals: [],
+      work: parseMatrixGoogleWorkProposalList({ proposals: [entry] }) ?? [],
+      owner: GOOGLE_WORK_OWNER
+    }))
+
+    ;(window as { atumMatrix?: unknown }).atumMatrix = { googleConnections: { writeProposals, writeProposalAction: vi.fn() } }
+
+    const work = bridge()
+
+    const page = (owner?: string) => (
+      <I18nProvider configClient={null} initialLocale="en">
+        <WorkScreen agentName={() => undefined} bridge={work} obstructed={false} onAddProtons={vi.fn()} owner={owner} projection={READY} />
+      </I18nProvider>
+    )
+
+    const view = render(page(GOOGLE_WORK_OWNER))
+    const region = await screen.findByRole('region', { name: 'Send this email?' })
+    const host = view.container.querySelector('[data-atum-work-host]')!
+
+    // Above the host, never inside it: main paints the view natively over the host region.
+    expect(host.contains(region)).toBe(false)
+    expect(region.compareDocumentPosition(host) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+
+    view.rerender(page(undefined))
+    await waitFor(() => expect(screen.queryByRole('region', { name: 'Send this email?' })).toBeNull())
+  })
+})

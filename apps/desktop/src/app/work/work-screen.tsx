@@ -3,6 +3,7 @@ import { type CSSProperties, type ReactNode, useEffect, useMemo, useRef, useStat
 import { AtumMainHeaderSurface } from '@/app/atum/shell-surface'
 import { AccountConnectProgress } from '@/app/connections/connect-sheet'
 import { useI18n } from '@/i18n'
+import { MatrixGoogleWorkWriteProposals } from '@/matrix/google-write-card'
 
 import type { MatrixWorkBridge, MatrixWorkProjection, MatrixWorkViewState } from '../../../shared/matrix-work'
 
@@ -30,6 +31,11 @@ export interface WorkScreenProps {
    * in those threads can show up in their replies. Absent or empty: no line.
    */
   relayChats?: readonly string[]
+  /**
+   * The signed-in Matrix user. Present: Google changes Work asks for wait above the view on the same
+   * owner card an assistant's do, for this account only.
+   */
+  owner?: string
 }
 
 /** The body while the owner view is not painted: a Kit state, one line, at most one action. */
@@ -78,6 +84,7 @@ export function WorkScreen({
   leadsRow,
   obstructed,
   onAddProtons,
+  owner,
   projection,
   relayChats,
   reserveOverlay,
@@ -145,6 +152,8 @@ export function WorkScreen({
       {projection.view === 'ready' && (
         <WorkRelaySharedContextLine names={workRelaySharedContext(relayChats ?? []).map(names.name)} />
       )}
+      {/* Above the view, never over it: main paints the view natively, so the host shrinks to make room. */}
+      {owner && <MatrixGoogleWorkWriteProposals key={owner} owner={owner} />}
       {/* The shared panel frame (owner, 2026-11-24): the host sits where every screen's panels sit, with
           the panel radius, and main rounds the native view to it (electron-view.ts). Inside, T3's own
           inset layout paints its thread list on the chrome ground and the thread as a rounded card.

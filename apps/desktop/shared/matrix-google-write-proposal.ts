@@ -99,7 +99,16 @@ export interface MatrixGoogleWriteActionInput {
 /** Shell's refusal (400/401/403/409) or its unavailability (503, or no usable answer at all). */
 export type MatrixGoogleWriteFailure = { state: 'refused' } | { state: 'unavailable' }
 
-export type MatrixGoogleWriteListAnswer = { state: 'ok'; proposals: MatrixGoogleWriteProposal[] } | MatrixGoogleWriteFailure
+export type MatrixGoogleWriteListAnswer =
+  | {
+      state: 'ok'
+      proposals: MatrixGoogleWriteProposal[]
+      /** The owner's Work proposals (at most one). Absent from an older main. */
+      work?: MatrixGoogleWorkProposal[]
+      /** The Matrix user the list was read for; Work cards show only while it is the account on screen. */
+      owner?: string
+    }
+  | MatrixGoogleWriteFailure
 
 /** What Shell records for each action. Approve confirms; it never sends anything itself. */
 export const MATRIX_GOOGLE_WRITE_STATUS = { delivered: 'delivered', approve: 'confirmed', decline: 'declined' } as const
@@ -181,12 +190,15 @@ function forwarded(value: unknown): value is MatrixGoogleWriteForwarded {
   )
 }
 
-function email(value: Record<string, unknown>): value is Record<string, unknown> & MatrixGoogleWriteEmail {
+function email(
+  value: Record<string, unknown>,
+  extra: { required?: readonly string[]; optional?: readonly string[] } = {}
+): value is Record<string, unknown> & MatrixGoogleWriteEmail {
   if (
     !keys(
       value,
-      ['to', 'subject', 'body', 'quote', 'references', 'attachments'],
-      ['cc', 'bcc', 'threadId', 'inReplyTo', 'forwarded']
+      ['to', 'subject', 'body', 'quote', 'references', 'attachments', ...(extra.required ?? [])],
+      ['cc', 'bcc', 'threadId', 'inReplyTo', 'forwarded', ...(extra.optional ?? [])]
     )
   ) {
     return false
@@ -308,7 +320,7 @@ export function matrixGoogleWriteSlot(proposal: Pick<MatrixGoogleWriteProposal, 
 }
 
 /** Lowercase hex SHA-256 of the UTF-8 canonical JSON (the platform's `canonicalJson`). */
-export async function matrixGoogleWriteDigest(value: MatrixGoogleWriteDraft): Promise<string> {
+export async function matrixGoogleWriteDigest(value: MatrixGoogleWriteDraft | MatrixGoogleWorkDraft): Promise<string> {
   const bytes = new Uint8Array(
     await globalThis.crypto.subtle.digest('SHA-256', new TextEncoder().encode(canonicalJson(value)))
   )
@@ -327,4 +339,179 @@ export function parseMatrixGoogleWriteActionInput(value: unknown): MatrixGoogleW
     (value.action === 'delivered' || value.action === 'approve' || value.action === 'decline')
     ? { proposalId: value.proposalId, digest: value.digest, action: value.action }
     : undefined
+}
+
+/*
+ * Work proposals (docs/google-write-confirmation.md, "Work"). The owner's own Work on this Mac can ask
+ * for the same Google changes an assistant can, plus Gmail's mailbox, label and draft changes. Shell
+ * lists them in the same owner list with `source: "work"` and no agent or room: they belong to the
+ * account, never to an agent chat, and wait behind the same card and the same owner endpoint.
+ */
+
+/** What `mailbox` does to one conversation or one email. Each is reversible; none sends. */
+export const MATRIX_GOOGLE_MAILBOX_OPERATIONS = [
+  'archive',
+  'unarchive',
+  'mark_read',
+  'mark_unread',
+  'star',
+  'unstar',
+  'trash',
+  'untrash',
+  'add_labels',
+  'remove_labels'
+] as const
+
+export type MatrixGoogleMailboxOperation = (typeof MATRIX_GOOGLE_MAILBOX_OPERATIONS)[number]
+
+/** A Gmail draft to save or update: the resolved message plus where it goes. */
+export interface MatrixGoogleWriteGmailDraft extends MatrixGoogleWriteEmail {
+  action: 'create_draft' | 'update_draft'
+  sourceId: string
+  /** Present exactly for `update_draft`. */
+  draftId?: string
+}
+
+/** A change to one conversation (`threadId`) or one email (`messageId`); exactly one is named. */
+export interface MatrixGoogleWriteMailbox {
+  action: 'mailbox'
+  sourceId: string
+  operation: MatrixGoogleMailboxOperation
+  threadId?: string
+  messageId?: string
+  /** Label names, for add_labels / remove_labels only. */
+  labels?: string[]
+}
+
+export interface MatrixGoogleWriteLabel {
+  action: 'create_label'
+  sourceId: string
+  name: string
+}
+
+/** Every draft a Work proposal can carry: the seven Google changes. */
+export type MatrixGoogleWorkDraft =
+  | MatrixGoogleWriteDraft
+  | MatrixGoogleWriteGmailDraft
+  | MatrixGoogleWriteMailbox
+  | MatrixGoogleWriteLabel
+
+export type MatrixGoogleWorkKind = MatrixGoogleWriteKind | 'create_draft' | 'update_draft' | 'mailbox' | 'create_label'
+
+export interface MatrixGoogleWorkProposal {
+  proposalId: string
+  /** 64 lowercase hex: SHA-256 of the draft's canonical JSON. */
+  digest: string
+  draft: MatrixGoogleWorkDraft
+}
+
+const GMAIL_ID = /^[A-Za-z0-9_-]{1,200}$/u
+const MAILBOX = new Set<string>(MATRIX_GOOGLE_MAILBOX_OPERATIONS)
+const LABELS_MAX = 10
+
+function gmailDraft(value: Record<string, unknown>): value is Record<string, unknown> & MatrixGoogleWriteGmailDraft {
+  const update = value.action === 'update_draft'
+
+  return (
+    (value.action === 'create_draft' || update) &&
+    email(value, { required: ['action', 'sourceId', ...(update ? ['draftId'] : [])] }) &&
+    filled(value.sourceId) &&
+    (!update || (typeof value.draftId === 'string' && GMAIL_ID.test(value.draftId)))
+  )
+}
+
+function mailbox(value: Record<string, unknown>): value is Record<string, unknown> & MatrixGoogleWriteMailbox {
+  const labelled = value.operation === 'add_labels' || value.operation === 'remove_labels'
+
+  return (
+    keys(value, ['action', 'sourceId', 'operation', ...(labelled ? ['labels'] : [])], ['threadId', 'messageId']) &&
+    filled(value.sourceId) &&
+    typeof value.operation === 'string' &&
+    MAILBOX.has(value.operation) &&
+    // One conversation or one email, never both and never neither.
+    (value.threadId === undefined) !== (value.messageId === undefined) &&
+    (value.threadId === undefined || (typeof value.threadId === 'string' && GMAIL_ID.test(value.threadId))) &&
+    (value.messageId === undefined || (typeof value.messageId === 'string' && GMAIL_ID.test(value.messageId))) &&
+    (!labelled ||
+      (Array.isArray(value.labels) &&
+        value.labels.length >= 1 &&
+        value.labels.length <= LABELS_MAX &&
+        value.labels.every(label => filled(label) && (label as string).length <= 225)))
+  )
+}
+
+function label(value: Record<string, unknown>): value is Record<string, unknown> & MatrixGoogleWriteLabel {
+  return keys(value, ['action', 'sourceId', 'name']) && filled(value.sourceId) && filled(value.name) && (value.name as string).length <= 225
+}
+
+/** A Work draft exactly as given, or undefined for anything the card could not show faithfully. */
+export function parseMatrixGoogleWorkDraft(value: unknown): MatrixGoogleWorkDraft | undefined {
+  if (!record(value)) {
+    return undefined
+  }
+
+  switch (value.action) {
+    case 'create_draft':
+
+    case 'update_draft':
+      return gmailDraft(value) ? value : undefined
+
+    case 'mailbox':
+      return mailbox(value) ? value : undefined
+
+    case 'create_label':
+      return label(value) ? value : undefined
+
+    default:
+      return parseMatrixGoogleWriteDraft(value)
+  }
+}
+
+export function matrixGoogleWorkKind(draft: MatrixGoogleWorkDraft): MatrixGoogleWorkKind {
+  return 'action' in draft ? draft.action : 'send_email'
+}
+
+/** One Work entry of the owner list, or undefined for anything else (an agent's entry included). */
+export function parseMatrixGoogleWorkProposal(value: unknown): MatrixGoogleWorkProposal | undefined {
+  if (
+    !record(value) ||
+    !keys(value, ['proposalId', 'operationId', 'agent', 'room', 'draft', 'digest', 'status', 'source']) ||
+    value.source !== 'work' ||
+    value.agent !== null ||
+    value.room !== null
+  ) {
+    return undefined
+  }
+
+  const draft = parseMatrixGoogleWorkDraft(value.draft)
+
+  return typeof value.proposalId === 'string' &&
+    UUID.test(value.proposalId) &&
+    value.operationId === value.proposalId &&
+    typeof value.digest === 'string' &&
+    DIGEST.test(value.digest) &&
+    value.status === 'awaiting_owner' &&
+    draft
+    ? { proposalId: value.proposalId, digest: value.digest, draft }
+    : undefined
+}
+
+/**
+ * The owner list's Work entries. Shell keeps one open Work proposal per owner (a new one supersedes
+ * the last), so only the first well-formed one is kept; a second is a race and the first stands.
+ */
+export function parseMatrixGoogleWorkProposalList(value: unknown): MatrixGoogleWorkProposal[] | undefined {
+  if (!record(value) || !keys(value, ['proposals']) || !Array.isArray(value.proposals) || value.proposals.length > PROPOSALS_MAX) {
+    return undefined
+  }
+
+  for (const entry of value.proposals) {
+    const proposal = parseMatrixGoogleWorkProposal(entry)
+
+    if (proposal) {
+      return [proposal]
+    }
+  }
+
+  return []
 }

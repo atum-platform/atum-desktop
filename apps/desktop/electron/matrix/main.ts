@@ -19110,7 +19110,7 @@ async function start() {
     MATRIX_GOOGLE_WRITE_IPC,
     createMatrixGoogleWriteIpcHandler({
       assertSender: (event: Electron.IpcMainInvokeEvent) => requireMatrixCaller(event, ui?.webContents, UI_URL),
-      proposals: () => (config.domain && state.identity ? matrixGoogleWriteProposals(account) : undefined)
+      proposals: () => (config.domain && state.identity ? matrixGoogleWriteProposals(account, () => state.identity?.userId) : undefined)
     })
   )
 

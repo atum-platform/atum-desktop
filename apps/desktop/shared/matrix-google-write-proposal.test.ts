@@ -5,14 +5,18 @@ import { describe, expect, it } from 'vitest'
 import { canonicalJson } from '../../../packages/device-protocol/canonical'
 
 import {
+  matrixGoogleWorkKind,
   matrixGoogleWriteDigest,
   matrixGoogleWriteKind,
+  parseMatrixGoogleWorkProposalList,
   parseMatrixGoogleWriteActionInput,
   parseMatrixGoogleWriteProposalList
 } from './matrix-google-write-proposal'
 import {
+  GOOGLE_WORK_DRAFTS,
   GOOGLE_WRITE_IDS,
   GOOGLE_WRITE_ROOM,
+  googleWorkEntry,
   googleWriteEmail,
   googleWriteEntry,
   googleWriteEvent
@@ -24,10 +28,12 @@ describe('Google write pending list reader', () => {
   it('reads an email and a calendar proposal and digests exactly the drafts it returns, as Shell does', async () => {
     const email = googleWriteEmail()
     const event = googleWriteEvent()
+
     const entries = [
       await googleWriteEntry(email),
       await googleWriteEntry(event, { proposalId: GOOGLE_WRITE_IDS.second, room: '!work:example.org' })
     ]
+
     const proposals = list(...entries)!
 
     expect(proposals).toEqual([
@@ -62,6 +68,7 @@ describe('Google write pending list reader', () => {
       },
       attachments: [{ filename: 'order.csv', mimeType: 'text/csv', size: 912, sha256: 'e'.repeat(64) }]
     })
+
     const reply = googleWriteEmail({ threadId: 'thread-b2', inReplyTo: '<info@example.org>', references: ['<info@example.org>'] })
 
     delete forward.cc
@@ -128,5 +135,59 @@ describe('Google write action input', () => {
     ['a non-id proposal', { ...input, proposalId: '../approve' }]
   ])('refuses %s', (_name, value) => {
     expect(parseMatrixGoogleWriteActionInput(value)).toBeUndefined()
+  })
+})
+
+const work = (...proposals: unknown[]) => parseMatrixGoogleWorkProposalList({ proposals })
+
+describe('Work proposal reader', () => {
+  it.each(Object.entries(GOOGLE_WORK_DRAFTS))('reads a Work %s proposal exactly as Shell lists it', async (kind, draft) => {
+    const entry = await googleWorkEntry(draft)
+    const [read] = work(entry) ?? []
+
+    expect(read).toEqual({ proposalId: entry.proposalId, digest: entry.digest, draft })
+    expect(matrixGoogleWorkKind(read!.draft)).toBe(kind)
+    expect(await matrixGoogleWriteDigest(read!.draft)).toBe(entry.digest)
+  })
+
+  it('never reads a Work entry as an agent card, nor an agent entry as Work', async () => {
+    const agent = await googleWriteEntry()
+    const entry = await googleWorkEntry()
+
+    expect(list(entry)).toEqual([])
+    expect(work(agent)).toEqual([])
+  })
+
+  it.each([
+    ['an agent', { agent: GOOGLE_WRITE_IDS.agent }],
+    ['a room', { room: GOOGLE_WRITE_ROOM }],
+    ['another source', { source: 'agent' }],
+    ['an extra field', { owner: GOOGLE_WRITE_IDS.agent }],
+    ['a settled status', { status: 'confirmed' }],
+    ['a mismatched operation', { operationId: GOOGLE_WRITE_IDS.first }]
+  ])('drops a Work entry with %s', async (_name, change) => {
+    expect(work(await googleWorkEntry(GOOGLE_WORK_DRAFTS.send_email, change))).toEqual([])
+  })
+
+  it.each([
+    ['a mailbox change naming both a thread and an email', { ...GOOGLE_WORK_DRAFTS.mailbox, messageId: 'msg_one' }],
+    ['a mailbox change naming neither', { action: 'mailbox', sourceId: 'google:gmail', operation: 'archive' }],
+    ['labels on an archive', { action: 'mailbox', sourceId: 'google:gmail', operation: 'archive', threadId: 't1', labels: ['x'] }],
+    ['an unknown operation', { action: 'mailbox', sourceId: 'google:gmail', operation: 'delete_forever', threadId: 't1' }],
+    ['a label with no name', { action: 'create_label', sourceId: 'google:gmail', name: ' ' }],
+    ['a draft update with no draft id', { ...GOOGLE_WORK_DRAFTS.update_draft, draftId: undefined }],
+    ['a new draft naming a draft id', { ...GOOGLE_WORK_DRAFTS.create_draft, draftId: 'r-draft-one' }],
+    ['a read action', { action: 'read_thread', sourceId: 'google:gmail', threadId: 't1' }]
+  ])('drops %s', async (_name, draft) => {
+    const clean = JSON.parse(JSON.stringify(draft))
+
+    expect(work(await googleWorkEntry(clean))).toEqual([])
+  })
+
+  it('keeps only the first Work proposal, as Shell holds one open per owner', async () => {
+    const first = await googleWorkEntry(GOOGLE_WORK_DRAFTS.create_label)
+    const second = await googleWorkEntry(GOOGLE_WORK_DRAFTS.mailbox, { proposalId: GOOGLE_WRITE_IDS.second })
+
+    expect(work(first, second)?.map(entry => entry.proposalId)).toEqual([first.proposalId])
   })
 })
