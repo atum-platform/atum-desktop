@@ -1,5 +1,3 @@
-import { useStore } from '@nanostores/react'
-
 import { useI18n } from '@/i18n'
 import { cn } from '@/lib/utils'
 
@@ -8,7 +6,7 @@ import type { WorkRelayLimit, WorkRelayPlan } from '../../../shared/matrix-work-
 
 import { WORK_RELAY_PLAN_NAMES, workRelayCopy, workRelayTurnText, workRelayUsageText } from './relay-copy'
 import { type WorkRelayTurnChrome, workRelayUsage } from './relay-view'
-import { $workRelayStop, setWorkActive } from './store'
+import { setWorkActive } from './store'
 
 /** The Atum model that answered instead, by its product name; Nguyệt Thực when the notice named none. */
 export function workRelayServedByName(servedBy?: string): string {
@@ -129,31 +127,21 @@ export function useWorkRelayUsageText(limit: WorkRelayLimit | undefined, now?: n
   return limit?.scheduledRuns === undefined ? usage : `${usage} · ${words.usageScheduled(limit.scheduledRuns)}`
 }
 
-/**
- * The transcript's relay line for one message (`MatrixMessage.relayTurn`): Stop goes through `$workRelayStop`, Open Work opens the
- * Work page. Drawn where the fallback line is drawn, under the message or the answer.
- */
+/** The transcript's relay line. Active turns use the composer's agent Stop. */
 export function WorkRelayMessageLine({
   chrome,
   className,
-  eventId,
-  plan,
-  roomId
+  plan
 }: {
   chrome: WorkRelayTurnChrome
   className?: string
-  eventId: string
   plan?: WorkRelayPlan
-  roomId?: string
 }) {
-  const stop = useStore($workRelayStop)
-
   return (
     <WorkRelayTurnLine
       chrome={chrome}
       className={className}
       onOpenWork={() => setWorkActive(true)}
-      onStop={stop && roomId ? () => stop(roomId, eventId) : undefined}
       plan={plan}
     />
   )

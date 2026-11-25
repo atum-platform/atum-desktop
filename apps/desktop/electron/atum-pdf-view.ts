@@ -286,7 +286,7 @@ export class AtumPdfViewController {
 
     // `close`, account revocation, or a failed load can replace/remove the
     // record while its load promise settles. Never attach that stale view.
-    if (this.views.get(token) !== record || record.view.webContents.isDestroyed() || host.isDestroyed()) {
+    if (this.views.get(token) !== record || record.view.webContents?.isDestroyed() !== false || host.isDestroyed()) {
       return { shown: false }
     }
 
@@ -369,7 +369,7 @@ export class AtumPdfViewController {
       return false
     }
 
-    return this.views.get(token) === record && !record.view.webContents.isDestroyed()
+    return this.views.get(token) === record && record.view.webContents?.isDestroyed() === false
   }
 
   private closeRecord(token: string, record: { generation: number; loading: Promise<boolean> | null; url: string; view: PdfViewLike }): void {
@@ -377,8 +377,10 @@ export class AtumPdfViewController {
     this.detach(token, view)
     this.views.delete(token)
 
-    if (!view.webContents.isDestroyed()) {
-      view.webContents.close()
+    const contents = view.webContents
+
+    if (contents && !contents.isDestroyed()) {
+      contents.close()
     }
   }
 

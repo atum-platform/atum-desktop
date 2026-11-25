@@ -1,15 +1,11 @@
 import { atom } from 'nanostores'
 
 import type { MatrixWorkBridge, MatrixWorkProjection } from '../../../shared/matrix-work'
-import type { WorkRelayRoomView } from '../../../shared/matrix-work-relay'
 
 /** Main's projection of Work on this Mac. `undefined`: not read yet; `null`: no Work for this account here. */
 export const $work = atom<MatrixWorkProjection | null | undefined>(undefined)
 
 /** The Work page is the rail's current place. */
-export const $workRelayRooms = atom<Record<string, WorkRelayRoomView>>({})
-export const $workRelayReads = atom<Record<string, 'loading' | 'ready' | 'unavailable' | 'failed'>>({})
-
 export const $workActive = atom(false)
 
 /** The assistants band under the title is open. */
@@ -19,12 +15,6 @@ export const $workBandOpen = atom(false)
 export const $workEnrollmentDeferred = atom(false)
 
 const DEFERRED_KEY = 'atum.work.enrollment.deferred.v1'
-
-/**
- * Relay R1: how a held relay turn's Stop reaches the gate. The coordinator's data wiring sets it; while it is null, a held line
- * shows no Stop (never a button that does nothing). The stop is recorded and holds until the Mac confirms (plan §3.6).
- */
-export const $workRelayStop = atom<((roomId: string, eventId: string) => void) | null>(null)
 
 function storage(): Storage | null {
   try {
@@ -65,9 +55,6 @@ export function connectWorkBridge(bridge: MatrixWorkBridge | undefined): () => v
   }
 
   let live = true
-  $workRelayRooms.set({})
-  $workRelayReads.set({})
-  $workRelayStop.set(bridge.stopRelay ? (roomId, eventId) => { void bridge.stopRelay!(roomId, eventId).catch(() => undefined) } : null)
 
   const unsubscribe = bridge.subscribe(projection => {
     if (live) {
@@ -90,9 +77,6 @@ export function connectWorkBridge(bridge: MatrixWorkBridge | undefined): () => v
 
   return () => {
     live = false
-    $workRelayRooms.set({})
-    $workRelayReads.set({})
-    $workRelayStop.set(null)
     unsubscribe()
   }
 }
@@ -112,9 +96,6 @@ export function workOnRail(projection: MatrixWorkProjection | null | undefined):
 }
 
 export function resetWorkStoreForTests(): void {
-  $workRelayRooms.set({})
-  $workRelayReads.set({})
-  $workRelayStop.set(null)
   $work.set(undefined)
   $workActive.set(false)
   $workBandOpen.set(false)

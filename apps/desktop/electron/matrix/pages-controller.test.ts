@@ -258,6 +258,7 @@ describe('MatrixPagesController', () => {
         guest.emit('render-process-gone')
       } else if (reason === 'destroyed') {
         guest.destroyed = true
+        electron.guests[0].webContents = undefined
         guest.emit('destroyed')
       } else {
         h.controller.clearAll()
@@ -266,6 +267,10 @@ describe('MatrixPagesController', () => {
       expect(retired).toHaveBeenCalledOnce()
       expect(observations).toEqual([false])
       expect(guest.destroyed).toBe(true)
+
+      if (reason === 'destroyed') {
+        expect(guest.close).not.toHaveBeenCalled()
+      }
     }
   )
   it.each([0.9, 1.1])('converts actual shell CSS bounds at %s zoom into native DIPs before clamping', async zoom => {

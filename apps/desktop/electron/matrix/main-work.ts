@@ -554,6 +554,30 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
     openProtons: deps.openProtons
   })
 
+  const readNativePlanCapabilities = async (bound: WorkMountAccount) => {
+    const running = host.current()
+
+    if (!running || !host.enabled() || running.accountKey !== bound.key || running.generation !== bound.generation) {return {}}
+
+    const providers = await readWorkProviders(running.origin, deps.sessionFromPartition(partitionFor(bound.key)))
+    const active = account()
+
+    if (host.current()?.id !== running.id || active?.key !== bound.key || active.generation !== bound.generation) {return {}}
+
+    const observed = projectPlanCapabilities(providers)
+    const deviceServiceId = deps.deviceServiceId()
+
+    if (deviceServiceId && Object.keys(observed).length) {
+      try {
+        t3Mcp.planCatalog(mcpStore(bound), deviceServiceId, observed)
+      } catch {
+        deps.log('[atum-work] t3_mcp_plan_catalog_store_failed')
+      }
+    }
+
+    return observed
+  }
+
   host.registerOwnerPreload()
 
   const session = new WorkSession({
@@ -640,18 +664,7 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
         account: current,
         deviceServiceId,
         platform: createDeviceServicePlatform({ endpoint, bearer: () => deps.bearer() }),
-        async readPlanCapabilities() {
-          const running = host.current()
-
-          if (!running || running.accountKey !== current.key) {return {}}
-
-          const providers = await readWorkProviders(running.origin, deps.sessionFromPartition(partitionFor(current.key)))
-          const active = account()
-
-          if (host.current()?.id !== running.id || active?.key !== current.key || active.generation !== current.generation) {return {}}
-
-          return projectPlanCapabilities(providers)
-        },
+        readPlanCapabilities: () => readNativePlanCapabilities(current),
         owner: verifier,
         relayHistory,
         relayAssistant: deps.agentDefinition
@@ -793,20 +806,34 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
       endpoint: () => deps.deviceServicesEndpoint(),
       bearer: () => deps.bearer(),
       thisDevice: () => deps.deviceServiceId(),
-      async localCapabilities() {
-        const running = host.current()
+      localCapabilities: () => {
+        const active = account()
 
-        if (!running || !host.enabled()) {return {}}
-
-        const providers = await readWorkProviders(running.origin, deps.sessionFromPartition(partitionFor(running.accountKey)))
-
-        return host.current()?.id === running.id ? projectPlanCapabilities(providers) : {}
+        return active ? readNativePlanCapabilities(active) : Promise.resolve({})
       }
     }),
     // Work's own provider view owns the login. The staged T3 pin must enforce own-thread MCP scope.
     planConnectOpen: () => host.current()?.relayRuntimeReady ?? workRelayRuntimeReady(deps.resources),
     deviceServiceId: () => deps.deviceServiceId(),
-    relay: createOwnerRelay(mount, consentClient, () => ({
+    relay: createOwnerRelay(mount, async () => {
+      const bound = account()
+      const deviceServiceId = deps.deviceServiceId()
+
+      if (!bound || !deviceServiceId || revokedDevices.has(deviceServiceId)) {return null}
+
+      const observed = await readNativePlanCapabilities(bound)
+      const active = account()
+
+      if (active?.key !== bound.key || active.generation !== bound.generation ||
+          deps.deviceServiceId() !== deviceServiceId || revokedDevices.has(deviceServiceId)) {return null}
+
+      const store = mcpStore(bound)
+
+      return {
+        published: t3Mcp.isPublished(store, deviceServiceId),
+        plans: t3Mcp.planCatalog(store, deviceServiceId, observed)
+      }
+    }, () => ({
       endpoint: deps.deviceServicesEndpoint() ?? '',
       bearer: () => deps.bearer()
     })),

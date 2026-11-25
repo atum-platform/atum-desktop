@@ -503,7 +503,7 @@ export function createAppViewController(deps: AppViewControllerDeps): AppViewCon
       entry &&
       entry.origin !== null &&
       (entry.origin !== origin || !sameConnect(entry.connectOrigins, connectOrigins)) &&
-      [...records.values()].some(record => record.partition === partition && !record.view.webContents.isDestroyed())
+      [...records.values()].some(record => record.partition === partition && record.view.webContents?.isDestroyed() === false)
     ) {
       // The filter is session-wide, so rebinding it would change the network
       // policy underneath a guest that is still painted. Refuse instead.
@@ -872,7 +872,7 @@ export function createAppViewController(deps: AppViewControllerDeps): AppViewCon
     record.attached = false
     const contents = record.view.webContents
 
-    if (!contents.isDestroyed()) {
+    if (contents && !contents.isDestroyed()) {
       const destroyed = new Promise<void>(resolve => {
         contents.once('destroyed', () => resolve())
       })
@@ -1031,14 +1031,16 @@ export function createAppViewController(deps: AppViewControllerDeps): AppViewCon
       record.expectedLanding = issued.launchUrl
     }
 
-    if (!isCurrent(record) || record.view.webContents.isDestroyed()) {
+    const contents = record.view.webContents
+
+    if (!isCurrent(record) || !contents || contents.isDestroyed()) {
       return
     }
 
     record.navigationBegun = true
 
     try {
-      await record.view.webContents.loadURL(target)
+      await contents.loadURL(target)
     } catch {
       // Once loadURL has begun, nothing is "unredeemed": report, never relaunch.
       if (isCurrent(record) && record.status === 'launching') {
@@ -1285,8 +1287,10 @@ export function createAppViewController(deps: AppViewControllerDeps): AppViewCon
     focus: viewId => {
       const record = records.get(viewId)
 
-      if (record && !record.closing && record.attached && !record.view.webContents.isDestroyed()) {
-        record.view.webContents.focus()
+      const contents = record?.view.webContents
+
+      if (record && !record.closing && record.attached && contents && !contents.isDestroyed()) {
+        contents.focus()
       }
     },
     back: viewId => {

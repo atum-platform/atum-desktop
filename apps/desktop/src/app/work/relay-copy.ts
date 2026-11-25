@@ -42,6 +42,7 @@ export interface WorkRelayWords {
 
 const en: WorkRelayWords = {
   greyed: {
+    unavailable: () => 'Plan unavailable. Connect this Mac to Atum Work.',
     connect: () => 'Not connected on any of your Macs',
     allow: () => 'Not allowed for this assistant yet',
     google: () => 'Not yet for assistants that use Google',
@@ -69,6 +70,7 @@ const en: WorkRelayWords = {
   openWork: 'Open Work',
   chipLimit: (plan, at) => (at ? `${plan} limit reached · back at ${at}` : `${plan} limit reached`),
   chipGreyed: {
+    unavailable: plan => `${plan} unavailable`,
     connect: plan => `${plan} isn’t connected on any of your Macs`,
     allow: plan => `${plan} isn’t allowed for this assistant`,
     google: plan => `${plan} isn’t available yet for assistants that use Google`,
@@ -88,6 +90,7 @@ const en: WorkRelayWords = {
 
 const vi: WorkRelayWords = {
   greyed: {
+    unavailable: () => 'Gói chưa khả dụng. Hãy kết nối máy Mac này với Atum Work.',
     connect: () => 'Chưa kết nối trên máy Mac nào',
     allow: () => 'Chưa cho phép trợ lý này',
     google: () => 'Chưa dùng được cho trợ lý có Google',
@@ -115,6 +118,7 @@ const vi: WorkRelayWords = {
   openWork: 'Mở Work',
   chipLimit: (plan, at) => (at ? `${plan} hết lượt · có lại lúc ${at}` : `${plan} hết lượt`),
   chipGreyed: {
+    unavailable: plan => `${plan} chưa khả dụng`,
     connect: plan => `${plan} chưa kết nối trên máy Mac nào`,
     allow: plan => `${plan} chưa được cho phép với trợ lý này`,
     google: plan => `${plan} chưa dùng được cho trợ lý có Google`,
