@@ -5,6 +5,7 @@ import { type Locale, useI18n } from '@/i18n'
  * Five locales, changed together. */
 const en = {
   newMenu: 'New…',
+  newChat: 'New chat',
   startTitle: 'Start a chat',
   startHint: 'Pick an assistant, a person or a group, or make something new.',
   startSearch: 'Search people, assistants and apps',
@@ -76,6 +77,7 @@ type RosterCreateCopy = typeof en
 
 const vi: RosterCreateCopy = {
   newMenu: 'Tạo mới…',
+  newChat: 'Cuộc trò chuyện mới',
   startTitle: 'Bắt đầu trò chuyện',
   startHint: 'Chọn một trợ lý, một người hoặc một nhóm, hoặc tạo mới.',
   startSearch: 'Tìm người, trợ lý và ứng dụng',
@@ -145,6 +147,7 @@ const vi: RosterCreateCopy = {
 
 const ja: RosterCreateCopy = {
   newMenu: '新規作成…',
+  newChat: '新しいチャット',
   startTitle: 'チャットを始める',
   startHint: 'アシスタント、人、グループを選ぶか、新しく作成します。',
   startSearch: '人、アシスタント、アプリを検索',
@@ -214,6 +217,7 @@ const ja: RosterCreateCopy = {
 
 const zh: RosterCreateCopy = {
   newMenu: '新建…',
+  newChat: '新建聊天',
   startTitle: '开始聊天',
   startHint: '选择一位助手、一个人或一个群组，或新建。',
   startSearch: '搜索联系人、助手和应用',
@@ -282,6 +286,7 @@ const zh: RosterCreateCopy = {
 
 const zhHant: RosterCreateCopy = {
   newMenu: '新增…',
+  newChat: '新增聊天',
   startTitle: '開始聊天',
   startHint: '選擇一位助理、一個人或一個群組，或新增。',
   startSearch: '搜尋聯絡人、助理和應用程式',

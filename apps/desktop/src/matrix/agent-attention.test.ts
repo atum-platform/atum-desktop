@@ -214,22 +214,17 @@ describe('the indicator’s items', () => {
     ])
   })
 
-  it('lists several causes most pressing first, and lets a full-ish disk wait a day', () => {
+  it('lists several causes most pressing first, and never this Mac’s disk (the "Mac is full" alert went)', () => {
     const view = snapshot([agent('atum'), agent('moon', { readiness: blocked('agent_reconnect_required') })], {
       disk: { state: 'low', freeGb: 8 },
       security: { recovery: 'idle', approval: { role: 'approve', state: 'asked', since: NOW } }
     })
 
-    expect(matrixAttentionItems(view, NOW).map(item => item.kind)).toEqual(['approval', 'agent', 'disk_low'])
-    expect(matrixAttentionItems(view, NOW, { diskLowSnoozed: true }).map(item => item.kind)).toEqual([
-      'approval',
-      'agent'
-    ])
+    expect(matrixAttentionItems(view, NOW).map(item => item.kind)).toEqual(['approval', 'agent'])
     expect(matrixAttentionItems({ ...view, disk: { state: 'critical', freeGb: 1 }, deviceDamaged: true }, NOW)).toEqual(
       [
         { kind: 'approval', tone: 'warn' },
         { kind: 'device_damaged', tone: 'danger' },
-        { kind: 'disk_critical', tone: 'danger' },
         { kind: 'agent', principal: 'moon', tone: 'warn' }
       ]
     )
@@ -244,25 +239,15 @@ describe('the indicator’s items', () => {
       security: { recovery: 'idle', approval: { role: 'approve', state: 'asked', since: NOW } }
     })
 
-    expect(matrixAttentionItems(view, NOW).map(item => item.kind)).toEqual([
-      'approval',
-      'device_damaged',
-      'disk_critical',
-      'agent'
-    ])
+    expect(matrixAttentionItems(view, NOW).map(item => item.kind)).toEqual(['approval', 'device_damaged', 'agent'])
 
     for (const state of ['offline', 'connecting', 'error'] as const) {
       expect(matrixAttentionItems({ ...view, state }, NOW).map(item => item.kind)).toEqual([
         'approval',
-        'device_damaged',
-        'disk_critical'
+        'device_damaged'
       ])
     }
 
-    expect(matrixAttentionItems({ ...view, state: 'offline', disk: { state: 'low', freeGb: 8 } }, NOW).at(-1)).toEqual({
-      kind: 'disk_low',
-      tone: 'warn'
-    })
     // Signed out: no one to ask.
     expect(matrixAttentionItems({ ...view, state: 'signed_out', identity: null }, NOW)).toEqual([])
   })
@@ -417,9 +402,7 @@ describe('the person’s own unverified devices (0.20)', () => {
   // 0.20: chats are plain, so no assistant refuses one of the person's devices; a reminder to
   // verify one would say something false. Main no longer lists them either.
   it('never raises a device to verify, even for a snapshot that lists unverified devices', () => {
-    expect(matrixAttentionItems(snapshot({ disk: { state: 'low', freeGb: 8 } }), NOW)).toEqual([
-      { kind: 'disk_low', tone: 'warn' }
-    ])
+    expect(matrixAttentionItems(snapshot({ disk: { state: 'low', freeGb: 8 } }), NOW)).toEqual([])
     expect(matrixAttentionItems(snapshot(), NOW)).toEqual([])
     expect(matrixAttentionItems(snapshot({ state: 'offline' }), NOW)).toEqual([])
   })
@@ -429,7 +412,7 @@ describe('the person’s own unverified devices (0.20)', () => {
 describe('a new sign-in on another device', () => {
   const signIn = { deviceId: 'PHONE', name: 'Atum for iPhone on Unknown device' }
 
-  it('is one item for that device, after a damaged device and before the disk', () => {
+  it('is one item for that device, after a damaged device (a low disk is not an item)', () => {
     const view = snapshot([agent('atum')], {
       newSignIn: signIn,
       deviceDamaged: true,
@@ -438,8 +421,7 @@ describe('a new sign-in on another device', () => {
 
     expect(matrixAttentionItems(view, NOW)).toEqual([
       { kind: 'device_damaged', tone: 'danger' },
-      { kind: 'new_sign_in', newSignIn: signIn, tone: 'warn' },
-      { kind: 'disk_low', tone: 'warn' }
+      { kind: 'new_sign_in', newSignIn: signIn, tone: 'warn' }
     ])
   })
 

@@ -251,8 +251,29 @@ function driveBridge(place: MatrixDriveState | 'waiting' | 'signIn', problem?: M
   const listeners = new Set<(next: MatrixDriveView) => void>()
   const everyRow = () => Object.values(tree).flatMap(folder => folder.rows)
 
+  // As main does, every read is also published (the rail and the left panel listen, never read).
+  const published = () => {
+    const next = { ...view }
+    queueMicrotask(() => listeners.forEach(listener => listener(next)))
+
+    return next
+  }
+
+  // The plus menu's New folder / New document / Upload, in the open folder (fixture only).
+  const add = (name: string, kind: 'file' | 'folder') => {
+    const taken = new Set(tree[at]!.rows.map(row => row.name))
+    let unique = name
+
+    for (let index = 2; taken.has(unique); index += 1) {unique = `${name} ${index}`}
+    tree[at]!.rows = [...tree[at]!.rows, { id: crypto.randomUUID(), name: unique, kind, size: 0, modifiedAt: Date.now() }]
+
+    return go(at)
+  }
+
   return {
-    read: async () => view,
+    read: async () => published(),
+    create: async (entry, name) => add(entry === 'folder' ? name : `${name}.md`, entry === 'folder' ? 'folder' : 'file'),
+    upload: async () => ({ cancelled: true }),
     search: async (query, scope) => {
       const rows: MatrixDriveRow[] = []
       const parents = (id: string): string[] => id === 'root' ? [] : [...parents(tree[id]!.parent!), tree[id]!.label!]

@@ -1,6 +1,5 @@
 import { useStore } from '@nanostores/react'
-import { type ReactNode, useEffect, useLayoutEffect, useMemo, useState } from 'react'
-import { createPortal } from 'react-dom'
+import { type ReactNode, useEffect, useMemo, useState } from 'react'
 
 import { AppCatalogAvatar } from '@/app/atum/app-catalog-presentation'
 import { ProtonAmount } from '@/components/brand/proton-mark'
@@ -195,11 +194,6 @@ export function MatrixDiscoverView({
     $matrixStoreListingRequest.set(null)
   }, [listingRequest, items, store.snapshot.state])
   const balance = wallet?.state === 'ready' ? wallet.wallet.balances.available : null
-  const [titleBarHost, setTitleBarHost] = useState<HTMLElement | null>(null)
-
-  useLayoutEffect(() => {
-    setTitleBarHost(document.querySelector<HTMLElement>('[data-atum-page-actions]'))
-  }, [])
   // Without the in-app checkout, the payments page needs a signed-in wallet to land on.
   const topUpPage = !checkout && wallet ? onTopUpPage : undefined
   const topUpAvailable = Boolean(checkout || topUpPage)
@@ -560,8 +554,10 @@ export function MatrixDiscoverView({
     return itemGrid(visible.filter(item => item.kind === shelf.slice(0, -1)))
   }
 
+  // The balance shows inside the top-up only (layout r2 E, owner 2026-11-24): never in the title bar,
+  // the Store's foot or any everyday surface.
   const walletButton =
-    balance !== null ? (
+    balance !== null && shelf === 'topups' ? (
       <div className="atum-store-wallet" data-store-wallet>
         <button
           aria-label={copy.balance(formatWhole(balance, locale))}
@@ -582,16 +578,13 @@ export function MatrixDiscoverView({
 
   return (
     <section aria-label={copy.title} className="min-h-0 flex-1 overflow-y-auto" data-matrix-discover>
-      {/* The balance sits once, in the title bar (Atum Kit, FlowStore); without a title bar (a
-          test or a story) it stays at the page's head. */}
-      {titleBarHost ? walletButton && createPortal(walletButton, titleBarHost) : null}
       <div className="mx-auto flex w-full max-w-[47.5rem] flex-col px-8 pt-8 pb-12">
         <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
           <div className="min-w-0">
             <h2 className="[font:var(--ak-t-display)] text-(--ak-ink)">{pageTitle}</h2>
             <p className="mt-(--ak-s1) [font:var(--ak-t-callout)] text-(--ak-ink-2)">{copy.subtitle}</p>
           </div>
-          {!titleBarHost && walletButton}
+          {walletButton}
         </div>
         <div className="mt-7">
           {listingMissing && (

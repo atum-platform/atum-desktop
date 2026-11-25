@@ -1,16 +1,16 @@
 import { useEffect, useState } from 'react'
 
-import { Tip } from '@/components/ui/tooltip'
-import { MessagePlus } from '@/lib/icons'
+import { FolderPlus, GitBranch, MessagePlus } from '@/lib/icons'
+import { MatrixPlusMenu } from '@/matrix/plus-menu'
 
 import type { MatrixWorkBridge, WorkBandCommand, WorkSidebarSnapshot, WorkSurfaceModeSnapshot } from '../../../shared/matrix-work'
 
 import type { WorkWords } from './copy'
 
 /**
- * T3's own New thread, run in the owner view (the view's brand row is hidden by the Work theme, so
- * this is the only copy). The hide-threads button sits with the window controls, where every page
- * keeps it. Absent bridge: no button.
+ * New, as the plus menu every screen has (layout r2 §4, owner 2026-11-24): T3's own pencil mapped
+ * through the host chrome. New thread ⌘N, New thread in a worktree, then Add project; each runs T3's
+ * own command in the owner view. Absent bridge: no button.
  */
 export function WorkRosterControls({ bridge, copy }: { bridge: Pick<MatrixWorkBridge, 'runCommand'>; copy: WorkWords }) {
   if (!bridge.runCommand) {
@@ -21,11 +21,15 @@ export function WorkRosterControls({ bridge, copy }: { bridge: Pick<MatrixWorkBr
 
   return (
     <div className="flex shrink-0 items-center [-webkit-app-region:no-drag]" data-atum-work-roster-controls>
-      <Tip label={copy.band.newThread}>
-        <button aria-label={copy.band.newThread} className="atum-icon-btn size-8" onClick={() => run('chat.new')} type="button">
-          <MessagePlus aria-hidden className="size-[1.125rem]" />
-        </button>
-      </Tip>
+      <MatrixPlusMenu
+        items={[
+          { id: 'thread', label: copy.band.newThread, icon: <MessagePlus aria-hidden />, shortcut: '⌘N', onSelect: () => run('chat.new') },
+          { id: 'worktree', label: copy.band.newWorktreeThread, icon: <GitBranch aria-hidden />, onSelect: () => run('chat.newWorktree') },
+          { id: 'project', label: copy.band.addProject, icon: <FolderPlus aria-hidden />, separated: true, onSelect: () => run('project.add') }
+        ]}
+        label={copy.band.newMenu}
+        screen="work"
+      />
     </div>
   )
 }

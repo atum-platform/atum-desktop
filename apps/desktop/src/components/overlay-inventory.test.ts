@@ -52,7 +52,6 @@ const NOT_OVERLAPPING: Record<string, string> = {
   'components/pet/floating-pet.tsx#FloatingPet': 'returns null while $attachedAppViews > 0 (asserted below); a view stays counted until main acknowledges its detachment (trackAppViewAttachment)',
   'matrix/company-space-tabs.tsx#CompanySpaceTabs': 'portals the Chat/Board/Marketplace tabs into the title-bar header host; it sits in the header strip, never over the app view',
   'matrix/drive.tsx#MatrixDrive': 'portals its sync status and view controls into the title bar\'s page slots (data-atum-page-status / -actions); they sit in the header strip, never over the app view',
-  'matrix/store/discover-view.tsx#MatrixDiscoverView': 'portals the Protons balance into the title bar\'s page actions slot; it sits in the header strip, never over the app view',
   'components/ui/context-menu.tsx#ContextMenuPortal': 'passthrough portal; ContextMenuContent and SubContent hold',
   'components/ui/dialog.tsx#DialogPortal': 'passthrough portal; DialogOverlay and DialogContent hold',
   'components/ui/sheet.tsx#SheetPortal': 'passthrough portal; SheetOverlay and SheetContent hold',

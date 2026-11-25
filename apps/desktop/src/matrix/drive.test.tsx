@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { afterEach, expect, it, vi } from 'vitest'
 
 import { AtumNavSwitchSurface } from '@/app/atum/shell-surface'
-import { I18nProvider, type Locale } from '@/i18n'
+import { I18nProvider } from '@/i18n'
 
 import type { MatrixDriveBridge, MatrixDriveView } from '../../shared/matrix-drive'
 
@@ -17,8 +17,10 @@ import {
   recentDriveRows
 } from './drive'
 import { matrixDriveCopy } from './drive-copy'
-import { learnMatrixDrivePlaces, setMatrixDriveLayout } from './drive-finder'
+import { $matrixDriveQuery, learnMatrixDrivePlaces, setMatrixDriveLayout } from './drive-finder'
 import { $matrixDriveTaskSelection, setMatrixDriveTaskScope } from './drive-selection'
+import { MatrixNavArrows } from './nav-arrows'
+import { $matrixNavLocal, resetMatrixNav } from './navigation-history'
 
 vi.stubGlobal('ResizeObserver', class {
   observe() {}
@@ -31,6 +33,8 @@ afterEach(() => {
   setMatrixDriveTaskScope(null, null)
   setMatrixDriveLayout('icon')
   learnMatrixDrivePlaces(null, 'en')
+  $matrixDriveQuery.set('')
+  resetMatrixNav()
   localStorage.clear()
 })
 
@@ -210,7 +214,8 @@ it('offers plain file actions, title-bar controls and no Turn off on a running D
     expect.objectContaining({ id: 'opaque-folder', mode: 'create', leafName: 'summary.md' })
   ])
   expect(screen.queryByRole('button', { name: 'Turn off Drive' })).toBeNull()
-  expect(screen.getByRole('button', { name: 'Search Drive' })).toBeTruthy()
+  // Search is the left panel's (layout r2 D); the title bar keeps the view switch and "…".
+  expect(screen.queryByRole('button', { name: 'Search Drive' })).toBeNull()
   expect(screen.getByRole('button', { name: 'More Drive actions' })).toBeTruthy()
   expect(disconnect).not.toHaveBeenCalled()
 })
@@ -446,22 +451,18 @@ it('up to date: keeps time and folder path out of the title bar and puts Finder 
   expect(formatDriveSyncTime(today.getTime(), 'vi', today.getTime())).toBe('14:32')
 })
 
-it.each(Object.keys(matrixDriveCopy) as Locale[])(
-  'keeps the %s search action icon-only while its translated label remains in the tooltip',
+it.each(['en', 'vi', 'ja', 'zh', 'zh-hant'] as const)(
+  'says Search in the %s locale in the left panel’s search field',
   async locale => {
-    const drive = staticBridge(base({ state: 'ready' }))
-
     render(
       <I18nProvider configClient={null} initialLocale={locale}>
-        <MatrixDrive bridge={drive.bridge} />
+        <MatrixDriveSidebar compact={false} current="all" onSelect={() => {}} windowControls={null} />
       </I18nProvider>
     )
 
-    await screen.findByText(matrixDriveCopy[locale].status.ready)
-    const search = screen.getByRole('button', { name: matrixDriveCopy[locale].search })
-    expect(search.textContent).toBe('')
-    fireEvent.pointerMove(search, { pointerType: 'mouse' })
-    expect((await screen.findByRole('tooltip')).textContent).toBe(matrixDriveCopy[locale].search)
+    const search = screen.getByRole('textbox', { name: matrixDriveCopy[locale].search })
+    expect(search.getAttribute('placeholder')).toBe(matrixDriveCopy[locale].search)
+    expect(search.closest('.ak-field--search')).toBeTruthy()
   }
 )
 
@@ -471,8 +472,8 @@ it('opens the kit search field and filters the current Drive rows', async () => 
     { id: 'plan', name: 'plan.txt', kind: 'file', size: 14, modifiedAt: 0 }
   ] }))
 
-  show(drive.bridge, 'en')
-  fireEvent.click(await screen.findByRole('button', { name: 'Search Drive' }))
+  render(<Finder bridge={drive.bridge} />)
+  await screen.findByRole('option', { name: 'notes.txt' })
   const search = screen.getByRole('textbox', { name: 'Search Drive' })
   expect(search.closest('.ak-field--search')).toBeTruthy()
   fireEvent.change(search, { target: { value: 'plan' } })
@@ -678,7 +679,8 @@ it('keeps local navigation and keyboard focus through a sync-only status update'
   expect(screen.getByRole('option', { name: 'kept.txt' })).toBe(row)
   expect(row.ownerDocument.activeElement).toBe(row)
   expect(screen.getByText('Projects')).toBeTruthy()
-  expect(screen.getByRole('button', { name: 'Back' })).toBeTruthy()
+  // Drive's own folders are the window ← →'s first steps (layout r2 §1).
+  expect($matrixNavLocal.get()?.back).toBe(true)
 })
 
 it('keeps first-connect setup as a hero until main grants local browsing', async () => {
@@ -928,29 +930,37 @@ it('lays the sidebar out as Finder does: Recents, the Drive’s folders as Favor
   ])
 })
 
-it('goes back and forward from the toolbar, as Finder’s ‹ › do', async () => {
+it('goes back and forward through Drive’s folders from the window’s ← →, as Finder’s ‹ › do', async () => {
   const drive = treeBridge()
-  render(<Finder bridge={drive.bridge} />)
+  render(
+    <>
+      <Finder bridge={drive.bridge} />
+      <I18nProvider configClient={null} initialLocale="en">
+        <MatrixNavArrows />
+      </I18nProvider>
+    </>
+  )
 
   await screen.findByRole('heading', { name: 'Atum Drive' })
-  const back = screen.getByRole('button', { name: 'Back' }) as HTMLButtonElement
-  const forward = screen.getByRole('button', { name: 'Forward' }) as HTMLButtonElement
-  expect(back.disabled).toBe(true)
-  expect(forward.disabled).toBe(true)
+  const back = screen.getByRole('button', { name: 'Back' })
+  const forward = screen.getByRole('button', { name: 'Forward' })
+  const off = (button: HTMLElement) => button.getAttribute('aria-disabled') === 'true'
+  expect(off(back)).toBe(true)
+  expect(off(forward)).toBe(true)
 
   fireEvent.doubleClick(item('Reports'))
   await screen.findByRole('heading', { name: 'Reports' })
-  expect(back.disabled).toBe(false)
+  expect(off(back)).toBe(false)
   fireEvent.click(back)
   await screen.findByRole('heading', { name: 'Atum Drive' })
   expect(drive.back).toHaveBeenCalledOnce()
   // The folder you came out of is the one selected.
   expect(item('Reports').getAttribute('aria-selected')).toBe('true')
-  await waitFor(() => expect(forward.disabled).toBe(false))
+  await waitFor(() => expect(off(forward)).toBe(false))
   fireEvent.click(forward)
   await screen.findByRole('heading', { name: 'Reports' })
   expect(drive.enter).toHaveBeenLastCalledWith('h-reports')
-  expect(forward.disabled).toBe(true)
+  expect(off(forward)).toBe(true)
 })
 
 it('selects with a click, clears on empty space, and opens with a double-click', async () => {

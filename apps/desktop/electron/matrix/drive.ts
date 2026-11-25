@@ -13,7 +13,7 @@ import {
   realpathSync,
   rmdirSync
 } from 'node:fs'
-import { lstat, readdir, realpath } from 'node:fs/promises'
+import { cp, lstat, mkdir, readdir, realpath, writeFile } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import path from 'node:path'
 
@@ -394,6 +394,8 @@ export class MatrixDrive {
       store: Pick<EncryptedStore, 'getItem' | 'setItem'>
       userData: string
       chooseFolder(): Promise<string | undefined>
+      /** The person's own "Upload files…" / "Upload a folder…" picker: what they chose, or nothing. */
+      chooseUpload?(kind: 'files' | 'folder'): Promise<string[] | undefined>
       /** `~/Atum/Drive`: the folder a first connect uses, made when missing, when it can be Drive. */
       defaultFolder?: string
       /** Whether Drive's server answers at all (anonymous, no credential). Without it a stopped
@@ -865,10 +867,12 @@ export class MatrixDrive {
 
     const start = (why: string) => {
       this.autoDecided = key
+
       if (this.autoRetryTimer) {
         clearTimeout(this.autoRetryTimer)
         this.autoRetryTimer = undefined
       }
+
       this.log(`connect started automatically: ${why}`)
 
       void this.connect('automatic').catch(() => {
@@ -2054,6 +2058,7 @@ export class MatrixDrive {
       this.state !== 'error' || !this.key || !this.savedFolderEnrolled() ||
       this.options.store.getItem('drive-enabled:' + this.key) !== 'yes' ||
       (!immediate && Date.now() < this.recoveryAt)) {return}
+
     this.recoveryAt = Date.now() + 15_000
     void this.connect('launch').catch(() => {})
   }
@@ -2061,6 +2066,7 @@ export class MatrixDrive {
   /** Turn Drive on: `~/Atum/Drive` (made when missing), never a folder picker. */
   async connect(mode: ConnectMode = 'manual'): Promise<MatrixDriveView | { cancelled: true }> {
     this.recoveryDue = false
+
     if (mode !== 'retry') {
       this.stopSetupRetry()
       // A retry carries on the connect it retries; any other connect says for itself.
@@ -3255,6 +3261,7 @@ export class MatrixDrive {
   async dispose(): Promise<void> {
     this.disposed = true
     this.closePreviews()
+
     if (this.autoRetryTimer) {
       clearTimeout(this.autoRetryTimer)
       this.autoRetryTimer = undefined
@@ -3595,8 +3602,10 @@ export class MatrixDrive {
       }
 
       const base = { token, name, size: stat.size, modifiedAt: stat.mtimeMs }
+
       const kind: MatrixDrivePreview['kind'] =
         openKind === 'pdf' ? 'pdf' : openKind === 'image' ? 'image' : openKind === 'text' ? 'text' : 'unsupported'
+
       this.previews.set(token, { row: { ...row }, kind })
 
       if (kind === 'pdf') {
@@ -3686,6 +3695,77 @@ export class MatrixDrive {
     }
   }
 
+  /** The open folder, checked to be inside Drive's root (never a link out of it). */
+  private async openFolderPath(): Promise<string> {
+    const root = this.requiredLocalBrowseRoot()
+    const folder = path.resolve(root, this.folder)
+    const [realRoot, realFolder] = await Promise.all([realpath(root), realpath(folder)])
+
+    if (realFolder !== realRoot && !realFolder.startsWith(realRoot + path.sep)) {
+      throw new Error('matrix_drive_file_unavailable')
+    }
+
+    return realFolder
+  }
+
+  /** `base`, else `base 2`, `base 3`… before the extension: never over what is there. */
+  private async freeName(folder: string, base: string, extension = ''): Promise<string> {
+    for (let index = 1; index < 1000; index += 1) {
+      const name = `${base}${index === 1 ? '' : ` ${index}`}${extension}`
+
+      try {
+        await lstat(path.join(folder, name))
+      } catch {
+        return name
+      }
+    }
+
+    throw new Error('matrix_drive_name_unavailable')
+  }
+
+  /** New folder / New document from Drive's plus menu (layout r2 §4), in the open folder. `name` is the
+   * window's word for it ("Untitled folder"), checked to be one plain name. A document is Markdown:
+   * a plain file every assistant and editor reads. */
+  async create(kind: 'folder' | 'document', name: string): Promise<MatrixDriveView> {
+    this.activate()
+
+    if (!validDriveEntryName(name)) {
+      throw new Error('matrix_drive_request_invalid')
+    }
+
+    const folder = await this.openFolderPath()
+
+    if (kind === 'folder') {
+      await mkdir(path.join(folder, await this.freeName(folder, name)))
+    } else {
+      await writeFile(path.join(folder, await this.freeName(folder, name, '.md')), '', { flag: 'wx' })
+    }
+
+    return this.read()
+  }
+
+  /** Upload files… / Upload a folder…: copies what the person picked into the open folder, never over a
+   * file that is there. Drive's sync takes it from there. */
+  async upload(kind: 'files' | 'folder'): Promise<MatrixDriveView | { cancelled: true }> {
+    this.activate()
+    const picked = await this.options.chooseUpload?.(kind)
+
+    if (!picked?.length) {
+      return { cancelled: true }
+    }
+
+    const folder = await this.openFolderPath()
+
+    for (const source of picked) {
+      const parsed = path.parse(source)
+      const directory = (await lstat(source)).isDirectory()
+      const target = await this.freeName(folder, directory ? parsed.base : parsed.name, directory ? '' : parsed.ext)
+      await cp(source, path.join(folder, target), { recursive: true, errorOnExist: true, force: false, dereference: false })
+    }
+
+    return this.read()
+  }
+
   async reveal(): Promise<void> {
     this.activate()
 
@@ -3693,4 +3773,18 @@ export class MatrixDrive {
       throw new Error('matrix_drive_open_failed')
     }
   }
+}
+
+/** One plain file or folder name: no separators, no dot names, no control characters, not too long. */
+export function validDriveEntryName(value: unknown): value is string {
+  return (
+    typeof value === 'string' &&
+    value.trim() === value &&
+    value.length > 0 &&
+    value.length <= 80 &&
+    value !== '.' &&
+    value !== '..' &&
+    !value.startsWith('.') &&
+    ![...value].some(char => char === '/' || char === '\\' || char === ':' || char.charCodeAt(0) < 0x20)
+  )
 }

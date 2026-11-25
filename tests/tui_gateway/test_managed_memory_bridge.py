@@ -94,6 +94,7 @@ def test_controller_loopback_cache_stability_and_retirement(setup, monkeypatch):
         manager.assert_run_authority()
         answer = json.loads(manager.handle_tool_call('atum_recall', {'query': query}))
         assert answer['status'] == 'ok'
+        assert answer['retrievalOrigin'] == 'cloud'
     assert manager.build_system_prompt() == prompt
     assert manager.get_all_tool_schemas() == tools
     assert any(e == 'atum.memory.retrieve.request' for e, _ in calls)
@@ -177,3 +178,66 @@ def test_factory_binds_real_native_manager_before_agent(setup, monkeypatch):
     assert manager.providers and kwargs['skip_memory'] is False
     assert manager.get_all_tool_schemas()[0]['name'] == 'atum_recall'
     assert session['_managed_memory_bridge'].constructing is False
+
+
+def test_native_historical_socket_is_admitted_once_and_used_only_on_outage(setup, monkeypatch):
+    import socketserver
+    from http.server import BaseHTTPRequestHandler
+    from tests.agent.test_atum_awareness import response as legacy_response
+    from agent.atum_awareness_v2 import unavailable
+    db, home = setup
+    b = binding()
+    import tempfile
+    native_home = tempfile.TemporaryDirectory(prefix='ah-', dir='/tmp')
+    socket_path = str(__import__('pathlib').Path(native_home.name) / 'h.sock')
+    calls = []
+    class Handler(BaseHTTPRequestHandler):
+        def log_message(self, *args): pass
+        def do_POST(self):
+            req = json.loads(self.rfile.read(int(self.headers['Content-Length'])))
+            calls.append(req)
+            body = json.dumps({'binding':b, 'response':legacy_response(req)}).encode()
+            self.send_response(200)
+            self.send_header('Content-Length', str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+    class Server(socketserver.UnixStreamServer): pass
+    listener = Server(socket_path, Handler)
+    import os
+    os.chmod(socket_path, 0o600)
+    thread = threading.Thread(target=listener.serve_forever, daemon=True)
+    thread.start()
+    params = {'source':'matrix', 'async_delivery':False,
+              'managed_memory':{'binding':b, 'historicalSocket':socket_path}, 'idempotency_key':'native-historical'}
+    try:
+        result = server.handle_request({'jsonrpc':'2.0','id':'create','method':'session.create','params':params})['result']
+        sid = result['session_id']
+        session = server._sessions[sid]
+        assert session['_native_historical_socket'] == socket_path
+        session['profile_home'] = str(home)
+        state = {'cloud':True}
+        def controller(event, event_sid, payload):
+            bridge = session['_managed_memory_bridge']
+            kind = event.split('.')[2]
+            reply = ({'ok':True,'current':True} if kind == 'current' else
+                {'ok':True,'response': response(payload['request'],threading.Event()) if state['cloud'] else unavailable(payload['request'])})
+            assert bridge.respond(kind, payload['request_id'], json.dumps(reply))
+        monkeypatch.setattr(server, '_emit', controller)
+        manager = build_cloud_memory(session, sid, b['sessionId'], db)['memory_manager']
+        answer = json.loads(manager.handle_tool_call('atum_recall',{'query':'launch'}))
+        assert answer['retrievalOrigin'] == 'cloud' and calls == []
+        state['cloud'] = False
+        answer = json.loads(manager.handle_tool_call('atum_recall',{'query':'launch'}))
+        assert answer['retrievalOrigin'] == 'local_historical_fallback' and answer['items']
+        assert calls[0]['agentPrincipal'] == b['agentPrincipal']
+        # Same idempotency token cannot graft or remove historical authority.
+        params['managed_memory'] = {'binding':b}
+        assert 'error' in server.handle_request({'jsonrpc':'2.0','id':'retry','method':'session.create','params':params})
+        with pytest.raises(ValueError):
+            admission({**params,'managed_memory':{'binding':b,'historicalSocket':socket_path}},object(),object())
+        manager.shutdown_all()
+    finally:
+        listener.shutdown()
+        listener.server_close()
+        thread.join()
+        native_home.cleanup()

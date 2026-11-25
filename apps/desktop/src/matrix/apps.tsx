@@ -1,3 +1,4 @@
+import { useStore } from '@nanostores/react'
 import { useEffect, useRef, useState } from 'react'
 
 import { AppCatalogIdentity } from '@/app/atum/app-catalog-presentation'
@@ -20,10 +21,12 @@ import { openAppBotChat } from './app-bots/open'
 import { AppChat, AppGroupDialog, useAppChatActions } from './app-chat'
 import { useAppCopy } from './app-copy'
 import { appRoster } from './app-roster'
+import { $matrixRightPanel, setMatrixRightPanel } from './right-panel'
 import { MatrixDiscoverView } from './store/discover-view'
 import { type MatrixStoreNavigation, MatrixStoreSidebar } from './store/store-sidebar'
 import { matrixStoreHatchAction, matrixStoreTryAction } from './store/store-try'
-import type { DiscoverShelf } from './store/top-up'
+import { $matrixStoreListingRequest, type DiscoverShelf } from './store/top-up'
+import { MatrixYourStorePanel } from './store/your-store-panel'
 import { runMatrixCommand } from './text-document-actions'
 
 /** An assistant's skill list for the Store: the names its definition carries (assistant card). */
@@ -33,6 +36,7 @@ function readAssistantSkills(principal: string): Promise<readonly string[] | nul
     Promise.resolve(null)
   )
 }
+
 const pageCopy: Record<Locale, { more: (app: string) => string; noScreens: string; back: string }> = {
   en: { more: app => `More for ${app}`, noScreens: 'This app has no screens yet.', back: 'Back to the Store' },
   vi: { more: app => `Thêm cho ${app}`, noScreens: 'Ứng dụng này chưa có màn hình nào.', back: 'Quay lại Cửa hàng' },
@@ -253,6 +257,8 @@ export function MatrixApps({
 
   const [fallbackQuery, setFallbackQuery] = useState('')
 
+  const yourStoreOpen = useStore($matrixRightPanel).discover
+
   const storeSnapshot: MatrixStoreSnapshot = snapshot.store ?? {
     state: 'unavailable',
     items: [],
@@ -386,6 +392,7 @@ export function MatrixApps({
       {discover && (
         <>
           {!storeNavigation && <MatrixStoreSidebar {...navigation} />}
+          <div className="flex min-h-0 flex-1 overflow-hidden" data-matrix-store-row>
           <MatrixDiscoverView
             agents={snapshot.agents ?? []}
             apps={{
@@ -467,6 +474,16 @@ export function MatrixApps({
             tryItem={(item, assistantId) => matrixStoreTryAction(snapshot, item, assistantId, locale)}
             wallet={snapshot.wallet}
           />
+          {/* The neutral right panel (layout r2 §2): closed by default here, remembered when opened. */}
+          {yourStoreOpen && storeSnapshot.state !== 'unavailable' && (
+            <MatrixYourStorePanel
+              onAllPurchases={() => navigation.onShelfChange('purchased')}
+              onClose={() => setMatrixRightPanel('discover', false)}
+              onOpenItem={itemId => $matrixStoreListingRequest.set(itemId)}
+              store={storeSnapshot}
+            />
+          )}
+          </div>
         </>
       )}
       {selected && (

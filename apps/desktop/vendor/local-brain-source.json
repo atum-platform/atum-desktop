@@ -350,12 +350,12 @@
       "bytes": 3259
     },
     "src/service.mjs": {
-      "sha256": "4ce5e67342ca70887f41e8f4af04e7ff705a48bc48c14b46ce9d9fc880412c97",
-      "bytes": 47186
+      "sha256": "72b1bf174ff291b53447bf980f8c56f450cdd3d55bc843b59c2d6a256c660e43",
+      "bytes": 48399
     },
     "src/state.mjs": {
-      "sha256": "43820396a11099efa85538c94a58ef778f19106c070b0ac4890553bba0fea233",
-      "bytes": 38272
+      "sha256": "1e61df72974f660a7454a10a15e92f8d6551a620200f22da8c496b61277f4800",
+      "bytes": 38552
     },
     "src/tar.mjs": {
       "sha256": "fcf26caa6b35d5f679e99a14e38eb27f2151befb5f8155c3d4010c9994c74c98",

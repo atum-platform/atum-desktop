@@ -95,7 +95,7 @@ export function PersonAction({
   return (
     <button
       className={cn(
-        'inline-flex h-7 shrink-0 items-center gap-1 rounded-full px-3 text-(length:--atum-t-caption) font-medium transition-colors disabled:pointer-events-none disabled:opacity-45',
+        'inline-flex h-7 shrink-0 items-center gap-1 rounded-(--control-radius) px-3 text-(length:--atum-t-caption) font-medium transition-colors disabled:pointer-events-none disabled:opacity-45',
         tone === 'primary' && 'bg-(--atum-ink) text-(--atum-on-accent) hover:bg-(--atum-ink-soft)',
         tone === 'quiet' && 'bg-(--atum-sunk) text-(--atum-ink) hover:bg-(--atum-hover)',
         tone === 'done' && 'text-(--atum-ink-muted) hover:text-(--atum-ink)',

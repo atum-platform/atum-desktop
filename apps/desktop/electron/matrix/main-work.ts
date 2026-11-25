@@ -5,12 +5,14 @@ import { join } from 'node:path'
 
 import type { BrowserWindow, IpcMain, IpcMainInvokeEvent, Session } from 'electron'
 
-import type { WorkSidebarSnapshot, WorkSurfaceModeSnapshot } from "../../shared/matrix-work"
+import type { WorkAttentionSnapshot, WorkSidebarSnapshot, WorkSurfaceModeSnapshot } from "../../shared/matrix-work"
 import { MATRIX_WORK_IPC, type MatrixWorkProjection } from '../../shared/matrix-work'
 import type { SafeStorageLike } from '../encrypted-store'
 import { admitConnector } from '../work/connector/admission'
 import { ConnectorHttp } from '../work/connector/http'
 import { matrixConnector } from '../work/connector/matrix'
+import { NativeConnector, type NativePath } from '../work/connector/native'
+import { approveNativeAgent } from '../work/connector/native-oauth'
 import { ConnectorService } from '../work/connector/service'
 import {
   createDeviceServicePlatform,
@@ -41,6 +43,7 @@ import {
   type WorkSurfaceParts
 } from '../work/surface'
 import { readAccountConnections } from '../work/surface/account-connections'
+import { readConnectMcpUrl } from '../work/surface/connect-endpoint'
 import { projectPlanCapabilities } from '../work/surface/plan-capabilities'
 import { readPlanUsage } from '../work/surface/plan-usage'
 import { readWorkProviders } from '../work/surface/provider-config'
@@ -48,6 +51,9 @@ import { createOwnerRelay } from '../work/surface/relay'
 
 import type { MatrixAgentDefinitionSnapshot } from './agent-definition'
 import { MatrixWorkLifecycle, workAccountFor } from './work-lifecycle'
+
+/** Atum's panel radius (`--atum-r-panel`, styles.css): Work's native view is rounded to it. */
+export const WORK_VIEW_RADIUS = 14
 
 // The Matrix composition's Work (self-work slice A, lane W). Everything Work needs from the Matrix window is a port
 // here, so this file holds no account logic of its own: it builds the app-wide objects once (host, session, mount,
@@ -101,6 +107,7 @@ export interface MatrixWorkDeps {
   deviceServicesEndpoint(): string | undefined
   /** The signed-in owner's current domain bearer. */
   bearer(): Promise<string>
+  connectAssertion?(): Promise<string>
   /** Retire the legacy cloud login before opening native Codex setup. */
   prepareChatGptConnect(): Promise<void>
   /** The owner's own SDK host (`hosts.get('human')`), for the verifier. */
@@ -111,9 +118,11 @@ export interface MatrixWorkDeps {
   agentName(principal: string): string | undefined
   /** The existing account agent-record/definition reader, fenced to the signed-in account. */
   agentDefinition?(principal: string): Promise<MatrixAgentDefinitionSnapshot>
+  nativeAgents?(): Promise<string[]>
+  nativeRequest?(agent: string, path: NativePath, method: 'GET' | 'POST', body?: unknown): Promise<unknown>
   /** The owner's top-up page (what `openTopUp` opens). */
   openProtons(): Promise<void>
-  publish(channel: string, payload: MatrixWorkProjection | WorkSurfaceModeSnapshot | WorkSidebarSnapshot | null): void
+  publish(channel: string, payload: MatrixWorkProjection | WorkSurfaceModeSnapshot | WorkSidebarSnapshot | WorkAttentionSnapshot | null): void
   /** Main's `closing`: nothing starts while the app quits. */
   closing(): boolean
   log(line: string): void
@@ -360,9 +369,12 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
         })
 
   let connector: ConnectorHttp | undefined
+  let nativeConnector: NativeConnector | undefined
   let connectorEnvironment: Record<string, string> = {}
 
   const closeConnector = () => {
+    nativeConnector?.revoke()
+    nativeConnector = undefined
     const old = connector
     connector = undefined
     connectorEnvironment = {}
@@ -399,7 +411,14 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
         })
       )
 
-      const candidate = new ConnectorHttp(service, secret)
+      const native = deps.nativeAgents && deps.nativeRequest && deps.deviceServiceId()
+        ? new NativeConnector(join(bound.root, 'work'), deps.deviceServiceId()!, {
+          current, enabled: () => mount.service()?.state().planSwitchOn ?? false,
+          agents: () => deps.nativeAgents!(), request: (...args) => deps.nativeRequest!(...args)
+        }) : undefined
+
+      if (native) {await native.consent()}
+      const candidate = new ConnectorHttp(service, secret, native)
       const endpoint = await candidate.start()
 
       if (!current()) {
@@ -408,14 +427,17 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
       }
 
       connector = candidate
-      connectorEnvironment = { ATUM_WORK_CONNECTOR_URL: endpoint, ATUM_WORK_CONNECTOR_TOKEN: secret }
+      nativeConnector = native
+      connectorEnvironment = { ATUM_WORK_CONNECTOR_URL: endpoint, ATUM_WORK_CONNECTOR_TOKEN: secret, ...native?.environment(endpoint) }
     }
   }
 
   const host = new WorkHost({
+    connectAssertion: () => deps.connectAssertion ? deps.connectAssertion() : Promise.reject(new Error('work_unavailable')),
     log: (phase, ms) => deps.log(`[atum-work] startup phase=${phase} ms=${ms} at=${Date.now()}`),
     surfaceModeChanged: snapshot => deps.publish(MATRIX_WORK_IPC.surfaceModeChanged, snapshot),
     sidebarChanged: snapshot => deps.publish(MATRIX_WORK_IPC.sidebarChanged, snapshot),
+    attentionChanged: snapshot => deps.publish(MATRIX_WORK_IPC.attentionChanged, snapshot),
     prepare: prepareConnector,
     resources: deps.resources,
     account,
@@ -590,6 +612,7 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
     canPrewarm: () => loadavg()[0] < availableParallelism(),
     getSurfaceMode: () => host.getSurfaceMode(),
     getSidebar: () => host.sidebar(),
+    getAttention: () => host.attention(),
     runCommand: command => host.runCommand(command),
     setSurfaceMode: (projectId, mode) => host.setSurfaceMode(projectId, mode),
     createView: createWorkViewFactory({
@@ -597,7 +620,8 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
       preload: deps.workPreload,
       zoomFactor: deps.zoomFactor,
       log: (phase, ms) => deps.log(`[atum-work] startup phase=${phase} ms=${ms} at=${Date.now()}`),
-      radius: 0,
+      // The panel radius (--atum-r-panel): the view sits in the shared panel frame like every screen.
+      radius: WORK_VIEW_RADIUS,
       onBlocked: (kind, origin) => deps.log(`[atum-work] view_blocked ${kind} ${origin}`)
     }),
     publish: projection => {
@@ -685,6 +709,26 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
       endpoint: deps.deviceServicesEndpoint() ?? '',
       bearer: () => deps.bearer()
     })),
+    nativeConsent: {
+      renewal: () => nativeConnector?.renewal(),
+      async approve(input, plan) {
+        const mac = deps.deviceServiceId()
+
+        if (!nativeConnector || !mac || !input.macs.includes(mac)) {return}
+        const running = host.current()
+
+        if (!running) {throw new Error('native_work_unavailable')}
+        const connectUrl = await readConnectMcpUrl(running.origin, deps.sessionFromPartition(partitionFor(running.accountKey)))
+        const bound = account()
+        await Promise.all(input.agents.map(agent => approveNativeAgent({
+          connector: nativeConnector!, owner: deps.sessionFromPartition(partitionFor(running.accountKey)), origin: running.origin,
+          agent, request: { mac, plan: plan ?? 'codex', alsoWhenScheduled: input.alsoWhenScheduled, connectUrl },
+          current: () => account()?.key === bound?.key && account()?.generation === bound?.generation && host.current()?.id === running.id
+        })))
+        await nativeConnector.consent()
+      },
+      revoke: () => nativeConnector?.revoke()
+    },
     consent: consentClient
   })
 

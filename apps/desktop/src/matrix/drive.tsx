@@ -20,14 +20,14 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Tip } from '@/components/ui/tooltip'
 import { type Locale, useI18n } from '@/i18n'
 import {
-  ChevronLeft,
-  ChevronRight,
   Clock,
   Cloud,
   CloudCheck,
   CloudOff,
+  FileText,
   Folder,
   FolderOpen,
+  FolderPlus,
   Info,
   LayoutColumns,
   LayoutGallery,
@@ -37,7 +37,10 @@ import {
   MoreHorizontal,
   Pause,
   RefreshCw,
-  SearchIcon
+  SearchIcon,
+  Settings,
+  Upload,
+  X
 } from '@/lib/icons'
 import { cn } from '@/lib/utils'
 
@@ -60,7 +63,9 @@ import {
   $matrixDriveLayout,
   $matrixDriveListings,
   $matrixDriveLocation,
+  $matrixDrivePageFacts,
   $matrixDrivePlaces,
+  $matrixDriveQuery,
   currentDrivePlace,
   DRIVE_NAME_ORDER,
   DRIVE_RECENT_ORDER,
@@ -92,6 +97,10 @@ import {
   validMatrixDriveLeafName
 } from './drive-selection'
 import type { MatrixDriveTaskScope } from './drive-selection'
+import { setMatrixNavLocal } from './navigation-history'
+import { MatrixPlusMenu, type MatrixPlusMenuItem, plusMenuCopy } from './plus-menu'
+import { useMatrixDriveRailView } from './rail-badges'
+import { $matrixRightPanel, setMatrixRightPanel } from './right-panel'
 
 const initial: MatrixDriveView = { state: 'unavailable', revision: 0, rows: [], canGoBack: false, truncated: false }
 
@@ -132,21 +141,104 @@ export function recentDriveRows(rows: readonly MatrixDriveRow[]): MatrixDriveRow
 export function MatrixDriveSidebar({
   compact,
   current,
+  onOpenSettings,
   onSelect,
   titleBarAction,
   windowControls
 }: {
   compact: boolean
   current: MatrixDriveDestination
+  /** The foot's gear. */
+  onOpenSettings?(): void
   onSelect(destination: MatrixDriveDestination): void
-  /** The title bar's bell, while this column leads the window's row. */
+  /** The title bar's ← →, while this column leads the window's row. */
   titleBarAction?: ReactNode
   windowControls: ReactNode
 }) {
   const { locale } = useI18n()
   const copy = matrixDriveCopy[locale]
+  const plus = plusMenuCopy(locale)
   const folders = useStore($matrixDrivePlaces)
   const place = currentDrivePlace(current, useStore($matrixDriveLocation))
+  const query = useStore($matrixDriveQuery)
+  // What the Drive page lists, else what Drive publishes; never a read of its own (a read activates Drive).
+  const page = useStore($matrixDrivePageFacts)
+  const published = useMatrixDriveRailView(window.atumMatrix?.drive)
+  const bridge = window.atumMatrix?.drive
+  const quota = page?.quota ?? published?.quota
+
+  // Drive's plus menu (layout r2 §4): New folder ⇧⌘N, New document, then the uploads. Only what this
+  // build's Drive can do, and only while it lists a folder.
+  const browsable = page ? page.browsable : Boolean(published?.canBrowseLocally)
+
+  const plusItems: MatrixPlusMenuItem[] = browsable
+    ? [
+        ...(bridge?.create
+          ? [
+              {
+                id: 'folder',
+                label: plus.newFolder,
+                icon: <FolderPlus aria-hidden />,
+                shortcut: '⇧⌘N',
+                onSelect: () => {
+                  onSelect('all')
+                  requestMatrixDriveIntent({ kind: 'create', entry: 'folder', name: copy.untitledFolder })
+                }
+              },
+              {
+                id: 'document',
+                label: plus.newDocument,
+                icon: <FileText aria-hidden />,
+                onSelect: () => {
+                  onSelect('all')
+                  requestMatrixDriveIntent({ kind: 'create', entry: 'document', name: copy.untitledDocument })
+                }
+              }
+            ]
+          : []),
+        ...(bridge?.upload
+          ? [
+              {
+                id: 'files',
+                label: plus.uploadFiles,
+                icon: <Upload aria-hidden />,
+                separated: Boolean(bridge.create),
+                onSelect: () => {
+                  onSelect('all')
+                  requestMatrixDriveIntent({ kind: 'upload', entry: 'files' })
+                }
+              },
+              {
+                id: 'upload-folder',
+                label: plus.uploadFolder,
+                icon: <FolderOpen aria-hidden />,
+                onSelect: () => {
+                  onSelect('all')
+                  requestMatrixDriveIntent({ kind: 'upload', entry: 'folder' })
+                }
+              }
+            ]
+          : [])
+      ]
+    : []
+
+  // ⇧⌘N makes a new folder, as in Finder; ⌘N runs the menu's first item (MatrixPlusMenu).
+  const newFolder = plusItems.find(item => item.id === 'folder')?.onSelect
+  const newFolderRef = useRef(newFolder)
+  newFolderRef.current = newFolder
+
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.metaKey && event.shiftKey && !event.altKey && !event.ctrlKey && event.key.toLowerCase() === 'n' && newFolderRef.current) {
+        event.preventDefault()
+        newFolderRef.current()
+      }
+    }
+
+    window.addEventListener('keydown', onKey)
+
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
 
   const row = (key: string, label: string, Icon: typeof Clock, isCurrent: boolean, go: () => void) => (
     <button
@@ -176,6 +268,26 @@ export function MatrixDriveSidebar({
         {windowControls}
         <span className="flex-1" />
         {titleBarAction}
+      </div>
+      {/* D: Drive's search (it lists matches in the page) and New (layout r2 D, §4). */}
+      <div className="flex shrink-0 items-center gap-1.5 px-2 pt-1 pb-2" data-matrix-drive-search-row>
+        <label className="ak-field ak-field--search h-8 min-w-0 flex-1">
+          <SearchIcon aria-hidden className="ak-icon ak-icon--sm" />
+          <input
+            aria-label={copy.search}
+            data-matrix-drive-search
+            onChange={event => $matrixDriveQuery.set(event.currentTarget.value)}
+            onKeyDown={event => {
+              if (event.key === 'Escape' && query) {
+                event.preventDefault()
+                $matrixDriveQuery.set('')
+              }
+            }}
+            placeholder={copy.search}
+            value={query}
+          />
+        </label>
+        <MatrixPlusMenu items={plusItems} label={plus.newMenu} screen="drive" />
       </div>
       {/* Finder's sidebar on the roster panel itself: Recents, the Drive's own folders as Favorites
           (the owner's and the ones assistants made alike), and the Drive under Locations. */}
@@ -207,48 +319,58 @@ export function MatrixDriveSidebar({
           })}
         </div>
       </nav>
+      {/* The left panel's foot (layout r2 E, owner 2026-11-24): storage, then the gear. */}
+      <div className="atum-panel-foot" data-matrix-drive-foot>
+        {quota && quota.total > 0 ? (
+          <div className="flex min-w-0 flex-1 flex-col gap-1 px-2" data-matrix-drive-storage={quota.state}>
+            <span className="truncate text-xs text-(--atum-ink-muted)">
+              {plus.storage(formatDriveSize(quota.used, locale, quota.total), formatDriveSize(quota.total, locale))}
+            </span>
+            <span aria-hidden className="block h-1 overflow-hidden rounded-full bg-(--atum-sunk)">
+              <span
+                className={
+                  quota.state === 'critical' || quota.state === 'exceeded'
+                    ? 'block h-full bg-(--atum-danger)'
+                    : quota.state === 'nearing'
+                      ? 'block h-full bg-(--atum-warn)'
+                      : 'block h-full bg-(--atum-ink-muted)'
+                }
+                style={{ width: `${Math.min(100, Math.max(2, (quota.used / quota.total) * 100))}%` }}
+              />
+            </span>
+          </div>
+        ) : (
+          <span className="flex-1" />
+        )}
+        {onOpenSettings && (
+          <Tip label={plus.settings}>
+            <button
+              aria-label={plus.settings}
+              className="ak-iconbtn ak-iconbtn--sm"
+              data-matrix-drive-settings
+              onClick={onOpenSettings}
+              type="button"
+            >
+              <Settings aria-hidden className="ak-icon" />
+            </button>
+          </Tip>
+        )}
+      </div>
     </aside>
   )
 }
 
-/** The title bar's lead for Drive, as Finder's toolbar: ‹ › and the open place's name. */
+/** The title bar's lead for Drive: the open place's name. Its own ‹ › gave way to the window's ← →
+ * (layout r1/r2, owner 2026-11-24), which step through Drive's places as through every screen's. */
 export function MatrixDriveTitle() {
   const { locale } = useI18n()
   const copy = matrixDriveCopy[locale]
   const header = useStore($matrixDriveHeader)
 
-  if (!header) {
-    return <span className="truncate [font:var(--ak-t-headline)] text-(--ak-ink)">{copy.title}</span>
-  }
-
   return (
-    <div className="flex min-w-0 items-center gap-(--ak-s2)" data-matrix-drive-nav>
-      <div className="flex shrink-0 items-center [-webkit-app-region:no-drag]">
-        <Tip label={copy.back}>
-          <button
-            aria-label={copy.back}
-            className="ak-iconbtn ak-iconbtn--sm disabled:pointer-events-none disabled:opacity-38"
-            disabled={!header.canBack}
-            onClick={() => requestMatrixDriveIntent({ kind: 'back' })}
-            type="button"
-          >
-            <ChevronLeft aria-hidden className="ak-icon" />
-          </button>
-        </Tip>
-        <Tip label={copy.forward}>
-          <button
-            aria-label={copy.forward}
-            className="ak-iconbtn ak-iconbtn--sm disabled:pointer-events-none disabled:opacity-38"
-            disabled={!header.canForward}
-            onClick={() => requestMatrixDriveIntent({ kind: 'forward' })}
-            type="button"
-          >
-            <ChevronRight aria-hidden className="ak-icon" />
-          </button>
-        </Tip>
-      </div>
-      <h1 className="truncate [font:var(--ak-t-headline)] text-(--ak-ink)">{header.title}</h1>
-    </div>
+    <h1 className="truncate [font:var(--ak-t-headline)] text-(--ak-ink)" data-matrix-drive-nav>
+      {header?.title ?? copy.title}
+    </h1>
   )
 }
 
@@ -524,7 +646,6 @@ export function MatrixDrive({
     null
   )
 
-  const [searchOpen, setSearchOpen] = useState(false)
   const [titleBar, setTitleBar] = useState<{ actions: HTMLElement; status: HTMLElement } | null>(null)
 
   // The title bar belongs to the page under it (STYLE.md §2): Drive's status and controls go
@@ -534,7 +655,9 @@ export function MatrixDrive({
     const status = document.querySelector<HTMLElement>('[data-atum-page-status]')
     setTitleBar(actions && status ? { actions, status } : null)
   }, [])
-  const [query, setQuery] = useState('')
+  const query = useStore($matrixDriveQuery)
+  const setQuery = (next: string) => $matrixDriveQuery.set(next)
+  const folderInfoOpen = useStore($matrixRightPanel).drive
   const [searchScope, setSearchScope] = useState<'drive' | 'folder'>('drive')
   const search = useDriveSearch(bridge, view, query, searchScope)
   const selection = useStore($matrixDriveTaskSelection)
@@ -695,7 +818,12 @@ export function MatrixDrive({
     } else {
       learnMatrixDrivePlaces(null, locale)
     }
+
+    // The left panel's plus menu and storage read what this page lists (it never reads Drive itself).
+    $matrixDrivePageFacts.set({ browsable: Boolean(showsFiles && view.canBrowseLocally !== false), quota: view.quota })
   }, [firstRead, locale, showsFiles, view])
+
+  useEffect(() => () => $matrixDrivePageFacts.set(null), [])
 
   const forwardName = location.forward.at(-1)
   const forwardRow = forwardName ? view.rows.find(row => row.kind === 'folder' && row.name === forwardName) : undefined
@@ -714,6 +842,21 @@ export function MatrixDrive({
   }, [forwardRow, placeTitle, showsFiles, view.canGoBack])
 
   useEffect(() => () => $matrixDriveHeader.set(null), [])
+
+  // The window's ← → step through Drive's own folders first, as Finder's ‹ › did (layout r2 §1), then
+  // through the window's places.
+  const canGoBack = showsFiles && view.canGoBack
+  const canGoForward = showsFiles && Boolean(forwardRow)
+
+  useEffect(() => {
+    setMatrixNavLocal({
+      back: canGoBack,
+      forward: canGoForward,
+      step: delta => requestMatrixDriveIntent({ kind: delta < 0 ? 'back' : 'forward' })
+    })
+  }, [canGoBack, canGoForward])
+
+  useEffect(() => () => setMatrixNavLocal(null), [])
 
   const latestView = useRef(view)
   // The columns as they stood before a walk: its in-between listings never show.
@@ -811,6 +954,16 @@ export function MatrixDrive({
       } else if (intent.kind === 'forward') {
         if (forwardRow) {
           enterFolder(forwardRow)
+        }
+      } else if (intent.kind === 'create') {
+        if (bridge.create) {
+          const create = bridge.create
+          void run(() => create(intent.entry, intent.name))
+        }
+      } else if (intent.kind === 'upload') {
+        if (bridge.upload) {
+          const upload = bridge.upload
+          void run(() => upload(intent.entry))
         }
       } else {
         jump(intent.kind === 'folder' ? intent.name : null)
@@ -1125,7 +1278,7 @@ export function MatrixDrive({
   // Finder groups icons and lists; columns and the gallery have their own order.
   const groupable = shownLayout === 'icon' || shownLayout === 'list'
 
-  // Finder's toolbar, right side: the view switch, "…", then search at the far edge.
+  // Finder's toolbar, right side: the view switch and "…". Search is in the left panel (layout r2 D).
   const driveControls = (
     <div className="flex shrink-0 items-center gap-(--ak-s1)">
       <div aria-label={copy.viewMode} className="ak-seg ak-seg--sm" role="group">
@@ -1190,36 +1343,11 @@ export function MatrixDrive({
           )}
         </DropdownMenuContent>
       </DropdownMenu>
-      {searchOpen ? (
-        <label className="ak-field ak-field--search">
-          <SearchIcon aria-hidden className="ak-icon ak-icon--sm" />
-          <input
-            aria-label={copy.search}
-            autoFocus
-            onBlur={() => !query && setSearchOpen(false)}
-            onChange={event => setQuery(event.currentTarget.value)}
-            onKeyDown={event => {
-              if (event.key === 'Escape') {
-                event.preventDefault()
-                setQuery('')
-                setSearchOpen(false)
-              }
-            }}
-            placeholder={copy.search}
-            value={query}
-          />
-        </label>
-      ) : (
-        <Tip label={copy.search}>
-          <button aria-label={copy.search} className="ak-iconbtn" onClick={() => setSearchOpen(true)} type="button">
-            <SearchIcon aria-hidden className="ak-icon" />
-          </button>
-        </Tip>
-      )}
     </div>
   )
 
   return (
+    <div className="flex min-h-0 flex-1 overflow-hidden" data-matrix-drive-row>
     <div
       className="flex min-h-0 flex-1 flex-col overflow-auto"
       data-matrix-drive
@@ -1450,5 +1578,87 @@ export function MatrixDrive({
         <DriveAbout className="mt-auto pt-(--ak-s8)" copy={copy} />
       </div>
     </div>
+    {/* The neutral right panel (layout r2 §2): the open folder's info. Closed by default, remembered. */}
+    {folderInfoOpen && (
+      <MatrixDriveFolderInfo
+        copy={copy}
+        locale={locale}
+        onClose={() => setMatrixRightPanel('drive', false)}
+        onReveal={() => void run(() => bridge.reveal())}
+        statusLine={statusLine}
+        view={view}
+      />
+    )}
+    </div>
+  )
+}
+
+/** Five locales, changed together. */
+const folderInfoCopies: Record<Locale, { title: string; close: string; items: (n: number) => string; size: string; where: string; changed: string; sync: string; reveal: string }> = {
+  en: { title: 'Folder info', close: 'Close', items: n => `${n} ${n === 1 ? 'item' : 'items'}`, size: 'Size', where: 'Where', changed: 'Changed', sync: 'Sync', reveal: 'Show in Finder' },
+  vi: { title: 'Thông tin thư mục', close: 'Đóng', items: n => `${n} mục`, size: 'Dung lượng', where: 'Vị trí', changed: 'Thay đổi', sync: 'Đồng bộ', reveal: 'Hiện trong Finder' },
+  ja: { title: 'フォルダの情報', close: '閉じる', items: n => `${n} 項目`, size: 'サイズ', where: '場所', changed: '変更日', sync: '同期', reveal: 'Finder で表示' },
+  zh: { title: '文件夹信息', close: '关闭', items: n => `${n} 项`, size: '大小', where: '位置', changed: '修改时间', sync: '同步', reveal: '在访达中显示' },
+  'zh-hant': { title: '檔案夾資訊', close: '關閉', items: n => `${n} 項`, size: '大小', where: '位置', changed: '修改時間', sync: '同步', reveal: '在 Finder 中顯示' }
+}
+
+/**
+ * Drive's neutral right panel (layout r2 §2, owner 2026-11-24): the open folder's size and count, where it
+ * is, when it last changed, and its sync. Selecting a file opens its preview in the side panel instead.
+ */
+function MatrixDriveFolderInfo({
+  copy,
+  locale,
+  onClose,
+  onReveal,
+  statusLine,
+  view
+}: {
+  copy: DriveCopy
+  locale: Locale
+  onClose(): void
+  onReveal(): void
+  statusLine: ReactNode
+  view: MatrixDriveView
+}) {
+  const words = folderInfoCopies[locale]
+  const location = useStore($matrixDriveLocation)
+  const size = view.rows.reduce((total, row) => total + (row.kind === 'file' ? row.size : 0), 0)
+  const changed = view.rows.reduce((latest, row) => Math.max(latest, row.modifiedAt), 0)
+  const name = view.folderLabel || copy.browser.drive
+  const where = [copy.browser.drive, ...(location.path ?? [])].join(' › ')
+
+  const fact = (label: string, value: ReactNode) => (
+    <div className="flex items-baseline justify-between gap-3">
+      <dt className="shrink-0 text-(--atum-ink-muted)">{label}</dt>
+      <dd className="min-w-0 truncate text-end text-(--atum-ink)">{value}</dd>
+    </div>
+  )
+
+  return (
+    <aside aria-label={words.title} className="atum-neutral-panel" data-matrix-drive-folder-info>
+      <header className="atum-neutral-panel-head">
+        <Folder aria-hidden className="size-4 shrink-0 text-(--atum-ink-muted)" />
+        <h2 className="min-w-0 flex-1 truncate">{name}</h2>
+        <Tip label={words.close}>
+          <button aria-label={words.close} className="ak-iconbtn ak-iconbtn--sm" onClick={onClose} type="button">
+            <X aria-hidden className="ak-icon" />
+          </button>
+        </Tip>
+      </header>
+      <div className="atum-neutral-panel-body">
+        <dl className="atum-neutral-panel-card flex flex-col gap-2">
+          {fact(words.size, `${formatDriveSize(size, locale)} · ${words.items(view.rows.length)}`)}
+          {fact(words.where, where)}
+          {changed > 0 &&
+            fact(words.changed, new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short' }).format(changed))}
+          {fact(words.sync, statusLine)}
+        </dl>
+        <button className="ak-btn ak-btn--secondary ak-btn--sm self-start" data-matrix-drive-folder-reveal onClick={onReveal} type="button">
+          <FolderOpen aria-hidden className="ak-icon ak-icon--sm" />
+          {words.reveal}
+        </button>
+      </div>
+    </aside>
   )
 }

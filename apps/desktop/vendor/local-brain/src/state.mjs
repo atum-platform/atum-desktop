@@ -154,6 +154,11 @@ export class BrainState {
   apply(record) {
     const touched = [];
     switch (record.type) {
+      case 'receipt_alias':
+        // Native migration preserves historic accepted operation identities;
+        // this metadata record grants no content or source inclusion.
+        this.#noteReceipt(record.dedup, record.objectKey, record.operationId);
+        return touched;
       case 'genesis':
         return touched;
       case 'accept': {

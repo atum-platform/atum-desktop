@@ -5,6 +5,7 @@ import type {
   MatrixWorkProjection,
   MatrixWorkRect,
   MatrixWorkViewState,
+  WorkAttentionSnapshot,
   WorkBandCommand,
   WorkSidebarSnapshot,
   WorkSurfaceModeSnapshot
@@ -67,6 +68,11 @@ export interface WorkSurfaceParts {
   readConnections?(): Promise<AccountConnectionsView | null>
   /** The owner's consent client (gate 4b-2), and this Mac's device-service id so the page can name "This Mac". */
   consent?: Pick<WorkConsentClient, 'read' | 'revoke' | 'set'>
+  nativeConsent?: {
+    approve(input: MatrixWorkPlanConsentInput, plan?: WorkRelayPlan): Promise<void>
+    revoke(): void
+    renewal(): 'needed' | 'soon' | 'current' | undefined
+  }
   deviceServiceId?(): string | undefined
   /** First use: the owner opened Work, so main starts what a sign-in does not (the server and the gate). Never rejects. */
   wantServer?(): Promise<void>
@@ -77,6 +83,7 @@ export interface WorkSurfaceOptions {
   canPrewarm?(): boolean
   getSurfaceMode?(): Promise<WorkSurfaceModeSnapshot | null>
   getSidebar?(): WorkSidebarSnapshot | null
+  getAttention?(): WorkAttentionSnapshot | null
   runCommand?(command: WorkBandCommand): Promise<boolean>
   setSurfaceMode?(projectId: string, mode: 'work' | 'code'): Promise<void>
   createView(incarnation: WorkIncarnation): WorkViewHandle
@@ -320,6 +327,7 @@ export class WorkSurface {
   }
 
   async setPlan(on: boolean): Promise<void> {
+    if (!on) {this.parts?.nativeConsent?.revoke()}
     await this.parts?.gate?.setPlanSwitch?.(on)
     this.publish()
   }
@@ -331,6 +339,7 @@ export class WorkSurface {
   getSurfaceMode() { return this.options.getSurfaceMode?.() ?? Promise.resolve(null) }
 
   async getSidebar() { return this.options.getSidebar?.() ?? null }
+  async getAttention() { return this.options.getAttention?.() ?? null }
 
   async runCommand(command: WorkBandCommand): Promise<boolean> {
     // The click lands in the Atum renderer; New thread ends in the view's composer, so the view takes focus first.
@@ -381,18 +390,24 @@ export class WorkSurface {
 
     const entitled = (this.parts?.gate?.state().agents ?? []).map(agent => agent.principal)
 
-    return projectWorkConsent(await (plan ? consent.read(plan) : consent.read()), this.parts?.deviceServiceId?.(), entitled)
+    return { ...projectWorkConsent(await (plan ? consent.read(plan) : consent.read()), this.parts?.deviceServiceId?.(), entitled),
+      nativeRenewal: this.parts?.nativeConsent?.renewal() }
   }
 
   /** Express opt-in: the owner named these assistants and Macs. Main sends nothing the page did not name. */
   async setPlanConsent(input: MatrixWorkPlanConsentInput, plan?: WorkRelayPlan): Promise<MatrixWorkPlanConsent> {
     const consent = this.consentDoor()
     await consent.set({ ...(plan ? { provider: plan } : {}), agents: input.agents, devices: input.macs, alsoWhenScheduled: input.alsoWhenScheduled })
+    if (this.parts?.nativeConsent && input.macs.includes(this.parts.deviceServiceId?.() ?? '')) {
+      await this.parts.gate?.setPlanSwitch?.(true)
+    }
+    await this.parts?.nativeConsent?.approve(input, plan)
 
     return this.readPlanConsent(plan)
   }
 
   async revokePlanConsent(plan?: WorkRelayPlan): Promise<MatrixWorkPlanConsent> {
+    this.parts?.nativeConsent?.revoke()
     const consent = this.consentDoor()
 
     if (plan) {await consent.revoke(plan)}

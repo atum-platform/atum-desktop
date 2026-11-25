@@ -5,3 +5,6 @@ package-lock.json
 
 # The contract conformance fixtures are copied byte for byte from atum-platform (see the README beside them).
 apps/desktop/electron/matrix/browser-import/__fixtures__/contract-v2.1/
+
+# T3 Code's design layer, vendored byte for byte from a pinned tag (packages/atum-kit/scripts/sync-t3-design.mjs).
+packages/atum-kit/t3/upstream/

@@ -820,6 +820,11 @@ export class LocalBrain {
         if (!windows.has(obj.slug)) windows.set(obj.slug, await this.#readWindow(obj.slug));
         return windows.get(obj.slug).get(segmentId(obj.objectKey, obj.object.revision));
       };
+      // The owner-approved export is the only content transfer boundary. Retain
+      // original native suppression receipts; a receipt alone cannot replay scope.
+      const journal = (await readFile(this.paths.ledgerFile, 'utf8')).trim().split('\n').map(JSON.parse);
+      const privacyRecords = journal.filter(row => ['withdraw', 'redact', 'fence'].includes(row.type));
+      const accepts = journal.filter(row => row.type === 'accept');
       const withdrawals = [];
       for (const [withdrawalId, w] of this.state.withdrawals) withdrawals.push({ withdrawalId, receipt: w.receipt });
       const scopes = [];
@@ -832,7 +837,11 @@ export class LocalBrain {
       const envelopes = [];
       const held = { googleDerived: 0, fencedDrive: 0, corrections: 0 };
       for (const obj of this.state.objects.values()) {
-        if (!obj.slug || obj.redacted || obj.withdrawn || obj.lost) continue;
+        if (obj.lost && !obj.withdrawn && !obj.redacted && !obj.excluded) {
+          held.unexportable = (held.unexportable ?? 0) + 1;
+          continue;
+        }
+        if (!obj.slug || obj.redacted || obj.withdrawn || obj.excluded) continue;
         if (obj.googleDerived) {
           held.googleDerived += 1;
           continue;
@@ -848,7 +857,7 @@ export class LocalBrain {
         const text = await textOf(obj);
         const envelope = text === undefined ? null : {
           contract: CONTRACT_ID,
-          operationId: uuidFromHash(`export\u0000${obj.objectKey}\u0000${obj.object.revision}`),
+          operationId: accepts.findLast(row => row.objectKey === obj.objectKey && row.digest === obj.digest)?.operationId ?? uuidFromHash(`export\u0000${obj.objectKey}\u0000${obj.object.revision}`),
           source: obj.source,
           object: obj.object.kind === 'edit' ? { ...obj.object, replaces: obj.logicalId } : obj.object,
           author: obj.author,
@@ -868,11 +877,11 @@ export class LocalBrain {
       for (const [correctionId, c] of this.state.corrections) {
         const target = this.state.objects.get(c.targetKey);
         const own = this.state.objects.get(c.objectKey);
-        if (!target || !own?.slug || target.googleDerived || own.googleDerived) continue;
+        if (!target || !own?.slug || own.withdrawn || own.redacted || own.excluded || own.lost || target.googleDerived || own.googleDerived) continue;
         const statement = await textOf(own);
         if (statement === undefined) continue;
         corrections.push({
-          operationId: uuidFromHash(`export-correction\u0000${correctionId}`),
+          operationId: c.operationId ?? uuidFromHash(`export-correction\u0000${correctionId}`),
           correctionId,
           target: { kind: 'evidence', evidenceId: target.evidenceId },
           statement,
@@ -888,6 +897,13 @@ export class LocalBrain {
         withdrawals,
         suppressedScopes: scopes,
         suppressedEvidence,
+        acceptedReceipts: accepts.filter(row => {
+          const obj = this.state.objects.get(row.objectKey);
+          return obj && !obj.googleDerived && !(obj.source.kind === 'drive_file' && this.state.fence.active)
+            && this.state.receipts.has(row.dedup);
+        }).map(({operationId, dedup, objectKey}) => ({operationId, dedup, objectKey})),
+        privacyRecords,
+        ledgerSeq: this.#ledger.seq,
         envelopes,
         corrections,
         held,

@@ -146,11 +146,11 @@ export function SkillDetailDialog({
 
         <DialogFooter>
           {installedIds.length > 0 && agents.some(agent => agent.hostedId && agent.localProfileId !== null && !entry.trainedAssistantIds?.includes(agent.hostedId)) && (
-            <button className="rounded-full px-4 py-2 text-(length:--atum-t-control) font-medium hover:bg-(--atum-hover)"
+            <button className="rounded-(--control-radius) px-4 py-2 text-(length:--atum-t-control) font-medium hover:bg-(--atum-hover)"
               onClick={() => { onOpenChange(false); onAdd(entry) }} type="button">{copy.trainAnother}</button>
           )}
           <button
-            className="rounded-full bg-(--atum-ink) px-4 py-2 text-(length:--atum-t-control) font-medium text-(--atum-on-accent)"
+            className="rounded-(--control-radius) bg-(--atum-ink) px-4 py-2 text-(length:--atum-t-control) font-medium text-(--atum-on-accent)"
             onClick={() => {
               if (installedIds.length === 0) {onOpenChange(false); onAdd(entry)} else {actTry()}
             }}

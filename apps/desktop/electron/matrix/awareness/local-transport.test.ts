@@ -383,3 +383,15 @@ describe('awarenessLocalTransport', () => {
     await expect(transport.prepare(new AbortController().signal)).rejects.toThrow('awareness_local_transport_unavailable')
   })
 })
+
+
+it('readonly refusal preserves the provider for privacy writes', async () => {
+  const f = fixture()
+  const transport = awarenessLocalTransport(f.options())
+  f.replies.push(() => Promise.reject(Object.assign(new Error('readonly'), { code: 'matrix_local_brain_readonly' })))
+  await expect(transport.ingest(envelope(), new AbortController().signal)).rejects.toThrow('matrix_local_brain_readonly')
+  expect(f.stops).toEqual([])
+  f.replies.push(() => ({ status: 'accepted' }))
+  await transport.withdraw(withdrawal(), new AbortController().signal)
+  expect(f.calls.map(call => call.method)).toEqual(['brain.ingest', 'brain.withdraw'])
+})

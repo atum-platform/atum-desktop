@@ -1,208 +1,25 @@
 #!/usr/bin/env node
-// Builds Work's T3 environment theme (`electron/work/sidecar/atum.json`) from the Atum Kit, so Work
-// follows the Kit instead of a hand-copied palette (design spec 2026-11-23 §1.3, §9.4).
+// Writes Work's T3 environment theme (`electron/work/sidecar/atum.json`): the Atum Kit's palette as a T3
+// theme file, `packages/atum-kit/dist/atum-t3-theme.json`, byte for byte. The desktop reads the same
+// palette as T3's --app-theme-* variables in the Kit stylesheet, so Work and the desktop share one
+// colour source (owner 2026-11-24, option B). The theme carries colours only: Work is stock T3 in
+// Atum's colours, with no CSS block.
 //
 //   node scripts/build-work-theme.mjs          write the theme
 //   node scripts/build-work-theme.mjs --check  fail when the committed theme is stale
-//
-// Colors: T3's theme roles, each from one Kit token per appearance (translucent tokens are laid over
-// the surface they sit on, since T3 palettes are opaque). CSS: the Kit's generated stylesheet (tokens
-// and `.ak-*` components, light on :root, dark on T3's `.dark` root) plus `work-theme/atum-work.css`,
-// which maps T3's stable `data-` hooks onto Atum's panels.
 import { readFileSync, writeFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 
 const desktop = new URL('../', import.meta.url)
-const kit = new URL('../../packages/atum-kit/', desktop)
+const palette = new URL('../../packages/atum-kit/dist/atum-t3-theme.json', desktop)
 const output = fileURLToPath(new URL('electron/work/sidecar/atum.json', desktop))
-const tokens = JSON.parse(readFileSync(new URL('tokens.json', kit), 'utf8')).theme
-const kitCss = readFileSync(new URL('dist/atum-kit.css', kit), 'utf8')
-const workCss = readFileSync(new URL('scripts/work-theme/atum-work.css', desktop), 'utf8')
-const pickerSpec = JSON.parse(readFileSync(new URL('src/matrix/model-picker-spec.json', desktop), 'utf8'))
-
-// T3 caps a theme's CSS (THEME_CSS_MAX_LENGTH in its contracts).
-const CSS_LIMIT = 100_000
-
-function parse(color) {
-  const hex = /^#([0-9a-f]{6})$/i.exec(color)
-
-  if (hex) {
-    const value = Number.parseInt(hex[1], 16)
-
-    return { r: value >> 16, g: (value >> 8) & 255, b: value & 255, a: 1 }
-  }
-
-  const rgba = /^rgba\(\s*(\d+),\s*(\d+),\s*(\d+),\s*([\d.]+)\s*\)$/i.exec(color)
-
-  if (!rgba) {
-    throw new Error(`build-work-theme: unsupported Kit color ${color}`)
-  }
-
-  return { r: Number(rgba[1]), g: Number(rgba[2]), b: Number(rgba[3]), a: Number(rgba[4]) }
-}
-
-function hex({ r, g, b }) {
-  return `#${[r, g, b].map(part => Math.round(part).toString(16).padStart(2, '0')).join('')}`
-}
-
-/** An opaque color: `color` laid over `base`. */
-function over(color, base) {
-  const top = parse(color)
-  const under = parse(base)
-
-  return hex({
-    r: top.r * top.a + under.r * (1 - top.a),
-    g: top.g * top.a + under.g * (1 - top.a),
-    b: top.b * top.a + under.b * (1 - top.a)
-  })
-}
-
-export function workThemeColors(appearance) {
-  const t = name => {
-    const token = tokens[name]
-
-    if (!token?.[appearance]) {
-      throw new Error(`build-work-theme: Kit token ${name} has no ${appearance} value`)
-    }
-
-    return token[appearance]
-  }
-
-  const surface = t('surface')
-  const frame = t('chrome')
-  // The roster panel: the Kit's translucent panel over the frame, as the desktop's roster.
-  const roster = over(t('panel'), frame)
-  const on = (name, base = surface) => over(t(name), base)
-
-  return {
-    canvas: surface,
-    chrome: frame,
-    toolbar: surface,
-    toolbarForeground: t('ink'),
-    toolbarBorder: on('line'),
-    toolbarControl: surface,
-    toolbarControlForeground: t('ink-2'),
-    toolbarControlHover: on('fill-hover'),
-    surface,
-    surfaceRaised: t('raised'),
-    surfaceOverlay: t('raised'),
-    text: t('ink'),
-    textMuted: t('ink-3'),
-    border: on('line'),
-    input: on('line-2'),
-    focus: on('focus'),
-    // Ink carries everything: the accent is ink, never a brand blue.
-    accent: t('ink'),
-    accentForeground: t('on-ink'),
-    secondary: on('fill-quiet'),
-    secondaryForeground: t('ink'),
-    muted: on('fill-quiet'),
-    mutedForeground: t('ink-3'),
-    placeholder: t('ink-3'),
-    secondaryLabel: t('ink-3'),
-    iconMuted: t('ink-4'),
-    error: t('danger'),
-    errorForeground: t('danger'),
-    errorSurface: on('danger-fill'),
-    warning: t('warn'),
-    warningForeground: t('warn'),
-    warningSurface: on('warn-fill'),
-    update: t('ink'),
-    updateForeground: t('ink'),
-    updateSurface: on('fill-quiet'),
-    accentSurface: on('fill-selected'),
-    accentSurfaceForeground: t('ink'),
-    messageSurface: on('fill-quiet'),
-    messageForeground: t('ink'),
-    messageAction: t('ink'),
-    messageActionForeground: t('on-ink'),
-    messageActionHover: t('ink-hover'),
-    codeBackground: t('sunk'),
-    codeForeground: t('ink'),
-    searchMatchBackground: on('warn-fill'),
-    searchMatchForeground: t('ink'),
-    searchMatchActiveBackground: t('warn'),
-    searchMatchActiveForeground: t('on-ink'),
-    sidebar: roster,
-    sidebarForeground: t('ink'),
-    sidebarMutedForeground: t('ink-3'),
-    sidebarControlSurface: on('fill-quiet', roster),
-    sidebarRowHover: on('fill-hover', roster),
-    sidebarRowActive: on('fill-selected', roster),
-    sidebarRowSelected: on('fill-selected', roster),
-    sidebarBorder: on('line', roster),
-    terminalBackground: surface,
-    terminalForeground: t('ink'),
-    terminalCursor: t('ink'),
-    terminalSelection: on('fill-press'),
-    terminalScrollbar: on('line-2'),
-    terminalScrollbarHover: t('ink-4')
-  }
-}
-
-/**
- * The shared model picker (src/matrix/model-picker-spec.json) in Work: T3's picker already has the
- * spec's geometry, so only what Atum adds to it is set here: the Kit's glass card with untinted
- * columns, the rail without a rule under Favorites, the Kit's type, the capsule chip and the search's
- * focus colour. The desktop picker reads the same file.
- */
-export function workPickerCss(spec = pickerSpec) {
-  const { card, rail, row, trigger, type, search } = spec
-  const text = `${type.size}px`
-  // T3's popup holding the picker (the popover's own glass is T3's `dropdown-glass`).
-  const popup = '[data-slot="popover-popup"]:has([data-model-picker-content])'
-
-  return [
-    '/* The shared model picker (GENERATED from src/matrix/model-picker-spec.json). */',
-    // The card's material is the Kit's frosted glass at its menu radius, as the desktop card has it.
-    ...(card.surface === 'glass'
-      ? [
-          `${popup} { border: 0; border-radius: var(--ak-r-${card.radius}); background: var(--ak-glass); -webkit-backdrop-filter: var(--ak-blur); backdrop-filter: var(--ak-blur); box-shadow: inset 0 0 0 .5px var(--ak-glass-edge), inset 0 1px 0 var(--ak-glass-rim), var(--ak-shadow-2); }`,
-          `@media (prefers-reduced-transparency: reduce) { ${popup} { background: var(--ak-raised); -webkit-backdrop-filter: none; backdrop-filter: none; } }`
-        ]
-      : []),
-    // The rail and the thinking column sit straight on the card, with hairlines between them.
-    ...(card.tint
-      ? []
-      : [':is([data-model-picker-sidebar], [data-model-picker-list], [data-model-picker-effort]) { background: transparent; }']),
-    // A row's ⌘1–⌘9 hint is the Kit's menu key: plain text, no keycap.
-    ...(row.shortcut === 'menu-key'
-      ? ['[data-model-picker-content] [data-slot="kbd"] { background: none; padding: 0; font: var(--ak-t-callout); color: var(--ak-ink-3); letter-spacing: .04em; }']
-      : []),
-    ...(rail.favoritesRule ? [] : ['[data-model-picker-sidebar] [data-model-picker-provider="favorites"] + [aria-hidden="true"] { display: none; }']),
-    `[data-chat-provider-model-picker] { height: ${trigger.height}px; padding-inline: ${trigger.paddingX}px; gap: ${trigger.gap}px; border-radius: ${trigger.radius === 'full' ? 'var(--ak-r-full)' : `${trigger.radius}px`}; font-size: ${trigger.size}px; font-weight: ${trigger.weight}; }`,
-    // T3 sizes the picker's text with text-sm and draws the search rule in its ring colour: both are
-    // its own variables, scoped here to the picker.
-    `:is([data-model-picker-content], [data-model-picker-effort]) { --text-sm: ${text}; }`,
-    `[data-model-picker-content] { --ring: ${search.focusUnderline.light}; }`,
-    `.dark [data-model-picker-content] { --ring: ${search.focusUnderline.dark}; }`
-  ].join('\n')
-}
 
 export function buildWorkTheme() {
-  // T3 drops `@import` and any `url()` but a data: address or an #id from theme CSS.
-  const css = `${kitCss.trim()}\n\n${workCss.trim()}\n\n${workPickerCss()}\n`
-
-  if (css.length > CSS_LIMIT) {
-    throw new Error(`build-work-theme: theme CSS is ${css.length} characters; T3 accepts ${CSS_LIMIT}`)
-  }
-
-  if (/@import|url\(\s*(?!["']?(?:data:|#))/i.test(css)) {
-    throw new Error('build-work-theme: theme CSS must not load files')
-  }
-
-  return {
-    version: 1,
-    name: 'Atum',
-    appearance: 'light',
-    colors: workThemeColors('light'),
-    variants: { dark: workThemeColors('dark') },
-    css
-  }
+  return readFileSync(palette, 'utf8')
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
-  const next = `${JSON.stringify(buildWorkTheme(), null, 2)}\n`
+  const next = buildWorkTheme()
 
   if (process.argv.includes('--check')) {
     if (readFileSync(output, 'utf8') !== next) {

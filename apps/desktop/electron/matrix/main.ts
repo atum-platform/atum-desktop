@@ -284,6 +284,8 @@ import { createUpdateHandoff, restoredUpdateBounds, type UpdateHandoff, type Upd
 import { saveUserSelectedFile } from '../user-selected-file-save'
 import { createWordMacAdapter } from '../word-companion-mac'
 import { createWordLiveMacAdapter } from '../word-live-mac'
+import { fetchConnectAssertion } from '../work/sidecar/connect-assertion'
+import { requestNativeT3 } from '../work/sidecar/native-t3'
 
 import { MatrixAccount } from './account'
 import { matrixAccountLogLine } from './account-events'
@@ -6427,6 +6429,7 @@ function scheduleContinuousListening() {
       keepAwakeConnection = connection
       stopWatchingKeepAwakeConnection = connection?.onState((next, reason) => {
         scheduleContinuousListening()
+
         // The Repair band reads needsRepair(); republish when it can change.
         if (reason === 'authentication' || next === 'status_exchanged') { publish(state) }
       })
@@ -18746,6 +18749,17 @@ async function start() {
     engine: driveEngine,
     store: new EncryptedStore(path.join(app.getPath('userData'), 'drive.json'), safeStorage),
     userData: app.getPath('userData'),
+    chooseUpload: async kind => {
+      if (!ui || ui.isDestroyed()) {
+        return undefined
+      }
+
+      const selected = await dialog.showOpenDialog(ui, {
+        properties: kind === 'folder' ? ['openDirectory'] : ['openFile', 'multiSelections']
+      })
+
+      return selected.canceled ? undefined : selected.filePaths
+    },
     chooseFolder: async () => {
       if (!ui || ui.isDestroyed()) {
         return undefined
@@ -20590,6 +20604,10 @@ async function start() {
       deviceServiceId: () => deviceIdentity?.enrollment()?.deviceServiceId,
       deviceServicesEndpoint: () => `${domain.resource}/device-services`,
       bearer: () => account.s1Request(accessToken => Promise.resolve(accessToken), AbortSignal.timeout(15_000)),
+      connectAssertion: () => account.s1Request(
+        (token, base, signal) => fetchConnectAssertion(token, base, signal, session.defaultSession.fetch.bind(session.defaultSession)),
+        AbortSignal.timeout(15_000)
+      ),
       prepareChatGptConnect: () => account.s1Request(async (token, base, signal) => {
         // The Shell route checks status first and performs the idempotent account retirement only if needed.
         const response = await session.defaultSession.fetch(`${base}/api/connections/openai-codex/uncarry`, {
@@ -20625,6 +20643,12 @@ async function start() {
         return agent?.matrixUser ?? null
       },
       agentName: principal => allAgents().find(each => each.agentPrincipal === principal)?.name,
+      nativeAgents: async () => (await account.agents(AbortSignal.timeout(15_000)))
+        .filter(agent => agent.status === 'active').map(agent => agent.principal),
+      nativeRequest: (agent, nativePath, method, body) => account.s1Request(
+        (token, base, signal) => requestNativeT3(token, base, signal,
+          session.defaultSession.fetch.bind(session.defaultSession), agent, nativePath, method, body),
+        AbortSignal.timeout(60_000), { timeoutMs: 60_000 }),
       agentDefinition: async principal => {
         const agent = (await account.agents(AbortSignal.timeout(15_000))).find(
           each => each.principal === principal && each.status === 'active'

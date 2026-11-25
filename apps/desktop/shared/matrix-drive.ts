@@ -205,6 +205,11 @@ export interface MatrixDriveBridge {
   closePreview?(token: string): Promise<void>
   open(id: string): Promise<void>
   reveal(): Promise<void>
+  /** New folder / New document in the open folder, named by the window's word for it (optional while
+   * the renderer and main can be upgraded on separate clocks). */
+  create?(entry: 'folder' | 'document', name: string): Promise<MatrixDriveView>
+  /** Upload files… / Upload a folder… into the open folder, through main's own picker. */
+  upload?(entry: 'files' | 'folder'): Promise<MatrixDriveView | { cancelled: true }>
   taskStatus(roomId: string): Promise<{ state: 'ready' | 'unavailable' }>
   sendTask(input: MatrixDriveTaskInput): Promise<MatrixDriveTaskResult>
   /** Optional until the owned native import composition is present; absent hides its entry. */

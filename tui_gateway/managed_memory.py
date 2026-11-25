@@ -24,10 +24,14 @@ def admission(params, transport, stdio):
     if (transport is not stdio or params.get('source') != 'matrix'
             or params.get('async_delivery') is not False
             or any(params.get(k) for k in ('shared_room', 'reply_only', 'first_learning', 'parent_session_id'))
-            or not isinstance(value, dict) or set(value) != {'binding'}):
+            or not isinstance(value, dict) or set(value) not in ({'binding'}, {'binding', 'historicalSocket'})):
         raise ValueError('memory_binding_invalid')
     try:
-        return validate_binding(value['binding'])
+        binding = validate_binding(value['binding'])
+        if 'historicalSocket' in value:
+            from agent.historical_awareness import UnixHistoricalTransport
+            UnixHistoricalTransport(value['historicalSocket'])
+        return binding
     except Exception:
         raise ValueError('memory_binding_invalid') from None
 
@@ -137,9 +141,21 @@ def build_cloud_memory(session, sid, session_id, db):
     bridge = ControllerMemoryBridge(session, sid)
     session['_managed_memory_bridge'] = bridge
     try:
+        # The isolated controller is the authenticated production transport. It
+        # owns the fixed account binding and live On/Off/Forget checks. Cloud
+        # hosts have no historical Mac store. A native Mac controller may install
+        # an authenticated socket at admission; controller refusal grants no fallback.
+        from agent.cloud_first_awareness import CloudFirstAwareness
+        historical = None
+        socket_path = session.get('_native_historical_socket')
+        if socket_path is not None:
+            from agent.historical_awareness import HistoricalAwareness, UnixHistoricalTransport
+            historical = HistoricalAwareness(binding, UnixHistoricalTransport(socket_path), bridge.current)
+        retrieve = CloudFirstAwareness(bridge.retrieve, historical, version=2,
+                                       fallback_current=bridge.current)
         return bind_cloud_memory(
             binding=binding, hermes_home=str(Path(session.get('profile_home') or get_hermes_home())),
-            lifecycle=MemoryRunLifecycle(db), retrieve=bridge.retrieve,
+            lifecycle=MemoryRunLifecycle(db), retrieve=retrieve,
             is_current=bridge.current, invalidate_run=bridge.invalidate, enabled=True)
     finally:
         bridge.constructing = False

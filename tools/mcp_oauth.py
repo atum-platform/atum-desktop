@@ -1254,6 +1254,9 @@ def build_oauth_auth(server_name: str, server_url: str, oauth_config: dict | Non
     from tools.mcp_oauth_provider import build_provider_kwargs, prepare_oauth_config
 
     cfg, storage = prepare_oauth_config(server_name, server_url, oauth_config)
+    if cfg.get("grant_type") == "client_credentials":
+        from tools.mcp_oauth_client_credentials import build_client_credentials_provider
+        return build_client_credentials_provider(server_url, cfg, storage)
     if not _is_interactive() and not storage.has_cached_tokens():
         raise OAuthNonInteractiveError(
             f"MCP OAuth for '{server_name}': non-interactive environment and no cached tokens found. The OAuth flow "
