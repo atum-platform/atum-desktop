@@ -743,7 +743,7 @@ function CardRows({
   const placement = agentHomeCopy(locale)
 
   const rows: ReactNode[] = [
-    <div className="atum-settings-row" key="cloud">
+    <div className="atum-settings-row" data-assistant-card-home="cloud" key="cloud">
       <span className="atum-settings-row-title min-w-0 flex-1">{placement.rowTitle}</span>
       <span className="atum-card-row-value">{placement.cloudPlace}</span>
     </div>

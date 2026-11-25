@@ -1237,7 +1237,7 @@ describe('one assistant card, the primary included', () => {
     expect(customPersona).toBe(1)
     expect(customField.value).toBe('You are Mai, a hand-written research partner.\n\n## Rules\n\nKeep citations exact.')
     expect(primary.some(row => row.includes('data-assistant-card-home'))).toBe(true)
-    expect(primary.some(row => row.includes('data-assistant-card-model-destination'))).toBe(true)
+    expect(primary.some(row => row.includes('data-assistant-card-model-destination'))).toBe(false)
     cleanup()
 
     await openCard(ATUM, withModel)
