@@ -68,7 +68,7 @@ export function createT3AuthCli(options: {
   home: string
   environment: Record<string, string>
   run?: CommandRunner
-}): T3AuthCli {
+}): T3AuthCli & { issueLocalBearer(): Promise<string> } {
   const run = options.run ?? execCommand
   const environment = { ...options.environment, T3CODE_HOME: options.home, T3CODE_TELEMETRY_ENABLED: 'false' }
 
@@ -83,6 +83,15 @@ export function createT3AuthCli(options: {
   }
 
   return {
+    async issueLocalBearer() {
+      const token = (await call([
+        'auth', 'session', 'issue', '--ttl', '10m', '--label', 'Atum Work MCP setup', '--token-only'
+      ], 't3_auth_session_issue')).trim()
+
+      if (!/^\S+$/u.test(token)) {throw new WorkSessionError('t3_auth_unparseable')}
+
+      return token
+    },
     sessionIds: async () => ids(await call(['auth', 'session', 'list', '--json'], 't3_auth_session_list'), 'sessionId'),
     revokeSession: async id => {
       await call(['auth', 'session', 'revoke', id], 't3_auth_session_revoke')

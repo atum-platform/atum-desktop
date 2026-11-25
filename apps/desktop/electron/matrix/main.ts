@@ -285,7 +285,6 @@ import { saveUserSelectedFile } from '../user-selected-file-save'
 import { createWordMacAdapter } from '../word-companion-mac'
 import { createWordLiveMacAdapter } from '../word-live-mac'
 import { fetchConnectAssertion } from '../work/sidecar/connect-assertion'
-import { requestNativeT3 } from '../work/sidecar/native-t3'
 
 import { MatrixAccount } from './account'
 import { matrixAccountLogLine } from './account-events'
@@ -2568,7 +2567,14 @@ function createDeviceIdentity(): MacDeviceIdentity {
     // local tunnel fallback) may dial it instead (connection.ts deviceHubUrl).
     hubUrl: deviceHubUrl(process.env.ATUM_DEVICE_HUB_URL),
     hubRequired: controllerHubRequired,
-    call: s1Call,
+    call: async (resource, signal) => {
+      const result = await s1Call(resource, signal)
+
+      if (resource.kind === 'device-revoke') { await work?.clearT3Mcp(resource.deviceServiceId) }
+
+      return result
+    },
+    onRevoked: deviceServiceId => { void work?.clearT3Mcp(deviceServiceId) },
     owner: deviceOwner,
     // Until the device runtime (WS-4) attaches, this Mac offers nothing and says so.
     hello: () => ({
@@ -10887,13 +10893,13 @@ const sdkRendererRecovery = new MatrixSdkRendererRecovery<MatrixHostRole>({
 })
 
 /** The sign-in ended: Work's route is cut, its stops settled and its server stopped. Bounded, and never throws. */
-async function retireWork() {
+async function retireWork(deviceServiceId?: string) {
   if (!work) {
     return
   }
 
   await Promise.race([
-    work.retire().catch(() => console.warn('[Matrix] work_retire_failed')),
+    work.retire(deviceServiceId).catch(() => console.warn('[Matrix] work_retire_failed')),
     new Promise<void>(resolve => setTimeout(resolve, 60_000).unref())
   ])
 }
@@ -17401,6 +17407,7 @@ function endChatSession(): Promise<void> {
     deviceControlOwner = undefined
     matrixDeviceStopFence?.('sign_out')
     await nativeMacSsh?.disconnect().catch(() => console.warn('[Device] native SSH revoke pending after session end'))
+    const workDevice = deviceIdentity?.enrollment()?.deviceServiceId
     deviceIdentity?.signOut('sign_out')
     executionDeviceNames.invalidate()
     scheduleContinuousListening()
@@ -17418,7 +17425,7 @@ function endChatSession(): Promise<void> {
     }
 
     publish(matrixSessionEndedSnapshot(state))
-    await retireWork()
+    await retireWork(workDevice)
     await stopSdk().catch(() => console.warn('[Matrix] chat engine cleanup failed after the session ended'))
     await deviceStop?.catch(() => console.warn('[Device] service cleanup failed'))
   })().finally(() => {
@@ -20601,7 +20608,11 @@ async function start() {
       wallet: signal => account.wallet(signal),
       scope: () => account.appScope(),
       ownerPrincipal,
-      deviceServiceId: () => deviceIdentity?.enrollment()?.deviceServiceId,
+      deviceServiceId: () => {
+        const enrollment = deviceIdentity?.enrollment()
+
+        return enrollment?.state === 'active' ? enrollment.deviceServiceId : undefined
+      },
       deviceServicesEndpoint: () => `${domain.resource}/device-services`,
       bearer: () => account.s1Request(accessToken => Promise.resolve(accessToken), AbortSignal.timeout(15_000)),
       connectAssertion: () => account.s1Request(
@@ -20643,12 +20654,6 @@ async function start() {
         return agent?.matrixUser ?? null
       },
       agentName: principal => allAgents().find(each => each.agentPrincipal === principal)?.name,
-      nativeAgents: async () => (await account.agents(AbortSignal.timeout(15_000)))
-        .filter(agent => agent.status === 'active').map(agent => agent.principal),
-      nativeRequest: (agent, nativePath, method, body) => account.s1Request(
-        (token, base, signal) => requestNativeT3(token, base, signal,
-          session.defaultSession.fetch.bind(session.defaultSession), agent, nativePath, method, body),
-        AbortSignal.timeout(60_000), { timeoutMs: 60_000 }),
       agentDefinition: async principal => {
         const agent = (await account.agents(AbortSignal.timeout(15_000))).find(
           each => each.principal === principal && each.status === 'active'
@@ -25871,7 +25876,9 @@ async function start() {
             // S1 WS-3b: the device fence comes first and is synchronous: the account epoch moves on
             // and the hub connection closes with a signed Stop (WS-4's stop.ts joins it here).
             await nativeMacSsh?.disconnect()
+            const workDevice = deviceIdentity?.enrollment()?.deviceServiceId
             deviceIdentity?.signOut('sign_out')
+            const workRetirement = retireWork(workDevice)
             await ownPresence.offline()
             executionDeviceNames.invalidate()
             scheduleContinuousListening()
@@ -25963,7 +25970,7 @@ async function start() {
             })
             // Work first, while its server still runs: the assistants' route is cut and what they started is
             // stopped before the account is revoked. A slow server must not hold the sign-out for ever.
-            await retireWork()
+            await workRetirement
             await account.signOut(async (identity, agentIdentity, others) => {
               await stopSdk()
 

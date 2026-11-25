@@ -24,8 +24,6 @@ export interface ConnectionsWords {
   thisMac: string
   connect: string
   manage: string
-  renew: string
-  renewal: string
   ownerChats: { title: string; line: string }
   homeTools: { line: string }
   /** The connect sheet: Ask, then the Work title band's Finish / Done. */
@@ -56,8 +54,6 @@ export interface ConnectionsWords {
 }
 
 const en: ConnectionsWords = {
-  renew: 'Renew',
-  renewal: 'Keep your assistants on this Mac',
   subscriptions: 'Subscriptions',
   dataAndTools: 'Data and tools',
   onMacs: names => `On ${names}`,
@@ -98,8 +94,6 @@ const en: ConnectionsWords = {
 }
 
 const vi: ConnectionsWords = {
-  renew: 'Gia hạn',
-  renewal: 'Tiếp tục cho trợ lý dùng máy Mac này',
   subscriptions: 'Gói đăng ký',
   dataAndTools: 'Dữ liệu và công cụ',
   onMacs: names => `Trên ${names}`,

@@ -11,8 +11,6 @@ import type { SafeStorageLike } from '../encrypted-store'
 import { admitConnector } from '../work/connector/admission'
 import { ConnectorHttp } from '../work/connector/http'
 import { matrixConnector } from '../work/connector/matrix'
-import { NativeConnector, type NativePath } from '../work/connector/native'
-import { approveNativeAgent } from '../work/connector/native-oauth'
 import { ConnectorService } from '../work/connector/service'
 import {
   createDeviceServicePlatform,
@@ -23,6 +21,7 @@ import {
   workGatePaths,
   type WorkGateService
 } from '../work/gate'
+import { deviceServiceCall } from '../work/gate/platform'
 import {
   createOwnerEventVerifier,
   createSdkOwnerEventSource,
@@ -33,8 +32,10 @@ import {
 } from '../work/mount'
 import { createWorkHistory } from '../work/mount/history'
 import { homeRunningFromRuntimeFile, partitionFor, type PinRef, type UpdateOutcome, WorkSession, workSessionPaths } from '../work/session'
+import { createT3AuthCli } from '../work/session/t3-auth'
 import { type WorkAccess, WorkHost } from '../work/sidecar/host'
-import { workRelayRuntimeReady } from '../work/sidecar/process'
+import { type WorkIncarnation, workRelayRuntimeReady } from '../work/sidecar/process'
+import { WorkT3McpPublication } from '../work/sidecar/t3-mcp'
 import {
   createWorkViewFactory,
   type GateSurfaceState,
@@ -43,7 +44,6 @@ import {
   type WorkSurfaceParts
 } from '../work/surface'
 import { readAccountConnections } from '../work/surface/account-connections'
-import { readConnectMcpUrl } from '../work/surface/connect-endpoint'
 import { projectPlanCapabilities } from '../work/surface/plan-capabilities'
 import { readPlanUsage } from '../work/surface/plan-usage'
 import { readWorkProviders } from '../work/surface/provider-config'
@@ -118,8 +118,6 @@ export interface MatrixWorkDeps {
   agentName(principal: string): string | undefined
   /** The existing account agent-record/definition reader, fenced to the signed-in account. */
   agentDefinition?(principal: string): Promise<MatrixAgentDefinitionSnapshot>
-  nativeAgents?(): Promise<string[]>
-  nativeRequest?(agent: string, path: NativePath, method: 'GET' | 'POST', body?: unknown): Promise<unknown>
   /** The owner's top-up page (what `openTopUp` opens). */
   openProtons(): Promise<void>
   publish(channel: string, payload: MatrixWorkProjection | WorkSurfaceModeSnapshot | WorkSidebarSnapshot | WorkAttentionSnapshot | null): void
@@ -134,7 +132,8 @@ export interface MatrixWork {
   /** The window may have become ready, or the account may have changed. Idempotent. */
   activate(): Promise<void>
   /** Sign-out, a session the server ended, an account switch: tear everything of this account down. */
-  retire(): Promise<void>
+  retire(deviceServiceId?: string): Promise<void>
+  clearT3Mcp(deviceServiceId: string): Promise<void>
   /** Withdraw or resume publication of this Mac's token-free plan facts. */
   setMacPlanFactsEnabled(deviceServiceId: string, enabled: boolean): Promise<void>
   /** App quit: not a revocation. */
@@ -369,12 +368,9 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
         })
 
   let connector: ConnectorHttp | undefined
-  let nativeConnector: NativeConnector | undefined
   let connectorEnvironment: Record<string, string> = {}
 
   const closeConnector = () => {
-    nativeConnector?.revoke()
-    nativeConnector = undefined
     const old = connector
     connector = undefined
     connectorEnvironment = {}
@@ -411,14 +407,7 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
         })
       )
 
-      const native = deps.nativeAgents && deps.nativeRequest && deps.deviceServiceId()
-        ? new NativeConnector(join(bound.root, 'work'), deps.deviceServiceId()!, {
-          current, enabled: () => mount.service()?.state().planSwitchOn ?? false,
-          agents: () => deps.nativeAgents!(), request: (...args) => deps.nativeRequest!(...args)
-        }) : undefined
-
-      if (native) {await native.consent()}
-      const candidate = new ConnectorHttp(service, secret, native)
+      const candidate = new ConnectorHttp(service, secret)
       const endpoint = await candidate.start()
 
       if (!current()) {
@@ -427,12 +416,84 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
       }
 
       connector = candidate
-      nativeConnector = native
-      connectorEnvironment = { ATUM_WORK_CONNECTOR_URL: endpoint, ATUM_WORK_CONNECTOR_TOKEN: secret, ...native?.environment(endpoint) }
+      connectorEnvironment = { ATUM_WORK_CONNECTOR_URL: endpoint, ATUM_WORK_CONNECTOR_TOKEN: secret }
     }
   }
 
+  const t3Mcp = new WorkT3McpPublication()
+  let mcpTimer: ReturnType<typeof setInterval> | undefined
+  let localAuth: { incarnation: WorkIncarnation; token: string; renewAt: number } | undefined
+
+  const stopT3Mcp = () => {
+    clearInterval(mcpTimer)
+    mcpTimer = undefined
+    localAuth = undefined
+    t3Mcp.stop()
+  }
+
+  const deviceCall = (endpoint: string, scope: NonNullable<ReturnType<MatrixWorkDeps['scope']>>, current?: () => boolean) =>
+    deviceServiceCall({
+      endpoint,
+      bearer: async () => {
+        const bearer = await deps.bearer()
+        const active = deps.scope()
+
+        if (active?.accountKey !== scope.accountKey || active.generation !== scope.generation || current?.() === false) {
+          throw new Error('work_account_changed')
+        }
+
+        return bearer
+      }
+    })
+
+  const clearT3Mcp = async (deviceServiceId: string) => {
+    const scope = deps.scope()
+    const endpoint = deps.deviceServicesEndpoint()
+
+    if (scope && endpoint) {
+      await t3Mcp.clear(deviceServiceId, deviceCall(endpoint, scope)).catch(() => {
+        deps.log('[atum-work] t3_mcp_clear_failed')
+      })
+    }
+  }
+
+  const refreshT3Mcp = () => {
+    const running = host.current()
+    const active = account()
+    const scope = deps.scope()
+    const deviceServiceId = deps.deviceServiceId()
+    const endpoint = deps.deviceServicesEndpoint()
+
+    if (!running || !active || !scope || !deviceServiceId || !endpoint ||
+        running.accountKey !== scope.accountKey || running.generation !== scope.generation) {return}
+
+    const current = () => Boolean(mcpTimer) && !deps.closing() &&
+      host.current() === running && sameScope(deps.scope()) && deps.deviceServiceId() === deviceServiceId
+
+    void t3Mcp.refresh({
+      deviceServiceId, workOrigin: running.origin, current,
+      call: deviceCall(endpoint, scope, current),
+      async localBearer() {
+        if (localAuth?.incarnation === running && localAuth.renewAt > Date.now()) {return localAuth.token}
+
+        const renewAt = Date.now() + 9 * 60_000
+        const tools = host.authTools(workSessionPaths(active))
+        const token = await createT3AuthCli({ ...tools, home: running.home }).issueLocalBearer()
+
+        if (current()) {localAuth = { incarnation: running, token, renewAt }}
+
+        return token
+      }
+    }).catch(() => {
+      deps.log('[atum-work] t3_mcp_refresh_failed')
+    })
+  }
+
   const host = new WorkHost({
+    ready: () => {
+      mcpTimer ??= setInterval(refreshT3Mcp, 60_000).unref()
+      refreshT3Mcp()
+    },
     connectAssertion: () => deps.connectAssertion ? deps.connectAssertion() : Promise.reject(new Error('work_unavailable')),
     log: (phase, ms) => deps.log(`[atum-work] startup phase=${phase} ms=${ms} at=${Date.now()}`),
     surfaceModeChanged: snapshot => deps.publish(MATRIX_WORK_IPC.surfaceModeChanged, snapshot),
@@ -709,26 +770,6 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
       endpoint: deps.deviceServicesEndpoint() ?? '',
       bearer: () => deps.bearer()
     })),
-    nativeConsent: {
-      renewal: () => nativeConnector?.renewal(),
-      async approve(input, plan) {
-        const mac = deps.deviceServiceId()
-
-        if (!nativeConnector || !mac || !input.macs.includes(mac)) {return}
-        const running = host.current()
-
-        if (!running) {throw new Error('native_work_unavailable')}
-        const connectUrl = await readConnectMcpUrl(running.origin, deps.sessionFromPartition(partitionFor(running.accountKey)))
-        const bound = account()
-        await Promise.all(input.agents.map(agent => approveNativeAgent({
-          connector: nativeConnector!, owner: deps.sessionFromPartition(partitionFor(running.accountKey)), origin: running.origin,
-          agent, request: { mac, plan: plan ?? 'codex', alsoWhenScheduled: input.alsoWhenScheduled, connectUrl },
-          current: () => account()?.key === bound?.key && account()?.generation === bound?.generation && host.current()?.id === running.id
-        })))
-        await nativeConnector.consent()
-      },
-      revoke: () => nativeConnector?.revoke()
-    },
     consent: consentClient
   })
 
@@ -776,12 +817,15 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
 
       // WorkSurface preloads one hidden view after launch, through WorkSession's recovery door.
     },
-    retire: async () => {
+    retire: async (deviceServiceId = deps.deviceServiceId()) => {
+      stopT3Mcp()
       modelKeys.forget()
       closeConnector()
-      await lifecycle.retire()
+      await Promise.all([lifecycle.retire(), deviceServiceId ? clearT3Mcp(deviceServiceId) : undefined])
     },
+    clearT3Mcp,
     quit: () => {
+      stopT3Mcp()
       closeConnector()
       modelKeys.forget()
 

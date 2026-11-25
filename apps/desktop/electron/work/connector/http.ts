@@ -2,14 +2,12 @@ import { timingSafeEqual } from 'node:crypto'
 import { createServer, type Server } from 'node:http'
 
 import type { Caller } from './contract'
-import type { NativeConnector, NativePath } from './native'
 import type { ConnectorService } from './service'
 export class ConnectorHttp {
   private server?: Server
   constructor(
     private readonly service: ConnectorService,
-    private readonly secret: string,
-    private readonly native?: NativeConnector
+    private readonly secret: string
   ) {}
   async start(): Promise<string> {
     const secret = Buffer.from(`Bearer ${this.secret}`)
@@ -29,8 +27,7 @@ export class ConnectorHttp {
         return
       }
 
-      const nativePath = ['/tools', '/native-register', '/native-consent', '/native-consent?phase=prepare', '/native-consent?phase=callback'].includes(req.url ?? '')
-      if (req.headers.origin || (!nativePath && (req.method !== 'POST' || req.url !== '/ask'))) {
+      if (req.headers.origin || req.method !== 'POST' || req.url !== '/ask') {
         reply(404, { error: 'unavailable' })
 
         return
@@ -42,18 +39,13 @@ export class ConnectorHttp {
         for await (const chunk of req) {
           body += chunk.toString()
 
-          if (Buffer.byteLength(body) > (nativePath ? 1_048_576 : 16_384)) {
+          if (Buffer.byteLength(body) > 16_384) {
             reply(413, { error: 'invalid_request' })
 
             return
           }
         }
 
-        if (nativePath) {
-          if (!this.native || !['GET', 'POST'].includes(req.method ?? '')) {reply(404, { error: 'unavailable' }); return}
-          reply(200, await this.native.handle(req.url as NativePath, req.method as 'GET' | 'POST', body ? JSON.parse(body) : undefined))
-          return
-        }
         const value = JSON.parse(body) as { caller?: Caller; question?: unknown; admission?: unknown }
         const caller = value.caller
 

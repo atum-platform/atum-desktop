@@ -456,8 +456,25 @@ describe('createMatrixWork', () => {
     expect(build().work.modelKeys()).toEqual([])
   })
 
+  it('clears the enrolled Mac on sign-out even if Work never started this run', async () => {
+    const { work } = build({ deviceServiceId: () => undefined })
+    const request = vi.fn(async () => Response.json({ ok: true }))
+    vi.stubGlobal('fetch', request)
+
+    try {
+      await work.retire('retiring-device')
+      expect(request).toHaveBeenCalledWith('https://api.example.test/api/matrix/v1/device-services', expect.objectContaining({
+        method: 'POST',
+        headers: { 'content-type': 'application/json', authorization: 'Bearer bearer' },
+        body: JSON.stringify({ operation: 'work_t3_mcp_clear', deviceServiceId: 'retiring-device' })
+      }))
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
+
   it('retire and quit with nothing bound are harmless', async () => {
-    const { work } = build()
+    const { work } = build({ deviceServiceId: () => undefined })
 
     await expect(work.retire()).resolves.toBeUndefined()
     await expect(work.quit()).resolves.toBeUndefined()
