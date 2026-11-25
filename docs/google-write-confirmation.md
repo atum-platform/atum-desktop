@@ -196,3 +196,10 @@ execute, and the digest covers that preview.
   action and settled state. Tests: `src/matrix/google-work-write-card.test.tsx`,
   `shared/matrix-google-write-proposal.test.ts` ("Work proposal reader"),
   `electron/matrix/google-connection-boundary.test.ts` and `src/app/work/work-screen.test.tsx`.
+
+### 2026-11-26 integration
+
+The card branch was rebased onto Desktop main. Fold the card into the account-connections
+branch for one Desktop pull request. The account connector exposes Google mutations to
+Work and the existing card is where the owner approves them. The two parts should enter
+the same Desktop release.
