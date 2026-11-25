@@ -15,3 +15,5 @@ Local production builds reduced the generated `dist-matrix` tree from 175,736 Ki
 The focused cloud-send, lifecycle, account, owner-device repair, loopback proxy, and package-hook run passed 355 tests. The prepush adapter's pinned public-client workflow digest predates the workflow in this branch's unmodified base.
 
 The roster and assistant-card tests cover the cloud-only presentation. The preload tests cover the removed Mac assistant routes alongside the preserved profile, assistant editor, routine, and device contracts.
+
+The relocated Team Space fixture uses one member key across its mock directory, channel owners, and conversation participants. Its public Matrix identifiers are synthetic and the fixture stays outside the production module graph.

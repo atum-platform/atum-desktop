@@ -35,7 +35,7 @@ const REFS = {
 
 const PEOPLE = {
   self: { handle: 'minh', displayName: 'Minh' },
-  lan: { handle: 'lan_nguyen', displayName: 'Lan Nguyễn' },
+  lanMember: { handle: 'lan_nguyen', displayName: 'Lan Nguyễn' },
   quan: { handle: 'quan', displayName: 'Quân' },
   chi: { handle: 'chi', displayName: 'Chi' }
 }
@@ -61,7 +61,7 @@ export function teamChannels(launchRoomId: string, launchChannelId: string): Tea
     { id: '00000000-0000-4000-8000-dbe46f90abb1', name: 'xam', roomId: '!xam-company:example.invalid',
       topic: 'Chuyện linh tinh và những điều vui', memberCount: 4 },
     { id: launchChannelId, name: 'launch', roomId: launchRoomId, topic: 'Ra mắt 0.21 — lịch, việc còn lại, ai lo gì',
-      purpose: 'Mọi việc cho bản 0.21: lịch phát hành, việc còn lại và ai lo phần nào.', owner: 'lan', memberCount: 4 },
+      purpose: 'Mọi việc cho bản 0.21: lịch phát hành, việc còn lại và ai lo phần nào.', owner: 'lanMember', memberCount: 4 },
     { id: '00000000-0000-4000-8000-2d83f6003672', name: 'design', roomId: '!design-company:example.invalid',
       purpose: 'Giao diện, trải nghiệm và bản vẽ trước khi code.', memberCount: 3 },
     { id: '00000000-0000-4000-8000-6fd6bdf737fb', name: 'leadership', roomId: '!leadership-company:example.invalid',
@@ -76,9 +76,9 @@ interface TeamConversation {
 }
 
 const CONVERSATIONS: TeamConversation[] = [
-  { id: '00000000-0000-4000-8000-7983649001b9', roomId: '!dm-lan:example.invalid', others: ['lan'] },
+  { id: '00000000-0000-4000-8000-7983649001b9', roomId: '!dm-lan:example.invalid', others: ['lanMember'] },
   { id: '00000000-0000-4000-8000-db901737f0df', roomId: '!dm-chi:example.invalid', others: ['chi'] },
-  { id: '00000000-0000-4000-8000-98cad33e982f', roomId: '!dm-group:example.invalid', others: ['lan', 'quan'] }
+  { id: '00000000-0000-4000-8000-98cad33e982f', roomId: '!dm-group:example.invalid', others: ['lanMember', 'quan'] }
 ]
 
 export function teamCompanyBridge(
@@ -175,7 +175,7 @@ export function teamCompanyBridge(
       policy: withPolicy ? { channelCreation: 'members', publicChannelMembership: 'members', privateChannelMembership: 'members',
         companyInvitations: invitePolicy, ...(directAdd ? { directMemberAdd: 'members' } : {}) } : { channelCreation: 'members' } },
     members: (Object.keys(REFS) as Array<keyof typeof REFS>).map((key, index) => ({ memberRef: REFS[key],
-      role: (viewerRole === 'member' ? key === 'lan' : key === 'self') ? 'owner' : 'member', state: 'active', admissionEpoch: index + 1 })),
+      role: (viewerRole === 'member' ? key === 'lanMember' : key === 'self') ? 'owner' : 'member', state: 'active', admissionEpoch: index + 1 })),
     invitations: [{ id: '00000000-0000-4000-8000-7983649001b9', companyId: company.id, targetHandle: 'bao_tran', role: 'member',
       state: 'pending', createdAt: nowSeconds - 86_400, expiresAt: nowSeconds + 6 * 86_400, inviter: { handle: 'minh', displayName: 'Minh' } }] })
 
