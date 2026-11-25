@@ -41,6 +41,8 @@ jobs:
         run: npm run build --workspace apps/desktop
       - run: npm run verify:cloud-data-v1 --workspace apps/desktop
       - run: npm run check:test:upstream-watch --workspace apps/desktop
+      # Includes retained filesystem leases, draft recovery, Matrix room documents
+      # and text editing suites under electron/**/*.test.ts (Vitest electron project).
       - run: npm exec --workspace apps/desktop -- vitest run --maxWorkers 4
 
 # Artifact allowlist is empty: no logs, captures, packages or release artifacts uploaded.

@@ -11,8 +11,14 @@ npm run pack --workspace apps/desktop
 
 `build` and the compatibility alias `matrix:build` emit `dist-matrix` using
 `scripts/build-matrix-candidate.mjs`. The app manifest starts `matrix-main.mjs`.
-`dev`/`start` rebuild and launch that same directory; there is no alternate legacy
-Electron target or hot-reload authority. For fixture UI iteration, run Vite from
+`dev`/`start` rebuild and launch that same directory with
+`--matrix-config=matrix-public-config.json`, the checked-in public service config.
+No operator config is required for a clean development checkout. This connects
+to public Atum services; it does not supply credentials. For a separate service,
+build and run `electron dist-matrix --matrix-config=/absolute/path/dev-config.json`
+from `apps/desktop`. `npm run preview --workspace apps/desktop` serves the built
+`dist-matrix` renderer (without the Electron capability bridge).
+There is no alternate legacy Electron target or hot-reload authority. For fixture UI iteration, run Vite from
 the desktop workspace and open `/matrix-playground.html`. Playground source is
 retained but excluded from the shipped renderer.
 
