@@ -48,7 +48,7 @@ export function createOwnerRelay(mount: WorkMount, consent: Pick<WorkConsentClie
       const eligible = s?.gate.state().agents.filter(agent => agent.entitled).map(agent => agent.principal) ?? []
 
       for (const state of available) {
-        if (!state || state.consent.state !== 'on' || !consent.set) {continue}
+        if (!state || state.consent.state !== 'on' || state.consent.agents === 'all' || !consent.set) {continue}
         const agents = [...new Set([...state.consent.agents, ...eligible])]
 
         if (agents.length === state.consent.agents.length) {continue}
@@ -59,13 +59,16 @@ export function createOwnerRelay(mount: WorkMount, consent: Pick<WorkConsentClie
         } catch { /* Keep availability readable; the next read retries consent sync. */ }
       }
       account.consent = first!.consent
+      // Zod union inference marks this key optional under the Electron compiler;
+      // the strict record parser has already required and validated it.
+      const accountView = { ...account, consent: { ...account.consent, agents: account.consent.agents! } }
 
       // Account-wide model availability does not depend on this Mac enrolling this agent.
-      if (!s || !s.ledger.agent(principal)?.entitled) {return { account, status: null, turns: [] }}
+      if (!s || !s.ledger.agent(principal)?.entitled) {return { account: accountView, status: null, turns: [] }}
       const ctx = context(principal)
       // Account availability is useful even while this room's local gate reconnects.
       const status = await s.gate.relay.status(ctx, roomId).catch(() => null) as unknown as WorkRelayStatus | null
-      if (!status) {return { account, status: null, turns: [] }}
+      if (!status) {return { account: accountView, status: null, turns: [] }}
       // Display keeps the last synced selection even when admission is fenced/offline.
       const selections = JSON.parse(s.ledger.meta('relay_selections') ?? '[]') as { agentPrincipal: string; selection: unknown }[]
       const selected = WorkRelaySelectionSchema.safeParse(selections.find(each => each.agentPrincipal === principal)?.selection)
@@ -82,7 +85,7 @@ export function createOwnerRelay(mount: WorkMount, consent: Pick<WorkConsentClie
 
       if (mount.service() !== s) {throw new Error('work_relay_account_changed')}
 
-      return { account, status, turns }
+      return { account: accountView, status, turns }
     },
     async select(principal: string, expectedRevision: number, model: string, plan: WorkRelayPlan = 'codex') {
       const saved = WorkRelaySelectionSchema.parse(await deviceServiceCall(platform())('work_selection_set', {

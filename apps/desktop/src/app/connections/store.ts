@@ -109,6 +109,12 @@ export function closeAccountConnect(): void {
 export async function grantAccountPlanUse(bridge: ConnectionsBridge, plan: AccountPlan): Promise<boolean> {
   try {
     const consent = await bridge.readPlanConsent(plan)
+    // Reader-first rollout: retain the server's all-owner scope without sending "all" yet.
+    if (consent.state === 'on' && consent.allOwnerAgents) {
+      await bridge.setPlan(true)
+
+      return true
+    }
     const thisMac = consent.macs.find(mac => mac.thisMac)
     const agents = [...new Set([...(consent.state === 'on' ? consent.agents : []), ...consent.eligible])]
 

@@ -20,6 +20,44 @@ const revoked = packFixture('native-revoke-response')
 const host = enrollment.host
 const secret = 'test-only-token'
 
+it('retries the legacy authorized-keys shape only on HTTP 400', async () => {
+  const f = fixture()
+  const original = f.http.getMockImplementation()!
+
+  f.http.mockImplementation(async (url, init) => {
+    const body = JSON.parse(init.body)
+
+    if (body.operation === 'ssh_authorized_keys' && body.deviceServiceId) {
+      return Response.json({ error: 'invalid' }, { status: 400 })
+    }
+
+    return original(url, init)
+  })
+  await f.service.start()
+  expect(requests(f).filter(row => row.operation === 'ssh_authorized_keys')).toEqual([
+    { operation: 'ssh_authorized_keys', deviceServiceId: enrollment.deviceServiceId, enrollmentEpoch: enrollment.enrollmentEpoch },
+    { operation: 'ssh_authorized_keys' }
+  ])
+  expect(f.service.status().status).toBe('needs_full_disk_access_hint')
+  await f.service.disconnect()
+})
+
+it.each([401, 403, 500])('does not retry authorized keys on HTTP %s', async status => {
+  const f = fixture()
+  const original = f.http.getMockImplementation()!
+
+  f.http.mockImplementation(async (url, init) => {
+    if (JSON.parse(init.body).operation === 'ssh_authorized_keys') {
+      return Response.json({ error: 'denied' }, { status })
+    }
+
+    return original(url, init)
+  })
+  await f.service.refresh()
+  expect(requests(f).filter(row => row.operation === 'ssh_authorized_keys')).toHaveLength(1)
+  expect(f.service.status().status).toBe('error')
+})
+
 function mockSettings() {
   const values = new Map<string, string>()
 
@@ -513,7 +551,7 @@ it('requests the platform shell-only projection', async () => {
   const f = fixture()
   await f.service.refresh()
   const requests = f.http.mock.calls.map(([, init]) => JSON.parse(init.body))
-  expect(requests).toContainEqual({ operation: 'ssh_authorized_keys' })
+  expect(requests).toContainEqual({ operation: 'ssh_authorized_keys', deviceServiceId: enrollment.deviceServiceId, enrollmentEpoch: enrollment.enrollmentEpoch })
   expect(f.disk()).toContain(`no-agent-forwarding,no-port-forwarding,no-X11-forwarding ${authorized[0].publicKey}`)
 })
 

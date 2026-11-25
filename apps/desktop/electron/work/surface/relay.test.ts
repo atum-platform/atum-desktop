@@ -12,6 +12,17 @@ function mounted(service: unknown): WorkMount {
 }
 
 describe('owner relay adapter', () => {
+  it('does not replace an all-owner grant with a UUID list', async () => {
+    const set = vi.fn()
+    const relay = createOwnerRelay(mounted({ ledger: { agent: () => undefined },
+      gate: { state: () => ({ agents: [{ principal, entitled: true }] }) } }),
+    { read: async (plan = 'codex') => ({ ...account, consent: { ...account.consent, provider: plan, state: 'on', agents: 'all' } }), set },
+    () => { throw new Error('unused') })
+
+    const view = await relay.read(principal, '!dm:test')
+    expect(view.account.consent.agents).toBe('all')
+    expect(set).not.toHaveBeenCalled()
+  })
   it('bounds an optional plan timeout without delaying the working catalog forever', async () => {
     vi.useFakeTimers()
     try {

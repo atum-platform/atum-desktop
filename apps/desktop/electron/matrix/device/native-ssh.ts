@@ -22,6 +22,7 @@ export type NativeSshRequest =
       hostKey: string
     }
   | { operation: 'ssh_revoke'; deviceServiceId: string }
+  | { operation: 'ssh_authorized_keys'; deviceServiceId: string; enrollmentEpoch: number }
   | { operation: 'ssh_authorized_keys' }
 export interface NativeSshSystem {
   ready(): Promise<{ remoteLogin: boolean; user: string; hostKey: string }>
@@ -372,7 +373,15 @@ export class NativeMacSsh {
         }
 
         step = 'authorized_keys'
-        const rows = await this.deps.call({ operation: 'ssh_authorized_keys' })
+        let rows: unknown
+
+        try {
+          rows = await this.deps.call({ operation: 'ssh_authorized_keys', deviceServiceId: this.id, enrollmentEpoch: record.enrollmentEpoch })
+        } catch (error) {
+          // Old Shells reject the targeted shape. Retry only that compatibility refusal.
+          if (!(error instanceof DeviceRegistryError) || error.status !== 400) {throw error}
+          rows = await this.deps.call({ operation: 'ssh_authorized_keys' })
+        }
 
         // The plain platform projection is shell-only. Tolerate extra purpose rows from
         // older servers without installing their keys or destroying a working tunnel.

@@ -73,8 +73,9 @@ export function projectWorkConsent(
 
   return {
     state: record.state,
-    agents: on ? [...record.agents] : [],
-    eligible: [...entitled, ...(on ? record.agents : [])].filter((id, index, all) => all.indexOf(id) === index),
+    ...(record.agents === 'all' ? { allOwnerAgents: true } : {}),
+    agents: on ? [...(record.agents === 'all' ? entitled : record.agents)] : [],
+    eligible: [...entitled, ...(on && record.agents !== 'all' ? record.agents : [])].filter((id, index, all) => all.indexOf(id) === index),
     macs: ids.map(id => ({
       id,
       thisMac: id === thisMac,
