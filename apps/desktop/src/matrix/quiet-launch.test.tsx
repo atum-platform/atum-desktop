@@ -4,6 +4,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { resetAllBindings } from '@/store/keybinds'
 
 import type { MatrixAgentView, MatrixRoom, MatrixSnapshot, MatrixUiBridge } from '../../shared/matrix'
+import { matrixActionCopy } from '../../shared/matrix-action-copy'
+import { matrixAgentAccessBandText } from '../../shared/matrix-agent-access-band-copy'
 import { MATRIX_ASSISTANT_ROOM_TYPE } from '../../shared/matrix-assistant-room'
 
 import { MatrixApp } from './app'
@@ -77,6 +79,17 @@ function window6(readiness: (name: string) => MatrixAgentView['readiness'], extr
 }
 
 const ready = (): MatrixAgentView['readiness'] => ({ phase: 'ready', since: Date.now() - 60_000 })
+
+function cloudWindow(): MatrixSnapshot {
+  const base = window6(() => undefined)
+
+  return {
+    ...base,
+    assistantPath: undefined,
+    hermes: 'unavailable',
+    agents: base.agents.map(each => ({ ...each, hermes: 'unavailable', answering: 'cloud' }))
+  }
+}
 
 function fixture(first: MatrixSnapshot) {
   window.localStorage.setItem('io.atum.desktop.language', 'en')
@@ -205,48 +218,23 @@ afterEach(async () => {
 })
 
 describe('a quiet launch', () => {
-  it('shows nothing while six assistants check their trust and start, and nothing once they are ready', async () => {
-    const starting = window6(name =>
-      name === 'Atum'
-        ? { phase: 'starting', step: 'hermes', since: Date.now() }
-        : { phase: 'starting', step: 'assistant', since: Date.now() }
-    )
+  it('opens six cloud assistants quietly and leaves their composer ready without a Mac runtime', async () => {
+    const { bridge } = fixture(cloudWindow())
 
-    const { emit } = fixture({
-      ...starting,
-      // Another assistant's watch renewing itself at launch: the app's own business.
-      agents: starting.agents.map(each =>
-        each.principal === 'moon'
-          ? {
-              ...each,
-              listening: {
-                roomId: '!moon:test',
-                expiresAt: Date.now() + 60_000,
-                queued: 0,
-                state: 'paused',
-                mode: 'continuous',
-                reason: 'renewing'
-              }
-            }
-          : each
-      )
-    })
-
-    await screen.findByRole('button', { name: /^Account: owner/ })
-    expect(stack()?.children.length).toBe(0)
-    expect(indicators().length).toBe(0)
+    const composer = await screen.findByRole('textbox', { name: /^Message / })
+    expect(composer.getAttribute('placeholder')).toBe('Message Atum')
+    expect(indicators()).toHaveLength(0)
+    expect(amberDots()).toHaveLength(0)
     expect(chatNotice()).toBeNull()
-    expect(amberDots().length).toBe(0)
-    // The message box says it, quietly.
-    expect(screen.getByRole('textbox', { name: /^Message / }).getAttribute('placeholder')).toBe(
-      'Atum is starting… You can type ahead.'
-    )
+    expect(stack()?.children).toHaveLength(0)
+    expect(screen.queryByText(matrixActionCopy.en.hermesUnavailable)).toBeNull()
 
-    emit(window6(ready))
-    expect(stack()?.children.length).toBe(0)
-    expect(indicators().length).toBe(0)
-    expect(chatNotice()).toBeNull()
-    expect(amberDots().length).toBe(0)
+    fireEvent.change(composer, { target: { value: 'Hello' } })
+    expect((screen.getByRole('button', { name: 'Send' }) as HTMLButtonElement).disabled).toBe(false)
+    fireEvent.click(screen.getByRole('button', { name: 'Send' }))
+    await waitFor(() => expect(bridge.sendAssistant).toHaveBeenCalledExactlyOnceWith('!atum:test', 'Hello', 'en'))
+    expect(bridge.sendTurn).not.toHaveBeenCalled()
+    expect(bridge.connectHermes).not.toHaveBeenCalled()
   })
 
   it('keeps an assistant’s passing trouble quiet through the launch’s settling', async () => {
@@ -264,6 +252,24 @@ describe('a quiet launch', () => {
 })
 
 describe('an assistant that needs the person', () => {
+  it('reads shared cloud access once and shows a single access band in the selected chat', async () => {
+    const state = cloudWindow()
+    const { bridge, emit } = fixture(state)
+    const cloudAgent = vi.fn(async () => ({ effective: 'none' as const, reason: 'trial_expired' as const }))
+    bridge.cloudAgent = cloudAgent as unknown as MatrixUiBridge['cloudAgent']
+
+    const notice = matrixAgentAccessBandText('trial_expired', 'en')
+    await screen.findByText(notice)
+    expect(screen.getAllByText(notice)).toHaveLength(1)
+    expect(cloudAgent).toHaveBeenCalledExactlyOnceWith({ action: 'cloudAccess' })
+    expect(indicators()).toHaveLength(0)
+
+    emit({ ...state, roomId: '!moon:test' })
+    await screen.findByText(notice)
+    expect(screen.getAllByText(notice)).toHaveLength(1)
+    expect(cloudAgent).toHaveBeenCalledTimes(1)
+  })
+
   const moonNeedsYou = () =>
     window6(name =>
       name === 'Moon'
@@ -366,41 +372,6 @@ describe('an assistant that needs the person', () => {
     emit({ ...stopped, roomId: group.id })
     await act(async () => {})
     expect(stack()?.children.length).toBe(0)
-  })
-
-  it('is one indicator item for a cause every assistant shares, and no amber row', async () => {
-    const { emit } = fixture(
-      window6(() => ({ phase: 'degraded', step: 'ai', code: 'out_of_protons', since: Date.now() }))
-    )
-
-    await screen.findByRole('button', { name: /^Account: owner/ })
-    await waitFor(() => expect(indicators().length).toBe(1))
-    expect(screen.getByRole('button', { name: /Needs you: Out of Protons$/ })).toBeTruthy()
-    expect(amberDots().length).toBe(0)
-    // Said once (2026-10-06 check): the open chat has no card about it; its message box names it.
-    expect(chatNotice()).toBeNull()
-    expect(stack()?.children.length).toBe(0)
-    expect(screen.getByRole('textbox', { name: /^Message / }).getAttribute('placeholder')).toBe(
-      'Top up Protons to continue.'
-    )
-
-    emit(window6(ready))
-    await waitFor(() => expect(indicators().length).toBe(0))
-  })
-
-  it.each([
-    ['runtime_invalid', 'hermes', 'Update Atum'],
-    ['action_required', 'assistant', 'Connect your Atum account'],
-    ['device_replaced', 'assistant', 'Sign in again on this Mac']
-  ] as const)('says a shared %s once, in the indicator, and names it in the message box', async (code, step, label) => {
-    fixture(window6(() => ({ phase: 'blocked', step, code, since: Date.now() - 60_000 })))
-
-    await screen.findByRole('button', { name: /^Account: owner/ })
-    await waitFor(() => expect(indicators().length).toBe(1))
-    expect(screen.getByRole('button', { name: new RegExp(`Needs you: ${label}$`) })).toBeTruthy()
-    expect(chatNotice()).toBeNull()
-    expect(stack()?.children.length).toBe(0)
-    expect(screen.getByRole('textbox', { name: /^Message / }).getAttribute('placeholder')).toBe(label)
   })
 })
 

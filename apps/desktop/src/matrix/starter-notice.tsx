@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 
 import type { MatrixIdentity, MatrixSnapshot } from '../../shared/matrix'
+import { matrixPrimaryAgent } from '../../shared/matrix-assistant-room'
 
 import { matrixStarterCopy } from './starter-copy'
 import { wholeProtons } from './wallet-ui'
@@ -18,13 +19,24 @@ export function starterChatEstimate(amountMicro: number): number {
   return Math.max(1, Math.floor(wholeProtons(amountMicro) / APPROXIMATE_PROTONS_PER_CHAT))
 }
 
+function starterChatReady(snapshot: MatrixSnapshot): boolean {
+  if (snapshot.state !== 'ready') {
+    return false
+  }
+
+  if (matrixPrimaryAgent(snapshot)?.answering === 'cloud') {
+    return snapshot.agentRoster?.state === 'ready'
+  }
+
+  return snapshot.readiness?.phase === 'ready' || snapshot.readiness?.phase === 'degraded'
+}
+
 function starterOffer(snapshot: MatrixSnapshot): MatrixStarterOffer | null {
   const { identity, petScope, starter } = snapshot
 
   if (
     snapshot.starterMarker !== 'unseen' ||
-    snapshot.state !== 'ready' ||
-    (snapshot.readiness?.phase !== 'ready' && snapshot.readiness?.phase !== 'degraded') ||
+    !starterChatReady(snapshot) ||
     !identity ||
     typeof petScope !== 'string' ||
     petScope.length === 0 ||
@@ -74,8 +86,7 @@ export function MatrixStarterNotice({ defaultAssistantChat, locale, snapshot }: 
 
   const sameVisit = Boolean(
     defaultAssistantChat &&
-    snapshot.state === 'ready' &&
-    (snapshot.readiness?.phase === 'ready' || snapshot.readiness?.phase === 'degraded') &&
+    starterChatReady(snapshot) &&
     presented?.offer.scope === snapshot.petScope &&
     presented?.offer.identity.userId === snapshot.identity?.userId &&
     presented?.offer.identity.deviceId === snapshot.identity?.deviceId

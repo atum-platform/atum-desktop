@@ -1079,7 +1079,9 @@ function MatrixEventMessageBubble() {
 
   // An unanswered message on the room path runs in place, without posting a second copy;
   // anything else is asked again with the same words, through the message box.
-  const runInPlace = Boolean(action?.room.assistant && action.hermes && !message.turn && !answered && !local)
+  const runInPlace = Boolean(
+    action?.room.assistant && !action.cloud && action.hermes && !message.turn && !answered && !local
+  )
 
   // A file you sent can be run in place too (the assistant reads it); asking again needs words.
   const retryOwn =
@@ -2930,17 +2932,16 @@ function MatrixComposer({
   }, [composerBotTarget?.appId, composerReply?.id])
 
   const listening =
-    room.assistant && snapshot.hermesListening?.state === 'listening' && snapshot.hermesListening.roomId === room.id
+    room.assistant && !cloudAssistant &&
+    snapshot.hermesListening?.state === 'listening' && snapshot.hermesListening.roomId === room.id
 
-  const paused = Boolean(cloudRoomAgent(snapshot, room) && snapshot.linkedDocument)
+  const paused = Boolean(cloudAssistant && snapshot.linkedDocument)
 
   const attentionWords = useAttentionCopy()
   const pausedHint = paused ? matrixComposerHint(snapshot, assistantName, attentionWords) : undefined
 
-  // A reply goes out on the chat's own path: people's chats, or your assistant's chat on this
-  // Mac. An app recipient, staged Drive files or the confirmation path carry none. Asking your
-  // assistant in a group can answer a message: that message is what it is asked about.
-  const replies = (!recipient || Boolean(recipientBot)) && !hasTaskFiles && !room.assistant
+  // People and cloud assistants receive replies through standard Matrix relations.
+  const replies = (!recipient || Boolean(recipientBot)) && !hasTaskFiles && (!room.assistant || cloudAssistant)
 
   useEffect(() => {
     if (!hasTaskFiles) {
@@ -3162,7 +3163,7 @@ function MatrixComposer({
       botApiRoom ||
       (!(routedBotTarget && appBridge) && !recipient && !(room.assistant && !listening && !cloudAssistant))
 
-    // A reply's quote shows on the echo too (the local path carries it only with a quote).
+    // A reply's quote shows on the echo too.
     const echoReplyTo = reply?.id
 
     const echoMentions = [
@@ -3326,7 +3327,9 @@ function MatrixComposer({
           appId: recipient
         })
       } else if (room.assistant && !listening) {
-        const sent = await window.atumMatrix.sendAssistant(room.id, body, locale)
+        const sent = await (reply
+          ? window.atumMatrix.sendAssistant(room.id, body, locale, reply.id)
+          : window.atumMatrix.sendAssistant(room.id, body, locale))
         setResult(sent.result)
 
         if (echo) {
@@ -5684,7 +5687,13 @@ function Conversation({
             <NoticeBand tone="notice">{t.matrixShell.assistantHistoryOnly}</NoticeBand>
           )}
           {room.assistant && snapshot.domainEnabled && snapshot.linkedDocument && usableAgentRoom(room) && (
-            <DocumentLink key={room.id} onPreview={onPreview} snapshot={snapshot} statusOnly />
+            <DocumentLink
+              allowRemove={Boolean(cloudAgent)}
+              key={room.id}
+              onPreview={onPreview}
+              snapshot={snapshot}
+              statusOnly
+            />
           )}
           {/* The assistant still starting (the window opens with the person's chats), stopped
             or paused: said here, in its own chat, with the one action that helps. */}
@@ -5699,7 +5708,7 @@ function Conversation({
               snapshot={snapshot}
             />
           )}
-          {room.assistant && (
+          {room.assistant && !cloudAgent && (
             <>
               {/* On the local path the readiness banner speaks for these, in plain words. */}
               {!localAssistant && snapshot.hermes === 'unconfigured' && (
@@ -6464,7 +6473,6 @@ function MatrixRoster({
 
       if (existingRoomId) {
         await runMatrixCommand({ kind: 'select', roomId: existingRoomId })
-
       } else {
         failureSource = 'command.create'
 
@@ -6484,10 +6492,7 @@ function MatrixRoster({
           agentId,
           roomId
         })
-
       }
-
-      onCreatedAssistantRoomIdChange(null)
     } catch (error) {
       fail(error, failureSource)
     } finally {
@@ -7400,8 +7405,7 @@ function MatrixAccountView({
   // (left and forgotten), which ends it as surely as leaving does.
   const listedCreatedRoom = useRef<string | null>(null)
   useEffect(() => {
-    // Retain an unfinished connect across partial sync. A successful connect
-    // retires it above; a terminal membership must not trap the retry shortcut.
+    // Keep the new room selectable before sync confirms the assistant joined it.
     const created = createdAssistantRoomId
       ? snapshot.rooms.find(value => value.id === createdAssistantRoomId.roomId)
       : undefined
@@ -7412,7 +7416,10 @@ function MatrixAccountView({
 
     if (
       createdAssistantRoomId &&
-      ((created && ['leave', 'ban'].includes(created.membership)) ||
+      ((created && (
+        ['leave', 'ban'].includes(created.membership) ||
+        isAssistantRoom(created, createdAssistantRoomId.ownerId, createdAssistantRoomId.agentId)
+      )) ||
         (!created && listedCreatedRoom.current === createdAssistantRoomId.roomId))
     ) {
       listedCreatedRoom.current = null

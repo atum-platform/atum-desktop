@@ -9304,6 +9304,25 @@ async function start() {
         return
       }
 
+      if (request?.kind === 'document' && request.action === 'remove') {
+        const identity = account.identity()
+        const roomId = state.roomId
+
+        if (
+          closing || anyOperation() || state.state !== 'ready' || !identity || !roomId ||
+          state.identity?.userId !== identity.userId || state.identity.deviceId !== identity.deviceId ||
+          request.roomId !== roomId ||
+          !state.rooms.some(room => room.id === roomId && usableAgentRoom(room))
+        ) {
+          throw new Error('matrix_document_unavailable')
+        }
+
+        documents.remove({ userId: identity.userId, roomId })
+        publish(state)
+
+        return
+      }
+
       if (request?.kind === 'previewDocument' || request?.kind === 'pdfShow') {
         const identity = state.identity
         const roomId = state.roomId
@@ -9727,7 +9746,9 @@ async function start() {
       }
 
       if (request?.kind === 'sendAssistant') {
-        const input = parseMatrixCommand({ kind: 'send', roomId: request.roomId, body: request.body })
+        const input = parseMatrixCommand({
+          kind: 'send', roomId: request.roomId, body: request.body, replyTo: request.replyTo
+        })
 
         if (input.kind !== 'send') {throw new Error('matrix_command_invalid')}
         const agent = requireRoomAgent(input.roomId)

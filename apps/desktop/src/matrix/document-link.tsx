@@ -113,6 +113,7 @@ export function useDocumentCopy() {
 }
 
 export function DocumentLink({
+  allowRemove = false,
   className,
   snapshot,
   onPreview,
@@ -120,6 +121,7 @@ export function DocumentLink({
   disabled: externallyDisabled = false,
   onPendingChange
 }: {
+  allowRemove?: boolean
   /** Where it sits decides its inset (a dialog row starts at the dialog's edge). */
   className?: string
   snapshot: MatrixSnapshot
@@ -145,8 +147,9 @@ export function DocumentLink({
     onPendingChange?.(true)
     setError(null)
     const roomId = snapshot.roomId
+    const failure = action === 'remove' ? t.errors.genericFailure : copy.error
     void runMatrixDocumentAction(() => window.atumMatrix.document(roomId, action))
-      .catch(error => setError(matrixWordError(error, t.atum.workspace, copy.error)))
+      .catch(error => setError(matrixWordError(error, t.atum.workspace, failure)))
       .finally(() => {
         setPending(false)
         onPendingChange?.(false)
@@ -166,7 +169,7 @@ export function DocumentLink({
             {link ? copy.change : copy.choose}
           </Button>
         )}
-        {!statusOnly && link && (
+        {(!statusOnly || allowRemove) && link && (
           <Button disabled={disabled} onClick={() => act('remove')} size="sm" variant="text">
             {copy.remove}
           </Button>
@@ -177,7 +180,7 @@ export function DocumentLink({
           </Button>
         )}
         {/* Above the chat the explanation is a hover away, not a standing paragraph. */}
-        {link && statusOnly && (
+        {link && statusOnly && !allowRemove && (
           <Tip label={link.kind === 'word' ? t.atum.workspace.wordLiveContext : copy.help}>
             <button aria-label={workbench.about} className="atum-icon-btn size-6" data-icon-only type="button">
               <Info aria-hidden className="size-3.5" />

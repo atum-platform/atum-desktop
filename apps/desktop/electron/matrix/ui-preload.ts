@@ -556,8 +556,8 @@ const bridge: MatrixUiBridge = {
   stopListeningHermes: roomId => ipcRenderer.invoke(channel.ui, { kind: 'stopListeningHermes', roomId }),
   invokeHermes: (roomId, eventId, locale) =>
     ipcRenderer.invoke(channel.ui, { kind: 'invokeHermes', roomId, eventId, locale }),
-  sendAssistant: (roomId, body, locale) =>
-    ipcRenderer.invoke(channel.ui, { kind: 'sendAssistant', roomId, body, locale }),
+  sendAssistant: (roomId, body, locale, replyTo) =>
+    ipcRenderer.invoke(channel.ui, { kind: 'sendAssistant', roomId, body, locale, replyTo }),
   recoverHermes: (roomId, eventId) => ipcRenderer.invoke(channel.ui, { kind: 'recoverHermes', roomId, eventId }),
   sendTurn: (roomId, body, reply) =>
     ipcRenderer.invoke(channel.ui, { kind: 'sendTurn', roomId, body, ...(reply ? { reply } : {}) }),

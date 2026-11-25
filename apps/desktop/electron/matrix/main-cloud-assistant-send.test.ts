@@ -86,8 +86,8 @@ function fixture() {
 
   const invoke = mainCode('ui', context, true)
 
-  const send = () => invoke({ sender: ui.webContents, senderFrame: ui.webContents.mainFrame }, {
-    kind: 'sendAssistant', roomId: '!luna:test', body: 'Hello Luna'
+  const send = (replyTo?: string) => invoke({ sender: ui.webContents, senderFrame: ui.webContents.mainFrame }, {
+    kind: 'sendAssistant', roomId: '!luna:test', body: 'Hello Luna', replyTo
   })
 
   return { human, guardRoomCommand, hosts, send }
@@ -108,5 +108,15 @@ describe('cloud assistant owner send IPC', () => {
     f.guardRoomCommand.mockImplementation(async () => { f.hosts.delete('human') })
     await expect(f.send()).rejects.toThrow('matrix_not_ready')
     expect(f.human.queue.command).not.toHaveBeenCalled()
+  })
+
+  it('passes only a validated Matrix reply target to the owner SDK', async () => {
+    const f = fixture()
+    await expect(f.send('not-an-event')).rejects.toThrow('matrix_command_invalid')
+    expect(f.human.queue.command).not.toHaveBeenCalled()
+    await expect(f.send('$answer')).resolves.toMatchObject({ eventId: '$sent' })
+    expect(f.human.queue.command).toHaveBeenCalledExactlyOnceWith(
+      { kind: 'send', roomId: '!luna:test', body: 'Hello Luna', replyTo: '$answer' }, 20_000
+    )
   })
 })

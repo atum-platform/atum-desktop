@@ -251,6 +251,11 @@ export function matrixStartupBlocking(snapshot: MatrixSnapshot, waitedMs = 0): b
     )
   }
 
+  // Cloud-only hosts publish the roster read independently of local runtime readiness.
+  if (snapshot.agentRoster && snapshot.agentRoster.state !== 'ready' && waitedMs < MATRIX_LAUNCH_START_WAIT_MS) {
+    return true
+  }
+
   // Builds without the readiness gate: the older setup steps.
   if (snapshot.state === 'connecting') {
     return true
