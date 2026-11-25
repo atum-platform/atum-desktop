@@ -33,7 +33,10 @@ describe('T3 auth commands', () => {
       run: async (_exe, args, environment) => {
         calls.push({ args, environment })
 
-        return { code: 0, stdout: args[2] === 'list' ? JSON.stringify([{ sessionId: 's1', token: 'SECRET' }, { sessionId: 's2' }]) : 'Revoked pairing credential x.\n' }
+        return { code: 0, stdout: args[2] === 'list' ? JSON.stringify([
+          { sessionId: 's1', client: { label: 'Atum Work' }, token: 'SECRET' },
+          { sessionId: 's2', client: { label: 'Atum Work (owner)' } }
+        ]) : 'Revoked pairing credential x.\n' }
       }
     })
 
@@ -41,6 +44,9 @@ describe('T3 auth commands', () => {
     expect(await cli.revokePairing('p1')).toBe(true)
     expect(calls[0].environment).toMatchObject({ T3CODE_HOME: '/acct/work/server', T3CODE_TELEMETRY_ENABLED: 'false' })
     expect(calls[1].args).toEqual(['auth', 'pairing', 'revoke', 'p1'])
+    expect(await cli.sessionIds('Atum Work')).toEqual(['s1'])
+    await cli.revokeSession('s1')
+    expect(calls[3].args).toEqual(['auth', 'session', 'revoke', 's1'])
   })
 
   it('says a link was already gone, and never puts command output in an error', async () => {

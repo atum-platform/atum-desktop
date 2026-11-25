@@ -4,18 +4,33 @@
 Desktop C1 is built locally. Activation depends on the coordinated Shell and
 Hermes changes and a desktop release.
 
-- On a verified Work ready event, main starts checking the environment link
-  immediately and once per minute. A short-lived local T3 CLI session reads
-  link state and requests a pairing token. Connect handles OAuth discovery and
-  dynamic registration. The loopback Work server approves full access and
-  exchanges the PKCE code. The device-services client sends the resulting
-  bearer, Connect MCP URL and millisecond expiry to C1.
-- Main keeps publication metadata in memory. It remints on app startup, a
-  changed Work origin or Connect URL, and with less than seven days remaining.
-  Main serializes publication with sign-out and revocation clears. Work and
-  Connect requests reject redirects. Credentials stay out of logs and renderer
-  state. If the owner's bearer is already unusable, the Shell's device-revoke
-  cleanup and credential expiry are the remaining backstops.
+- **F2, credential custody.** Main records the native T3 session ID, Connect URL and
+  expiry in the existing per-account Keychain-backed, mode-0600 Work store.
+  A live publication survives app and Work restarts, including a changed loopback
+  port. Rotation starts inside the seven-day expiry window or when the Connect
+  URL changes. A pending bearer stays encrypted until Shell acknowledges it, so
+  a lost reply retries the same token. Main revokes the old native session after
+  replacement and uses T3’s session list to recover relay sessions left by an
+  interrupted mint. Only the exact relay client label is swept.
+- **F2 and F9, withdrawal.** Sign-out, an account switch, a Connect withdrawal and
+  a revoke delivered to this Mac use `t3 auth session revoke` against its Work
+  home. Local revocation runs even if the Matrix scope or platform bearer has
+  ended. A device revoke relies on SQL to remove the Shell row. A failed native
+  revoke keeps a retirement record for retry. The Mac that issued the credential
+  performs native revocation when it receives the device revocation.
+- **F4, shared mint.** Gate and Connect publication share the gate’s existing
+  dynamic registration, pairing approval and PKCE exchange. Registration uses
+  the published Connect URL. An authenticated loopback token response contains
+  T3’s signed session claim `sid`, which identifies its own mint without a
+  global session-list diff. Connect reads use the existing owner partition and
+  the temporary setup-bearer issuance has been removed.
+- **Automatic linking.** For an unlinked Work home, main uses the native Connect
+  challenge, Work’s link proof, relay link and local relay-config endpoints.
+  Only the relay receives the Atum assertion. Work receives its existing owner
+  cookie on loopback. The managed link defaults to notifications and Live
+  Activities off, following the local Connect acceptance fixture. A linked
+  tunnel can come up asynchronously. An explicit native link-revoked state
+  withdraws the MCP credential and preserves that revocation.
 - The old native OAuth consent, agent connector routes, and renewal UI were
   removed. The loopback Ask connector remains. D9 route events and agent grants
   also serve the retained atum-work model provider, whose `work_runtime.py`
@@ -24,8 +39,9 @@ Hermes changes and a desktop release.
   responses, including scheduled ones. Subscription consent, facts, selection,
   and settlement remain on that path.
 
-Local fixture coverage exercises discovery, registration, pairing, PKCE,
-rotation, replacement and clearing. The baseline dependency helper rejects the
-checked-in npm lock because the TUI requests `undici@6.29.0` and the root
-override resolves 6.29.1. Verification uses a checkout-local overlay of the
-existing cached dependencies. The lock verification remains failed.
+Focused local Vitest passed 87 tests in nine files and covers the native request sequence and auth boundaries,
+concurrent OAuth mints, relaunch and interrupted publication, credential
+rotation, orphan cleanup and native withdrawal with an unusable Shell call.
+Electron TypeScript checking and `git diff --check` ran locally. The coordinator
+owns the full pre-push and installed/cloud acceptance. No real Connect or
+Cloudflare requests were made in this implementation session.

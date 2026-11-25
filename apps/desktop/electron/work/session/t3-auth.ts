@@ -32,14 +32,14 @@ export const execCommand: CommandRunner = (executable, args, environment) =>
  * parsed down to ids; no credential, token or command output is ever kept.
  */
 export interface T3AuthCli {
-  sessionIds(): Promise<string[]>
+  sessionIds(label?: string): Promise<string[]>
   revokeSession(id: string): Promise<void>
   pairingIds(): Promise<string[]>
   /** True when a live link was revoked, false when it was already gone. */
   revokePairing(id: string): Promise<boolean>
 }
 
-function ids(stdout: string, key: 'sessionId' | 'id'): string[] {
+function ids(stdout: string, key: 'sessionId' | 'id', label?: string): string[] {
   let rows: unknown
 
   try {
@@ -52,7 +52,7 @@ function ids(stdout: string, key: 'sessionId' | 'id'): string[] {
     throw new WorkSessionError('t3_auth_unparseable')
   }
 
-  return rows.map(row => {
+  return rows.filter(row => label === undefined || row?.client?.label === label).map(row => {
     const value = (row as Record<string, unknown> | null)?.[key]
 
     if (typeof value !== 'string' || !value) {
@@ -68,7 +68,7 @@ export function createT3AuthCli(options: {
   home: string
   environment: Record<string, string>
   run?: CommandRunner
-}): T3AuthCli & { issueLocalBearer(): Promise<string> } {
+}): T3AuthCli {
   const run = options.run ?? execCommand
   const environment = { ...options.environment, T3CODE_HOME: options.home, T3CODE_TELEMETRY_ENABLED: 'false' }
 
@@ -83,16 +83,7 @@ export function createT3AuthCli(options: {
   }
 
   return {
-    async issueLocalBearer() {
-      const token = (await call([
-        'auth', 'session', 'issue', '--ttl', '10m', '--label', 'Atum Work MCP setup', '--token-only'
-      ], 't3_auth_session_issue')).trim()
-
-      if (!/^\S+$/u.test(token)) {throw new WorkSessionError('t3_auth_unparseable')}
-
-      return token
-    },
-    sessionIds: async () => ids(await call(['auth', 'session', 'list', '--json'], 't3_auth_session_list'), 'sessionId'),
+    sessionIds: async label => ids(await call(['auth', 'session', 'list', '--json'], 't3_auth_session_list'), 'sessionId', label),
     revokeSession: async id => {
       await call(['auth', 'session', 'revoke', id], 't3_auth_session_revoke')
     },

@@ -22,7 +22,9 @@ import {
   type WorkGateService
 } from '../work/gate'
 import { deviceServiceCall } from '../work/gate/platform'
+import { createT3PairingCodes } from '../work/gate/sessions'
 import {
+  createKeychainSecretStore,
   createOwnerEventVerifier,
   createSdkOwnerEventSource,
   createWorkGateService,
@@ -133,7 +135,7 @@ export interface MatrixWork {
   activate(): Promise<void>
   /** Sign-out, a session the server ended, an account switch: tear everything of this account down. */
   retire(deviceServiceId?: string): Promise<void>
-  clearT3Mcp(deviceServiceId: string): Promise<void>
+  revokeT3Mcp(deviceServiceId: string): Promise<void>
   /** Withdraw or resume publication of this Mac's token-free plan facts. */
   setMacPlanFactsEnabled(deviceServiceId: string, enabled: boolean): Promise<void>
   /** App quit: not a revocation. */
@@ -422,12 +424,11 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
 
   const t3Mcp = new WorkT3McpPublication()
   let mcpTimer: ReturnType<typeof setInterval> | undefined
-  let localAuth: { incarnation: WorkIncarnation; token: string; renewAt: number } | undefined
+  const revokedDevices = new Map<string, Promise<void>>()
 
   const stopT3Mcp = () => {
     clearInterval(mcpTimer)
     mcpTimer = undefined
-    localAuth = undefined
     t3Mcp.stop()
   }
 
@@ -446,15 +447,38 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
       }
     })
 
-  const clearT3Mcp = async (deviceServiceId: string) => {
+  const mcpCustody = (bound: { key: string; root: string }) => {
+    const paths = workSessionPaths(bound)
+    const cli = { ...host.authTools(paths), home: paths.home }
+
+    return {
+      accountKey: bound.key,
+      store: createKeychainSecretStore({
+        account: bound, safeStorage: deps.safeStorage,
+        onFailure: () => {throw new Error('t3_mcp_store_unavailable')}
+      }),
+      auth: createT3AuthCli(cli),
+      pairing: createT3PairingCodes(cli)
+    }
+  }
+
+  const clearT3Mcp = async (
+    bound: { key: string; root: string; generation: number },
+    deviceServiceId?: string,
+    revokedDeviceServiceId?: string
+  ) => {
     const scope = deps.scope()
     const endpoint = deps.deviceServicesEndpoint()
+    const call = scope?.accountKey === bound.key && scope.generation === bound.generation && endpoint
+      ? deviceCall(endpoint, scope, () => !deviceServiceId || !revokedDevices.has(deviceServiceId))
+      : undefined
 
-    if (scope && endpoint) {
-      await t3Mcp.clear(deviceServiceId, deviceCall(endpoint, scope)).catch(() => {
-        deps.log('[atum-work] t3_mcp_clear_failed')
-      })
-    }
+    await t3Mcp.clear(mcpCustody(bound), {
+      revokedDeviceServiceId,
+      shell: deviceServiceId && call ? { deviceServiceId, call } : undefined
+    }).catch(() => {
+      deps.log('[atum-work] t3_mcp_clear_failed')
+    })
   }
 
   const refreshT3Mcp = () => {
@@ -464,26 +488,24 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
     const deviceServiceId = deps.deviceServiceId()
     const endpoint = deps.deviceServicesEndpoint()
 
-    if (!running || !active || !scope || !deviceServiceId || !endpoint ||
+    if (!running || !active || !scope || !deviceServiceId || !endpoint || revokedDevices.has(deviceServiceId) ||
         running.accountKey !== scope.accountKey || running.generation !== scope.generation) {return}
 
-    const current = () => Boolean(mcpTimer) && !deps.closing() &&
-      host.current() === running && sameScope(deps.scope()) && deps.deviceServiceId() === deviceServiceId
+    const current = () => {
+      const present = deps.scope()
+
+      return Boolean(mcpTimer) && !deps.closing() && host.current() === running &&
+        present?.accountKey === scope.accountKey && present.generation === scope.generation &&
+        deps.deviceServiceId() === deviceServiceId && !revokedDevices.has(deviceServiceId)
+    }
+    const ownerPartition = deps.sessionFromPartition(partitionFor(active.key))
 
     void t3Mcp.refresh({
+      ...mcpCustody(active),
       deviceServiceId, workOrigin: running.origin, current,
       call: deviceCall(endpoint, scope, current),
-      async localBearer() {
-        if (localAuth?.incarnation === running && localAuth.renewAt > Date.now()) {return localAuth.token}
-
-        const renewAt = Date.now() + 9 * 60_000
-        const tools = host.authTools(workSessionPaths(active))
-        const token = await createT3AuthCli({ ...tools, home: running.home }).issueLocalBearer()
-
-        if (current()) {localAuth = { incarnation: running, token, renewAt }}
-
-        return token
-      }
+      ownerFetch: ownerPartition.fetch.bind(ownerPartition),
+      assertion: () => deps.connectAssertion?.() ?? Promise.reject(new Error('work_connect_unavailable'))
     }).catch(() => {
       deps.log('[atum-work] t3_mcp_refresh_failed')
     })
@@ -724,7 +746,16 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
   }
 
   const parts = (): WorkSurfaceParts => ({
-    session,
+    session: {
+      async openOwnerView(createView) {
+        const outcome = await session.openOwnerView(createView)
+
+        // First launch needs the freshly paired owner cookie; the server-ready tick may have preceded it.
+        if (outcome.state !== 'failed') {refreshT3Mcp()}
+
+        return outcome
+      }
+    },
     enabled: () => host.enabled(),
     gate: door,
     readAccess: () => readWorkAccess(deps.model, deps.wallet),
@@ -786,8 +817,11 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
     mount: {
       setSurface: value => mount.setSurface(value),
       reconcile: () => mount.reconcile(),
-      retire: account => {
+      retire: async (account, deviceServiceId = deps.deviceServiceId()) => {
+        stopT3Mcp()
         modelKeys.forget()
+
+        await clearT3Mcp(account, deviceServiceId && !revokedDevices.has(deviceServiceId) ? deviceServiceId : undefined)
 
         return mount.retire(account)
       },
@@ -821,9 +855,28 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
       stopT3Mcp()
       modelKeys.forget()
       closeConnector()
-      await Promise.all([lifecycle.retire(), deviceServiceId ? clearT3Mcp(deviceServiceId) : undefined])
+      const scope = deps.scope() ?? owner
+
+      if (!(await lifecycle.retire(deviceServiceId)) && scope) {
+        await clearT3Mcp(
+          { key: scope.accountKey, generation: scope.generation, root: rootFor(scope.accountKey) },
+          deviceServiceId && !revokedDevices.has(deviceServiceId) ? deviceServiceId : undefined
+        )
+      }
     },
-    clearT3Mcp,
+    revokeT3Mcp(deviceServiceId) {
+      const pending = revokedDevices.get(deviceServiceId)
+
+      if (pending) {return pending}
+      const scope = deps.scope() ?? owner
+      const bound = lifecycle.boundAccount() ?? (scope && {
+        key: scope.accountKey, generation: scope.generation, root: rootFor(scope.accountKey)
+      })
+      const revoke = Promise.resolve().then(() => bound ? clearT3Mcp(bound, undefined, deviceServiceId) : undefined)
+      revokedDevices.set(deviceServiceId, revoke)
+
+      return revoke
+    },
     quit: () => {
       stopT3Mcp()
       closeConnector()

@@ -2568,13 +2568,16 @@ function createDeviceIdentity(): MacDeviceIdentity {
     hubUrl: deviceHubUrl(process.env.ATUM_DEVICE_HUB_URL),
     hubRequired: controllerHubRequired,
     call: async (resource, signal) => {
+      const localDevice = deviceIdentity?.enrollment()?.deviceServiceId
       const result = await s1Call(resource, signal)
 
-      if (resource.kind === 'device-revoke') { await work?.clearT3Mcp(resource.deviceServiceId) }
+      if (resource.kind === 'device-revoke' && resource.deviceServiceId === localDevice) {
+        await work?.revokeT3Mcp(localDevice)
+      }
 
       return result
     },
-    onRevoked: deviceServiceId => { void work?.clearT3Mcp(deviceServiceId) },
+    onRevoked: deviceServiceId => { void work?.revokeT3Mcp(deviceServiceId) },
     owner: deviceOwner,
     // Until the device runtime (WS-4) attaches, this Mac offers nothing and says so.
     hello: () => ({

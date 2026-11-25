@@ -39,7 +39,7 @@ export interface MatrixWorkLifecyclePorts {
   mount: {
     setSurface(surface: MountSurfaceState): Promise<void>
     reconcile(): Promise<void>
-    retire(account: WorkMountAccount): Promise<RetireResult>
+    retire(account: WorkMountAccount, deviceServiceId?: string): Promise<RetireResult>
     quit(): Promise<void>
     state(): { phase: string }
   }
@@ -141,7 +141,7 @@ export class MatrixWorkLifecycle {
     }
   }
 
-  private async retireBound(): Promise<RetireResult | undefined> {
+  private async retireBound(deviceServiceId?: string): Promise<RetireResult | undefined> {
     const account = this.current
     this.current = undefined
 
@@ -152,7 +152,7 @@ export class MatrixWorkLifecycle {
     // The page leaves first (view closed, no read answered), then the gate's cutoff, the server and the partition.
     this.ports.attach(undefined)
 
-    const result = await this.ports.mount.retire(account)
+    const result = await this.ports.mount.retire(account, deviceServiceId)
 
     if (!result.settled || result.failed.length > 0) {
       this.ports.log?.(`[atum-work] retire settled=${result.settled} failed=${result.failed.join(',')}`)
@@ -165,12 +165,12 @@ export class MatrixWorkLifecycle {
    * The sign-in ended (sign-out, a session the server revoked, an account switch): everything Work holds for this
    * account is torn down, in the mount's order. Safe to call with nothing bound, and to call twice.
    */
-  async retire(): Promise<RetireResult | undefined> {
+  async retire(deviceServiceId?: string): Promise<RetireResult | undefined> {
     const pending = this.binding ?? Promise.resolve()
     this.binding = pending.then(() => undefined)
     await pending.catch(() => undefined)
 
-    return this.retireBound()
+    return this.retireBound(deviceServiceId)
   }
 
   /** App quit: not a revocation. The gate closes without a cutoff, then the server stops. */
