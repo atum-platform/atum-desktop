@@ -11,7 +11,7 @@ import { workCopy, type WorkWords } from './copy'
 import { WorkRelaySharedContextLine } from './relay-chrome'
 import { workRelaySharedContext } from './relay-view'
 import { useWorkViewPlacement } from './use-work-view-placement'
-import { useWorkHistoryArrows, useWorkSidebar, WorkRosterControls, WorkTitle } from './work-band'
+import { useWorkHistoryArrows, useWorkSidebar, WorkRightPanelToggle, WorkRosterControls, WorkTitle } from './work-band'
 
 export interface WorkScreenProps {
   bridge: MatrixWorkBridge
@@ -125,6 +125,7 @@ export function WorkScreen({
               </button>
             )}
             <WorkAssistantsPill agents={projection.agents} copy={copy} names={names} state={projection.assistants} />
+            {projection.view === 'ready' && <WorkRightPanelToggle bridge={bridge} locale={locale} state={sidebar?.rightPanel} />}
           </div>
         }
         leadsRow={leadsRow ?? false}
@@ -146,15 +147,16 @@ export function WorkScreen({
       {projection.view === 'ready' && (
         <WorkRelaySharedContextLine names={workRelaySharedContext(relayChats ?? []).map(names.name)} />
       )}
-      {/* The shared panel frame (owner, 2026-11-24): the host sits where every screen's panels sit, with
-          the panel radius, and main rounds the native view to it (electron-view.ts). Inside, T3's own
-          inset layout paints its thread list on the chrome ground and the thread as a rounded card.
-          While the view is away the quiet state sits on the same card. */}
+      {/* The shared panel frame (owner, 2026-11-24/25): the host fills the main column, whose padding
+          already holds the frame's gutter and foot inset, and main rounds the native view to the panel
+          radius (electron-view.ts). Inside, atum-work's `panels` sidebar paints the thread list and the
+          thread as two cards on a transparent ground, so the frame shows between them as between every
+          screen's left panel and main card. While the view is away the quiet state sits on one card. */}
       <div
         className={
           projection.view === 'ready'
-            ? 'relative me-(--atum-panel-gap) mb-(--atum-panel-inset) min-h-0 flex-1 overflow-hidden rounded-(--atum-r-panel)'
-            : 'relative me-(--atum-panel-gap) mb-(--atum-panel-inset) min-h-0 flex-1 overflow-hidden rounded-(--atum-r-panel) bg-(--atum-main-bg) shadow-(--atum-main-edge)'
+            ? 'relative min-h-0 flex-1 overflow-hidden rounded-(--atum-r-panel)'
+            : 'relative min-h-0 flex-1 overflow-hidden rounded-(--atum-r-panel) bg-(--atum-main-bg) shadow-(--atum-main-edge)'
         }
         data-atum-work-host
         ref={host}

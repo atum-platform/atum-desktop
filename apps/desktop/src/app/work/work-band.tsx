@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react'
 
-import { FolderPlus, GitBranch, MessagePlus } from '@/lib/icons'
+import { Tip } from '@/components/ui/tooltip'
+import { FolderPlus, GitBranch, LayoutSidebarRight, MessagePlus } from '@/lib/icons'
 import { setMatrixNavLocal } from '@/matrix/navigation-history'
 import { MatrixPlusMenu } from '@/matrix/plus-menu'
+import { rightPanelToggleCopy } from '@/matrix/right-panel'
 
 import type { MatrixWorkBridge, WorkBandCommand, WorkSidebarSnapshot, WorkSurfaceModeSnapshot } from '../../../shared/matrix-work'
 
@@ -32,6 +34,43 @@ export function WorkRosterControls({ bridge, copy }: { bridge: Pick<MatrixWorkBr
         screen="work"
       />
     </div>
+  )
+}
+
+/**
+ * The open thread's right panel, toggled from the title bar's right as every screen's panel is (owner
+ * 2026-11-25): the same button Chat, Team Space and Drive wear, running T3's own rightPanel.toggle.
+ * Absent while the view offers no panel (no thread open, or an older view that does not report one).
+ */
+export function WorkRightPanelToggle({
+  bridge,
+  locale,
+  state
+}: {
+  bridge: Pick<MatrixWorkBridge, 'runCommand'>
+  locale: Parameters<typeof rightPanelToggleCopy>[0]
+  state: WorkSidebarSnapshot['rightPanel']
+}) {
+  if (!state || !bridge.runCommand) {
+    return null
+  }
+
+  const open = state === 'open'
+  const label = open ? rightPanelToggleCopy(locale).hide : rightPanelToggleCopy(locale).show
+
+  return (
+    <Tip label={label}>
+      <button
+        aria-label={label}
+        aria-pressed={open}
+        className="atum-icon-btn relative size-7"
+        data-atum-work-right-panel-toggle
+        onClick={() => void bridge.runCommand?.('rightPanel.toggle').catch(() => false)}
+        type="button"
+      >
+        <LayoutSidebarRight aria-hidden className="size-[1.0625rem]" strokeWidth={1.6} />
+      </button>
+    </Tip>
   )
 }
 
