@@ -1,0 +1,5 @@
+# Hermes shard environment recovery
+
+The locked in-tree .venv shortcut bypassed PM activation. CI then lacked ripgrep, updater tests detected an owning installation and redirected into the CI checkout, and SQLite-sensitive tests used a different interpreter than the managed runtime. Restore the canonical runner activation instead of changing those runtime contracts. Increase UV_HTTP_TIMEOUT to 120 seconds for cold optional wheel metadata downloads (including KittenTTS); PM explicitly forwards this transport setting. The existing 180-minute shard limit remains. No dependency, runtime or test assertions are weakened.
+
+Validation: workflow YAML and PM transport forwarding check exit 0; canonical runner source-release-channel and search regression files, 66 passed, exit 0. Public guard after explicit origin/main fetch at 1e07b5da: exit 0 (12 new commits). Full eight-shard hosted execution remains for the coordinator after push; this local check does not simulate a cold GitHub metadata timeout.

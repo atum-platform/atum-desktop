@@ -96,8 +96,10 @@ export function awarenessLocalTransport(options: AwarenessLocalTransportOptions)
           } else {
             finish(undefined, result)
           }
-        }, () => {
-          if (!settled) { unknown() }
+        }, error => {
+          if (!settled && (error as { code?: string })?.code === 'matrix_local_brain_readonly') {
+            finish(new Error('matrix_local_brain_readonly'))
+          } else if (!settled) { unknown() }
         })
       } catch {
         unknown()

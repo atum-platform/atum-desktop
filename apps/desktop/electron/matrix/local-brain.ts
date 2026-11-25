@@ -443,6 +443,20 @@ export class MatrixLocalBrain {
       return Promise.reject(codedError('matrix_local_brain_method_denied'))
     }
 
+    const transition = path.join(this.userData, 'accounts', owner.accountKey.toLowerCase(), 'local-brain', 'cloud-readonly.json')
+    // Freeze additions while keeping withdrawals/fences live so fallback cannot
+    // resurrect forgotten data. Account-scoped marker is installed by enrollment.
+    if (['brain.ingest', 'brain.correct', 'brain.reportCoverage'].includes(method)) {
+      try {
+        lstatSync(transition)
+        return Promise.reject(codedError('matrix_local_brain_readonly'))
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+          return Promise.reject(codedError('matrix_local_brain_readonly'))
+        }
+      }
+    }
+
     const session = this.current
 
     if (!session || session.stopped || !session.ready || !sameOwner(session.owner, owner)) {

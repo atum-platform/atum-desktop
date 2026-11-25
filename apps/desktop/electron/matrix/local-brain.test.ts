@@ -182,6 +182,22 @@ function supervisor(input = fixture(), options: Partial<ConstructorParameters<ty
 }
 
 describe('MatrixLocalBrain', () => {
+  it('freezes local ingestion after cloud enrollment but preserves reads and privacy withdrawals', async () => {
+    const input = fixture()
+    const brain = supervisor(input)
+    await brain.activate(OWNER_A)
+    try {
+      const root = join(input.userData, 'accounts', OWNER_A.accountKey, 'local-brain')
+      writeFileSync(join(root, 'cloud-readonly.json'), JSON.stringify({ endpoint: 'https://brain.example/mcp' }))
+      for (const method of ['brain.ingest', 'brain.correct', 'brain.reportCoverage']) {
+        await expect(brain.call(OWNER_A, method, {})).rejects.toThrow('matrix_local_brain_readonly')
+      }
+      for (const method of ['brain.retrieve', 'brain.withdraw', 'brain.fence']) {
+        await expect(brain.call(OWNER_A, method, {})).resolves.toMatchObject({ method })
+      }
+    } finally { await brain.stop() }
+  })
+
   it('runs only the attested resource under the owner account root and sanitizes its environment', async () => {
     const input = fixture()
     const brain = supervisor(input)
