@@ -113,7 +113,7 @@ export async function grantAccountPlanUse(bridge: ConnectionsBridge, plan: Accou
     if (consent.state === 'on' && consent.allOwnerAgents) {
       await bridge.setPlan(true)
 
-      return
+      return true
     }
     const thisMac = consent.macs.find(mac => mac.thisMac)
     const agents = [...new Set([...(consent.state === 'on' ? consent.agents : []), ...consent.eligible])]

@@ -50,9 +50,29 @@ function bridge(reads: AccountConnectionsView[]) {
 it('keeps an all-owner grant intact during automatic Connect consent', async () => {
   const b = bridge([])
   b.readPlanConsent.mockResolvedValue({ ...CONSENT, state: 'on', allOwnerAgents: true })
-  await grantAccountPlanUse(b, 'codex')
+  await expect(grantAccountPlanUse(b, 'codex')).resolves.toBe(true)
   expect(b.setPlanConsent).not.toHaveBeenCalled()
   expect(b.setPlan).toHaveBeenCalledWith(true)
+})
+
+it.each(['allow', 'renew'] as const)('finishes %s with an existing all-owner grant', async mode => {
+  const b = bridge([])
+  b.readPlanConsent.mockResolvedValue({ ...CONSENT, state: 'on', allOwnerAgents: true })
+
+  await continueAccountConnect({ plan: 'codex', mode }, b)
+
+  expect($accountConnectProgress.get()).toEqual({ plan: 'codex', phase: 'done' })
+  expect(b.setPlanConsent).not.toHaveBeenCalled()
+  expect(b.setPlan).toHaveBeenCalledWith(true)
+})
+
+it('reports failure if the Mac switch cannot enable an existing all-owner grant', async () => {
+  const b = bridge([])
+  b.readPlanConsent.mockResolvedValue({ ...CONSENT, state: 'on', allOwnerAgents: true })
+  b.setPlan.mockRejectedValue(new Error('offline'))
+
+  await expect(grantAccountPlanUse(b, 'codex')).resolves.toBe(false)
+  expect(b.setPlanConsent).not.toHaveBeenCalled()
 })
 
 beforeEach(() => {

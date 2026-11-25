@@ -46,3 +46,27 @@ Rollout: reader-capable desktop release before applying 0547 (migration reads
 return all); host bridge first, then 0547, then 0548 + Shell, then the targeted
 desktop. S2's optional timestamp reader does not remove the old bridge's strict
 shape incompatibility. Nothing pushed, no CI/PR/deploy/cloud activity or spend.
+
+## Post-merge client compilation repair — 2026-11-25
+
+The all-owner early return in `grantAccountPlanUse` omitted its boolean result.
+Private-absent renderer compilation reproduced TS2322 (exit 1). It also caused
+Allow and Renew to report failure after successfully enabling this Mac. Return
+`true` after `setPlan(true)` resolves, preserving the all-owner grant without
+rewriting consent. Switch failures still return `false`; no types were loosened.
+The existing consent reader and A4 HTTP-400 fallback remain unchanged.
+
+Regression tests first failed (exit 1, three failures): missing success result
+and false failure for Allow/Renew. With the repair, the focused Connections,
+native-SSH, gate/platform, relay and surface suites pass (exit 0, 188 tests in
+five files), including all-owner reading/preservation and HTTP fallback rules.
+
+Private-absent renderer compilation passes (exit 0, 8319 source files and zero
+private sources). Full desktop lint passes (exit 0, zero errors, 4070 warnings).
+`npm run typecheck --workspace apps/desktop` passes (exit 0): client boundary,
+renderer, consumer-browser, Electron and E2E projects. `git diff --check` passes
+(exit 0). The public guard passed unpiped against the pre-repair branch head
+(exit 0); the worker also runs it against the committed repair before handoff.
+Verification reuses temporary shared root/desktop dependency symlinks; no install
+or dependency change. Local runtime is Node 23.10.0 and Vitest 4.1.12; hosted CI
+uses Node 24. The coordinator owns pushing and exact-head CI verification.
