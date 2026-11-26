@@ -55,3 +55,23 @@ native auth and Shell calls, including unlink across restart, explicit opt-in,
 relay backoff, withdrawal failures and device-scoped revoke. Electron type
 checking, the client boundary check and lint for errors in changed files also
 passed. Installed-app and cloud acceptance remain with the coordinator.
+
+## November 26 credential recovery
+
+The desktop resets native auth before a Work runtime update. It removes the
+signing key and revokes sessions before taking the trial snapshot. The installed
+0.1.17 trace shows the first refresh receiving a loopback link-state 401 while
+the owner view was being restored. The retry completed Connect registration and
+the loopback OAuth token exchange at 07:17:29 UTC. The active replacement
+session's expiry matches the expiry reported by the cloud stager to within
+one millisecond. Subsequent requests to the same Connect hostname reached Work
+and failed signature verification. The exact bearer presented by Hermes still
+needs to be distinguished from the one it staged.
+
+The desktop now verifies the retained bearer with native stateless
+`server/discover` on the published Connect URL. An explicit native
+`invalid_token` triggers replacement even while the session ID is listed.
+Network or tunnel failures preserve the last publication. A pending bearer is
+published only after discovery accepts it, and a lost acknowledgment can still
+retry the same bearer. The bearer stays in the existing encrypted Work store.
+Legacy receipts rotate once because they contain only session metadata.
