@@ -953,6 +953,7 @@ export function MatrixModelPicker({
   const hasCodexRelay = relays.some(each => each.view.plan === 'codex')
   const relayWords = workRelayCopy(locale)
   const relayPlanName = WORK_RELAY_PLAN_NAMES[selectedRelay?.view.plan ?? 'codex']
+
   // The Mac plan's selection answers, on a placed cloud home too; an Atum pick in flight holds it back.
   const relayCurrent =
     cloudSubscriptions && !(cloud && pendingModel) && !pendingHome ? selectedRelay?.view.currentModel : undefined

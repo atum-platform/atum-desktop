@@ -7,7 +7,7 @@ import { Info } from '@/lib/icons'
 
 import type { MatrixAgentView, MatrixRoom, MatrixSnapshot } from '../../shared/matrix'
 
-import { MatrixAgentDeskFiles, MatrixAgentDeskNow, useMatrixAgentDesk } from './agent-desk'
+import { MatrixAgentDeskFiles, MatrixAgentDeskNowSection, useMatrixAgentDesk } from './agent-desk'
 import { matrixAgentDeskAgent } from './agent-desk-model'
 import { AssistantCardControls } from './assistant-card/agent-controls'
 import { AssistantCard } from './assistant-card/assistant-card'
@@ -125,7 +125,7 @@ export function MatrixAssistantInfoPanel({
           focusName={focus === 'name'}
           focusRoutines={focus === 'routines'}
           key={`${agent.principal}:${focus ?? ''}`}
-          lead={<MatrixAgentDeskNow cloudStop={cloudStop} desk={desk} />}
+          lead={<MatrixAgentDeskNowSection cloudStop={cloudStop} desk={desk} />}
           onClose={onClose}
           onMessage={onClose}
           placement="panel"

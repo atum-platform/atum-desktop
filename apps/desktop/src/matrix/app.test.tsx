@@ -4346,6 +4346,7 @@ describe('isolated Matrix composition', () => {
     await waitFor(() =>
       expect(command).toHaveBeenCalledWith({ kind: 'mute', roomId: controlsState.rooms[0]!.id, muted: true })
     )
+
     // Your devices: the Macs it can use, one row that opens to each one's state.
     const devices = await waitFor(() => {
       const found = panel.querySelector<HTMLElement>('[data-assistant-card-devices]')

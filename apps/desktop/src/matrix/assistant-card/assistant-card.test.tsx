@@ -1285,7 +1285,7 @@ describe('the failover policy on the card', () => {
   it('keeps the read-only place row, with the Macs it can use, for an assistant still answering on this Mac', async () => {
     const base = snapshot()
     base.agents = base.agents?.map(each =>
-      each.principal === LAN ? { ...each, answering: 'this_mac' as const, macRole: 'answering' as const } : each
+      each.principal === LAN ? { ...each, answering: undefined, macRole: 'answering' as const } : each
     )
 
     const sourcesRead = vi.fn(async () => ({

@@ -973,6 +973,7 @@ export function MatrixAgentDesk({
 }) {
   const { locale, t } = useI18n()
   const copy = matrixAgentDeskText(locale)
+
   const { name, now, devices, stop, deviceInUse, sent, steers } = useMatrixAgentDesk({
     active,
     agent,
@@ -1061,7 +1062,7 @@ function FilesSection({
  * The agent's panel (its card beside its chat) takes the desk's live parts as they are: Now only
  * while it works or waits (with the device in use under it), and Files only when there are some.
  */
-export function MatrixAgentDeskNow({ cloudStop, desk }: { cloudStop: MatrixCloudStop; desk: MatrixAgentDeskState }) {
+export function MatrixAgentDeskNowSection({ cloudStop, desk }: { cloudStop: MatrixCloudStop; desk: MatrixAgentDeskState }) {
   const { locale, t } = useI18n()
   const notice = cloudStop.refused || cloudStop.stopped
 
