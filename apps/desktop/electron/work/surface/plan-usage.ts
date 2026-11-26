@@ -7,7 +7,6 @@ import { readWorkProviders } from './provider-config'
 const usageWindow = z.object({
   usedPercent: z.number().min(0).max(100),
   resetsAt: z.string().optional(),
-  windowDurationMins: z.number().int().positive().optional(),
   modelIds: z.array(z.string()).optional(),
   providerIds: z.array(z.string()).optional()
 })
@@ -25,10 +24,8 @@ const providerStatus = z.object({
   })
 })
 
-type Usage = WorkRelayLimit & { windowStart?: number }
-
 /** Keep only the most used account-wide window on the default plan instance. */
-export function projectPlanUsage(providers: unknown, now: number): Usage[] {
+export function projectPlanUsage(providers: unknown, now: number): WorkRelayLimit[] {
   if (!Array.isArray(providers)) {return []}
 
   return providers.flatMap(value => {
@@ -57,16 +54,15 @@ export function projectPlanUsage(providers: unknown, now: number): Usage[] {
 
     if (!window) {return []}
 
-    const { usedPercent, reset: resetsAt, windowDurationMins } = window
-    const windowStart = resetsAt !== undefined && windowDurationMins ? resetsAt - windowDurationMins * 60_000 : undefined
+    const { usedPercent, reset: resetsAt } = window
 
     return [{
       plan: WORK_PLAN_BY_DRIVER[driver], state: usedPercent === 100 ? 'exhausted' : 'available',
-      observedAt, usedPercent, resetsAt, windowStart: windowStart !== undefined && windowStart <= now ? windowStart : undefined
+      observedAt, usedPercent, resetsAt
     }]
   })
 }
 
-export async function readPlanUsage(origin: string, owner: Parameters<typeof readWorkProviders>[1]): Promise<Usage[]> {
+export async function readPlanUsage(origin: string, owner: Parameters<typeof readWorkProviders>[1]): Promise<WorkRelayLimit[]> {
   return projectPlanUsage(await readWorkProviders(origin, owner), Date.now())
 }

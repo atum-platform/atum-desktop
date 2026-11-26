@@ -5,7 +5,8 @@ import {
   type LocalPlanCapability,
   parseAccountConnections
 } from '../../../shared/account-connections'
-import { deviceServiceCall } from '../gate/platform'
+
+import { deviceServiceCall } from './platform'
 
 export interface AccountConnectionsReadDeps {
   /** `https://<host>/api/matrix/v1/device-services`, read on every call (it follows the signed-in account). */

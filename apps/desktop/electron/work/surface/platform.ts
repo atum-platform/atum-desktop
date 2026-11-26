@@ -3,17 +3,14 @@ import type { WorkRelayPlan } from '../../../shared/matrix-work-relay'
 import {
   type WorkConsentRecord,
   WorkConsentRecordSchema,
-  WorkSettlementsReplySchema,
+  type WorkSubscriptionReport,
   WorkSubscriptionReportReplySchema,
   type WorkSubscriptionState,
   WorkSubscriptionStateSchema
-} from './contract'
-import type { WorkPlatform } from './ports'
+} from './plan-contract'
 
-// The platform half of the Work route, as the Mac sees it: operations of the existing device-services endpoint
-// (`POST /api/matrix/v1/device-services`, body `{operation, ...}`, the owner's bearer). No new owner URL. Every reply
-// is parsed by its caller against the contract; a reply that is not 2xx throws and the sync client treats it as
-// offline. Nothing here logs a body.
+// The owner-scoped device services client: operations of the existing device-services endpoint
+// (`POST /api/matrix/v1/device-services`, body `{operation, ...}`, the owner's bearer). No new owner URL. Each operation validates its reply against its contract.
 
 export interface DeviceServicePlatformOptions {
   /** `https://<host>/api/matrix/v1/device-services` */
@@ -44,50 +41,21 @@ export function deviceServiceCall(options: DeviceServicePlatformOptions) {
   }
 }
 
-export function createDeviceServicePlatform(options: DeviceServicePlatformOptions): WorkPlatform {
-  const call = deviceServiceCall(options)
+export async function reportSubscription(call: ReturnType<typeof deviceServiceCall>, report: WorkSubscriptionReport): Promise<void> {
+  // Contract 1.2 `work.mac.subscription`: the reply must be the platform's record of THIS Mac's fact; anything else is not an
+  // acknowledgement and the caller keeps the fact owed.
+  const reply = WorkSubscriptionReportReplySchema.safeParse(
+    await call('work_subscription_report', report as unknown as Record<string, unknown>)
+  )
 
-  return {
-    enroll: input => call('work_enroll', input) as ReturnType<WorkPlatform['enroll']>,
-    pull: input => call('work_sync_pull', input) as ReturnType<WorkPlatform['pull']>,
-    async ack(ack) {
-      await call('work_sync_ack', ack as unknown as Record<string, unknown>)
-    },
-    async macEvent(event) {
-      // The reply names the route state the platform now holds: a reopen it is holding back (the key rotated, the ack is not in
-      // yet) answers 200 with `closed`, and the caller must not take that for an open route.
-      const state = ((await call('work_mac_event', event as unknown as Record<string, unknown>)) as { routeState?: unknown } | null)?.routeState
-
-      return { routeState: state === 'open' || state === 'closed' ? state : undefined }
-    },
-    async carryGrant(carry) {
-      await call('work_grant_carry', carry as unknown as Record<string, unknown>)
-    },
-    async reportSubscription(report) {
-      // Contract 1.2 `work.mac.subscription`: the reply must be the platform's record of THIS Mac's fact; anything else is not an
-      // acknowledgement and the caller keeps the fact owed.
-      const reply = WorkSubscriptionReportReplySchema.safeParse(
-        await call('work_subscription_report', report as unknown as Record<string, unknown>)
-      )
-
-      if (
-        !reply.success ||
-        reply.data.deviceServiceId !== report.deviceServiceId ||
-        reply.data.provider !== report.provider
-      ) {
-        throw Object.assign(new Error('device_services_bad_reply'), { status: 502 })
-      }
-    },
-    async reportSettlements(input) {
-      // Contract 1.1 `work.mac.settlements`. A 2xx that is not the contract's reply for this Mac and this batch is not an
-      // acknowledgement: the caller keeps the queue. Every report must be accounted for (accepted or ignored): a smaller
-      // count means the platform did not see some of them, and clearing the batch would lose those.
-      const reply = WorkSettlementsReplySchema.safeParse(await call('work_mac_settlements', input as unknown as Record<string, unknown>))
-
-      if (!reply.success || reply.data.deviceServiceId !== input.deviceServiceId || reply.data.accepted + reply.data.ignored !== input.reports.length) {
-        throw Object.assign(new Error('device_services_bad_reply'), { status: 502 })
-      }
-    }
+  if (
+    !reply.success ||
+    reply.data.deviceServiceId !== report.deviceServiceId ||
+    reply.data.provider !== report.provider ||
+    reply.data.state !== report.state ||
+    reply.data.observedAt !== report.observedAt
+  ) {
+    throw Object.assign(new Error('device_services_bad_reply'), { status: 502 })
   }
 }
 

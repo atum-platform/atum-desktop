@@ -1,7 +1,8 @@
 import type { WorkAgentPlans } from '../../../shared/matrix-work'
 import { WORK_RELAY_PLANS } from '../../../shared/matrix-work-relay'
-import { issueT3McpSession, type PairingCodes, type SecretStore, type SessionIdSource } from '../gate/sessions'
 import { ensureConnectMcpUrl } from '../surface/connect-endpoint'
+
+import { issueT3McpSession, type PairingCodes, type SecretStore, type SessionIdSource } from './t3-mcp-session'
 
 const RENEW_BEFORE_MS = 7 * 86_400_000
 const SESSION_LABEL = 'Atum Work'
@@ -268,7 +269,7 @@ export class WorkT3McpPublication {
       this.checked = undefined
       const { token, sessionId, expiresAt } = await issueT3McpSession({
         origin: workOrigin, registrationEndpoint: registration.href, pairing: target.pairing,
-        peer: false, name: SESSION_LABEL, access: 'full-access', fetch: this.request, now: this.now
+        name: SESSION_LABEL, access: 'full-access', fetch: this.request, now: this.now
       })
 
       try {

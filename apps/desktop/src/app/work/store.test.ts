@@ -2,9 +2,9 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import type { MatrixWorkBridge, MatrixWorkProjection } from '../../../shared/matrix-work'
 
-import { $work, $workActive, $workBandOpen, connectWorkBridge, resetWorkStoreForTests, setWorkActive, workOnRail } from './store'
+import { $work, $workActive, connectWorkBridge, resetWorkStoreForTests, setWorkActive, workOnRail } from './store'
 
-const READY: MatrixWorkProjection = { view: 'ready', assistants: 'on', agents: [], protons: 'ok' }
+const READY: MatrixWorkProjection = { view: 'ready', protons: 'ok' }
 
 function bridge(read: () => Promise<MatrixWorkProjection | null>) {
   let listener: ((projection: MatrixWorkProjection | null) => void) | undefined
@@ -43,21 +43,19 @@ describe('the Work store', () => {
 
     await vi.waitFor(() => expect($work.get()).toEqual(READY))
     expect(workOnRail($work.get())).toBe(true)
-    work.emit({ ...READY, assistants: 'off' })
-    expect($work.get()?.assistants).toBe('off')
+    work.emit({ ...READY, view: 'off' })
+    expect($work.get()?.view).toBe('off')
 
     disconnect()
     expect(work.unsubscribe).toHaveBeenCalled()
     work.emit(null)
-    expect($work.get()?.assistants).toBe('off')
+    expect($work.get()?.view).toBe('off')
   })
 
   it('closes the band when the page closes', () => {
     setWorkActive(true)
-    $workBandOpen.set(true)
     setWorkActive(false)
 
     expect($workActive.get()).toBe(false)
-    expect($workBandOpen.get()).toBe(false)
   })
 })

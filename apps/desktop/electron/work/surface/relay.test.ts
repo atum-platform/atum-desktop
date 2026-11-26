@@ -1,7 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
 
-import type { WorkMount } from '../mount/mount'
-
 import { createOwnerRelay } from './relay'
 
 const principal = '00000000-0000-4000-8000-00000000b001'
@@ -15,29 +13,26 @@ const write = (expectedRevision: number) => ({
 })
 
 function ownerRelay(...replies: Response[]) {
-  const meta = vi.fn(() => '[]')
-  const mount = { service: () => ({ ledger: { meta } }) } as unknown as WorkMount
   const fetcher = vi.fn<typeof fetch>()
 
   for (const reply of replies) {fetcher.mockResolvedValueOnce(reply)}
 
-  const relay = createOwnerRelay(mount, async () => catalog, () => ({
+  const relay = createOwnerRelay(async () => catalog, () => ({
     endpoint: 'https://example.test/device-services', bearer: async () => 'synthetic-test-bearer', fetch: fetcher
   }))
 
-  return { relay, meta, requests: () => fetcher.mock.calls.map(([, init]) => JSON.parse(init?.body as string)) }
+  return { relay, requests: () => fetcher.mock.calls.map(([, init]) => JSON.parse(init?.body as string)) }
 }
 
 describe('owner plan selection', () => {
-  it('restores the server selection and uses its revision after an empty-ledger restart', async () => {
+  it('restores the server selection and uses its revision after startup', async () => {
     const snapshot = { selection: claude, revision: 2 }
     const saved = { ...codex, revision: 3 }
-    const { relay, meta, requests } = ownerRelay(Response.json(snapshot), Response.json(snapshot), Response.json(saved))
+    const { relay, requests } = ownerRelay(Response.json(snapshot), Response.json(snapshot), Response.json(saved))
 
     expect(await relay.readPlans(principal)).toEqual({ ...catalog, selection: { ...claude, revision: 2 } })
     expect(await relay.select(principal, codex.model)).toEqual(saved)
     expect(requests()).toEqual([read, read, write(2)])
-    expect(meta).not.toHaveBeenCalled()
   })
 
   it.each([200, 409])('re-reads and retries a conflict once, then handles HTTP %s', async status => {

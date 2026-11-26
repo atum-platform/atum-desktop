@@ -289,11 +289,3 @@ export function workRelayLimitFor(limits: readonly WorkRelayLimit[], plan: WorkR
 
 // ---------------------------------------------------------------------------------------------------------------------------------
 // O14: the shared-context line in Work
-
-/**
- * The assistants whose chat runs in a thread on this Mac, in the order given, deduplicated. Empty: no line. What the owner types
- * there can show up in those assistants' answers in the chat, so Work says so, once, in one line.
- */
-export function workRelaySharedContext(principals: readonly string[]): string[] {
-  return [...new Set(principals)]
-}

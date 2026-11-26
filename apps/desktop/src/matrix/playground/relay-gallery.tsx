@@ -3,7 +3,6 @@ import { useEffect, useState } from 'react'
 import { openAccountConnect } from '@/app/connections/store'
 import type { WorkRelayPickerView } from '@/app/work/relay-view'
 import { $work } from '@/app/work/store'
-import { WorkScreen } from '@/app/work/work-screen'
 import { MatrixWorkSettings } from '@/app/work/work-settings'
 
 import type { MatrixRoom } from '../../../shared/matrix'
@@ -21,7 +20,6 @@ export const PLAYGROUND_RELAY_GALLERY = [
   'picker-google',
   'chip-limit',
   'chip-fallback',
-  'work-disclosure',
   'settings-usage',
   'consent-chats'
 ] as const
@@ -55,8 +53,6 @@ const workBridge = {
   hide: async () => {},
   retry: async () => {},
   setWork: async () => {},
-  setAssistants: async () => {},
-  setPlan: async () => {},
   openPlanConnect: async () => {},
   readPlanConsent: async () => CONSENT_OFF,
   setPlanConsent: async () => CONSENT_OFF,
@@ -132,11 +128,7 @@ export function PlaygroundRelay() {
   useEffect(() => {
     $work.set({
       view: 'ready',
-      assistants: 'on',
-      agents: [],
-      protons: 'ok',
-      planConnect: 'connected',
-      plan: 'off'
+      protons: 'ok'
     })
 
     if (state === 'consent-chats') {
@@ -146,19 +138,6 @@ export function PlaygroundRelay() {
 
   if (state in PICKER_VIEWS) {
     return <RelayPicker state={state as keyof typeof PICKER_VIEWS} />
-  }
-
-  if (state === 'work-disclosure') {
-    return (
-      <WorkScreen
-        agentName={principal => (principal === AGENT ? 'Rin' : undefined)}
-        bridge={workBridge}
-        obstructed={false}
-        onAddProtons={() => {}}
-        projection={{ view: 'ready', assistants: 'on', agents: [{ principal: AGENT, running: 1, stopping: false }], protons: 'ok' }}
-        relayChats={[AGENT]}
-      />
-    )
   }
 
   return (
