@@ -196,7 +196,7 @@ export type MatrixWorkRequest =
   | { kind: 'runCommand'; command: WorkBandCommand }
   | { kind: 'setSurfaceMode'; projectId: string; mode: 'work' | 'code' }
   | { kind: 'readAgentPlans'; principal: string }
-  | { kind: 'selectRelay'; principal: string; expectedRevision: number; model: string; plan?: WorkRelayPlan }
+  | { kind: 'selectRelay'; principal: string; model: string; plan?: WorkRelayPlan }
   | { kind: 'read' }
   | { kind: 'show'; rect: MatrixWorkRect }
   | { kind: 'hide' }
@@ -227,7 +227,7 @@ export interface MatrixWorkBridge {
   getAttention?(): Promise<WorkAttentionSnapshot | null>
   onAttentionChanged?(listener: (snapshot: WorkAttentionSnapshot | null) => void): () => void
   readAgentPlans?(principal: string): Promise<WorkAgentPlans | null>
-  selectRelay?(principal: string, expectedRevision: number, model: string, plan?: WorkRelayPlan): Promise<WorkRelaySelection>
+  selectRelay?(principal: string, model: string, plan?: WorkRelayPlan): Promise<WorkRelaySelection>
   /** Null: Work is not available for this account on this build, so the rail has no Work entry. */
   read(): Promise<MatrixWorkProjection | null>
   /** Paint (or move) the owner view over this region. The first call opens and signs the view in. */
@@ -323,8 +323,8 @@ export function parseMatrixWorkRequest(value: unknown): MatrixWorkRequest | null
     case 'selectRelay': {
       if (row.plan !== undefined && !relayPlan) {return null}
 
-      return keys.length === ('plan' in row ? 5 : 4) && typeof row.principal === 'string' && UUID.test(row.principal) && typeof row.expectedRevision === 'number' && Number.isSafeInteger(row.expectedRevision) && row.expectedRevision >= 0 && typeof row.model === 'string' && row.model.length > 0 && row.model.length <= 200
-        ? { kind: 'selectRelay', principal: row.principal, expectedRevision: row.expectedRevision, model: row.model, ...(relayPlan ? { plan: relayPlan } : {}) } : null
+      return keys.length === ('plan' in row ? 4 : 3) && typeof row.principal === 'string' && UUID.test(row.principal) && typeof row.model === 'string' && row.model.length > 0 && row.model.length <= 200
+        ? { kind: 'selectRelay', principal: row.principal, model: row.model, ...(relayPlan ? { plan: relayPlan } : {}) } : null
     }
 
     case 'read':

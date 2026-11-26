@@ -42,7 +42,7 @@ export interface WorkSurfaceParts {
   planConnectOpen?(): boolean
   relay?: {
     readPlans(principal: string): Promise<WorkAgentPlans | null>
-    select(principal: string, expectedRevision: number, model: string, plan?: WorkRelayPlan): Promise<WorkRelaySelection>
+    select(principal: string, model: string, plan?: WorkRelayPlan): Promise<WorkRelaySelection>
     chats(): string[]
   }
   session: { openOwnerView(createView: (incarnation: WorkIncarnation) => OwnerViewPort): Promise<OpenOwnerView> }
@@ -211,10 +211,10 @@ export class WorkSurface {
     return generation === this.generation ? plans ?? null : null
   }
 
-  async selectRelay(principal: string, expectedRevision: number, model: string, plan?: WorkRelayPlan): Promise<WorkRelaySelection> {
+  async selectRelay(principal: string, model: string, plan?: WorkRelayPlan): Promise<WorkRelaySelection> {
     if (!this.parts?.relay) {throw new Error('work_relay_unavailable')}
 
-    return this.parts.relay.select(principal, expectedRevision, model, plan)
+    return this.parts.relay.select(principal, model, plan)
   }
 
   async show(rect: MatrixWorkRect): Promise<void> {
