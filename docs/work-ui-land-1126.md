@@ -30,3 +30,7 @@ src/matrix/playground electron/matrix/drive-ipc.test.ts electron/work electron/m
 2775 passed, 10 skipped. Live: the playground's Work host
 (`matrix-playground.html?evidence=1&work=ready&workView=<dev Work URL>`) with the runtime branch's dev web
 UI, light and dark. Evidence: `~/.atum/operations/evidence/work-ui-1126/` (`before/`, `after/`).
+
+## Work runtime pin (0.1.17)
+
+`apps/desktop/runtime-tools.json` pins Work 0.1.17 from atum-work `6beae359d7` (release branch with account connections #3 and this UI work #4), built by the hosted `Atum Work archive` workflow (run 45737311316), archive SHA256 `41f97320173561d4a15e50619dc7899862cc95c1612c53e25223c2651e38a7ee`. Real `stageWorkRuntime` against the downloaded archive verified the digest and arm64 payload and derived pin.json version 0.1.17.
