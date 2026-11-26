@@ -22,10 +22,13 @@ export { $assistantCard, $assistantNameOverrides, closeAssistantCard, openAssist
  */
 export function AssistantCardHost({
   compact,
+  inPanel,
   openChat,
   snapshot
 }: {
   compact: boolean
+  /** The assistant's card opens as the panel beside its chat instead (the window routes it there). */
+  inPanel?(principal: string): boolean
   /** The roster's own way to open (or start) an assistant's chat. */
   openChat?: ((fresh?: boolean, agentId?: string, roomId?: string) => Promise<void>) | null
   snapshot: MatrixSnapshot
@@ -46,6 +49,10 @@ export function AssistantCardHost({
       closeAssistantCard()
     }
   }, [missing])
+
+  if (agent && inPanel?.(agent.principal)) {
+    return null
+  }
 
   if (agent) {
     const name = matrixRosterAgentName(agent, t.matrixShell.assistantName)

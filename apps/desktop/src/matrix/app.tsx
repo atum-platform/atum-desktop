@@ -169,6 +169,7 @@ import {
 import { matrixAgentDeskAgent, matrixAgentDeskSteers } from './agent-desk-model'
 import { useMatrixAgentHandleBackfill } from './agent-handle-backfill'
 import { agentHomeTitleIconShown, MatrixAgentHomeRow } from './agent-home-control'
+import { bindAgentPlansAccount } from './agent-plans-store'
 import { authorizedBotApi, botApiAppForMessage, isBotApiRoom } from './app-bots/bot-api'
 import { MatrixBotApiKeyboard, MatrixBotApiText } from './app-bots/bot-api-text'
 import { MatrixBotApiPhotoView } from './app-bots/bot-photo'
@@ -205,7 +206,7 @@ import {
   withAssistantNames
 } from './assistant-card'
 import { useAssistantCardCopy } from './assistant-card/copy'
-import { MatrixAssistantInfoPanel } from './assistant-info-panel'
+import { MatrixAssistantInfoPanel, matrixAssistantPanelRoom } from './assistant-info-panel'
 import { matrixComposerHint, useAttentionCopy } from './attention-copy'
 import {
   MatrixAttentionAnnouncer,
@@ -7040,6 +7041,15 @@ export function MatrixApp({
           activateTeamSpaceCacheAccount(next.identity ? teamSpaceAccountKey(next.identity) : null)
         }
 
+        // Mac-plan views belong to one signed-in session: a new account, signing out, or signing in
+        // again (even as the same person) empties them and retires every read and write still in
+        // flight (agent-plans-store.ts).
+        if (next.identity) {
+          bindAgentPlansAccount(next.identity.userId)
+        } else if (next.state === 'signed_out' || next.state === 'signing_in') {
+          bindAgentPlansAccount(null)
+        }
+
         // Handles (and the contacts reads filling them) belong to this account; signing out
         // tears them down before anything renders for the next one.
         bindMatrixHandleOwnerFromSnapshot(next)
@@ -7298,8 +7308,14 @@ function MatrixAccountView({
     profileTarget && snapshot.state === 'ready' && snapshot.identity && profileTarget.kind === 'human'
   )
 
-  // The assistant card (assistant-card/): an assistant's own page, opened from anywhere.
-  const assistantCardOpen = Boolean(useStore($assistantCard))
+  // The assistant card (assistant-card/): an assistant's own page, opened from anywhere. One with a
+  // chat of its own opens as the panel beside that chat (below); only one with none is a sheet.
+  const assistantCardTarget = useStore($assistantCard)
+
+  const cardPanelRoom =
+    assistantCardTarget?.kind === 'agent' ? matrixAssistantPanelRoom(snapshot, assistantCardTarget.principal) : undefined
+
+  const assistantCardOpen = Boolean(assistantCardTarget) && !cardPanelRoom
 
   const mobileCopy = useMobileCopy()
   // The profile editor names the person as the window does: never their raw Matrix ID.
@@ -7959,6 +7975,81 @@ function MatrixAccountView({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- a new conversation is the only trigger.
   }, [currentWorkspaceScope, Boolean(conversationInfo || assistantInfo), workplaceActive, driveActive, workActive])
+
+  // One card place (owner 2026-11-26): the agent's name or face, its roster Info, Settings › its row and
+  // "Add routines" open its panel beside its own chat, not a sheet with the same rows. The chat is
+  // selected first when another is open; the panel opens once that chat is on screen.
+  //
+  // The request belongs to one navigation attempt (review P2-3): a refused selection (the document-save
+  // preflight, a failed select) or a move to some other chat retires it, and nothing (the chat panel
+  // preference, the view, the rename focus) changes until the requested chat is the one on screen.
+  const panelAttempt = useRef(0)
+
+  const [panelRequest, setPanelRequest] = useState<{
+    attempt: number
+    principal: string
+    roomId: string
+    fromRoomId?: string
+    focus?: 'name' | 'routines'
+  }>()
+
+  const [panelFocus, setPanelFocus] = useState<{ principal: string; focus: 'name' | 'routines' }>()
+
+  useEffect(() => {
+    if (assistantCardTarget?.kind !== 'agent' || !cardPanelRoom) {
+      return
+    }
+
+    const { focus, principal } = assistantCardTarget
+    const attempt = ++panelAttempt.current
+    closeAssistantCard()
+    setPanelRequest({
+      attempt,
+      principal,
+      roomId: cardPanelRoom.id,
+      ...(snapshot.roomId ? { fromRoomId: snapshot.roomId } : {}),
+      ...(focus ? { focus } : {})
+    })
+
+    // Selecting also leaves a Store, Team Space or app destination for the chat (Drive, Workplace and
+    // Work are this window's own views; the request leaves them once the chat is the selected room).
+    if (cardPanelRoom.id !== snapshot.roomId || (snapshot.destination && snapshot.destination.kind !== 'room')) {
+      void runMatrixCommand({ kind: 'select', roomId: cardPanelRoom.id }).catch(error => {
+        setPanelRequest(current => (current?.attempt === attempt ? undefined : current))
+        fail(error)
+      })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- a card request is the only trigger.
+  }, [assistantCardTarget, cardPanelRoom?.id])
+
+  useEffect(() => {
+    if (!panelRequest) {
+      return
+    }
+
+    // Superseded: the window went to a chat that is neither the one asked for nor the one it left.
+    if (room?.id && room.id !== panelRequest.roomId && room.id !== panelRequest.fromRoomId) {
+      setPanelRequest(undefined)
+
+      return
+    }
+
+    // The selected room's own agent, read directly: `assistantInfo` is withheld while Drive (or another
+    // view) is in front, and waiting on it would leave the request queued there (review 2026-11-26).
+    if (room?.id !== panelRequest.roomId || (room && matrixAgentDeskAgent(snapshot, room))?.principal !== panelRequest.principal) {
+      return
+    }
+
+    setPanelRequest(undefined)
+    setDriveActive(false)
+    setWorkplaceActive(false)
+    setWorkActive(false)
+    setDrawerOpen(false)
+    setMatrixRightPanel('chat', true)
+    setPanelFocus(panelRequest.focus ? { principal: panelRequest.principal, focus: panelRequest.focus } : undefined)
+    openWorkspace('info')
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- opens once the requested chat is on screen.
+  }, [panelRequest, room?.id, snapshot.agents])
 
   // Drive's folder panel "Ask Atum about it": the primary assistant's own chat, with the folder's place
   // in its box for the person to finish. Nothing is sent and no path leaves the window.
@@ -9567,20 +9658,23 @@ function MatrixAccountView({
           sidebarShowing={sidebarShowing && !workplaceOnScreen && !workOnScreen}
           workspace={motion => (
             <>
-              {infoShown && assistantInfo && !conversationInfo && (
+              {infoShown && assistantInfo && !conversationInfo && room && (
                 <MatrixAssistantInfoPanel
                   agent={assistantInfo}
                   compact={compact}
                   expanded={workspaceExpanded}
+                  {...(panelFocus?.principal === assistantInfo.principal ? { focus: panelFocus.focus } : {})}
                   motion={motion}
                   onClose={() => {
+                    setPanelFocus(undefined)
                     setMatrixRightPanel('chat', false)
                     closeWorkspace()
                   }}
                   onExpand={setWorkspaceExpanded}
                   onPercentChange={setWorkspacePercent}
                   percent={workspacePercent}
-                  snapshot={snapshot}
+                  room={room}
+                  snapshot={roomView}
                   windowControls={
                     compact || !sidebarShowing ? (
                       <AtumWindowControlsSurface
@@ -9777,7 +9871,12 @@ function MatrixAccountView({
           target={profileEditor.target}
         />
       )}
-      <AssistantCardHost compact={compact} openChat={rosterOpen.current} snapshot={snapshot} />
+      <AssistantCardHost
+        compact={compact}
+        inPanel={principal => Boolean(matrixAssistantPanelRoom(snapshot, principal))}
+        openChat={rosterOpen.current}
+        snapshot={snapshot}
+      />
       <MatrixMobileSetup onOpenChange={setMobileOpen} open={mobileOpen} snapshot={snapshot} />
     </>
   )
