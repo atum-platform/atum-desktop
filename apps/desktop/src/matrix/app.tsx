@@ -205,7 +205,7 @@ import {
   withAssistantNames
 } from './assistant-card'
 import { useAssistantCardCopy } from './assistant-card/copy'
-import { MatrixAssistantInfoPanel } from './assistant-info-panel'
+import { MatrixAssistantInfoPanel, matrixAssistantPanelRoom } from './assistant-info-panel'
 import { matrixComposerHint, useAttentionCopy } from './attention-copy'
 import {
   MatrixAttentionAnnouncer,
@@ -7302,8 +7302,14 @@ function MatrixAccountView({
     profileTarget && snapshot.state === 'ready' && snapshot.identity && profileTarget.kind === 'human'
   )
 
-  // The assistant card (assistant-card/): an assistant's own page, opened from anywhere.
-  const assistantCardOpen = Boolean(useStore($assistantCard))
+  // The assistant card (assistant-card/): an assistant's own page, opened from anywhere. One with a
+  // chat of its own opens as the panel beside that chat (below); only one with none is a sheet.
+  const assistantCardTarget = useStore($assistantCard)
+
+  const cardPanelRoom =
+    assistantCardTarget?.kind === 'agent' ? matrixAssistantPanelRoom(snapshot, assistantCardTarget.principal) : undefined
+
+  const assistantCardOpen = Boolean(assistantCardTarget) && !cardPanelRoom
 
   const mobileCopy = useMobileCopy()
   // The profile editor names the person as the window does: never their raw Matrix ID.
@@ -7963,6 +7969,43 @@ function MatrixAccountView({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- a new conversation is the only trigger.
   }, [currentWorkspaceScope, Boolean(conversationInfo || assistantInfo), workplaceActive, driveActive, workActive])
+
+  // One card place (owner 2026-11-26): the agent's name or face, its roster Info, Settings › its row and
+  // "Add routines" open its panel beside its own chat, not a sheet with the same rows. The chat is
+  // selected first when another is open; the panel opens once that chat is on screen.
+  const [panelRequest, setPanelRequest] = useState<{ principal: string; roomId: string; focus?: 'name' | 'routines' }>()
+  const [panelFocus, setPanelFocus] = useState<{ principal: string; focus: 'name' | 'routines' }>()
+
+  useEffect(() => {
+    if (assistantCardTarget?.kind !== 'agent' || !cardPanelRoom) {
+      return
+    }
+
+    const { focus, principal } = assistantCardTarget
+    closeAssistantCard()
+    setPanelRequest({ principal, roomId: cardPanelRoom.id, ...(focus ? { focus } : {}) })
+    setDriveActive(false)
+    setWorkplaceActive(false)
+    setWorkActive(false)
+    setDrawerOpen(false)
+    setMatrixRightPanel('chat', true)
+
+    if (cardPanelRoom.id !== snapshot.roomId) {
+      void runMatrixCommand({ kind: 'select', roomId: cardPanelRoom.id }).catch(fail)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- a card request is the only trigger.
+  }, [assistantCardTarget, cardPanelRoom?.id])
+
+  useEffect(() => {
+    if (!panelRequest || room?.id !== panelRequest.roomId || assistantInfo?.principal !== panelRequest.principal) {
+      return
+    }
+
+    setPanelRequest(undefined)
+    setPanelFocus(panelRequest.focus ? { principal: panelRequest.principal, focus: panelRequest.focus } : undefined)
+    openWorkspace('info')
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- opens once the requested chat is on screen.
+  }, [panelRequest, room?.id, assistantInfo?.principal])
 
   // Drive's folder panel "Ask Atum about it": the primary assistant's own chat, with the folder's place
   // in its box for the person to finish. Nothing is sent and no path leaves the window.
@@ -9577,19 +9620,22 @@ function MatrixAccountView({
           sidebarShowing={sidebarShowing && !workplaceOnScreen && !workOnScreen}
           workspace={motion => (
             <>
-              {infoShown && assistantInfo && !conversationInfo && (
+              {infoShown && assistantInfo && !conversationInfo && room && (
                 <MatrixAssistantInfoPanel
                   agent={assistantInfo}
                   compact={compact}
                   expanded={workspaceExpanded}
+                  {...(panelFocus?.principal === assistantInfo.principal ? { focus: panelFocus.focus } : {})}
                   motion={motion}
                   onClose={() => {
+                    setPanelFocus(undefined)
                     setMatrixRightPanel('chat', false)
                     closeWorkspace()
                   }}
                   onExpand={setWorkspaceExpanded}
                   onPercentChange={setWorkspacePercent}
                   percent={workspacePercent}
+                  room={room}
                   snapshot={snapshot}
                   windowControls={
                     compact || !sidebarShowing ? (
@@ -9787,7 +9833,12 @@ function MatrixAccountView({
           target={profileEditor.target}
         />
       )}
-      <AssistantCardHost compact={compact} openChat={rosterOpen.current} snapshot={snapshot} />
+      <AssistantCardHost
+        compact={compact}
+        inPanel={principal => Boolean(matrixAssistantPanelRoom(snapshot, principal))}
+        openChat={rosterOpen.current}
+        snapshot={snapshot}
+      />
       <MatrixMobileSetup onOpenChange={setMobileOpen} open={mobileOpen} snapshot={snapshot} />
     </>
   )

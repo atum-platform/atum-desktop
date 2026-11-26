@@ -916,27 +916,18 @@ function Controls({
  * sent here, then its own files when the host shares them); Controls holds its real settings. No
  * money, no explanations, no second chat: steering is the composer.
  */
-export function MatrixAgentDesk({
-  active,
-  agent,
-  browser,
-  cloudStop,
-  onOpenBrowser,
-  room,
-  snapshot
-}: {
-  /** The desk is on screen: device and host reads run only then. */
+export interface MatrixAgentDeskInput {
+  /** On screen: device and host reads run only then. */
   active: boolean
   agent: MatrixAgentView
-  /** The window has its in-app browser: the address bar shows, as on the new tab. */
-  browser: boolean
   cloudStop: MatrixCloudStop
-  onOpenBrowser(url: string): void
   room: MatrixRoom
   snapshot: MatrixSnapshot
-}) {
-  const { locale, t } = useI18n()
-  const copy = matrixAgentDeskText(locale)
+}
+
+/** What the desk knows of its agent right now: one read, for the desk tab and the agent's panel. */
+export function useMatrixAgentDesk({ active, agent, cloudStop, room, snapshot }: MatrixAgentDeskInput) {
+  const { locale } = useI18n()
   const name = useMatrixAgentDeskName(agent)
   const macs = useMatrixReachMacs(active)
   const running = snapshot.hermesActivity?.roomId === room.id && snapshot.hermesActivity.state === 'running'
@@ -961,6 +952,34 @@ export function MatrixAgentDesk({
   const deviceInUse = devices.some(each => each.inUse)
   const sent = matrixAgentDeskSentFiles(snapshot.messages, agent.userId)
   const steers = matrixAgentDeskSteers({ runtime: agent.runtime, running })
+
+  return { name, now, devices, stop, deviceInUse, sent, steers }
+}
+
+export type MatrixAgentDeskState = ReturnType<typeof useMatrixAgentDesk>
+
+export function MatrixAgentDesk({
+  active,
+  agent,
+  browser,
+  cloudStop,
+  onOpenBrowser,
+  room,
+  snapshot
+}: MatrixAgentDeskInput & {
+  /** The window has its in-app browser: the address bar shows, as on the new tab. */
+  browser: boolean
+  onOpenBrowser(url: string): void
+}) {
+  const { locale, t } = useI18n()
+  const copy = matrixAgentDeskText(locale)
+  const { name, now, devices, stop, deviceInUse, sent, steers } = useMatrixAgentDesk({
+    active,
+    agent,
+    cloudStop,
+    room,
+    snapshot
+  })
 
   return (
     <div className="flex h-full min-h-0 flex-col" data-agent-desk-frame>
@@ -1037,3 +1056,76 @@ function FilesSection({
     </section>
   )
 }
+
+/**
+ * The agent's panel (its card beside its chat) takes the desk's live parts as they are: Now only
+ * while it works or waits (with the device in use under it), and Files only when there are some.
+ */
+export function MatrixAgentDeskNow({ cloudStop, desk }: { cloudStop: MatrixCloudStop; desk: MatrixAgentDeskState }) {
+  const { locale, t } = useI18n()
+  const notice = cloudStop.refused || cloudStop.stopped
+
+  if (desk.now.state === 'free' && !desk.deviceInUse && !notice) {
+    return null
+  }
+
+  return (
+    <div className="atum-desk atum-card-section flex flex-col gap-4" data-agent-panel-now>
+      <NowBlock name={desk.name} now={desk.now} steers={desk.steers} stop={desk.stop} />
+      {desk.deviceInUse && <DevicesSection devices={desk.devices} focus stop={desk.stop} />}
+      {notice && (
+        <NoticeBand role="status" tone="notice">
+          {cloudStop.stopped ? matrixAgentStatusText('stopped', locale) : t.cloud.stopRefused}
+        </NoticeBand>
+      )}
+    </div>
+  )
+}
+
+export function MatrixAgentDeskFiles({
+  active,
+  agent,
+  desk,
+  roomId
+}: {
+  active: boolean
+  agent: MatrixAgentView
+  desk: MatrixAgentDeskState
+  roomId: string
+}) {
+  const { locale } = useI18n()
+
+  return (
+    <div className="atum-desk atum-card-section" data-agent-panel-files>
+      <FilesSection active={active} agent={agent} locale={locale} roomId={roomId} sent={desk.sent} />
+    </div>
+  )
+}
+
+/** Each of your devices as the desk lists it: its state, Allow where a permission is missing, Stop while in use. */
+export function MatrixAgentDeskDevices({ desk }: { desk: MatrixAgentDeskState }) {
+  const { locale } = useI18n()
+  const copy = matrixAgentDeskText(locale)
+  const sources = matrixKnowledgeSourcesCopy[locale]
+  const permissions = window.atumMatrix.permissions
+
+  return (
+    <div className="atum-desk" data-agent-panel-devices role="list">
+      {desk.devices.map(({ mac, inUse }) => (
+        <DeviceRow
+          inUse={inUse}
+          key={mac.id}
+          locale={locale}
+          mac={mac}
+          permissions={permissions}
+          sources={sources}
+          stop={desk.stop}
+          stopLabel={copy.stop}
+          usingNow={copy.usingNow}
+        />
+      ))}
+    </div>
+  )
+}
+
+export { useAgentSchedule as useMatrixAgentSchedule }

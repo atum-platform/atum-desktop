@@ -3298,17 +3298,18 @@ describe('isolated Matrix composition', () => {
     act(() => openAssistantCard({ kind: 'agent', principal: 'cloud-t' }))
     await waitFor(() => expect(read).toHaveBeenCalledWith('cloud-t'))
 
+    // One card place (owner 2026-11-26): its card opens as the panel beside its chat, never a sheet.
     const card = await waitFor(() => {
-      const found = window.document.querySelector<HTMLElement>('[data-assistant-card]')
+      const found = window.document.querySelector<HTMLElement>('[data-matrix-assistant-info="cloud-t"]')
       expect(found?.textContent).toContain('Lo lịch họp.')
 
       return found!
     })
 
-    // U1: the one read-only "Lives on" row every card shows says it; nothing else on the card does.
-    const outsidePlace = card.cloneNode(true) as HTMLElement
-    outsidePlace.querySelectorAll('[data-assistant-card-place], [data-assistant-card-home]').forEach(row => row.remove())
-    expect(outsidePlace.textContent).not.toMatch(LOCATION)
+    expect(window.document.querySelector('[data-assistant-card]')).toBeNull()
+    // Cloud-only: no row says where it lives, and nothing else on the card does either.
+    expect(card.querySelector('[data-assistant-card-place], [data-assistant-card-home]')).toBeNull()
+    expect(card.textContent).not.toMatch(LOCATION)
     expect(card.querySelector('[data-assistant-card-answer-where], [data-agent-move]')).toBeNull()
     // Canonical assistant photos are owner-authenticated platform state, so editing one does
     // not require the cloud agent to expose a live Matrix profile host on this Mac.
@@ -4305,6 +4306,66 @@ describe('isolated Matrix composition', () => {
 
     fireEvent.click(await screen.findByRole('button', { name: 'Show right panel' }))
     await waitFor(() => expect(window.document.querySelector('[data-matrix-assistant-info="main-a"]')).toBeTruthy())
+  })
+
+  // Owner 2026-11-26: the panel kept the card but lost the desk's controls, said "Lives on", and the
+  // name opened a second popup with the same rows. One place now, with the controls back.
+  it('keeps the agent’s controls in its panel, drops Lives on, and opens the panel (not a sheet) from its name', async () => {
+    setMatrixRightPanel('chat', true)
+    const command = vi.fn(async () => null)
+
+    const sources = {
+      read: vi.fn(async () => ({
+        gates: { google: true, folders: true, messages: true, browser: true, location: true, team_spaces: true },
+        sources: [],
+        macs: [{ id: 'mini', name: 'Mac mini', thisMac: true, state: 'ready' as const }]
+      })),
+      set: vi.fn()
+    } as unknown as NonNullable<MatrixUiBridge['agentSources']>
+
+    const { emit } = fixture(undefined, 'en', undefined, command, undefined, undefined, sources)
+
+    emit({
+      ...controlsState,
+      rooms: controlsState.rooms.map(each => ({ ...each, agentPrincipal: 'main-a' })),
+      agents: [
+        { principal: 'main-a', userId: '@atum:test', ready: true, isDefault: true, atumModel: true, hermes: 'ready', answering: 'cloud' }
+      ]
+    } as MatrixSnapshot)
+
+    const panel = await waitFor(() => {
+      const found = window.document.querySelector<HTMLElement>('[data-matrix-assistant-info="main-a"]')
+      expect(found).toBeTruthy()
+
+      return found!
+    })
+
+    expect(panel.querySelector('[data-assistant-card-place], [data-assistant-card-home]')).toBeNull()
+    // Notifications are this chat's own mute.
+    fireEvent.click(within(panel).getByRole('switch', { name: 'Notifications' }))
+    await waitFor(() =>
+      expect(command).toHaveBeenCalledWith({ kind: 'mute', roomId: controlsState.rooms[0]!.id, muted: true })
+    )
+    // Your devices: the Macs it can use, one row that opens to each one's state.
+    const devices = await waitFor(() => {
+      const found = panel.querySelector<HTMLElement>('[data-assistant-card-devices]')
+      expect(found?.textContent).toContain('1')
+
+      return found!
+    })
+
+    fireEvent.click(devices)
+    await waitFor(() =>
+      expect(window.document.querySelector('[data-assistant-card-devices-popover]')?.textContent).toContain('Mac mini')
+    )
+    fireEvent.keyDown(window.document.activeElement ?? window.document.body, { key: 'Escape' })
+
+    // Its name in the chat header opens this panel, never the sheet.
+    fireEvent.click(screen.getByRole('button', { name: 'Close workspace' }))
+    await waitFor(() => expect(window.document.querySelector('[data-matrix-assistant-info]')).toBeNull())
+    fireEvent.click(window.document.querySelector<HTMLElement>('[data-matrix-header-card]')!)
+    await waitFor(() => expect(window.document.querySelector('[data-matrix-assistant-info="main-a"]')).toBeTruthy())
+    expect(window.document.querySelector('[data-assistant-card]')).toBeNull()
   })
 
   it('drops the assistant’s card panel on Drive, never leaving the chat’s workbench there, and brings it back in Chat', async () => {
