@@ -16,6 +16,8 @@ interface Published {
   connectUrl: string
   sessionId: string
   expiresAt: number
+  /** Legacy records retained only the receipt. */
+  credential?: string
 }
 
 interface Pending extends Published {
@@ -126,6 +128,43 @@ export class WorkT3McpPublication {
     }
   }
 
+  private async probe(connectUrl: string, credential: string, signal: AbortSignal): Promise<'accepted' | 'rejected' | 'unavailable'> {
+    // Native stateless discovery authenticates the bearer without opening a session or calling a tool.
+    const version = '2026-07-28'
+    const response = await this.request(connectUrl, {
+      method: 'POST', credentials: 'omit', redirect: 'error',
+      signal: AbortSignal.any([signal, AbortSignal.timeout(5_000)]),
+      headers: {
+        authorization: `Bearer ${credential}`, accept: 'application/json, text/event-stream',
+        'content-type': 'application/json', 'mcp-method': 'server/discover', 'mcp-protocol-version': version
+      },
+      body: JSON.stringify({
+        jsonrpc: '2.0', id: 1, method: 'server/discover',
+        params: {
+          _meta: {
+            'io.modelcontextprotocol/protocolVersion': version,
+            'io.modelcontextprotocol/clientCapabilities': {},
+            'io.modelcontextprotocol/clientInfo': { name: SESSION_LABEL, version: '1.0.0' }
+          }
+        }
+      })
+    }).catch(() => undefined)
+
+    if (response?.status === 401 && response.headers.get('www-authenticate')?.includes('error="invalid_token"')) {
+      await response.body?.cancel().catch(() => undefined)
+
+      return 'rejected'
+    }
+
+    // A proxy response or an outage is inconclusive. Only native discovery proves acceptance.
+    const reply = response?.ok ? await response.json().catch(() => undefined) : undefined
+
+    if (!response?.ok) {await response?.body?.cancel().catch(() => undefined)}
+
+    return Array.isArray(reply?.result?.supportedVersions) && reply.result.supportedVersions.includes(version)
+      ? 'accepted' : 'unavailable'
+  }
+
   private async publish(target: PublicationTarget, signal: AbortSignal): Promise<void> {
     const current = () => !signal.aborted && target.current()
 
@@ -206,7 +245,8 @@ export class WorkT3McpPublication {
       delete state.pending
       store.set(STORE_KEY, JSON.stringify(state))
     }
-    if (!state.pending && published && reusable(published)) {return}
+    if (!state.pending && published?.credential && reusable(published) &&
+        await this.probe(connectUrl, published.credential, signal) !== 'rejected') {return}
     if (!current()) {return}
 
     if (!state.pending) {
@@ -248,8 +288,19 @@ export class WorkT3McpPublication {
 
     // Keep the candidate in encrypted storage until C1 acknowledges it, so an ambiguous response retries the same token.
     const { credential, sessionId, expiresAt } = state.pending
+    const acceptance = await this.probe(connectUrl, credential, signal)
+
+    if (!current()) {return}
+    if (acceptance === 'rejected') {
+      await this.revoke(auth, sessionId)
+      delete state.pending
+      store.set(STORE_KEY, JSON.stringify(state))
+      throw new Error('work_t3_mcp_token_rejected')
+    }
+    if (acceptance !== 'accepted') {throw new Error('work_t3_mcp_probe_unavailable')}
+
     await target.call('work_t3_mcp_set', { deviceServiceId, connectUrl, credential, expiresAt })
-    store.set(STORE_KEY, JSON.stringify({ published: { deviceServiceId, connectUrl, sessionId, expiresAt } }))
+    store.set(STORE_KEY, JSON.stringify({ published: state.pending }))
     this.checked = undefined
 
     if (published) {await this.revoke(auth, published.sessionId)}
