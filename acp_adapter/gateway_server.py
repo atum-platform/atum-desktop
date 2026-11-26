@@ -21,6 +21,8 @@ from acp_adapter.session import _translate_acp_cwd, _normalize_cwd_for_compare
 
 logger = logging.getLogger(__name__)
 
+MANAGED_GATEWAY_STARTUP_TIMEOUT = 25
+
 
 def _slash_command(text):
     """Canonical Hermes command name ``text`` invokes, or None for ordinary text.
@@ -65,8 +67,9 @@ def _tools_changed_notice(payload):
 
 
 class GatewayACPAgent(GatewayReplyMixin, acp.Agent):
-    def __init__(self, *, managed: bool = False):
+    def __init__(self, *, managed: bool = False, wait_for_gateway: bool = False):
         self._managed = managed
+        self._wait_for_gateway = wait_for_gateway
         self._conn = None
         self._gateway = None
         self._connection = None
@@ -153,6 +156,24 @@ class GatewayACPAgent(GatewayReplyMixin, acp.Agent):
         from acp_adapter.server import HermesACPAgent
         return await HermesACPAgent.authenticate(self, method_id, **kwargs)
 
+    async def _managed_endpoint(self):
+        from hermes_cli.gateway_runtime import attachable, discover_gateway_endpoint
+
+        # Work starts ACP while its supervisor starts Hermes. Observe the owner
+        # until it is ready without starting or replacing a gateway from ACP.
+        try:
+            async with asyncio.timeout(MANAGED_GATEWAY_STARTUP_TIMEOUT):
+                while True:
+                    owner = await asyncio.to_thread(discover_gateway_endpoint, self._home)
+                    if attachable(owner):
+                        return owner.endpoint
+                    if not self._wait_for_gateway or owner.state not in {"absent", "starting"}:
+                        break
+                    await asyncio.sleep(0.1)
+        except TimeoutError:
+            pass
+        raise acp.RequestError.internal_error({"reason": "managed_gateway_not_ready"})
+
     async def _client(self):
         async with self._connect_lock:
             if self._failure is not None or self._transport_closed():
@@ -162,12 +183,7 @@ class GatewayACPAgent(GatewayReplyMixin, acp.Agent):
                 await self._teardown()
             if self._gateway is None:
                 if self._managed:
-                    from hermes_cli.gateway_runtime import attachable, discover_gateway_endpoint
-
-                    owner = await asyncio.to_thread(discover_gateway_endpoint, self._home)
-                    if not attachable(owner):
-                        raise acp.RequestError.internal_error({"reason": "managed_gateway_not_ready"})
-                    connection = connect_gateway(endpoint=owner.endpoint)
+                    connection = connect_gateway(endpoint=await self._managed_endpoint())
                 else:
                     connection = connect_gateway()
                 gateway = await connection.__aenter__()
