@@ -8908,6 +8908,7 @@ function MatrixAccountView({
                   isMatrixVerificationPending(snapshot.security?.verification)
                 }
                 onAddProtons={openTopUp}
+                owner={snapshot.identity?.userId}
                 projection={work}
                 relayChats={work.relayChats}
                 reserveOverlay={facts.overlayWidth > 0}

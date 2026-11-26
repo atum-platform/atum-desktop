@@ -2,7 +2,14 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import type { MatrixGoogleConnectionBridge, MatrixGoogleConnectionResult } from '../../shared/matrix-google-connections'
 import type { MatrixGoogleWriteActionInput } from '../../shared/matrix-google-write-proposal'
-import { GOOGLE_WRITE_IDS, googleWriteEmail, googleWriteEntry } from '../../shared/matrix-google-write-proposal.test-support'
+import {
+  GOOGLE_WORK_DRAFTS,
+  GOOGLE_WORK_OWNER,
+  GOOGLE_WRITE_IDS,
+  googleWorkEntry,
+  googleWriteEmail,
+  googleWriteEntry
+} from '../../shared/matrix-google-write-proposal.test-support'
 
 import {
   createMatrixGoogleConnectionIpcHandler,
@@ -105,11 +112,13 @@ describe('Matrix Google connection IPC boundary', () => {
   it('reports a first-run connection only after the provider confirms a connected source', async () => {
     const connections = bridge()
     const firstRunConnected = vi.fn()
+
     const handler = createMatrixGoogleConnectionIpcHandler({
       assertSender: vi.fn(),
       connections: () => connections,
       firstRunConnected
     })
+
     const context = { origin: 'first_run' as const, locale: 'vi' as const }
 
     await handler({}, { kind: 'connect', grant: 'google', context })
@@ -251,6 +260,7 @@ describe('Google account status transport', () => {
     const fetch = vi.fn<typeof globalThis.fetch>(async () => new Response(JSON.stringify({
       profile: 'atum.google-connection/1', revision: 2, state, scopes: []
     }), { headers: { 'content-type': 'application/json' } }))
+
     vi.stubGlobal('fetch', fetch)
     await expect(requestMatrixGoogleAccountStatus('https://api.test', 'test-bearer', AbortSignal.timeout(1000)))
       .resolves.toEqual({ status: { accountState: state, available: true, sources: [] } })
@@ -280,6 +290,7 @@ describe('Google account status transport', () => {
   it.each([401, 503, 200])('never turns an unreadable status into disconnected (%s)', async code => {
     vi.stubGlobal('fetch', vi.fn(async () => new Response('{}', { status: code, headers: { 'content-type': 'application/json' } })))
     const result = requestMatrixGoogleAccountStatus('https://api.test', 'test-bearer', AbortSignal.timeout(1000))
+
     if (code === 401) {await expect(result).rejects.toThrow('matrix_s1_authentication')}
     else {await expect(result).resolves.toEqual({ status: null, error: 'network' })}
   })
@@ -291,13 +302,16 @@ describe('account Google OAuth handoff', () => {
     const fetch = vi.fn<typeof globalThis.fetch>(async () => new Response(JSON.stringify({
       profile: 'atum.google-connection/1', state: 'authorization_required', authorizeUrl
     }), { headers: { 'content-type': 'application/json' } }))
+
     vi.stubGlobal('fetch', fetch)
     const result = requestMatrixGoogleAccountConnect('https://api.test', 'test-bearer', AbortSignal.timeout(1000))
+
     if (authorizeUrl.startsWith('https://accounts.google.com/')) {
       await expect(result).resolves.toBe(authorizeUrl)
     } else {
       await expect(result).rejects.toThrow('matrix_google_unavailable')
     }
+
     expect(fetch.mock.calls[0][0]).toBe('https://api.test/google/connect')
     expect(JSON.parse(fetch.mock.calls[0][1]?.body as string)).toMatchObject({ returnTo: 'desktop' })
   })
@@ -314,6 +328,7 @@ describe('Google write proposal transport', () => {
   const answering = (status: number, body: unknown, type = 'application/json') => {
     const fetch = vi.fn<typeof globalThis.fetch>(async () =>
       new Response(typeof body === 'string' ? body : JSON.stringify(body), { status, headers: { 'content-type': type } }))
+
     vi.stubGlobal('fetch', fetch)
 
     return fetch
@@ -331,7 +346,8 @@ describe('Google write proposal transport', () => {
 
     await expect(requestMatrixGoogleWriteProposals(BASE, 'owner-bearer', AbortSignal.timeout(1000))).resolves.toEqual({
       state: 'ok',
-      proposals: [{ proposalId: good.proposalId, agent: good.agent, room: good.room, digest: good.digest, draft: googleWriteEmail() }]
+      proposals: [{ proposalId: good.proposalId, agent: good.agent, room: good.room, digest: good.digest, draft: googleWriteEmail() }],
+      work: []
     })
 
     const request = sent(fetch)
@@ -409,6 +425,7 @@ describe('Google write proposal transport', () => {
 
     vi.stubGlobal('fetch', fetch)
     const scope = { accountKey: ACCOUNT_A, generation: 1 }
+
     const account = {
       appScope: () => scope,
       // MatrixAccount.s1Request's contract: the native bearer, the domain base, one refresh after a 401.
@@ -459,15 +476,55 @@ describe('Google write proposal transport', () => {
     await expect(matrixGoogleWriteProposals(switching).act(approve)).resolves.toEqual({ state: 'unavailable' })
   })
 
+  it('keeps Work entries apart from agent cards, so a Work request never lands in an agent chat', async () => {
+    const agent = await googleWriteEntry()
+    const work = await googleWorkEntry(GOOGLE_WORK_DRAFTS.mailbox)
+
+    answering(200, { proposals: [agent, work] })
+
+    await expect(requestMatrixGoogleWriteProposals(BASE, 'owner-bearer', AbortSignal.timeout(1000))).resolves.toEqual({
+      state: 'ok',
+      proposals: [{ proposalId: agent.proposalId, agent: agent.agent, room: agent.room, digest: agent.digest, draft: googleWriteEmail() }],
+      work: [{ proposalId: work.proposalId, digest: work.digest, draft: GOOGLE_WORK_DRAFTS.mailbox }]
+    })
+  })
+
+  it('names the account the list was read for, and names none when the account changed while it ran', async () => {
+    const work = await googleWorkEntry()
+    const named = ownerAccount([reply(200, { proposals: [work] })])
+
+    await expect(matrixGoogleWriteProposals(named.account, () => GOOGLE_WORK_OWNER).list()).resolves.toMatchObject({
+      state: 'ok',
+      owner: GOOGLE_WORK_OWNER,
+      work: [{ proposalId: work.proposalId }]
+    })
+
+    let user: string | undefined = GOOGLE_WORK_OWNER
+    const switching = ownerAccount([reply(200, { proposals: [work] })])
+
+    const read = matrixGoogleWriteProposals(switching.account, () => {
+      const now = user
+      user = '@someone:example.org'
+
+      return now
+    }).list()
+
+    const answer = await read
+
+    expect(answer).not.toHaveProperty('owner')
+  })
+
   it('checks the window before reading its input, and passes on only the list or one closed action', async () => {
     const bridge = {
       list: vi.fn(async () => ({ state: 'ok' as const, proposals: [] })),
       act: vi.fn(async () => ({ state: 'ok' as const, status: 'declined' as const }))
     }
+
     const denied = createMatrixGoogleWriteIpcHandler({
       assertSender: () => { throw new Error('matrix_ipc_denied') },
       proposals: () => bridge
     })
+
     const input = new Proxy({}, { get: () => { throw new Error('input was read') }, ownKeys: () => { throw new Error('input was read') } })
 
     await expect(denied({ sender: 'foreign' }, input)).rejects.toThrow('matrix_ipc_denied')
