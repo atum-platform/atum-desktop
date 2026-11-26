@@ -23,7 +23,7 @@ function systemPython() {
 const python = systemPython()
 
 describe.skipIf(!python || process.platform === 'win32')('Work startup settings', () => {
-  it('migrates the disabled stubs and keeps native setup across Work restarts', async () => {
+  it('seeds native defaults and preserves account settings across Work restarts', async () => {
     const root = await mkdtemp(join(tmpdir(), 'work-settings-'))
     const resources = join(root, 'resources')
     const paths = workSessionPaths({ root })
@@ -42,6 +42,7 @@ describe.skipIf(!python || process.platform === 'win32')('Work startup settings'
     })
 
     vi.stubEnv('CODEX_HOME', join(root, 'fixture-codex'))
+
     try {
       await Promise.all([pythonBin, workRuntime, profiles, paths.userdata].map(directory => mkdir(directory, { recursive: true })))
       // A symlink relocates a venv interpreter away from pyvenv.cfg and loses
@@ -102,6 +103,7 @@ actual.main()
       expect(settings.providerInstances.codex).toEqual({ driver: 'codex', enabled: true, config: { setupMode: 'existing' } })
       expect(settings.providerInstances.claudeAgent).toEqual({ driver: 'claudeAgent', enabled: true })
       expect(settings.providerInstances.antigravity).toEqual({ driver: 'antigravity', enabled: true })
+      expect(settings.providerInstances.opencode).toEqual({ driver: 'opencode', enabled: true })
       expect(settings.providerInstances['atum-managed-delegated']).toMatchObject({ enabled: true, showInPicker: false })
       expect(settings.providerInstances['atum-managed-delegated'].environment).toContainEqual({
         name: 'HOME', value: join(root, 'work', 'delegated'), sensitive: false
@@ -109,16 +111,34 @@ actual.main()
       expect(settings.providerInstances['atum-managed'].environment.some((entry: { name: string }) => entry.name === 'HOME')).toBe(false)
 
       await sidecar.stop()
+
+      const custom = {
+        driver: 'opencode', displayName: 'Custom OpenCode', enabled: true, showInPicker: false,
+        config: { binaryPath: '/opt/example/bin/opencode' }
+      }
+
+      const disabledOpenCode = { driver: 'opencode', enabled: false, config: { binaryPath: '/usr/bin/false' } }
+      const disabledOptional = { driver: 'cursor', config: { enabled: false } }
+      settings.providerInstances['custom-opencode'] = custom
+      settings.providerInstances.cursor = disabledOptional
+      settings.providerInstances.opencode = disabledOpenCode
       settings.providerInstances.claudeAgent.config = { binaryPath: '/opt/example/bin/claude' }
       settings.providerInstances.antigravity.enabled = false
+      settings.providerInstances.codex = { driver: 'pi', displayName: 'Custom Pi', enabled: false }
       settings.providerInstances['atum-managed-delegated'].showInPicker = true
+      settings.providerInstances['atum-relay-codex'] = { driver: 'opencode', enabled: true, showInPicker: true }
       await writeFile(settingsPath, JSON.stringify(settings))
 
       await sidecar.start({ continuation: false })
       const restarted = JSON.parse(await readFile(settingsPath, 'utf8'))
+      expect(restarted.providerInstances['custom-opencode']).toEqual(custom)
+      expect(restarted.providerInstances.cursor).toEqual(disabledOptional)
+      expect(restarted.providerInstances.opencode).toEqual(disabledOpenCode)
+      expect(restarted.providerInstances.codex).toEqual(settings.providerInstances.codex)
       expect(restarted.providerInstances.claudeAgent.config).toEqual(settings.providerInstances.claudeAgent.config)
       expect(restarted.providerInstances.antigravity.enabled).toBe(false)
       expect(restarted.providerInstances['atum-managed-delegated'].showInPicker).toBe(false)
+      expect(restarted.providerInstances['atum-relay-codex']).toMatchObject({ driver: 'codex', showInPicker: false })
     } finally {
       await sidecar.stop()
       vi.unstubAllEnvs()
