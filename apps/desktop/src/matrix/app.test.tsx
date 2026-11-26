@@ -40,6 +40,7 @@ import { MATRIX_NOTES_SELF_ROOM_TYPE } from '../../shared/matrix-notes-self'
 import type { MatrixPagesBridge } from '../../shared/matrix-pages'
 import type { MatrixPermissionsSnapshot } from '../../shared/matrix-permissions'
 
+import { $agentPlans, agentPlansKey, beginAgentPlansRead, settleAgentPlansRead } from './agent-plans-store'
 import { MatrixApp } from './app'
 import { $assistantCard, $assistantNameOverrides, openAssistantCard } from './assistant-card'
 import { ATUM_LINKS } from './atum-links'
@@ -3298,17 +3299,18 @@ describe('isolated Matrix composition', () => {
     act(() => openAssistantCard({ kind: 'agent', principal: 'cloud-t' }))
     await waitFor(() => expect(read).toHaveBeenCalledWith('cloud-t'))
 
+    // One card place (owner 2026-11-26): its card opens as the panel beside its chat, never a sheet.
     const card = await waitFor(() => {
-      const found = window.document.querySelector<HTMLElement>('[data-assistant-card]')
+      const found = window.document.querySelector<HTMLElement>('[data-matrix-assistant-info="cloud-t"]')
       expect(found?.textContent).toContain('Lo lịch họp.')
 
       return found!
     })
 
-    // U1: the one read-only "Lives on" row every card shows says it; nothing else on the card does.
-    const outsidePlace = card.cloneNode(true) as HTMLElement
-    outsidePlace.querySelectorAll('[data-assistant-card-place], [data-assistant-card-home]').forEach(row => row.remove())
-    expect(outsidePlace.textContent).not.toMatch(LOCATION)
+    expect(window.document.querySelector('[data-assistant-card]')).toBeNull()
+    // Cloud-only: no row says where it lives, and nothing else on the card does either.
+    expect(card.querySelector('[data-assistant-card-place], [data-assistant-card-home]')).toBeNull()
+    expect(card.textContent).not.toMatch(LOCATION)
     expect(card.querySelector('[data-assistant-card-answer-where], [data-agent-move]')).toBeNull()
     // Canonical assistant photos are owner-authenticated platform state, so editing one does
     // not require the cloud agent to expose a live Matrix profile host on this Mac.
@@ -4307,6 +4309,174 @@ describe('isolated Matrix composition', () => {
     await waitFor(() => expect(window.document.querySelector('[data-matrix-assistant-info="main-a"]')).toBeTruthy())
   })
 
+  // Owner 2026-11-26: the panel kept the card but lost the desk's controls, said "Lives on", and the
+  // name opened a second popup with the same rows. One place now, with the controls back.
+  it('keeps the agent’s controls in its panel, drops Lives on, and opens the panel (not a sheet) from its name', async () => {
+    setMatrixRightPanel('chat', true)
+    const command = vi.fn(async () => null)
+
+    const sources = {
+      read: vi.fn(async () => ({
+        gates: { google: true, folders: true, messages: true, browser: true, location: true, team_spaces: true },
+        sources: [],
+        macs: [{ id: 'mini', name: 'Mac mini', thisMac: true, state: 'ready' as const }]
+      })),
+      set: vi.fn()
+    } as unknown as NonNullable<MatrixUiBridge['agentSources']>
+
+    const { emit } = fixture(undefined, 'en', undefined, command, undefined, undefined, sources)
+
+    emit({
+      ...controlsState,
+      rooms: controlsState.rooms.map(each => ({ ...each, agentPrincipal: 'main-a' })),
+      agents: [
+        { principal: 'main-a', userId: '@atum:test', ready: true, isDefault: true, atumModel: true, hermes: 'ready', answering: 'cloud' }
+      ]
+    } as MatrixSnapshot)
+
+    const panel = await waitFor(() => {
+      const found = window.document.querySelector<HTMLElement>('[data-matrix-assistant-info="main-a"]')
+      expect(found).toBeTruthy()
+
+      return found!
+    })
+
+    expect(panel.querySelector('[data-assistant-card-place], [data-assistant-card-home]')).toBeNull()
+    // Notifications are this chat's own mute.
+    fireEvent.click(within(panel).getByRole('switch', { name: 'Notifications' }))
+    await waitFor(() =>
+      expect(command).toHaveBeenCalledWith({ kind: 'mute', roomId: controlsState.rooms[0]!.id, muted: true })
+    )
+
+    // Your devices: the Macs it can use, one row that opens to each one's state.
+    const devices = await waitFor(() => {
+      const found = panel.querySelector<HTMLElement>('[data-assistant-card-devices]')
+      expect(found?.textContent).toContain('1')
+
+      return found!
+    })
+
+    fireEvent.click(devices)
+    await waitFor(() =>
+      expect(window.document.querySelector('[data-assistant-card-devices-popover]')?.textContent).toContain('Mac mini')
+    )
+    fireEvent.keyDown(window.document.activeElement ?? window.document.body, { key: 'Escape' })
+
+    // Its name in the chat header opens this panel, never the sheet.
+    fireEvent.click(screen.getByRole('button', { name: 'Close workspace' }))
+    await waitFor(() => expect(window.document.querySelector('[data-matrix-assistant-info]')).toBeNull())
+    fireEvent.click(window.document.querySelector<HTMLElement>('[data-matrix-header-card]')!)
+    await waitFor(() => expect(window.document.querySelector('[data-matrix-assistant-info="main-a"]')).toBeTruthy())
+    expect(window.document.querySelector('[data-assistant-card]')).toBeNull()
+  })
+
+  // Review 2026-11-26 (P2-5, P1-2): the panel read the primary's activity, so a second Mac-run agent's work
+  // never showed there; and its Stop also stopped this Mac's device host, which may serve another agent.
+  it('shows a secondary agent’s own work in its panel, and its Stop stops only that chat’s turn', async () => {
+    setMatrixRightPanel('chat', true)
+    const deviceStop = vi.fn(async () => ({ stopped: true }))
+    Object.assign(window, { atumDevice: { status: vi.fn(async () => ({ active: true })), stop: deviceStop } })
+    const { bridge, emit } = fixture()
+
+    const lanRoom = {
+      ...assistantFields,
+      id: '!lan:test',
+      name: 'Lan',
+      membership: 'join' as const,
+      encrypted: true,
+      assistant: true,
+      agentPrincipal: 'lan',
+      participants: [
+        { userId: '@owner:test', membership: 'join' as const },
+        { userId: '@lan:test', membership: 'join' as const }
+      ]
+    }
+
+    const working = (roomId: string) => ({ roomId, invocationId: `run-${roomId}`, state: 'running' as const, text: '', tools: [] })
+
+    emit({
+      ...controlsState,
+      roomId: '!lan:test',
+      rooms: [{ ...controlsState.rooms[0]!, agentPrincipal: 'main-a' }, lanRoom],
+      messages: [],
+      // The primary is idle in its own room; Lan works in hers, on this Mac.
+      agentTurns: [{ roomId: '!lan:test', activity: working('!lan:test') }],
+      agents: [
+        { principal: 'main-a', userId: '@atum:test', ready: true, isDefault: true, atumModel: true, hermes: 'ready', answering: 'cloud' },
+        { principal: 'lan', userId: '@lan:test', name: 'Lan', ready: true, isDefault: false, atumModel: true, hermes: 'ready', macRole: 'answering' }
+      ]
+    } as MatrixSnapshot)
+
+    const panel = await waitFor(() => {
+      const found = window.document.querySelector<HTMLElement>('[data-matrix-assistant-info="lan"]')
+      expect(found?.querySelector('[data-agent-desk-now="working"]')).toBeTruthy()
+
+      return found!
+    })
+
+    await act(async () => {
+      fireEvent.click(within(panel).getByRole('button', { name: 'Stop' }))
+    })
+
+    expect(bridge.cancelHermes).toHaveBeenCalledWith('!lan:test')
+    await act(async () => { await Promise.resolve() })
+    expect(deviceStop).not.toHaveBeenCalled()
+    Reflect.deleteProperty(window, 'atumDevice')
+  })
+
+  // Review 2026-11-26 (P2-3): a refused chat selection left the panel request pending, so a later visit
+  // opened the panel (or renamed) unasked.
+  it('drops an agent-panel request whose chat selection is refused, and a later visit leaves the panel as it was', async () => {
+    setMatrixRightPanel('chat', false)
+
+    const command = vi.fn(async (value: Parameters<MatrixUiBridge['command']>[0]) => {
+      if (value.kind === 'select') {
+        throw new Error('MATRIX_TEXT_DOCUMENT_UNAVAILABLE')
+      }
+
+      return null
+    })
+
+    const { emit } = fixture(undefined, 'en', undefined, command)
+
+    const linh = {
+      id: '!linh:test',
+      name: 'Linh',
+      membership: 'join' as const,
+      encrypted: true,
+      direct: true,
+      participants: [
+        { userId: '@owner:test', membership: 'join' as const },
+        { userId: '@linh:test', membership: 'join' as const }
+      ]
+    }
+
+    const state = {
+      ...controlsState,
+      rooms: [{ ...controlsState.rooms[0]!, agentPrincipal: 'main-a' }, linh],
+      agents: [
+        { principal: 'main-a', userId: '@atum:test', ready: true, isDefault: true, atumModel: true, hermes: 'ready', answering: 'cloud' }
+      ]
+    } as MatrixSnapshot
+
+    emit({ ...state, roomId: '!linh:test', messages: [] })
+    await waitFor(() => expect(screen.getAllByText('Linh').length).toBeGreaterThan(0))
+
+    act(() => openAssistantCard({ kind: 'agent', principal: 'main-a', focus: 'name' }))
+    await waitFor(() => expect(command).toHaveBeenCalledWith({ kind: 'select', roomId: '!assistant:test' }))
+    await act(async () => { await Promise.resolve() })
+
+    // Nothing changed: the panel preference stays off and no sheet stands in.
+    expect(JSON.parse(window.localStorage.getItem('io.atum.rightPanel') ?? '{}').chat).toBe(false)
+    expect(window.document.querySelector('[data-assistant-card]')).toBeNull()
+
+    // Later, the person opens that chat themselves: the panel stays closed, as they left it.
+    emit({ ...state, roomId: '!assistant:test' })
+    await act(async () => { await Promise.resolve() })
+    expect(window.document.querySelector('[data-matrix-assistant-info]')).toBeNull()
+    expect(JSON.parse(window.localStorage.getItem('io.atum.rightPanel') ?? '{}').chat).toBe(false)
+  })
+
   it('drops the assistant’s card panel on Drive, never leaving the chat’s workbench there, and brings it back in Chat', async () => {
     setMatrixRightPanel('chat', true)
 
@@ -4337,6 +4507,62 @@ describe('isolated Matrix composition', () => {
 
     fireEvent.click(window.document.querySelector<HTMLElement>('[data-atum-nav-home]')!)
     await waitFor(() => expect(window.document.querySelector('[data-matrix-assistant-info="main-a"]')).toBeTruthy())
+  })
+
+  // Re-check 2026-11-26: the shared Mac-plan views outlived the session, so signing back in reused them.
+  it('empties the shared Mac-plan views on sign-out, and a new sign-in as the same person starts clean', async () => {
+    const { emit } = fixture()
+    emit(controlsState)
+
+    const key = agentPlansKey('account:@owner:test', 'main-a')
+    const stale = beginAgentPlansRead(key)
+    settleAgentPlansRead(beginAgentPlansRead(key), {
+      published: true,
+      plans: { claude: { state: 'connected' } },
+      selection: { provider: 'atum-work', plan: 'claude', model: 'claude-opus-5-5', revision: 2 }
+    })
+    expect($agentPlans.get()[key]).toBeTruthy()
+
+    emit(signedOut)
+    await waitFor(() => expect($agentPlans.get()).toEqual({}))
+
+    // Back in as the same person: nothing from before, and a read begun before sign-out is ignored.
+    emit(controlsState)
+    settleAgentPlansRead(stale, { published: true, plans: {}, selection: null })
+    expect($agentPlans.get()[key]).toBeUndefined()
+  })
+
+  // Review 2026-11-26: Settings › Assistants on Drive queued the request behind Drive, where it never opened.
+  it('opens an assistant’s panel from Settings while Drive is in front: Drive goes and its chat comes with the panel', async () => {
+    setMatrixRightPanel('chat', false)
+
+    const drive = {
+      read: vi.fn(async () => ({ state: 'ready', revision: 1, canGoBack: false, truncated: false, rows: [] })),
+      subscribe: vi.fn(() => () => {}),
+      taskStatus: vi.fn(async () => ({ state: 'unavailable' as const }))
+    } as unknown as MatrixDriveBridge
+
+    const { emit } = fixture(undefined, 'en', undefined, undefined, drive)
+
+    emit({
+      ...controlsState,
+      rooms: controlsState.rooms.map(each => ({ ...each, agentPrincipal: 'main-a' })),
+      agents: [
+        { principal: 'main-a', userId: '@atum:test', ready: true, isDefault: true, atumModel: true, hermes: 'ready', answering: 'cloud' }
+      ]
+    } as MatrixSnapshot)
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Atum Drive' }))
+    await waitFor(() => expect(window.document.querySelector('[data-atum-nav-drive][aria-current="page"]')).toBeTruthy())
+
+    // What Settings › Assistants does with the row it was clicked on.
+    act(() => openAssistantCard({ kind: 'agent', principal: 'main-a' }))
+
+    await waitFor(() => expect(window.document.querySelector('[data-matrix-assistant-info="main-a"]')).toBeTruthy())
+    expect(window.document.querySelector('[data-atum-nav-drive][aria-current="page"]')).toBeNull()
+    expect(window.document.querySelector('[data-matrix-drive-browser]')).toBeNull()
+    expect(window.document.querySelector('[data-assistant-card]')).toBeNull()
+    expect(JSON.parse(window.localStorage.getItem('io.atum.rightPanel') ?? '{}').chat).toBe(true)
   })
 
   it('opens conversation info from the titlebar in a chat with a person, and the workbench in an assistant chat', async () => {

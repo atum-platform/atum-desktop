@@ -16,10 +16,12 @@ configure({ asyncUtilTimeout: 5000 })
 // The stores load once here so the reset itself is synchronous and never delays teardown.
 if (typeof window !== 'undefined') {
   const { afterEach } = await import('vitest')
-  const [{ $companyDirectories }, { $companyChannels }, { resetMatrixHandleContactsForTest }] = await Promise.all([
+
+  const [{ $companyDirectories }, { $companyChannels }, { resetMatrixHandleContactsForTest }, { resetAgentPlansForTests }] = await Promise.all([
     import('./src/matrix/team-space/directory-store'),
     import('./src/matrix/team-space/channels-store'),
-    import('./src/matrix/person-handle-contacts')
+    import('./src/matrix/person-handle-contacts'),
+    import('./src/matrix/agent-plans-store')
   ])
   afterEach(() => {
     // Some suites delete or stub `window` mid-test; only touch storage that is still there.
@@ -35,5 +37,7 @@ if (typeof window !== 'undefined') {
     // The handle-contacts resolver pools asks on a timer: a read queued in one test must never
     // reach the next test's bridge.
     resetMatrixHandleContactsForTest()
+    // Mac-plan views are shared per account and agent across pickers; never carry one into the next test.
+    resetAgentPlansForTests()
   })
 }

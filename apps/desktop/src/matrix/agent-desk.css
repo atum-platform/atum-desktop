@@ -228,3 +228,8 @@
   font: var(--ak-t-callout);
   color: var(--ak-ink-3);
 }
+
+/* The agent's panel takes Files only when there are some: an empty section adds no gap. */
+[data-agent-panel-files]:empty {
+  display: none;
+}

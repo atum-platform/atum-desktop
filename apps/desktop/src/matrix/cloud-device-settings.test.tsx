@@ -115,10 +115,10 @@ it('offers Stop only while an assistant is using this Mac', async () => {
   Object.assign(window, { atumDevice: { status: async () => value, stop } })
   render(page())
   expect(await screen.findByText('An agent is using this Mac now.')).toBeTruthy()
-  fireEvent.click(screen.getByRole('button', { name: 'Stop now' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Stop all agents' }))
   expect(stop).toHaveBeenCalledOnce()
   await act(async () => {})
-  expect(screen.queryByRole('button', { name: 'Stop now' })).toBeNull()
+  expect(screen.queryByRole('button', { name: 'Stop all agents' })).toBeNull()
 })
 
 it('drops a late status reply from the previous account-keyed pane', async () => {
