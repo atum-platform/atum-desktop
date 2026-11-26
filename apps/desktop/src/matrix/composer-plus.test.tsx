@@ -1,5 +1,7 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+
+import { $betaFeatures } from '@/store/beta-features'
 
 import {
   type ComposerPlusAvailability,
@@ -8,7 +10,12 @@ import {
   ComposerPlusMenu
 } from './composer-plus'
 
-afterEach(cleanup)
+// A beta account sees every entry; the public state has its own block below.
+beforeEach(() => $betaFeatures.set({ profile: 'plus-test', granted: true }))
+afterEach(() => {
+  cleanup()
+  $betaFeatures.set({ profile: null, granted: false })
+})
 
 const ALL: ComposerPlusAvailability = { photos: true, files: true, routines: true, skills: true }
 
@@ -113,5 +120,32 @@ describe('the composer plus menu', () => {
     renderMenu({ photos: false, files: false, routines: false, skills: false })
 
     expect(screen.queryByRole('button', { name: 'Add' })).toBeNull()
+  })
+})
+
+describe('without beta features', () => {
+  beforeEach(() => $betaFeatures.set({ profile: 'plus-test', granted: false }))
+
+  it('shows "Add a skill" greyed out as Coming soon, and choosing it runs nothing', async () => {
+    const { onAction } = renderMenu()
+    openMenu()
+
+    const menu = await screen.findByRole('menu')
+    const skill = within(menu).getByRole('menuitem', { name: /Add a skill/ })
+
+    expect(skill.textContent).toBe('Add a skillComing soon')
+    expect(skill.getAttribute('aria-disabled')).toBe('true')
+    expect(skill.hasAttribute('data-composer-plus-coming-soon')).toBe(true)
+
+    fireEvent.pointerDown(skill)
+    fireEvent.pointerUp(skill)
+    fireEvent.click(skill)
+    expect(onAction).not.toHaveBeenCalled()
+
+    // Everything else in the menu still works.
+    const routine = within(menu).getByRole('menuitem', { name: 'Set up a routine' })
+    expect(routine.hasAttribute('aria-disabled')).toBe(false)
+    fireEvent.click(routine)
+    expect(onAction).toHaveBeenCalledExactlyOnceWith('routines')
   })
 })

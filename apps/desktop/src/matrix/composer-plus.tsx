@@ -1,3 +1,4 @@
+import { useStore } from '@nanostores/react'
 import { Fragment, type ReactNode } from 'react'
 
 import { Button } from '@/components/ui/button'
@@ -10,7 +11,9 @@ import {
   DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu'
 import { Tip } from '@/components/ui/tooltip'
+import { useI18n } from '@/i18n'
 import { Calendar, Files, ImageIcon, Paperclip, Sparkles } from '@/lib/icons'
+import { $betaFeatures } from '@/store/beta-features'
 
 import { useMatrixCopy } from './copy'
 
@@ -52,7 +55,10 @@ export function ComposerPlusMenu({
   onAction(kind: ComposerPlusKind): void
 }) {
   const copy = useMatrixCopy()
+  const { t } = useI18n()
   const kinds = composerPlusKinds(availability)
+  // Skills wait for beta accounts (store/beta-features.ts): the entry stays, greyed "Coming soon".
+  const skillsSoon = !useStore($betaFeatures).granted
 
   if (kinds.length === 0) {
     return null
@@ -92,12 +98,22 @@ export function ComposerPlusMenu({
           .map((group, index) => (
             <Fragment key={group[0]}>
               {index > 0 && <DropdownMenuSeparator />}
-              {group.map(kind => (
-                <DropdownMenuItem key={kind} onSelect={() => onAction(kind)}>
-                  {ICONS[kind]}
-                  {labels[kind]}
-                </DropdownMenuItem>
-              ))}
+              {group.map(kind => {
+                const soon = kind === 'skills' && skillsSoon
+
+                return (
+                  <DropdownMenuItem
+                    data-composer-plus-coming-soon={soon ? true : undefined}
+                    disabled={soon}
+                    key={kind}
+                    onSelect={() => onAction(kind)}
+                  >
+                    {ICONS[kind]}
+                    {labels[kind]}
+                    {soon && <span className="ml-auto pl-3">{t.surfaces.comingSoon}</span>}
+                  </DropdownMenuItem>
+                )
+              })}
             </Fragment>
           ))}
         {(availability.photos || availability.files) && (
