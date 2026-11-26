@@ -72,7 +72,7 @@ export function workProvider(python: string, home: string) {
     config: {
       source: 'local',
       commandPath: python,
-      commandArgs: ['-P', '-B', '-X', 'utf8', '-m', 'acp_adapter.managed']
+      commandArgs: ['-P', '-B', '-X', 'utf8', '-m', 'acp_adapter.managed', '--wait-for-gateway']
     },
     environment: [{ name: 'HERMES_HOME', value: home, sensitive: false }]
   }

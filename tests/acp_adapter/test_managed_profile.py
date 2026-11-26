@@ -52,6 +52,34 @@ async def test_initialize_against_locked_home_never_provisions_gateway(tmp_path)
         home.chmod(0o700)
 
 
+@pytest.mark.asyncio
+async def test_work_session_new_waits_for_managed_gateway(daemon, tmp_path, monkeypatch):
+    from acp_adapter import gateway_server
+    from hermes_cli import gateway_runtime
+    from hermes_constants import reset_hermes_home_override, set_hermes_home_override
+
+    home, _, _, _ = daemon
+    discover = gateway_runtime.discover_gateway_endpoint
+    startup_states = iter(("absent", "starting"))
+
+    def discover_during_startup(profile_home):
+        state = next(startup_states, None)
+        if state is not None:
+            return gateway_runtime.GatewayDiscovery(state)
+        return discover(profile_home)
+
+    monkeypatch.setattr(gateway_runtime, "discover_gateway_endpoint", discover_during_startup)
+    token = set_hermes_home_override(home)
+    try:
+        agent = gateway_server.GatewayACPAgent(managed=True, wait_for_gateway=True)
+        try:
+            assert (await agent.new_session(cwd=str(tmp_path), mcp_servers=[])).session_id
+        finally:
+            await agent.aclose()
+    finally:
+        reset_hermes_home_override(token)
+
+
 @pytest.mark.parametrize('invalid', [False, True])
 def test_profile_limits_real_stdio_registration(tmp_path, invalid):
     from tools.registry import registry

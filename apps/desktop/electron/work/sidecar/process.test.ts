@@ -1,7 +1,6 @@
-
 import { describe, expect, it } from 'vitest'
 
-import { workPairingOrigin } from './process'
+import { workPairingOrigin, workProvider } from './process'
 
 describe('Work pairing handoff', () => {
   it('accepts the pinned loopback form and returns only the origin', () => {
@@ -18,4 +17,9 @@ describe('Work pairing handoff', () => {
   ])('rejects a malformed grant URL (%s)', url => {
     expect(workPairingOrigin(url)).toBeUndefined()
   })
+})
+
+it('starts the owner provider with the managed gateway wait enabled', () => {
+  const provider = workProvider('/python', '/account/work/owner')
+  expect(provider.config.commandArgs.slice(-3)).toEqual(['-m', 'acp_adapter.managed', '--wait-for-gateway'])
 })

@@ -16,3 +16,12 @@ Local verification covered the public dependency helper, desktop typecheck,
 focused Electron and renderer Vitest with real supervisor startup in a
 temporary home, canonical Python tests for the ACP profile and supervisor
 merge, focused ESLint, and the public-boundary guard on the local commit.
+
+## Main integration
+
+Merged `99c084b0c3` (Work ACP startup). The owner provider still passes
+`--wait-for-gateway` to the managed ACP entry point, giving the supervisor's
+gateway up to 25 seconds to become ready. The conflicting sidecar test now
+asserts the launch arguments for the owner provider. The startup settings test
+covers removal of the retired provider entries from saved settings, and the
+ACP regression exercises session creation as the managed gateway becomes ready.
