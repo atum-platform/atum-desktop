@@ -419,6 +419,8 @@ export class MatrixDrive {
         owner?: { issuer: string; subject: string }
       ): Promise<{ accessToken: string; expiresAt?: number } | null>
       openPath(file: string): Promise<string>
+      /** The folder panel's Share: the system share menu over a folder main resolved (never a window path). */
+      shareFolder?(folder: string): void
       /** Native PDF views are main-owned and must end with their Drive lease. */
       closeNativePreview?(token: string): void
       changed(view: MatrixDriveView): void
@@ -3764,6 +3766,17 @@ export class MatrixDrive {
     }
 
     return this.read()
+  }
+
+  /** Share from Drive's folder panel: the open folder, resolved here, handed to the system share menu. */
+  async share(): Promise<void> {
+    this.activate()
+
+    if (!this.options.shareFolder) {
+      throw new Error('matrix_drive_request_invalid')
+    }
+
+    this.options.shareFolder(await this.openFolderPath())
   }
 
   async reveal(): Promise<void> {

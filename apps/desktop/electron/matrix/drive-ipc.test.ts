@@ -235,3 +235,20 @@ it('plus menu: a folder or document takes one plain name, and an upload never ta
   expect(drive.create).toHaveBeenCalledTimes(2)
   expect(drive.upload).toHaveBeenCalledOnce()
 })
+
+it('folder panel Share: no path or id from the window; main resolves the open folder itself', async () => {
+  let handler!: (event: IpcMainInvokeEvent, value: unknown) => Promise<unknown>
+  const ipc = { handle: vi.fn((_channel, callback) => (handler = callback)) }
+  const drive = { share: vi.fn() }
+  registerMatrixDriveIpc(ipc, drive as unknown as MatrixDrive, vi.fn())
+  const event = {} as IpcMainInvokeEvent
+
+  await handler(event, { kind: 'share' })
+  expect(drive.share).toHaveBeenCalledExactlyOnceWith()
+
+  for (const invalid of [{ kind: 'share', path: '/etc' }, { kind: 'share', id: 'opaque-folder' }]) {
+    await expect(handler(event, invalid)).rejects.toThrow('invalid')
+  }
+
+  expect(drive.share).toHaveBeenCalledOnce()
+})

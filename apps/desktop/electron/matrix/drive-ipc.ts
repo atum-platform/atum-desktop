@@ -135,6 +135,9 @@ export function registerMatrixDriveIpc(
       case 'reveal':
         return drive.reveal()
 
+      case 'share':
+        return drive.share()
+
       default:
         throw new Error('matrix_drive_request_invalid')
     }

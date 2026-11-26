@@ -2107,6 +2107,11 @@ export function scenarioSnapshot(scenario: PlaygroundScenario): MatrixSnapshot {
         roomId: PLAYGROUND_COMPANY_ROOM_ID,
         messages: teamSpaceConversation,
         members: PLAYGROUND_MEMBERS[PLAYGROUND_COMPANY_ROOM_ID],
+        // Two pins, for the channel overview's pinned list (Kit step 5).
+        pinnedMessages: {
+          canChange: true,
+          entries: teamSpaceConversation.slice(0, 2).map(message => ({ eventId: message.id, message }))
+        },
         threads: [
           {
             root: PLAYGROUND_TEAM_SPACE_ROOT,

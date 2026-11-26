@@ -2727,6 +2727,14 @@ html[data-atum-vibrancy] [data-atum-main][data-atum-team-roster] [data-matrix-co
   padding-inline-end: calc(var(--atum-panel-gap) + 0.75rem);
 }
 
+/* Work: the view paints its own two cards, the thread list and the thread, on a transparent ground
+   (atum-work's `panels` sidebar), so the frame shows between them as it does between every screen's
+   left panel and main card. The joined main card under the whole view would fill that gap. While the
+   view is away the host draws the quiet state on its own card (work-screen.tsx). */
+[data-atum-main]:has([data-atum-work])::before {
+  content: none;
+}
+
 /* Work: the bell ends one header inset inside the view's thread list, as the chat roster's does. The
    header's own start inset and that end inset come off the list's reported edge. */
 [data-atum-work][data-atum-work-roster] > [data-atum-main-header] > :first-child {
