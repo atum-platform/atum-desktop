@@ -224,20 +224,16 @@ def run(spec, children, channel):
 
 
 def work_provider_instances(saved, defaults, brokers):
-    # Replace old blocked stubs once. Real T3 settings belong to the account.
     saved = saved if isinstance(saved, dict) else {}
-    instances = dict(brokers)
-    for instance_id, default in defaults.items():
+    instances = {**defaults, **saved, **brokers}
+    # Migrate the exact legacy Codex and Claude stubs. Other configs belong to the account.
+    for instance_id in ("codex", "claudeAgent"):
         instance = saved.get(instance_id)
-        if isinstance(instance, dict) and instance.get("driver") == default["driver"]:
-            config = instance.get("config")
-            if instance_id == "codex" and config == {"setupMode": "managed"}:
-                instance = {**instance, "config": {"setupMode": "existing"}}
-            blocked = isinstance(config, dict) and config.get("binaryPath") == "/usr/bin/false"
-            if not blocked:
-                instances[instance_id] = instance
-                continue
-        instances[instance_id] = default
+        if instance == {"driver": instance_id, "enabled": False, "config": {"binaryPath": "/usr/bin/false"}}:
+            instances[instance_id] = defaults[instance_id]
+    codex = instances["codex"]
+    if isinstance(codex, dict) and codex.get("driver") == "codex" and codex.get("config") == {"setupMode": "managed"}:
+        instances["codex"] = {**codex, "config": {"setupMode": "existing"}}
     return instances
 
 
@@ -315,7 +311,11 @@ def main():
                 settings.get("providerInstances", {}), spec["planProviderDefaults"],
                 spec["settings"]["providerInstances"],
             )
-            instances["atum-relay-codex"] = relay_codex_instance(instances["codex"])
+            codex = instances["codex"]
+            # A saved instance can occupy the default ID with a different driver.
+            if not isinstance(codex, dict) or codex.get("driver") != "codex":
+                codex = spec["planProviderDefaults"]["codex"]
+            instances["atum-relay-codex"] = relay_codex_instance(codex)
             settings.update(spec["settings"])
             settings["providerInstances"] = instances
             settings["textGenerators"] = {}
