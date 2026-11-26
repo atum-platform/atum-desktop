@@ -204,7 +204,7 @@ async function startProcess(options: WorkProcessOptions, { continuation, trial }
       textGenerationModelSelection: managedModel,
       providerInstances
     },
-    planProviderDefaults: PLAN_PROVIDER_DEFAULTS,
+    planProviderDefaults: { ...PLAN_PROVIDER_DEFAULTS, opencode: { driver: 'opencode', enabled: true } },
     trial,
     profileSource,
     managedModelAlias: ATUM_WORK_DEFAULT_ALIAS,
