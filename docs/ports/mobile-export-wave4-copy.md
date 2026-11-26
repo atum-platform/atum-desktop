@@ -211,7 +211,8 @@ the already-exported `matrixAgentStatusCopy.unfunded` and `trialExpired`.
   card's `copies` (en, vi) and `MATRIX_VIDEO_CONSENT_SENTENCES` (the platform's hashed en/vi
   sentences). The producer used to fail on any partial table. It now records these two by exact
   source and table in the inventory ("Partial locale table, not exported") and still fails on any
-  other partial table. A new test checks that both are recorded and never exported.
+  other partial table. A new test checks that both are recorded and never exported. (Wave 4h
+  exports the card's `copies`, with desktop's English fallback; see "Wave 4h" below.)
 - `wave4/spec.json` and `wave4/splice4.mjs`: wave 3's splice, which also takes the producer's
   inventory and checks that every entry shared with the producer is now byte-identical.
 
@@ -480,6 +481,146 @@ under their own desktop path. Nothing goes into `mobileScreensCopy`. Producer in
   Eight glyph aliases the producer cannot map yet got throwaway entries for the run only: the six above,
   plus `Paperclip` and `UserPlus` from `e8ce4357`. `glyphs.json` is not spliced.
 - Splice: `wave4/splice4.mjs` with `wave4g/spec.json` added 2, refreshed 0 and removed 3. All 44 manifest
+  hashes match their files.
+- No desktop source changed, so desktop typecheck, lint and vitest have nothing new to cover. The outbound
+  guard results are in the commit.
+
+## Wave 4h: Google write cards for Work (#134)
+
+Desktop #134 (merged at `6bd26341`) shows Work's Google writes on the owner's confirmation card, next to the
+assistants' ones, and changed `apps/desktop/src/matrix/google-write-card-copy.ts`. The phone needs the same words
+to show these cards and let the owner approve or decline. Producer inputs are on atum-app
+`chore/mobile-export-wave4h-keys` (`42d51de7`), run on this tree (`3f56c918`).
+
+The card's own words sit in its `copies` table (`google-write-card-copy.ts:54–155`), written in en and vi only.
+Its reader returns `copies[locale] ?? copies.en` (`:157–159`), so desktop shows the English in ja, zh and zh-Hant.
+Until now the producer recorded this table as partial and never exported it (see "Producer changes" above). It
+now reads it the way desktop does, which is wave 4's rule for Work's en/vi copy ("Desktop wording to review
+across locales"): ja, zh and zh-Hant repeat the English. In the producer, the table moves from
+`PARTIAL_LOCALE_TABLES` to a new `ENGLISH_FALLBACK_TABLES` in `scripts/copy.mjs`. Any other partial table still
+fails generation, and `MATRIX_VIDEO_CONSENT_SENTENCES` stays recorded and unexported.
+
+- **Added: 50.** None takes arguments, and none has exact selectors.
+  - 36 under `src.matrix.google-write-card-copy.copies.`: the 24 that #134 added, plus 12 the card already had
+    that were never exported because the table was partial.
+  - 14 under `shared.matrix-google-write-copy.MATRIX_GOOGLE_WRITE_COPY.`
+    (`shared/matrix-google-write-copy.ts:40–115`). These are the question for an email or event and the 11
+    field names the card draws (`google-write-card.tsx:183–219`). They are written in all five locales.
+- **Held back:** the card's spread copies of the shared words (`copies.question.{send_email,create_event,
+  update_event}`, `copies.labels.{from,to,…}`), so the phone reads each word from one place. Also held back are
+  the shared table's fields the card does not draw (`labels.{from,calendar,notes,current,after,noInvitations}`),
+  and the dialog's `confirm.*` and `cancel`.
+- **Refreshed / removed: none.** Catalog: 4137 → 4187 entries. `copy-contract.json` adds 50 entries. The
+  `copy-inventory.json` row for `google-write-card-copy.ts` now lists `copies` with the note "English fallback
+  table (ja, zh, zh-Hant read en, as desktop does): copies". The copy map is unchanged. A semantic diff of the
+  catalog and the contract shows exactly the 50 added keys and no other change.
+
+| Key (`C` = `src.matrix.google-write-card-copy.copies`) | en | vi |
+|---|---|---|
+| `C.question.create_draft` | Save this draft in Gmail? | Lưu thư nháp này trong Gmail? |
+| `C.question.update_draft` | Update this Gmail draft? | Cập nhật thư nháp Gmail này? |
+| `C.question.create_label` | Create this Gmail label? | Tạo nhãn Gmail này? |
+| `C.mailbox.archive` | Archive this in Gmail? | Lưu trữ mục này trong Gmail? |
+| `C.mailbox.unarchive` | Move this back to your Gmail inbox? | Đưa mục này về hộp thư đến Gmail? |
+| `C.mailbox.mark_read` | Mark this as read in Gmail? | Đánh dấu đã đọc trong Gmail? |
+| `C.mailbox.mark_unread` | Mark this as unread in Gmail? | Đánh dấu chưa đọc trong Gmail? |
+| `C.mailbox.star` | Star this in Gmail? | Gắn sao trong Gmail? |
+| `C.mailbox.unstar` | Remove the star in Gmail? | Bỏ gắn sao trong Gmail? |
+| `C.mailbox.trash` | Move this to the Gmail trash? | Chuyển mục này vào thùng rác Gmail? |
+| `C.mailbox.untrash` | Take this out of the Gmail trash? | Lấy mục này ra khỏi thùng rác Gmail? |
+| `C.mailbox.add_labels` | Add these Gmail labels? | Thêm các nhãn Gmail này? |
+| `C.mailbox.remove_labels` | Remove these Gmail labels? | Gỡ các nhãn Gmail này? |
+| `C.labels.name` | Name | Tên |
+| `C.labels.labels` | Labels | Nhãn |
+| `C.labels.appliesTo` | Applies to | Áp dụng cho |
+| `C.labels.conversation` | The whole conversation | Cả cuộc trò chuyện |
+| `C.labels.oneEmail` | One email | Một email |
+| `C.work.source` | From Work on this Mac | Từ Work trên máy Mac này |
+| `C.work.approved` | Approved. | Đã duyệt. |
+| `C.work.declined` | Declined. Nothing was changed. | Đã từ chối. Không có gì thay đổi. |
+| `C.work.superseded` | A newer request from Work replaced this one. | Một yêu cầu mới hơn từ Work đã thay thế yêu cầu này. |
+| `C.work.expired` | This request expired. | Yêu cầu này đã hết hạn. |
+| `C.work.changed` | This doesn’t match what Work asked for, so it can’t be approved here. | Nội dung này không khớp với yêu cầu của Work nên không thể duyệt ở đây. |
+| `C.approve` · `C.decline` | Approve · Decline | Duyệt · Từ chối |
+| `C.approving` · `C.declining` | Approving… · Declining… | Đang duyệt… · Đang từ chối… |
+| `C.labels.quote` | Quoted message | Tin nhắn được trích dẫn |
+| `C.labels.truncated` | The quoted message is shortened. | Tin nhắn trích dẫn đã được rút gọn. |
+| `C.approved` | Approved. Your assistant will carry it out. | Đã duyệt. Trợ lý sẽ thực hiện việc này. |
+| `C.declined` | Declined. Your assistant won’t do this. | Đã từ chối. Trợ lý sẽ không thực hiện việc này. |
+| `C.superseded` | A newer request replaced this one. | Một yêu cầu mới hơn đã thay thế yêu cầu này. |
+| `C.closed` | This request is no longer waiting for you. | Yêu cầu này không còn chờ bạn nữa. |
+| `C.changed` | This draft doesn’t match what your assistant proposed, so it can’t be approved here. Ask for a fresh one. | Bản nháp này không khớp với đề xuất của trợ lý nên không thể duyệt ở đây. Hãy nhờ soạn lại. |
+| `C.retry` | Couldn’t reach Atum. Try again. | Không kết nối được với Atum. Hãy thử lại. |
+
+| Key (`W` = `shared.matrix-google-write-copy.MATRIX_GOOGLE_WRITE_COPY`) | en | vi |
+|---|---|---|
+| `W.message.send-email` | Send this email? | Gửi email này? |
+| `W.message.create-event` | Add this event to your calendar? | Thêm sự kiện này vào lịch? |
+| `W.message.update-event` | Save these changes to your calendar? | Lưu thay đổi này vào lịch? |
+| `W.labels.to` · `cc` · `bcc` | To · Cc · Bcc | Đến · Cc · Bcc |
+| `W.labels.subject` | Subject | Tiêu đề |
+| `W.labels.forwarded` | Forwarded message | Thư được chuyển tiếp |
+| `W.labels.attachments` | Attachments | Tệp đính kèm |
+| `W.labels.inReplyTo` | Replies in the same conversation. | Trả lời trong cùng cuộc trò chuyện. |
+| `W.labels.title` | Title | Tên |
+| `W.labels.start` · `end` | Start · End | Bắt đầu · Kết thúc |
+| `W.labels.location` | Location | Địa điểm |
+
+### Desktop wording to review across locales
+
+- **English fallback.** All 36 `C.*` keys read English in ja, zh and zh-Hant, as desktop shows them. Translating
+  them belongs in desktop first.
+- **A mixed-language card.** On desktop the whole card is English in ja, zh and zh-Hant: `copies.en` spreads
+  the shared table's English question and labels. The 14 `W.*` keys carry the shared table's own ja, zh and
+  zh-Hant words, which desktop's main-process write dialog shows. A phone card built from these keys therefore
+  shows translated questions and field names next to English actions and states in those three locales. For
+  exact desktop parity in those locales, the phone can read the `en` localization of the `W.*` keys. The real
+  fix is the desktop translation of `copies`.
+
+### Phone wording the export does not have yet
+
+Desktop's provenance line is `C.work.source`, "From Work on this Mac" / "Từ Work trên máy Mac này". On the
+phone, "this Mac" would point at the phone, so the phone needs "From Work on your Mac". Desktop source was not
+changed in this wave, and phone copy comes only from this export (owner ruling, top of this doc). So the phone
+lane should not type the words itself. The pattern for words only the phone shows is the desktop phone table,
+`apps/desktop/src/matrix/mobile-device-copy.ts` and its `.trace.json` (`teamSpaceSoon` is one such key).
+Follow-up for desktop:
+
+- Add a phone key there (suggested name `workGoogleWriteSource`), in all five locales. en "From Work on your
+  Mac". vi "Từ Work trên máy Mac của bạn" (suggested, to be reviewed). ja, zh and zh-Hant fall back to English,
+  as `C.*` does, unless desktop translates them.
+- Then export it in a following wave.
+
+Until that lands, the phone's Work card has no correct provenance words in the export.
+
+Phone mapping notes, from `google-write-card.tsx:393`: a Work card that settles as `closed` shows `C.work.expired`.
+An assistant's card that settles as `expired` shows `C.closed`. The other states map to the same name
+(`C.work.<state>` for Work, `C.<state>` for an assistant). `C.work.source` is drawn only on Work's card (`:427`).
+
+### For the phone repin
+
+- Manifest SHA-256: `e9136dc388da23f8c88fddfff22d9b63db60abd53023182d8ee6e450bc874c39` (was
+  `8a9f52066a4990850ca3c242e1915da29d166e2adfa2c22f3250b15598d8eacb`).
+- Changed file hashes: `Localizable.xcstrings` `eca4f73011571be5e78d3eda11a15dd9acc94c4eef1a7b4fc2cf93096d75bee6`,
+  `copy-contract.json` `198fcf28decca8f94f97487fbd32b8ed2ccb006912614d7f20536afd7b9ad79d`,
+  `copy-inventory.json` `ed5b5624767ee88e0c3f7ff7144f67cbec6339f1c0cda16eee809976a5f35001`.
+  `schemaVersion` stays 1, and the manifest keeps its 44 members.
+- Rekeys: none. The phone only gains keys.
+
+### Checks
+
+- Producer: `export.mjs` and `export.mjs --check` exit 0 in a scratch root holding this tree's `apps/desktop`
+  and `packages/atum-kit` (`git archive 3f56c918`). Tests pass 48 of 48. That includes the new Google write
+  card test, which:
+  - pins all 50 keys in en and vi against the desktop source;
+  - checks that ja, zh and zh-Hant of the 36 card words are the English, and that the shared words are
+    desktop's own in every locale;
+  - fails if any other key of either table is exported;
+  - checks the inventory row.
+
+  The partial-table test now covers only the video consent table. The same eight glyph aliases as wave 4g got
+  throwaway entries for the run only. `glyphs.json` is not spliced.
+- Splice: `wave4/splice4.mjs` with `wave4h/spec.json` added 50, refreshed 0 and removed 0. All 44 manifest
   hashes match their files.
 - No desktop source changed, so desktop typecheck, lint and vitest have nothing new to cover. The outbound
   guard results are in the commit.

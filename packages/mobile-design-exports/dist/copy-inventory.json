@@ -187,9 +187,11 @@
       ]
     },
     {
-      "note": "Partial locale table, not exported: copies",
+      "note": "English fallback table (ja, zh, zh-Hant read en, as desktop does): copies",
       "source": "apps/desktop/src/matrix/google-write-card-copy.ts",
-      "tables": []
+      "tables": [
+        "copies"
+      ]
     },
     {
       "source": "apps/desktop/src/matrix/group-picker-copy.ts",
