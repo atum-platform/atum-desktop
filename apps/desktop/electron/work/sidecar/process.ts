@@ -80,6 +80,8 @@ export function workRelayRuntimeReady(resources: string): boolean {
 
 export const WORK_REQUIRED_SERVER_SETTINGS = { linkedEnvironmentsEnabled: true } as const
 
+const WORK_THREAD_MCP_ORIGINS = ['https://modeb-ta.atumplatform.com'] as const
+
 const BROKER_PROFILES = [
   { instance: ATUM_WORK_PROVIDER, directory: 'owner', label: 'Atum', showInPicker: true },
   { instance: ATUM_WORK_DELEGATED_PROVIDER, directory: 'delegated', label: 'Atum (delegated)', showInPicker: false }
@@ -139,6 +141,17 @@ export function workRuntimeEnvironment(root: string, resources: string, shellPat
     T3CODE_TELEMETRY_ENABLED: 'false',
     OTEL_SDK_DISABLED: 'true'
   }
+}
+
+export function workThreadMcpEnvironment(origins: readonly string[]): Record<string, string> {
+  const allowed = origins.filter(origin => {
+    const url = URL.parse(origin)
+
+    return url?.protocol === 'https:' && url.origin === origin && !url.port &&
+      /^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+atumplatform\.com$/u.test(url.hostname)
+  })
+
+  return allowed.length ? { T3CODE_THREAD_MCP_ORIGIN: allowed.join(',') } : {}
 }
 
 type Supervisor = ChildProcessByStdio<Writable, Readable, null>
@@ -220,6 +233,7 @@ async function startProcess(options: WorkProcessOptions, { continuation, trial }
     executable: join(resources, 'work-runtime', 't3'),
     environment: {
       ...environment,
+      ...workThreadMcpEnvironment(WORK_THREAD_MCP_ORIGINS),
       ...(credentials.ATUM_WORK_CONNECTOR_URL
       ? { ATUM_WORK_CONNECTOR_URL: credentials.ATUM_WORK_CONNECTOR_URL }
       : {}),

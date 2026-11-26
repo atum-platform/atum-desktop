@@ -73,10 +73,14 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
 def run(spec, children, channel):
     environments = spec["gateways"]
-    Path(${JSON.stringify(observed)}).write_text(json.dumps([
-        [env["ATUM_MANAGED_MODEL_DEFAULT"], yaml.safe_load((Path(env["HERMES_HOME"]) / "config.yaml").read_text())["model"], env["HOME"]]
-        for env in environments
-    ]))
+    Path(${JSON.stringify(observed)}).write_text(json.dumps({
+        "gatewayProfiles": [
+            [env["ATUM_MANAGED_MODEL_DEFAULT"], yaml.safe_load((Path(env["HERMES_HOME"]) / "config.yaml").read_text())["model"], env["HOME"]]
+            for env in environments
+        ],
+        "workThreadMcpOrigin": spec["environment"].get("T3CODE_THREAD_MCP_ORIGIN"),
+        "gatewayThreadMcpOrigins": [env.get("T3CODE_THREAD_MCP_ORIGIN") for env in environments],
+    }))
     with http.server.ThreadingHTTPServer(("127.0.0.1", 0), Handler) as server:
         origin = f"http://127.0.0.1:{server.server_port}"
         Path(spec["settingsPath"]).with_name("server-runtime.json").write_text(json.dumps({"pid": os.getpid(), "origin": origin}))
@@ -99,7 +103,11 @@ actual.main()
       expect(settings.defaultModelSelection).toEqual({ instanceId: 'atum-managed', model: 'atum-managed:nguyet-thuc' })
       expect(settings.textGenerationModelSelection).toEqual(settings.defaultModelSelection)
       const defaultProfile = ['nguyet-thuc', { provider: 'atum-managed', default: 'nguyet-thuc' }]
-      expect(JSON.parse(await readFile(observed, 'utf8'))).toEqual([[...defaultProfile, homedir()], [...defaultProfile, join(root, 'work', 'delegated')]])
+      expect(JSON.parse(await readFile(observed, 'utf8'))).toEqual({
+        gatewayProfiles: [[...defaultProfile, homedir()], [...defaultProfile, join(root, 'work', 'delegated')]],
+        workThreadMcpOrigin: 'https://modeb-ta.atumplatform.com',
+        gatewayThreadMcpOrigins: [null, null]
+      })
       expect(settings.providerInstances.codex).toEqual({ driver: 'codex', enabled: true, config: { setupMode: 'existing' } })
       expect(settings.providerInstances.claudeAgent).toEqual({ driver: 'claudeAgent', enabled: true })
       expect(settings.providerInstances.antigravity).toEqual({ driver: 'antigravity', enabled: true })
