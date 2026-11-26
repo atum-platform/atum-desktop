@@ -101,6 +101,7 @@ export function AssistantCard({
   focusRoutines = false,
   onClose,
   onMessage,
+  placement = 'sheet',
   snapshot
 }: {
   agent: MatrixAgentView
@@ -110,6 +111,11 @@ export function AssistantCard({
   focusRoutines?: boolean
   onClose(): void
   onMessage(): void
+  /**
+   * The sheet (its own Done and a Message pill) or Chat's right panel beside the assistant's chat,
+   * where the panel's × closes it and Message would open the chat already open. Every row stays.
+   */
+  placement?: 'panel' | 'sheet'
   snapshot: MatrixSnapshot
 }) {
   const copy = useAssistantCardCopy()
@@ -380,12 +386,14 @@ export function AssistantCard({
 
   return (
     <>
-      <div className="atum-card-top">
-        <Button data-assistant-card-done onClick={onClose} variant="text">
-          {copy.done}
-        </Button>
-      </div>
-      <div className="atum-card-body" data-compact={compact || undefined}>
+      {placement === 'sheet' && (
+        <div className="atum-card-top">
+          <Button data-assistant-card-done onClick={onClose} variant="text">
+            {copy.done}
+          </Button>
+        </div>
+      )}
+      <div className="atum-card-body" data-compact={compact || undefined} data-placement={placement}>
         <header className="atum-card-header" data-editing-name={editingName || undefined}>
           <CardAvatar
             agent={agent}
@@ -424,12 +432,14 @@ export function AssistantCard({
           <p className="atum-card-privacy" id="assistant-card-privacy">
             {copy.privacy(name)}
           </p>
-          <div className="atum-card-pills">
-            <button className="atum-card-pill" data-assistant-card-message onClick={onMessage} type="button">
-              <MessageCircle aria-hidden className="size-3.5" />
-              {copy.message}
-            </button>
-          </div>
+          {placement === 'sheet' && (
+            <div className="atum-card-pills">
+              <button className="atum-card-pill" data-assistant-card-message onClick={onMessage} type="button">
+                <MessageCircle aria-hidden className="size-3.5" />
+                {copy.message}
+              </button>
+            </div>
+          )}
         </header>
         {band && (
           <NoticeBand

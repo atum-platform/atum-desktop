@@ -1,5 +1,6 @@
 import { Fragment, type ReactNode } from 'react'
 
+import { BrandMark } from '@/components/brand-mark'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Tip } from '@/components/ui/tooltip'
 import { ATUM_TITLEBAR_LIGHTS_CONTENT_RESERVATION } from '@/lib/atum-shell-geometry'
@@ -94,6 +95,9 @@ export function AtumWindowControlsSurface({
           </button>
         </Tip>
       )}
+      {/* Every screen's title bar wears the Atum mark after the lights and the toggle, where T3 wears
+          its wordmark (owner 2026-11-25): one place on every screen, never inside a left panel. */}
+      <BrandMark aria-label="Atum" className="size-5 rounded-[0.3125rem]" data-atum-titlebar-mark role="img" />
     </div>
   )
 }

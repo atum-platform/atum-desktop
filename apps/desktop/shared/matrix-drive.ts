@@ -205,6 +205,8 @@ export interface MatrixDriveBridge {
   closePreview?(token: string): Promise<void>
   open(id: string): Promise<void>
   reveal(): Promise<void>
+  /** Share the open folder through the system share menu (optional while renderer and main upgrade apart). */
+  share?(): Promise<void>
   /** New folder / New document in the open folder, named by the window's word for it (optional while
    * the renderer and main can be upgraded on separate clocks). */
   create?(entry: 'folder' | 'document', name: string): Promise<MatrixDriveView>
