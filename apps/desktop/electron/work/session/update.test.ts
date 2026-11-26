@@ -34,7 +34,6 @@ function lab(overrides: Partial<UpdateDeps> = {}) {
         await hosts[V1.version].stop()
         await hosts[V2.version].stop()
       },
-      stopsOwed: () => false,
       freeBytes: () => 1e12,
       verifyPin: async () => undefined,
       log: event => void log.push(event),
@@ -119,7 +118,6 @@ describe('main-owned update: preflight refusals change nothing', () => {
   it.each([
     ['pin_unverified', { verifyPin: async () => { throw new Error('digest') } }],
     ['insufficient_space', { freeBytes: () => 1024 }],
-    ['stops_owed', { stopsOwed: () => true }]
   ] as const)('refuses %s before stopping anything', async (reason, overrides) => {
     const { home, events, driver } = lab(overrides)
     const before = fixtures(home)

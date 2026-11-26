@@ -12,7 +12,6 @@ const port = () => ({
   openPlanConnect: vi.fn(async () => {}),
   readPlanConsent: vi.fn(),
   setPlanConsent: vi.fn(),
-  setPlan: vi.fn(async () => {})
 })
 
 function show(node: React.ReactNode, locale: 'en' | 'vi' = 'en') {
@@ -35,7 +34,7 @@ afterEach(() => {
 
 describe('AccountConnectSheet: Ask', () => {
   it('is the plan’s mark, one title, one line and the one consent sentence, with no checkbox', () => {
-    $work.set({ view: 'ready', assistants: 'on', agents: [], protons: 'ok' })
+    $work.set({ view: 'ready', protons: 'ok' })
     show(<AccountConnectSheet bridge={port()} />)
     act(() => openAccountConnect('claude'))
 
@@ -47,7 +46,7 @@ describe('AccountConnectSheet: Ask', () => {
   })
 
   it('Continue closes what covers Work and opens the plan’s own sign-in there', async () => {
-    $work.set({ view: 'ready', assistants: 'on', agents: [], protons: 'ok' })
+    $work.set({ view: 'ready', protons: 'ok' })
     const bridge = port()
     const leave = vi.fn()
     show(<AccountConnectSheet bridge={bridge} onLeave={leave} />)

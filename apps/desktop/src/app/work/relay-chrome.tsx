@@ -91,40 +91,15 @@ export function WorkRelayTurnLine({
   )
 }
 
-/**
- * O14, one line in Work while an assistant's chat runs in a thread on this Mac: what the owner types there can show up in that
- * assistant's answers. Disclosure, not a block. Drawn by Atum above the Work view (the thread itself is T3's, unpatched).
- */
-export function WorkRelaySharedContextLine({ className, names }: { className?: string; names: readonly string[] }) {
-  const { locale } = useI18n()
-
-  if (names.length === 0) {
-    return null
-  }
-
-  return (
-    <p
-      className={cn('truncate ps-3 pe-4 pb-2 [font:var(--ak-t-caption)] text-(--ak-ink-3)', className)}
-      data-work-relay-shared-context={names.length}
-      role="note"
-      title={workRelayCopy(locale).sharedContext(names)}
-    >
-      {workRelayCopy(locale).sharedContext(names)}
-    </p>
-  )
-}
-
 /** The plan's usage, as one phrase for its Settings row. Shown, never blocking; never a cost or a balance. */
 export function useWorkRelayUsageText(limit: WorkRelayLimit | undefined, now?: number): string {
   const { locale } = useI18n()
 
   const words = workRelayCopy(locale)
 
-  const usage = workRelayUsageText(limit?.usedPercent !== undefined
+  return workRelayUsageText(limit?.usedPercent !== undefined
     ? { kind: 'used', percent: Math.round(limit.usedPercent), resetsAt: limit.resetsAt }
     : workRelayUsage(limit), { words, now: now ?? Date.now(), locale })
-
-  return limit?.scheduledRuns === undefined ? usage : `${usage} · ${words.usageScheduled(limit.scheduledRuns)}`
 }
 
 /** The transcript's relay line. Active turns use the composer's agent Stop. */

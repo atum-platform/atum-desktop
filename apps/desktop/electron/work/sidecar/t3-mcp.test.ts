@@ -2,9 +2,8 @@ import { createHash } from 'node:crypto'
 
 import { expect, it, vi } from 'vitest'
 
-import { memorySecretStore } from '../gate/sessions'
-
 import { WorkT3McpPublication } from './t3-mcp'
+import { memorySecretStore } from './t3-mcp-session'
 
 const DAY = 86_400_000
 const LOCAL = 'http://127.0.0.1:4321'

@@ -1,42 +1,14 @@
-/**
- * The renderer's input for the session-handoff relay (relay slice R1, lane U1): plain mirrors of the fields of
- * `atum.work-route/1.3` the owner's screens read. The contract's strict readers stay in the gate (main) and the cloud; the
- * coordinator parses there and hands the renderer these shapes. Nothing here carries text, a token, a login or a cost.
- *
- * Source of truth: atum-platform `spec/work-route/v1.3/README.md` and `packages/protocol/src/work-relay.ts`.
- */
-
-/** Plan IDs shared by the Work route and renderer. */
+/** Plans available through native Work providers. */
 export const WORK_RELAY_PLANS = ['codex', 'claude', 'antigravity'] as const
 export type WorkRelayPlan = (typeof WORK_RELAY_PLANS)[number]
-export const WORK_RELAY_ENABLED_PLANS = WORK_RELAY_PLANS
-/** Wire plan IDs map only to these built-in native instances. */
 export const WORK_RELAY_PROVIDER = {
-  codex: { instanceId: 'atum-relay-codex', picker: 'openai-codex', notice: 'chatgpt', usage: true, mode: {} },
-  claude: { instanceId: 'claudeAgent', picker: 'claude-plan', notice: 'claude', usage: true, mode: {} },
-  antigravity: { instanceId: 'antigravity', picker: 'antigravity', notice: 'antigravity', usage: false,
-    mode: { 'auto-accept-edits': 'approval-required' } }
-} as const satisfies Record<WorkRelayPlan, {
-  instanceId: string
-  picker: string
-  notice: string
-  usage: boolean
-  mode: Partial<Record<string, string>>
-}>
-
-export function workRelayPlan(instanceId: string): WorkRelayPlan | undefined {
-  return WORK_RELAY_PLANS.find(plan => WORK_RELAY_PROVIDER[plan].instanceId === instanceId)
-}
+  codex: { picker: 'openai-codex', notice: 'chatgpt' },
+  claude: { picker: 'claude-plan', notice: 'claude' },
+  antigravity: { picker: 'antigravity', notice: 'antigravity' }
+} as const
 
 export function workRelayNoticePlan(notice: string | undefined): WorkRelayPlan | undefined {
   return WORK_RELAY_PLANS.find(plan => WORK_RELAY_PROVIDER[plan].notice === notice)
-}
-
-export function workRelayModeLimit(plan: WorkRelayPlan, modeLimit: string): string {
-  const [runtime, interaction] = modeLimit.split('/')
-  const modes: Partial<Record<string, string>> = WORK_RELAY_PROVIDER[plan].mode
-
-  return `${modes[runtime] ?? runtime}/${interaction}`
 }
 
 /** `status.selection`: the agent's revisioned model selection. Null when the agent is on an Atum model. */
@@ -72,7 +44,6 @@ export interface WorkRelayLimit {
   observedAt: number
   resetsAt?: number
   usedPercent?: number
-  scheduledRuns?: number
 }
 
 /** The receipt classes of 1.3. Only the fields the screens read are kept. */

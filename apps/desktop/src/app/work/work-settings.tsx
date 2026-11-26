@@ -11,10 +11,9 @@ import type { MatrixWorkBridge } from '../../../shared/matrix-work'
 import { workCopy } from './copy'
 import { $work } from './store'
 
-type SettingsBridge = Pick<MatrixWorkBridge, 'read' | 'setAssistants' | 'setWork'>
+type SettingsBridge = Pick<MatrixWorkBridge, 'read' | 'setWork'>
 
 /** The assistants states in which the owner's switch means something; `needs_grant` waits for the enrollment text. */
-const ASSISTANT_SWITCH = new Set(['on', 'off', 'holding', 'stale', 'unreachable'])
 
 /**
  * Settings › This Mac: Work itself on or off, and "Assistants can start work here" beside it when this Mac has the
@@ -90,20 +89,6 @@ export function MatrixWorkSettings({
         help={copy.settings.help}
         title={copy.settings.title}
       />
-      {workOn && ASSISTANT_SWITCH.has(projection.assistants) && (
-        <SettingsRow
-          as="label"
-          control={
-            <Switch
-              aria-label={copy.switchLabel}
-              checked={projection.assistants !== 'off'}
-              disabled={pending}
-              onCheckedChange={on => void run(() => bridge.setAssistants(on))}
-            />
-          }
-          title={copy.switchLabel}
-        />
-      )}
       {failed && (
         <NoticeBand role="status" tone="notice">
           {copy.settings.failed}

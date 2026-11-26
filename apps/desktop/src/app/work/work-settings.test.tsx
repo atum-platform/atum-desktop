@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { I18nProvider } from '@/i18n'
 
-import type { MatrixWorkAssistants, MatrixWorkProjection, MatrixWorkViewState } from '../../../shared/matrix-work'
+import type { MatrixWorkProjection, MatrixWorkViewState } from '../../../shared/matrix-work'
 
 import { $work, resetWorkStoreForTests } from './store'
 import { MatrixWorkSettings } from './work-settings'
@@ -11,17 +11,14 @@ import { MatrixWorkSettings } from './work-settings'
 beforeEach(resetWorkStoreForTests)
 afterEach(cleanup)
 
-const projection = (view: MatrixWorkViewState, assistants: MatrixWorkAssistants = 'on'): MatrixWorkProjection => ({
+const projection = (view: MatrixWorkViewState): MatrixWorkProjection => ({
   view,
-  assistants,
-  agents: [],
   protons: 'ok'
 })
 
 function bridge() {
   return {
     setWork: vi.fn(async (_on: boolean) => {}),
-    setAssistants: vi.fn(async (_on: boolean) => {})
   }
 }
 
@@ -47,20 +44,18 @@ describe('MatrixWorkSettings', () => {
     expect(document.querySelector('[data-matrix-work-settings]')).toBeNull()
   })
 
-  it('one switch turns Work off, and the assistants\' switch goes with it', async () => {
+  it('the Work switch turns Work off', async () => {
     $work.set(projection('ready'))
     const port = show()
 
     const work = screen.getByRole('switch', { name: 'Work on this Mac' })
     expect(work.getAttribute('data-state')).toBe('checked')
-    expect(screen.getByRole('switch', { name: 'Assistants can start work here' }).getAttribute('data-state')).toBe('checked')
 
     fireEvent.click(work)
     await waitFor(() => expect(port.setWork).toHaveBeenCalledWith(false))
 
     $work.set(projection('off'))
     await waitFor(() => expect(screen.getByRole('switch', { name: 'Work on this Mac' }).getAttribute('data-state')).toBe('unchecked'))
-    expect(screen.queryByRole('switch', { name: 'Assistants can start work here' })).toBeNull()
   })
 
   it('turns Work back on from its own row', async () => {
@@ -69,24 +64,6 @@ describe('MatrixWorkSettings', () => {
 
     fireEvent.click(screen.getByRole('switch', { name: 'Work on this Mac' }))
     await waitFor(() => expect(port.setWork).toHaveBeenCalledWith(true))
-  })
-
-  it('the assistants\' switch follows the gate, and only where it means something', async () => {
-    $work.set(projection('ready', 'off'))
-    const port = show()
-
-    const assistants = screen.getByRole('switch', { name: 'Assistants can start work here' })
-    expect(assistants.getAttribute('data-state')).toBe('unchecked')
-    fireEvent.click(assistants)
-    await waitFor(() => expect(port.setAssistants).toHaveBeenCalledWith(true))
-
-    for (const state of ['not_enrolled', 'needs_grant'] as const) {
-      cleanup()
-      $work.set(projection('ready', state))
-      show()
-      expect(screen.queryByRole('switch', { name: 'Assistants can start work here' })).toBeNull()
-      expect(screen.getByRole('switch', { name: 'Work on this Mac' })).toBeTruthy()
-    }
   })
 
   it('says so, once, when a change did not go through, and keeps the switch usable', async () => {
@@ -105,6 +82,5 @@ describe('MatrixWorkSettings', () => {
     show(bridge(), 'vi')
 
     expect(screen.getByRole('switch', { name: 'Work trên máy Mac này' })).toBeTruthy()
-    expect(screen.getByRole('switch', { name: 'Trợ lý có thể bắt đầu việc tại đây' })).toBeTruthy()
   })
 })

@@ -1,14 +1,11 @@
 import { type ChildProcessByStdio, spawn } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
-import { readFileSync } from 'node:fs'
 import { mkdir, readFile } from 'node:fs/promises'
 import { homedir, tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { createInterface } from 'node:readline'
 import type { Readable, Writable } from 'node:stream'
 import { setTimeout as delay } from 'node:timers/promises'
-
-import semver from 'semver'
 
 import { MATRIX_DEFAULT_MODEL } from '../../../shared/matrix-models'
 import { PLAN_PROVIDER_DEFAULTS } from '../plan-providers'
@@ -19,7 +16,6 @@ import { loginShellPath } from './shell-environment'
 export const ATUM_WORK_PROVIDER = 'atum-managed'
 export const ATUM_WORK_DEFAULT_ALIAS = MATRIX_DEFAULT_MODEL
 export const ATUM_WORK_MODEL = `${ATUM_WORK_PROVIDER}:${ATUM_WORK_DEFAULT_ALIAS}`
-export const ATUM_WORK_DELEGATED_PROVIDER = 'atum-managed-delegated'
 
 interface WorkAccount {
   key: string
@@ -47,7 +43,6 @@ export interface WorkIncarnation {
   pid: number
   exited: Promise<void>
   unexpectedExit?: Promise<boolean>
-  relayRuntimeReady?: boolean
   trial?: TrialHandle
   takePairingUrl(): string | undefined
 }
@@ -58,34 +53,9 @@ export interface WorkStartOptions {
   trial?: TrialContext
 }
 
-/**
- * Server settings the assistants' route cannot work without. T3 refuses to register a peer-link OAuth client
- * (HTTP 400 at `/oauth/mcp/register`) unless linked environments are on, so a fresh install would never get an
- * agent session. Written before the server opens the home (supervisor.py merges `settings` first).
- */
-/**
- * Gate 4a-2 (plan §10.2): this build ships the maker's own Codex client, unmodified, as an enabled T3 instance. False while the
- * instance below is disabled (`/usr/bin/false`): the Connect step and row stay hidden for every account. The Connect lane flips
- * both together, after 4a-2, 4a-4 and 4a-6 are proven on the pin.
- */
-export function workRelayRuntimeReady(resources: string): boolean {
-  try {
-    const pin = JSON.parse(readFileSync(join(resources, 'work-runtime', 'pin.json'), 'utf8')) as { version?: string }
-
-    return Boolean(pin.version && semver.valid(pin.version) && semver.gte(pin.version, '0.1.12'))
-  } catch {
-    return false
-  }
-}
-
-export const WORK_REQUIRED_SERVER_SETTINGS = { linkedEnvironmentsEnabled: true } as const
+const WORK_REQUIRED_SERVER_SETTINGS = { linkedEnvironmentsEnabled: true } as const
 
 const WORK_THREAD_MCP_ORIGINS = ['https://modeb-ta.atumplatform.com'] as const
-
-const BROKER_PROFILES = [
-  { instance: ATUM_WORK_PROVIDER, directory: 'owner', label: 'Atum', showInPicker: true },
-  { instance: ATUM_WORK_DELEGATED_PROVIDER, directory: 'delegated', label: 'Atum (delegated)', showInPicker: false }
-]
 
 export function workPairingOrigin(url: string): string | undefined {
   const match = /^http:\/\/127\.0\.0\.1:([1-9][0-9]{0,4})\/pair#token=[A-Za-z0-9_-]{1,512}$/u.exec(url)
@@ -95,33 +65,18 @@ export function workPairingOrigin(url: string): string | undefined {
   }
 }
 
-export function workProvider(python: string, home: string, label: string, showInPicker: boolean, delegated = false) {
+export function workProvider(python: string, home: string) {
   return {
     driver: 'acpRegistry',
-    displayName: label,
+    displayName: 'Atum',
     enabled: true,
-    showInPicker,
+    showInPicker: true,
     config: {
       source: 'local',
       commandPath: python,
       commandArgs: ['-P', '-B', '-X', 'utf8', '-m', 'acp_adapter.managed', '--wait-for-gateway']
     },
-    environment: [
-      { name: 'HERMES_HOME', value: home, sensitive: false },
-      ...(delegated ? Object.entries(workDelegatedEnvironment(home)).map(([name, value]) => ({ name, value, sensitive: false })) : [])
-    ]
-  }
-}
-
-// Cloud-initiated tools retain their account home, including explicit config roots.
-export function workDelegatedEnvironment(home: string): Record<string, string> {
-  return {
-    HOME: home,
-    XDG_CONFIG_HOME: join(home, '.config'),
-    XDG_CACHE_HOME: join(home, '.cache'),
-    XDG_DATA_HOME: join(home, '.local', 'share'),
-    CODEX_HOME: join(home, '.codex'),
-    CLAUDE_CONFIG_DIR: join(home, '.claude')
+    environment: [{ name: 'HERMES_HOME', value: home, sensitive: false }]
   }
 }
 
@@ -165,8 +120,8 @@ async function startProcess(options: WorkProcessOptions, { continuation, trial }
   const python = join(resources, 'runtime', 'python', 'bin', 'python3.14')
   const profileSource = join(source, 'acp_adapter', 'profiles')
 
-  const profiles = BROKER_PROFILES.map(({ directory }) => join(root, directory))
-  await Promise.all([join(home, 'userdata'), cwd, ...profiles].map(directory =>
+  const profile = join(root, 'owner')
+  await Promise.all([join(home, 'userdata'), cwd, profile].map(directory =>
     mkdir(directory, { recursive: true, mode: 0o700 })
   ))
 
@@ -174,10 +129,6 @@ async function startProcess(options: WorkProcessOptions, { continuation, trial }
   const environment = workRuntimeEnvironment(root, resources, await loginShellPath())
   options.log?.('shell', Date.now() - shellStarted)
   const managedModel = { instanceId: ATUM_WORK_PROVIDER, model: ATUM_WORK_MODEL }
-
-  const providerInstances = Object.fromEntries(BROKER_PROFILES.map(({ directory, instance, label, showInPicker }) => [
-    instance, workProvider(python, join(root, directory), label, showInPicker, instance === ATUM_WORK_DELEGATED_PROVIDER)
-  ]))
 
   if (signal.aborted || !options.current()) {
     throw new Error('work_account_changed')
@@ -215,20 +166,19 @@ async function startProcess(options: WorkProcessOptions, { continuation, trial }
       // ACP has no text-generation runner. Keep the selection on Atum so
       // titles keep their local fallback instead of invoking a subscription.
       textGenerationModelSelection: managedModel,
-      providerInstances
+      providerInstances: { [ATUM_WORK_PROVIDER]: workProvider(python, profile) }
     },
     planProviderDefaults: { ...PLAN_PROVIDER_DEFAULTS, opencode: { driver: 'opencode', enabled: true } },
     trial,
     profileSource,
     managedModelAlias: ATUM_WORK_DEFAULT_ALIAS,
     managedProvider: ATUM_WORK_PROVIDER,
-    gateways: profiles.map((profile, index) => ({
+    gateway: {
       ...environment,
-      ...(index === 1 ? workDelegatedEnvironment(profile) : {}),
       ...Object.fromEntries(Object.entries(credentials).filter(([key]) => !key.startsWith('ATUM_WORK_'))),
       ATUM_MANAGED_MODEL_DEFAULT: ATUM_WORK_DEFAULT_ALIAS,
       HERMES_HOME: profile
-    })),
+    },
     connectorToken: credentials.ATUM_WORK_CONNECTOR_TOKEN,
     executable: join(resources, 'work-runtime', 't3'),
     environment: {
@@ -474,7 +424,6 @@ export class WorkSidecar {
         },
         home,
         pid: await startup.pid,
-        relayRuntimeReady: workRelayRuntimeReady(input.resources ?? this.options.resources),
         exited,
         unexpectedExit: exited.then(() => !signal.aborted && this.options.current()),
         trial,

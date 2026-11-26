@@ -63,7 +63,7 @@ export type UpdateIncarnation = WorkIncarnation
 /**
  * One pin's host. `WorkHost` satisfies it. Without `trial` on the incarnation the
  * driver runs in "main-gated" mode: the new pin starts like any start, no view
- * is paired and the gate stays closed until main records the commit.
+ * is paired until main records the commit.
  */
 export interface PinHost {
   current(): WorkIncarnation | undefined
@@ -82,7 +82,7 @@ export interface UpdateState {
 export type UpdateOutcome =
   | { outcome: 'committed'; pin: PinRef; host: PinHost; incarnation: UpdateIncarnation }
   | { outcome: 'rolled_back'; reason: string; host: PinHost; incarnation?: UpdateIncarnation }
-  | { outcome: 'refused'; reason: 'downgrade' | 'not_newer' | 'insufficient_space' | 'pin_unverified' | 'stops_owed' | 'in_progress' }
+  | { outcome: 'refused'; reason: 'downgrade' | 'not_newer' | 'insufficient_space' | 'pin_unverified' | 'in_progress' }
 
 export type Refusal = Extract<UpdateOutcome, { outcome: 'refused' }>
 
@@ -94,8 +94,6 @@ export interface UpdateDeps {
   hostFor(pin: PinRef): PinHost
   /** Stop whatever is running now (the live pin's host), awaiting teardown. */
   stopRunning(): Promise<void>
-  /** Gate's "stops owed": an update does not start while any is open. */
-  stopsOwed(): boolean
   freeBytes?(path: string): number
   verifyPin?(pin: PinRef): Promise<void>
   /** Event codes only. Never a URL, token or output. */
@@ -148,8 +146,8 @@ export class UpdateDriver {
   }
 
   /**
-   * Every refusal that can be known BEFORE anything stops: an update already running, a downgrade, the same version, a stop
-   * owed (read from the durable stop ledger by the caller's `stopsOwed`), a pin that fails its digest, too little disk. Nothing
+   * Every refusal that can be known BEFORE anything stops: an update already running, a downgrade, the same version, a pin
+   * that fails its digest, too little disk. Nothing
    * is touched by it, so a caller can answer a refusal without closing a view or restarting the server.
    */
   preflight(target: PinRef): Promise<Refusal | undefined> {
@@ -168,10 +166,6 @@ export class UpdateDriver {
 
     if (!semver.gt(target.version, committedPin)) {
       return { outcome: 'refused', reason: 'not_newer' }
-    }
-
-    if (deps.stopsOwed()) {
-      return { outcome: 'refused', reason: 'stops_owed' }
     }
 
     try {
@@ -279,7 +273,7 @@ export class UpdateDriver {
     coordinator.markers.advance('pending', snapshotId)
     log('update_snapshot_taken')
 
-    // 3. Trial. Nothing is paired, no view is handed a grant, and the gate stays
+    // 3. Trial. Nothing is paired, no view is handed a grant; Work stays
     //    closed (the caller holds `updateInProgress`) until commit.
     const host = deps.hostFor(target)
     let incarnation: UpdateIncarnation | undefined

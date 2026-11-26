@@ -673,7 +673,6 @@ describe('Settings › Connections', () => {
       openPlanConnect: vi.fn(async () => {}),
       readPlanConsent: vi.fn(),
       setPlanConsent: vi.fn(),
-      setPlan: vi.fn(async () => {})
     }
 
     window.atumMatrix = { ...window.atumMatrix, work } as unknown as MatrixUiBridge

@@ -1,4 +1,4 @@
-import { existsSync, unlinkSync, writeFileSync } from 'node:fs'
+import { existsSync, unlinkSync } from 'node:fs'
 import { join } from 'node:path'
 
 import { ipcMain, type IpcMainInvokeEvent, type WebContents } from 'electron'
@@ -13,6 +13,7 @@ import {
   type WorkSidebarSnapshot,
   type WorkSurfaceModeSnapshot
 } from '../../../shared/matrix-work'
+import { writeFileDurably } from '../session/files'
 import type { WorkSessionPaths } from '../session/paths'
 import type { PinHost } from '../session/update'
 
@@ -186,7 +187,7 @@ export class WorkHost {
         }
       }
     } else {
-      writeFileSync(disabledMarker(account), '', { mode: 0o600 })
+      writeFileDurably(disabledMarker(account), '')
       await this.stop()
     }
   }

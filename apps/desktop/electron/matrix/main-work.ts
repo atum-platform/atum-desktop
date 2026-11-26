@@ -10,61 +10,41 @@ import { MATRIX_WORK_IPC, type MatrixWorkProjection } from '../../shared/matrix-
 import type { SafeStorageLike } from '../encrypted-store'
 import { admitConnector } from '../work/connector/admission'
 import { ConnectorHttp } from '../work/connector/http'
-import { matrixConnector } from '../work/connector/matrix'
+import { matrixConnector, type OwnerSdkHost } from '../work/connector/matrix'
 import { ConnectorService } from '../work/connector/service'
 import type { ShellMcpOptions } from '../work/connector/shell-mcp'
-import {
-  createDeviceServicePlatform,
-  createWorkConsentClient,
-  type GateEvent,
-  GateLedger,
-  type OwnerEventVerifier,
-  workGatePaths,
-  type WorkGateService
-} from '../work/gate'
-import { deviceServiceCall } from '../work/gate/platform'
-import { createT3PairingCodes } from '../work/gate/sessions'
-import {
-  createKeychainSecretStore,
-  createOwnerEventVerifier,
-  createSdkOwnerEventSource,
-  createWorkGateService,
-  type OwnerSdkHost,
-  WorkMount,
-  type WorkMountAccount
-} from '../work/mount'
-import { createWorkHistory } from '../work/mount/history'
-import { homeRunningFromRuntimeFile, partitionFor, type PinRef, type UpdateOutcome, WorkSession, workSessionPaths } from '../work/session'
+import { partitionFor, type PinRef, type UpdateOutcome, WorkSession, workSessionPaths } from '../work/session'
 import { removeDurably } from '../work/session/files'
 import { createT3AuthCli } from '../work/session/t3-auth'
 import { type WorkAccess, WorkHost } from '../work/sidecar/host'
-import { workRelayRuntimeReady } from '../work/sidecar/process'
+import { createKeychainSecretStore } from '../work/sidecar/secret-store'
 import { T3McpWithdrawalError, WorkT3McpPublication } from '../work/sidecar/t3-mcp'
+import { createT3PairingCodes } from '../work/sidecar/t3-mcp-session'
 import {
   createWorkViewFactory,
-  type GateSurfaceState,
   registerMatrixWorkIpc,
   WorkSurface,
   type WorkSurfaceParts
 } from '../work/surface'
 import { readAccountConnections } from '../work/surface/account-connections'
 import { projectPlanCapabilities } from '../work/surface/plan-capabilities'
+import { WorkPlanFacts } from '../work/surface/plan-facts'
 import { readPlanUsage } from '../work/surface/plan-usage'
+import { createWorkConsentClient, deviceServiceCall } from '../work/surface/platform'
 import { readWorkProviders } from '../work/surface/provider-config'
 import { createOwnerRelay } from '../work/surface/relay'
 
-import type { MatrixAgentDefinitionSnapshot } from './agent-definition'
-import { MatrixWorkLifecycle, workAccountFor } from './work-lifecycle'
+import { MatrixWorkLifecycle, type WorkAccount, workAccountFor } from './work-lifecycle'
 
 /** Atum's panel radius (`--atum-r-panel`, styles.css): Work's native view is rounded to it. */
 export const WORK_VIEW_RADIUS = 14
 
 // The Matrix composition's Work (self-work slice A, lane W). Everything Work needs from the Matrix window is a port
-// here, so this file holds no account logic of its own: it builds the app-wide objects once (host, session, mount,
+// here, so this file holds no account logic of its own: it builds the app-wide objects once (host, session,
 // surface, IPC) and gives `MatrixWorkLifecycle` the account to bind them to.
 //
-// The model path is the Matrix managed-model loopback (`managed-model.ts`), not the retired desktop proxy: Work's
-// Hermes gateways present a key this module mints, the proxy adds the person's domain bearer and the gateway holds
+// The model path is the Matrix managed-model loopback (`managed-model.ts`): Work’s
+// Hermes gateway presents a key this module mints, the proxy adds the person's domain bearer and the gateway holds
 // and settles Protons as it does for every assistant. No broker environment is passed: the broker belongs to the
 // retired composition, and Hermes runs without the filesystem-capability guard exactly as the assistants' do.
 
@@ -107,6 +87,7 @@ export interface MatrixWorkDeps {
   /* Verified account identity (/me), independent of any agent executor. */
   ownerPrincipal(): string | undefined | Promise<string | undefined>
   deviceServiceId(): string | undefined
+  deviceEnrollmentEpoch(): number | undefined
   /** The local enrollment ID remains readable after its state is set to revoked. */
   localDeviceServiceId(): string | undefined
   /** The platform's `device-services` endpoint: `${resource}/device-services`. */
@@ -121,10 +102,8 @@ export interface MatrixWorkDeps {
   ownerHost(): OwnerSdkHost | undefined
   /** The Matrix user of the active agent with this principal (`account.agents()`), or null. */
   agentMatrixUser(principal: string): Promise<string | null>
-  /** The account's own name for an agent, for "Started by …". */
-  agentName(principal: string): string | undefined
-  /** The existing account agent-record/definition reader, fenced to the signed-in account. */
-  agentDefinition?(principal: string): Promise<MatrixAgentDefinitionSnapshot>
+  /** The signed-in owner’s active assistants, from the account roster. */
+  eligiblePlanAgents(): Promise<string[]>
   /** The owner's top-up page (what `openTopUp` opens). */
   openProtons(): Promise<void>
   publish(channel: string, payload: MatrixWorkProjection | WorkSurfaceModeSnapshot | WorkSidebarSnapshot | WorkAttentionSnapshot | null): void
@@ -134,7 +113,7 @@ export interface MatrixWorkDeps {
 }
 
 export interface MatrixWork {
-  /** Main-owned update of the pinned Work server (snapshot, trial, commit or rollback). Refused while a stop is owed. */
+  /** Main-owned update of the pinned Work server (snapshot, trial, commit or rollback). */
   update(target: PinRef): Promise<UpdateOutcome>
   /** The window may have become ready, or the account may have changed. Idempotent. */
   activate(): Promise<void>
@@ -148,69 +127,6 @@ export interface MatrixWork {
   /** The local keys Work's gateways present to the model proxy, in `MatrixManagedModel`'s `keys()` shape. */
   modelKeys(): [key: string, role: string][]
   modelRoute(): 'open' | 'refused'
-}
-
-// What the page sees of a gate that has not started: nothing enrolled, so no Work entry for assistants.
-const NO_GATE: GateSurfaceState = {
-  phase: 'closed',
-  workGrantAccepted: false,
-  switchOn: true,
-  enrolled: false,
-  socket: 'unbound',
-  agents: []
-}
-
-/**
- * The surface's gate door over a gate that is built later (the mount starts it after the session and the enrollment),
- * and rebuilt after a retire. State and events follow whichever service the mount holds now.
- */
-export function createGateDoor(
-  mount: Pick<WorkMount, 'acceptWorkGrant' | 'onChange' | 'service' | 'setPlanSwitch' | 'setSwitch'>
-): NonNullable<WorkSurfaceParts['gate']> {
-  return {
-    state: () => {
-      const service = mount.service()
-
-      return service ? service.state() : NO_GATE
-    },
-    on(listener: (event: GateEvent) => void) {
-      let followed: WorkGateService | undefined
-      let unfollow: (() => void) | undefined
-
-      const follow = () => {
-        const service = mount.service()
-
-        if (service === followed) {
-          return
-        }
-
-        unfollow?.()
-        followed = service
-        unfollow = service?.on(listener)
-      }
-
-      follow()
-
-      const stop = mount.onChange(() => {
-        follow()
-        listener({ type: 'change' })
-      })
-
-      return () => {
-        stop()
-        unfollow?.()
-      }
-    },
-    acceptWorkGrant: () => mount.acceptWorkGrant(),
-    setSwitch: on => mount.setSwitch(on),
-    setPlanSwitch: on => mount.setPlanSwitch(on),
-    async openRoute() {
-      await mount.service()?.openRoute()
-    },
-    async closeRoute() {
-      await mount.service()?.closeRoute()
-    }
-  }
 }
 
 /**
@@ -387,7 +303,7 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
     }
   }
 
-  const account = (): WorkMountAccount | undefined =>
+  const account = (): WorkAccount | undefined =>
     deps.closing()
       ? undefined
       : workAccountFor({
@@ -478,6 +394,8 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
   const t3Mcp = new WorkT3McpPublication()
   let mcpTimer: ReturnType<typeof setInterval> | undefined
   const revokedDevices = new Map<string, Promise<void>>()
+  let workStopping = false
+  let facts: { key: string; reporter: WorkPlanFacts } | undefined
 
   const stopT3Mcp = () => {
     clearInterval(mcpTimer)
@@ -485,8 +403,8 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
     t3Mcp.stop()
   }
 
-  const deviceCall = (endpoint: string, scope: NonNullable<ReturnType<MatrixWorkDeps['scope']>>, current?: () => boolean) =>
-    deviceServiceCall({
+  const deviceOptions = (endpoint: string, scope: NonNullable<ReturnType<MatrixWorkDeps['scope']>>, current?: () => boolean) =>
+    ({
       endpoint,
       bearer: async () => {
         const bearer = await deps.bearer()
@@ -499,6 +417,29 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
         return bearer
       }
     })
+
+  const deviceCall = (...args: Parameters<typeof deviceOptions>) => deviceServiceCall(deviceOptions(...args))
+
+  const planFactTarget = (bound: WorkAccount, deviceServiceId: string, current?: () => boolean) => {
+    const endpoint = deps.deviceServicesEndpoint()
+
+    if (!endpoint) {throw new Error('work_plan_fact_unavailable')}
+    const key = JSON.stringify([bound.key, bound.generation, deviceServiceId])
+
+    if (facts?.key !== key) {facts = { key, reporter: new WorkPlanFacts(bound.root) }}
+
+    const enrollmentEpoch = deps.deviceServiceId() === deviceServiceId ? deps.deviceEnrollmentEpoch() : undefined
+    const eligible = () => current?.() !== false &&
+      (enrollmentEpoch === undefined || (deps.deviceServiceId() === deviceServiceId && deps.deviceEnrollmentEpoch() === enrollmentEpoch))
+
+    return {
+      reporter: facts.reporter,
+      target: {
+        account: bound, deviceServiceId, enrollmentEpoch, home: deps.home,
+        platform: deviceOptions(endpoint, { accountKey: bound.key, generation: bound.generation }, eligible)
+      }
+    }
+  }
 
   const mcpStore = (bound: { root: string }) => createKeychainSecretStore({
     account: bound, safeStorage: deps.safeStorage,
@@ -526,7 +467,8 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
   const clearT3Mcp = async (
     bound: { key: string; root: string; generation: number },
     deviceServiceId?: string,
-    revokedDeviceServiceId?: string
+    revokedDeviceServiceId?: string,
+    strict = false
   ) => {
     const scope = deps.scope()
     const endpoint = deps.deviceServicesEndpoint()
@@ -537,7 +479,10 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
     await t3Mcp.clear(mcpCustody(bound), {
       revokedDeviceServiceId,
       shell: deviceServiceId && call ? { deviceServiceId, call } : undefined
-    }).catch(error => logMcpFailure(error, 't3_mcp_clear_failed'))
+    }).catch(error => {
+      logMcpFailure(error, 't3_mcp_clear_failed')
+      if (strict) {throw error}
+    })
   }
 
   const refreshT3Mcp = () => {
@@ -547,7 +492,7 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
     const deviceServiceId = deps.deviceServiceId()
     const endpoint = deps.deviceServicesEndpoint()
 
-    if (!running || !active || !scope || !deviceServiceId || !endpoint || revokedDevices.has(deviceServiceId) ||
+    if (!running || !active || !scope || !deviceServiceId || !endpoint || workStopping || !host.enabled() || revokedDevices.has(deviceServiceId) ||
         running.accountKey !== scope.accountKey || running.generation !== scope.generation) {return}
 
     const current = () => {
@@ -557,6 +502,7 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
         present?.accountKey === scope.accountKey && present.generation === scope.generation &&
         deps.deviceServiceId() === deviceServiceId && !revokedDevices.has(deviceServiceId)
     }
+    if (!planFactTarget(active, deviceServiceId).reporter.enabled()) {return}
     const ownerPartition = deps.sessionFromPartition(partitionFor(active.key))
 
     void t3Mcp.refresh({
@@ -570,8 +516,9 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
 
   const host = new WorkHost({
     ready: () => {
-      mcpTimer ??= setInterval(refreshT3Mcp, 60_000).unref()
-      refreshT3Mcp()
+      if (workStopping || deps.closing()) {return}
+      mcpTimer ??= setInterval(refreshWorkPublication, 60_000).unref()
+      refreshWorkPublication()
     },
     connectAssertion: () => deps.connectAssertion ? deps.connectAssertion() : Promise.reject(new Error('work_unavailable')),
     log: (phase, ms) => deps.log(`[atum-work] startup phase=${phase} ms=${ms} at=${Date.now()}`),
@@ -600,12 +547,12 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
       modelKeys.forget()
       closeConnector()
     },
-    // The one place the gate and the owner view read Work's balance: a free probe through the proxy.
+    // The owner view reads Work’s balance through the model proxy.
     readAccess: () => readWorkAccess(deps.model, deps.wallet),
     openProtons: deps.openProtons
   })
 
-  const readNativePlanCapabilities = async (bound: WorkMountAccount) => {
+  const readNativePlanCapabilities = async (bound: WorkAccount) => {
     const running = host.current()
 
     if (!running || !host.enabled() || running.accountKey !== bound.key || running.generation !== bound.generation) {return {}}
@@ -629,6 +576,41 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
     return observed
   }
 
+  const refreshPlanFacts = async () => {
+    const running = host.current()
+    const active = account()
+    const deviceServiceId = deps.deviceServiceId()
+
+    if (!running || !active || !deviceServiceId || !host.enabled() || workStopping || revokedDevices.has(deviceServiceId)) {return}
+
+    const current = () => !workStopping && host.enabled() && host.current() === running &&
+      deps.deviceServiceId() === deviceServiceId && !revokedDevices.has(deviceServiceId)
+    const { reporter, target } = planFactTarget(active, deviceServiceId, current)
+
+    await reporter.refresh(target, () => readNativePlanCapabilities(active))
+  }
+
+  const refreshWorkPublication = () => {
+    void refreshPlanFacts().catch(() => deps.log('[atum-work] plan_fact_refresh_failed'))
+
+    try {
+      refreshT3Mcp()
+    } catch {
+      deps.log('[atum-work] t3_mcp_refresh_failed')
+    }
+  }
+
+  const withdrawPlanFacts = async (bound: WorkAccount, deviceServiceId?: string) => {
+    if (!deviceServiceId || revokedDevices.has(deviceServiceId) || !existsSync(workSessionPaths(bound).home)) {return}
+
+    try {
+      const { reporter, target } = planFactTarget(bound, deviceServiceId)
+      await reporter.withdraw(target)
+    } catch {
+      deps.log('[atum-work] plan_fact_withdraw_failed')
+    }
+  }
+
   host.registerOwnerPreload()
 
   const session = new WorkSession({
@@ -647,121 +629,11 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
     update: {
       currentPin: () => readShippedPin(deps.resources),
       hostFor: pin => host.forResources(pin.resources),
-      // An update does not start while any stop is owed: the running gate's, or (no gate this run, or none yet) the durable stop
-      // ledger's. A stop owed only blocks the update while a server could still be holding the work: a home no server runs
-      // (the app was quit and replaced) has nothing to protect, and the stop settles when the gate starts on the updated pin.
-      stopsOwed: () => {
-        if ((mount?.service()?.ledger.owedRows().length ?? 0) > 0) {
-          return true
-        }
-
-        const current = account()
-
-        if (!current || GateLedger.owedCountAt(workGatePaths(current).ledger) === 0) {
-          return false
-        }
-
-        return host.current() !== undefined || homeRunningFromRuntimeFile(workSessionPaths(current))()
-      },
       log: event => deps.log(`[atum-work] update ${event}`)
     }
   })
 
-  // The gate's `restartWhenIdle`, the mount that builds the gate and the surface that holds the view need each other.
-  let mount!: WorkMount
-  let surface!: WorkSurface
-  let planUsage: { incarnation: string; reports: Awaited<ReturnType<typeof readPlanUsage>> } | undefined
-
-  const restartWhenIdle = async (): Promise<'restarted' | 'declined'> => {
-    const gate = mount.service()?.gate
-
-    if (!gate || !(await gate.ownerRunsIdle())) {
-      return 'declined'
-    }
-
-    try {
-      // Stop, reset auth, start: the one sanctioned restart. The page's view closes first and comes back after it.
-      await surface.suspend(() => session.restart('pairing-failed'))
-
-      return 'restarted'
-    } catch {
-      return 'declined'
-    }
-  }
-
-  const ownerSource = createSdkOwnerEventSource({
-    owner: () => deps.ownerHost(),
-    agentMatrixUser: principal => deps.agentMatrixUser(principal)
-  })
-
-  const verifier: OwnerEventVerifier = createOwnerEventVerifier(ownerSource)
-  const relayHistory = createWorkHistory(ownerSource, () => deps.ownerHost())
-
-  mount = new WorkMount({
-    account,
-    session,
-    host,
-    homeExists: current => existsSync(workSessionPaths(current).home),
-    createGate: (current): WorkGateService | undefined => {
-      const deviceServiceId = deps.deviceServiceId()
-      const endpoint = deps.deviceServicesEndpoint()
-
-      // No device enrollment or no platform: Work still opens for the owner; the assistants' route does not exist.
-      if (!deviceServiceId || !endpoint) {
-        return undefined
-      }
-
-      return createWorkGateService({
-        account: current,
-        deviceServiceId,
-        platform: createDeviceServicePlatform({ endpoint, bearer: () => deps.bearer() }),
-        readPlanCapabilities: () => readNativePlanCapabilities(current),
-        owner: verifier,
-        relayHistory,
-        relayAssistant: deps.agentDefinition
-          ? {
-              assistantsRoot: join(deps.home, 'Atum', 'Assistants'),
-              definition: async principal => {
-                const snapshot = await deps.agentDefinition!(principal)
-                const active = account()
-
-                if (
-                  !active ||
-                  active.key !== current.key ||
-                  active.generation !== current.generation ||
-                  deps.closing()
-                ) {
-                  throw new Error('relay_account_changed')
-                }
-
-                return snapshot
-              }
-            }
-          : undefined,
-        incarnation: () => host.current(),
-        relayRuntimeReady: () => host.current()?.relayRuntimeReady === true,
-        relayLimit: plan => {
-          const usage = planUsage
-          const report = usage?.incarnation === host.current()?.id && usage?.reports.find(each => each.plan === plan)
-
-          return report && (report.resetsAt === undefined || report.resetsAt > Date.now())
-            ? { state: report.state, resetAt: report.resetsAt }
-            : { state: 'unknown' }
-        },
-        authTools: paths => host.authTools(paths),
-        safeStorage: deps.safeStorage,
-        modelAccess: incarnation => host.readModelAccess(incarnation),
-        held: () => session.held(),
-        agentName: principal => deps.agentName(principal) ?? 'Assistant',
-        socketBase: join(deps.home, '.atum', 'w'),
-        restartWhenIdle,
-        log: (event, fields) => deps.log(`[atum-work] gate ${event} ${JSON.stringify(fields ?? {})}`)
-      })
-    },
-    log: (event, fields) => deps.log(`[atum-work] ${event} ${JSON.stringify(fields ?? {})}`)
-  })
-
-  surface = new WorkSurface({
+  const surface = new WorkSurface({
     canPrewarm: () => loadavg()[0] < availableParallelism(),
     getSurfaceMode: () => host.getSurfaceMode(),
     getSidebar: () => host.sidebar(),
@@ -790,106 +662,111 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
         const bound = account()
 
         if (bound && !host.enabled()) {t3Mcp.allowConnectLink(bound.key, mcpStore(bound))}
-        await mount.workOn()
+        await host.setEnabled(true)
       } else {
-        await mount.workOff()
+        const bound = account()
+        const deviceServiceId = deps.deviceServiceId()
+        workStopping = true
+        stopT3Mcp()
+
+        const stopping = host.setEnabled(false)
+
+        try {
+          await Promise.all([
+            stopping,
+            bound && clearT3Mcp(bound, deviceServiceId),
+            bound && withdrawPlanFacts(bound, deviceServiceId)
+          ])
+        } finally {
+          workStopping = false
+        }
       }
     }
   })
 
   registerMatrixWorkIpc(deps.ipcMain, surface, deps.requireUi)
 
-  const door = createGateDoor(mount)
+  const parts = (bound: WorkAccount): WorkSurfaceParts => {
+    const options = () => {
+      const endpoint = deps.deviceServicesEndpoint()
 
-  // The endpoint is read on every call (it follows the signed-in account), like the gate's own platform client.
-  const consentFor = () => {
-    const endpoint = deps.deviceServicesEndpoint()
+      if (!endpoint) {throw new Error('work_device_services_unavailable')}
 
-    if (!endpoint) {
-      throw Object.assign(new Error('work_consent_unavailable'), { code: 'work_consent_unavailable' })
+      return deviceOptions(endpoint, { accountKey: bound.key, generation: bound.generation })
     }
+    const consentFor = () => createWorkConsentClient(options())
 
-    return createWorkConsentClient({ endpoint, bearer: () => deps.bearer() })
-  }
+    return {
+      session: {
+        async openOwnerView(createView) {
+          const outcome = await session.openOwnerView(createView)
 
-  const consentClient: NonNullable<WorkSurfaceParts['consent']> = {
-    read: plan => consentFor().read(plan),
-    set: input => consentFor().set(input),
-    revoke: plan => consentFor().revoke(plan)
-  }
+          // First launch needs the freshly paired owner cookie; the server-ready tick may have preceded it.
+          if (outcome.state !== 'failed') {refreshWorkPublication()}
 
-  const parts = (): WorkSurfaceParts => ({
-    session: {
-      async openOwnerView(createView) {
-        const outcome = await session.openOwnerView(createView)
+          return outcome
+        }
+      },
+      enabled: () => !workStopping && host.enabled(),
+      readAccess: () => readWorkAccess(deps.model, deps.wallet),
+      async readPlanUsage() {
+        const running = host.current()
 
-        // First launch needs the freshly paired owner cookie; the server-ready tick may have preceded it.
-        if (outcome.state !== 'failed') {refreshT3Mcp()}
+        if (!running || !host.enabled()) {return []}
 
-        return outcome
-      }
-    },
-    enabled: () => host.enabled(),
-    gate: door,
-    readAccess: () => readWorkAccess(deps.model, deps.wallet),
-    async readPlanUsage() {
-      const running = host.current()
-      const service = mount.service()
+        const reports = await readPlanUsage(running.origin, deps.sessionFromPartition(partitionFor(running.accountKey)))
 
-      if (!running || !host.enabled()) {return []}
+        return host.current() === running ? reports : []
+      },
+      prepareChatGptConnect: () => deps.prepareChatGptConnect(),
+      readConnections: () => readAccountConnections({
+        endpoint: () => deps.deviceServicesEndpoint(),
+        bearer: () => options().bearer(),
+        thisDevice: () => deps.deviceServiceId(),
+        localCapabilities: () => {
+          const active = account()
 
-      const reports = await readPlanUsage(running.origin, deps.sessionFromPartition(partitionFor(running.accountKey)))
+          return active?.key === bound.key && active.generation === bound.generation
+            ? readNativePlanCapabilities(bound) : Promise.resolve({})
+        }
+      }),
+      deviceServiceId: () => deps.deviceServiceId(),
+      relay: createOwnerRelay(async () => {
+        const deviceServiceId = deps.deviceServiceId()
 
-      if (host.current()?.id !== running.id || mount.service() !== service) {return []}
+        if (!deviceServiceId || revokedDevices.has(deviceServiceId)) {return null}
 
-      planUsage = { incarnation: running.id, reports }
-
-      return reports.map(({ windowStart, ...limit }) => ({
-        ...limit,
-        ...(service && windowStart !== undefined
-          ? { scheduledRuns: service.ledger.scheduledRuns(windowStart, limit.resetsAt, limit.plan) }
-          : {})
-      }))
-    },
-    wantServer: () => mount.wantServer(),
-    prepareChatGptConnect: () => deps.prepareChatGptConnect(),
-    readConnections: () => readAccountConnections({
-      endpoint: () => deps.deviceServicesEndpoint(),
-      bearer: () => deps.bearer(),
-      thisDevice: () => deps.deviceServiceId(),
-      localCapabilities: () => {
+        const observed = await readNativePlanCapabilities(bound)
         const active = account()
 
-        return active ? readNativePlanCapabilities(active) : Promise.resolve({})
+        if (active?.key !== bound.key || active.generation !== bound.generation ||
+            deps.deviceServiceId() !== deviceServiceId || revokedDevices.has(deviceServiceId)) {return null}
+
+        const store = mcpStore(bound)
+
+        return {
+          published: host.enabled() && !workStopping && planFactTarget(bound, deviceServiceId).reporter.enabled() &&
+            t3Mcp.isPublished(store, deviceServiceId),
+          plans: t3Mcp.planCatalog(store, deviceServiceId, observed)
+        }
+      }, options),
+      async eligiblePlanAgents() {
+        const agents = await deps.eligiblePlanAgents()
+        const active = account()
+
+        return active?.key === bound.key && active.generation === bound.generation ? agents : []
+      },
+      consent: {
+        read: plan => consentFor().read(plan),
+        async set(input) {
+          await refreshPlanFacts().catch(() => deps.log('[atum-work] plan_fact_refresh_failed'))
+
+          return consentFor().set(input)
+        },
+        revoke: plan => consentFor().revoke(plan)
       }
-    }),
-    // Work's own provider view owns the login. The staged T3 pin must enforce own-thread MCP scope.
-    planConnectOpen: () => host.current()?.relayRuntimeReady ?? workRelayRuntimeReady(deps.resources),
-    deviceServiceId: () => deps.deviceServiceId(),
-    relay: createOwnerRelay(mount, async () => {
-      const bound = account()
-      const deviceServiceId = deps.deviceServiceId()
-
-      if (!bound || !deviceServiceId || revokedDevices.has(deviceServiceId)) {return null}
-
-      const observed = await readNativePlanCapabilities(bound)
-      const active = account()
-
-      if (active?.key !== bound.key || active.generation !== bound.generation ||
-          deps.deviceServiceId() !== deviceServiceId || revokedDevices.has(deviceServiceId)) {return null}
-
-      const store = mcpStore(bound)
-
-      return {
-        published: t3Mcp.isPublished(store, deviceServiceId),
-        plans: t3Mcp.planCatalog(store, deviceServiceId, observed)
-      }
-    }, () => ({
-      endpoint: deps.deviceServicesEndpoint() ?? '',
-      bearer: () => deps.bearer()
-    })),
-    consent: consentClient
-  })
+    }
+  }
 
   const lifecycle = new MatrixWorkLifecycle({
     account,
@@ -899,26 +776,26 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
       if (!existsSync(join(deps.resources, 'work-runtime', 't3')) || !existsSync(deps.workPreload)) {
         throw new Error('work_not_in_this_build')
       }
+      if (host.enabled() && session.held()) {
+        await session.start().catch(() => deps.log('[atum-work] recovery_pending'))
+      }
     },
     // Retirement and quit drop the model key (and cancel its forwards) synchronously, before any await.
-    mount: {
-      setSurface: value => mount.setSurface(value),
-      reconcile: () => mount.reconcile(),
-      retire: async (account, deviceServiceId = deps.deviceServiceId()) => {
-        stopT3Mcp()
-        modelKeys.forget()
+    async retire(bound, deviceServiceId = deps.deviceServiceId()) {
+      stopT3Mcp()
+      modelKeys.forget()
 
-        await clearT3Mcp(account, deviceServiceId && !revokedDevices.has(deviceServiceId) ? deviceServiceId : undefined)
-
-        return mount.retire(account)
-      },
-      quit: () => {
-        modelKeys.forget()
-
-        return mount.quit()
-      },
-      state: () => mount.state()
+      await Promise.all([
+        clearT3Mcp(bound, deviceServiceId && !revokedDevices.has(deviceServiceId) ? deviceServiceId : undefined),
+        withdrawPlanFacts(bound, deviceServiceId)
+      ])
+      if (existsSync(workSessionPaths(bound).home)) {
+        await session.retire(bound, 'sign-out')
+      } else {
+        await host.stop()
+      }
     },
+    quit: () => host.stop(),
     attach: value => surface.attach(value),
     parts,
     log: line => deps.log(line)
@@ -973,7 +850,21 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
 
       return lifecycle.quit()
     },
-    setMacPlanFactsEnabled: (deviceServiceId, enabled) => mount.setMacPlanFactsEnabled(deviceServiceId, enabled),
+    async setMacPlanFactsEnabled(deviceServiceId, enabled) {
+      const bound = account()
+
+      if (!bound || deviceServiceId !== deps.deviceServiceId()) {return}
+
+      const { reporter, target } = planFactTarget(bound, deviceServiceId, () => deps.deviceServiceId() === deviceServiceId)
+      reporter.setEnabled(enabled)
+
+      if (enabled) {
+        refreshWorkPublication()
+      } else if (existsSync(workSessionPaths(bound).home)) {
+        t3Mcp.stop()
+        await Promise.all([reporter.withdraw(target), clearT3Mcp(bound, deviceServiceId, undefined, true)])
+      }
+    },
     update: target => session.update(target),
     modelKeys: () => modelKeys.keys(),
     modelRoute: () => account() ? 'open' : 'refused'
