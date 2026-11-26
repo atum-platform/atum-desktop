@@ -26,3 +26,7 @@ The setup action needs a native Work change in a later slice.
 The restart fixture covers default seeding, custom instances, explicit disables
 and reserved entries. Desktop typecheck, focused desktop and Python tests, and
 lint passed.
+
+The hidden provider entries remain wired to the older `work_handoff` tool.
+The [gate retirement audit](work-gate-retirement-1126.md) traces that dependency
+and the account and consent behavior to preserve when retiring it.
