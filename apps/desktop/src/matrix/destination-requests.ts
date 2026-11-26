@@ -10,3 +10,9 @@ export const $matrixDestinationRequests = atom(0)
 export function noteMatrixDestinationRequest(): void {
   $matrixDestinationRequests.set($matrixDestinationRequests.get() + 1)
 }
+
+/**
+ * Words for one chat's message box, asked for from another screen (Drive's "Ask Atum about it"). The
+ * chat's composer takes them once, when that room is open and ready, and clears the request.
+ */
+export const $matrixComposerAsk = atom<{ roomId: string; text: string } | null>(null)

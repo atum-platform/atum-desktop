@@ -34,11 +34,13 @@ import {
   LayoutGrid,
   LayoutGroups,
   List,
+  MessageCircle,
   MoreHorizontal,
   Pause,
   RefreshCw,
   SearchIcon,
   Settings,
+  Share,
   Upload,
   X
 } from '@/lib/icons'
@@ -615,6 +617,7 @@ export function MatrixDrive({
   bridge,
   destination = 'all',
   onDestinationChange,
+  onAskAbout,
   onPreview,
   onUseInConversation,
   taskScope
@@ -622,6 +625,8 @@ export function MatrixDrive({
   bridge?: MatrixDriveBridge
   destination?: MatrixDriveDestination
   onDestinationChange?(destination: MatrixDriveDestination): void
+  /** The folder panel's "Ask Atum about it": these words go into Atum's own chat. */
+  onAskAbout?(text: string): void
   onPreview?(row: MatrixDriveRow): void
   onUseInConversation?: () => void
   taskScope?: MatrixDriveTaskScope
@@ -1583,8 +1588,10 @@ export function MatrixDrive({
       <MatrixDriveFolderInfo
         copy={copy}
         locale={locale}
+        onAskAbout={onAskAbout}
         onClose={() => setMatrixRightPanel('drive', false)}
         onReveal={() => void run(() => bridge.reveal())}
+        onShare={bridge.share ? () => void run(async () => { await bridge.share?.() }) : undefined}
         statusLine={statusLine}
         view={view}
       />
@@ -1594,12 +1601,12 @@ export function MatrixDrive({
 }
 
 /** Five locales, changed together. */
-const folderInfoCopies: Record<Locale, { title: string; close: string; items: (n: number) => string; size: string; where: string; changed: string; sync: string; reveal: string }> = {
-  en: { title: 'Folder info', close: 'Close', items: n => `${n} ${n === 1 ? 'item' : 'items'}`, size: 'Size', where: 'Where', changed: 'Changed', sync: 'Sync', reveal: 'Show in Finder' },
-  vi: { title: 'Thông tin thư mục', close: 'Đóng', items: n => `${n} mục`, size: 'Dung lượng', where: 'Vị trí', changed: 'Thay đổi', sync: 'Đồng bộ', reveal: 'Hiện trong Finder' },
-  ja: { title: 'フォルダの情報', close: '閉じる', items: n => `${n} 項目`, size: 'サイズ', where: '場所', changed: '変更日', sync: '同期', reveal: 'Finder で表示' },
-  zh: { title: '文件夹信息', close: '关闭', items: n => `${n} 项`, size: '大小', where: '位置', changed: '修改时间', sync: '同步', reveal: '在访达中显示' },
-  'zh-hant': { title: '檔案夾資訊', close: '關閉', items: n => `${n} 項`, size: '大小', where: '位置', changed: '修改時間', sync: '同步', reveal: '在 Finder 中顯示' }
+const folderInfoCopies: Record<Locale, { title: string; close: string; items: (n: number) => string; size: string; where: string; changed: string; sync: string; reveal: string; share: string; ask: string; askText: (where: string) => string }> = {
+  en: { title: 'Folder info', close: 'Close', items: n => `${n} ${n === 1 ? 'item' : 'items'}`, size: 'Size', where: 'Where', changed: 'Changed', sync: 'Sync', reveal: 'Show in Finder', share: 'Share', ask: 'Ask Atum about it', askText: where => `About the folder “${where}”: ` },
+  vi: { title: 'Thông tin thư mục', close: 'Đóng', items: n => `${n} mục`, size: 'Dung lượng', where: 'Vị trí', changed: 'Thay đổi', sync: 'Đồng bộ', reveal: 'Hiện trong Finder', share: 'Chia sẻ', ask: 'Hỏi Atum về thư mục này', askText: where => `Về thư mục “${where}”: ` },
+  ja: { title: 'フォルダの情報', close: '閉じる', items: n => `${n} 項目`, size: 'サイズ', where: '場所', changed: '変更日', sync: '同期', reveal: 'Finder で表示', share: '共有', ask: 'このフォルダについて Atum に聞く', askText: where => `フォルダ「${where}」について: ` },
+  zh: { title: '文件夹信息', close: '关闭', items: n => `${n} 项`, size: '大小', where: '位置', changed: '修改时间', sync: '同步', reveal: '在访达中显示', share: '共享', ask: '向 Atum 询问此文件夹', askText: where => `关于文件夹“${where}”：` },
+  'zh-hant': { title: '檔案夾資訊', close: '關閉', items: n => `${n} 項`, size: '大小', where: '位置', changed: '修改時間', sync: '同步', reveal: '在 Finder 中顯示', share: '分享', ask: '詢問 Atum 關於此檔案夾', askText: where => `關於檔案夾「${where}」：` }
 }
 
 /**
@@ -1609,15 +1616,19 @@ const folderInfoCopies: Record<Locale, { title: string; close: string; items: (n
 function MatrixDriveFolderInfo({
   copy,
   locale,
+  onAskAbout,
   onClose,
   onReveal,
+  onShare,
   statusLine,
   view
 }: {
   copy: DriveCopy
   locale: Locale
+  onAskAbout?(text: string): void
   onClose(): void
   onReveal(): void
+  onShare?(): void
   statusLine: ReactNode
   view: MatrixDriveView
 }) {
@@ -1654,10 +1665,29 @@ function MatrixDriveFolderInfo({
             fact(words.changed, new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short' }).format(changed))}
           {fact(words.sync, statusLine)}
         </dl>
-        <button className="ak-btn ak-btn--secondary ak-btn--sm self-start" data-matrix-drive-folder-reveal onClick={onReveal} type="button">
-          <FolderOpen aria-hidden className="ak-icon ak-icon--sm" />
-          {words.reveal}
-        </button>
+        <div className="flex flex-wrap gap-2">
+          {onShare && (
+            <button className="ak-btn ak-btn--secondary ak-btn--sm" data-matrix-drive-folder-share onClick={onShare} type="button">
+              <Share aria-hidden className="ak-icon ak-icon--sm" />
+              {words.share}
+            </button>
+          )}
+          {onAskAbout && (
+            <button
+              className="ak-btn ak-btn--secondary ak-btn--sm"
+              data-matrix-drive-folder-ask
+              onClick={() => onAskAbout(words.askText(where))}
+              type="button"
+            >
+              <MessageCircle aria-hidden className="ak-icon ak-icon--sm" />
+              {words.ask}
+            </button>
+          )}
+          <button className="ak-btn ak-btn--secondary ak-btn--sm" data-matrix-drive-folder-reveal onClick={onReveal} type="button">
+            <FolderOpen aria-hidden className="ak-icon ak-icon--sm" />
+            {words.reveal}
+          </button>
+        </div>
       </div>
     </aside>
   )
