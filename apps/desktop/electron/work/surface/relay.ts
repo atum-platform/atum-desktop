@@ -1,8 +1,15 @@
+import { z } from 'zod'
+
 import type { WorkAgentPlans } from '../../../shared/matrix-work'
-import type { WorkRelayPlan, WorkRelaySelection } from '../../../shared/matrix-work-relay'
+import type { WorkRelayPlan } from '../../../shared/matrix-work-relay'
 import { WorkRelaySelectionSchema } from '../gate/contract'
 import { deviceServiceCall, type DeviceServicePlatformOptions } from '../gate/platform'
 import type { WorkMount } from '../mount/mount'
+
+const selectionSnapshot = z.object({
+  revision: z.number().int().nonnegative(),
+  selection: WorkRelaySelectionSchema.omit({ revision: true }).nullable()
+}).strict()
 
 /** The native plan catalog and the existing owner-scoped selection protocol. */
 export function createOwnerRelay(
@@ -10,7 +17,9 @@ export function createOwnerRelay(
   readCatalog: () => Promise<Omit<WorkAgentPlans, 'selection'> | null>,
   platform: () => DeviceServicePlatformOptions
 ) {
-  const savedSelections = new Map<string, WorkRelaySelection>()
+  async function readSelection(call: ReturnType<typeof deviceServiceCall>, principal: string) {
+    return selectionSnapshot.parse(await call('work_selection_read', { agentPrincipal: principal }))
+  }
 
   return {
     async readPlans(principal: string): Promise<WorkAgentPlans | null> {
@@ -18,31 +27,40 @@ export function createOwnerRelay(
 
       if (!catalog) {return null}
 
-      const rows = JSON.parse(mount.service()?.ledger.meta('relay_selections') ?? '[]') as {
-        agentPrincipal: string
-        selection: unknown
-      }[]
+      const { revision, selection } = await readSelection(deviceServiceCall(platform()), principal)
 
-      const synced = WorkRelaySelectionSchema.safeParse(rows.find(row => row.agentPrincipal === principal)?.selection)
-      const saved = savedSelections.get(principal)
-
-      if (synced.success && (!saved || synced.data.revision >= saved.revision)) {
-        savedSelections.delete(principal)
-
-        return { ...catalog, selection: synced.data }
-      }
-
-      // A successful selection is visible immediately, even before ledger sync catches up.
-      return { ...catalog, selection: saved ?? null }
+      return { ...catalog, selection: selection && { ...selection, revision } }
     },
-    async select(principal: string, expectedRevision: number, model: string, plan: WorkRelayPlan = 'codex') {
-      const saved = WorkRelaySelectionSchema.parse(await deviceServiceCall(platform())('work_selection_set', {
-        agentPrincipal: principal, expectedRevision, selection: { provider: 'atum-work', plan, model }
-      }))
+    async select(principal: string, model: string, plan: WorkRelayPlan = 'codex') {
+      const options = platform()
+      // The read, write and possible retry all belong to the same signed-in owner.
+      const bearer = await options.bearer()
+      const call = deviceServiceCall({ ...options, bearer: async () => bearer })
 
-      savedSelections.set(principal, saved)
+      const write = async (expectedRevision: number) => WorkRelaySelectionSchema.parse(
+        await call('work_selection_set', {
+          agentPrincipal: principal, expectedRevision, selection: { provider: 'atum-work', plan, model }
+        })
+      )
 
-      return saved
+      const { revision } = await readSelection(call, principal)
+
+      try {
+        return await write(revision)
+      } catch (error) {
+        // The selection write's only 409 is a revision conflict. A concurrent pick can win again.
+        if (!(error instanceof Error && 'status' in error && error.status === 409)) {
+          throw error
+        }
+
+        const latest = await readSelection(call, principal)
+
+        if (latest.revision === revision) {
+          throw error
+        }
+
+        return write(latest.revision)
+      }
     },
     chats(): string[] {
       return [...new Set((mount.service()?.ledger.receipts('relay_json IS NOT NULL') ?? []).filter(row => Boolean(row.threadId)).map(row => row.principal))]

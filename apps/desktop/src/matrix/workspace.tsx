@@ -382,6 +382,12 @@ export function MatrixWorkspace({ channelContent, comingSoon, notices, onChannel
       activity={props.snapshot.companyActivity}
       bridge={bridge!}
       channelContent={channelContent}
+      channelFacts={props.snapshot.roomId ? {
+        roomId: props.snapshot.roomId,
+        members: props.snapshot.members ?? [],
+        pinned: props.snapshot.pinnedMessages?.entries ?? [],
+        selfId: props.snapshot.identity?.userId
+      } : undefined}
       citationSenderName={citationSenderName}
       drafts={props.snapshot.drafts}
       fundingEnabled={Boolean(props.snapshot.companyFundingEnabled)}
@@ -401,6 +407,10 @@ export function MatrixWorkspace({ channelContent, comingSoon, notices, onChannel
       onOpenCompanyDraft={openCompanyDraft}
       onOpenCompanyThread={openCompanyThread}
       onOpenNotesSelf={openNotesSelf}
+      onOpenPinned={(roomId, eventId, threadRootId) => {
+        revealMatrixHistoryMessage(roomId, eventId, 'company', threadRootId, accountKey)
+        onOpenConversation?.({ roomId, ...(threadRootId ? { threadRootId } : {}) })
+      }}
       onOpenSavedMessage={openSavedMessage}
       onOpenSearchResult={openCompanySearchResult}
       onOpenThread={(roomId, threadRootEventId) => onOpenConversation?.({ roomId, threadRootId: threadRootEventId })}

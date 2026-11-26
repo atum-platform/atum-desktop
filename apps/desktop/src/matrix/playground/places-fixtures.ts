@@ -320,6 +320,7 @@ function driveBridge(place: MatrixDriveState | 'waiting' | 'signIn', problem?: M
     back: async () => go(tree[at]?.parent ?? 'root'),
     open: async () => {},
     reveal: async () => {},
+    share: async () => {},
     taskStatus: async () => ({ state: 'ready' }),
     sendTask: async () => ({ state: 'not_sent' }),
     subscribe: listener => {

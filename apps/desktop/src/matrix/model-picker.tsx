@@ -375,19 +375,25 @@ export function MatrixModelPicker({
   const selectAgentPlan = window.atumMatrix.work?.selectRelay
   const plansKey = agentPrincipal ? JSON.stringify([scope, agentPrincipal]) : undefined
   const [nativePlans, setNativePlans] = useState<{ key: string; value: WorkAgentPlans | null }>()
+  const planRead = useRef<{ key: string } | null>(null)
   const agentPlans = nativePlans && nativePlans.key === plansKey ? nativePlans.value : undefined
 
   // Also re-read when the owner view becomes ready after the hidden Work startup.
   useEffect(() => {
     if (!readAgentPlans || !agentPrincipal || !plansKey) {return}
 
-    let live = true
+    const request = { key: plansKey }
+    planRead.current = request
     void readAgentPlans(agentPrincipal).then(
-      value => { if (live) {setNativePlans({ key: plansKey, value })} },
-      () => { if (live) {setNativePlans({ key: plansKey, value: null })} }
+      value => { if (planRead.current === request) {setNativePlans({ key: plansKey, value })} },
+      () => {
+        if (planRead.current === request) {
+          setNativePlans(previous => previous?.key === plansKey ? previous : { key: plansKey, value: null })
+        }
+      }
     )
 
-    return () => { live = false }
+    return () => { if (planRead.current === request) {planRead.current = null} }
   }, [agentPrincipal, open, plansKey, readAgentPlans, work?.view])
 
   const planReadReason = readAgentPlans && agentPlans === undefined ? words.modelsLoading : words.modelsUnavailable
@@ -407,7 +413,10 @@ export function MatrixModelPicker({
           }),
           models: agentPlans?.plans[plan]?.models ?? [],
           select: async (model: string) => {
-            const saved = await selectAgentPlan(agentPrincipal, agentPlans?.selection?.revision ?? cloudChoice?.revision ?? 0, model, plan)
+            const saved = await selectAgentPlan(agentPrincipal, model, plan)
+
+            // Retire reads that started before the server acknowledged this write.
+            if (planRead.current?.key === plansKey) {planRead.current = null}
 
             setNativePlans(previous => previous && previous.key === plansKey && previous.value
               && saved.revision >= (previous.value.selection?.revision ?? 0)

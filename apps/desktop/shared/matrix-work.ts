@@ -134,8 +134,13 @@ export interface MatrixWorkRect {
 
 export interface WorkSurfaceModeSnapshot { projectId: string; mode: 'work' | 'code' }
 
-/** The view's thread list: open, and its right edge in the view's CSS pixels (the band lines the bell up with it). */
-export interface WorkSidebarSnapshot { open: boolean; edge: number }
+/**
+ * The view's thread list: open, and its right edge in the view's CSS pixels (the band lines ← → up with it); and
+ * whether T3's own history can step back / forward, so the window's ← → go through it first; and the open
+ * thread's right panel ('open' / 'closed'; absent while the view has none to offer), so its toggle sits on the
+ * title bar's right as every screen's does.
+ */
+export interface WorkSidebarSnapshot { open: boolean; edge: number; back?: boolean; forward?: boolean; rightPanel?: 'open' | 'closed' }
 
 /** A report from the view, or null when it is not one (the view is another origin's page). */
 export function parseWorkSidebar(value: unknown): WorkSidebarSnapshot | null {
@@ -145,8 +150,20 @@ export function parseWorkSidebar(value: unknown): WorkSidebarSnapshot | null {
 
   const row = value as Record<string, unknown>
 
-  return typeof row.open === 'boolean' && typeof row.edge === 'number' && Number.isFinite(row.edge) && row.edge >= 0 && row.edge <= 10_000
-    ? { open: row.open, edge: Math.round(row.edge) } : null
+  const history = (entry: unknown) => entry === undefined || typeof entry === 'boolean'
+
+  const panel = row.rightPanel === undefined || row.rightPanel === 'open' || row.rightPanel === 'closed'
+
+  return typeof row.open === 'boolean' && typeof row.edge === 'number' && Number.isFinite(row.edge) && row.edge >= 0 && row.edge <= 10_000 &&
+    history(row.back) && history(row.forward) && panel
+    ? {
+        open: row.open,
+        edge: Math.round(row.edge),
+        ...(row.back ? { back: true } : {}),
+        ...(row.forward ? { forward: true } : {}),
+        ...(row.rightPanel ? { rightPanel: row.rightPanel as 'open' | 'closed' } : {})
+      }
+    : null
 }
 
 /**
@@ -169,7 +186,7 @@ export function parseWorkAttention(value: unknown): WorkAttentionSnapshot | null
 }
 
 /** T3 commands the Work title band offers as buttons over the roster column (spec §1.4). */
-export const WORK_BAND_COMMANDS = ['sidebar.toggle', 'chat.new', 'chat.newWorktree', 'project.add'] as const
+export const WORK_BAND_COMMANDS = ['sidebar.toggle', 'chat.new', 'chat.newWorktree', 'project.add', 'history.back', 'history.forward', 'rightPanel.toggle'] as const
 export type WorkBandCommand = (typeof WORK_BAND_COMMANDS)[number]
 
 export type MatrixWorkRequest =
@@ -179,7 +196,7 @@ export type MatrixWorkRequest =
   | { kind: 'runCommand'; command: WorkBandCommand }
   | { kind: 'setSurfaceMode'; projectId: string; mode: 'work' | 'code' }
   | { kind: 'readAgentPlans'; principal: string }
-  | { kind: 'selectRelay'; principal: string; expectedRevision: number; model: string; plan?: WorkRelayPlan }
+  | { kind: 'selectRelay'; principal: string; model: string; plan?: WorkRelayPlan }
   | { kind: 'read' }
   | { kind: 'show'; rect: MatrixWorkRect }
   | { kind: 'hide' }
@@ -210,7 +227,7 @@ export interface MatrixWorkBridge {
   getAttention?(): Promise<WorkAttentionSnapshot | null>
   onAttentionChanged?(listener: (snapshot: WorkAttentionSnapshot | null) => void): () => void
   readAgentPlans?(principal: string): Promise<WorkAgentPlans | null>
-  selectRelay?(principal: string, expectedRevision: number, model: string, plan?: WorkRelayPlan): Promise<WorkRelaySelection>
+  selectRelay?(principal: string, model: string, plan?: WorkRelayPlan): Promise<WorkRelaySelection>
   /** Null: Work is not available for this account on this build, so the rail has no Work entry. */
   read(): Promise<MatrixWorkProjection | null>
   /** Paint (or move) the owner view over this region. The first call opens and signs the view in. */
@@ -306,8 +323,8 @@ export function parseMatrixWorkRequest(value: unknown): MatrixWorkRequest | null
     case 'selectRelay': {
       if (row.plan !== undefined && !relayPlan) {return null}
 
-      return keys.length === ('plan' in row ? 5 : 4) && typeof row.principal === 'string' && UUID.test(row.principal) && typeof row.expectedRevision === 'number' && Number.isSafeInteger(row.expectedRevision) && row.expectedRevision >= 0 && typeof row.model === 'string' && row.model.length > 0 && row.model.length <= 200
-        ? { kind: 'selectRelay', principal: row.principal, expectedRevision: row.expectedRevision, model: row.model, ...(relayPlan ? { plan: relayPlan } : {}) } : null
+      return keys.length === ('plan' in row ? 4 : 3) && typeof row.principal === 'string' && UUID.test(row.principal) && typeof row.model === 'string' && row.model.length > 0 && row.model.length <= 200
+        ? { kind: 'selectRelay', principal: row.principal, model: row.model, ...(relayPlan ? { plan: relayPlan } : {}) } : null
     }
 
     case 'read':

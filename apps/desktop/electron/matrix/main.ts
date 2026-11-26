@@ -23,6 +23,7 @@ import {
   safeStorage,
   screen,
   session,
+  ShareMenu,
   shell,
   systemPreferences,
   WebContentsView
@@ -18794,6 +18795,14 @@ async function start() {
     // Drive's browser sign-in came back (MAS's page says "returning to Atum"): Atum is in front.
     returned: () => bringToFront(),
     openPath: file => shell.openPath(file),
+    // Drive's folder panel Share: macOS's own share menu over the open folder, which main resolved.
+    shareFolder: folder => {
+      if (ui && !ui.isDestroyed() && process.platform === 'darwin') {
+        new ShareMenu({ filePaths: [folder] }).popup({ window: ui })
+      } else {
+        shell.showItemInFolder(folder)
+      }
+    },
     closeNativePreview: token => {
       try {
         pdf.close(token)

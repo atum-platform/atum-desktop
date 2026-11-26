@@ -2,17 +2,19 @@ import { useEffect, useState } from 'react'
 
 import { Tip } from '@/components/ui/tooltip'
 import { type Locale, useI18n } from '@/i18n'
-import { Hash, UserPlus, X } from '@/lib/icons'
+import { Hash, PinFilled, UserPlus, X } from '@/lib/icons'
 
+import type { MatrixMember, MatrixPinnedMessage } from '../../../shared/matrix'
 import { matrixCompanyBoardCopy } from '../../../shared/matrix-company-board-copy'
 import { companyDesktopAdapter, listCompleteCompanyBoard } from '../company-desktop-adapter'
+import { MatrixMemberAvatar } from '../member-avatar'
 
 import type { CompanyChannelView } from './views'
 
 /** Five locales, changed together. */
 const copies: Record<
   Locale,
-  { overview: string; close: string; noPurpose: string; ask: string; following: (name: string) => string; members: (n: number) => string; addPeople: string; openBoard: string }
+  { overview: string; close: string; noPurpose: string; ask: string; following: (name: string) => string; members: (n: number) => string; addPeople: string; openBoard: string; pinned: (n: number) => string; you: string; unavailable: string }
 > = {
   en: {
     overview: 'Channel overview',
@@ -22,7 +24,10 @@ const copies: Record<
     following: name => `Following #${name}`,
     members: n => `Members · ${n}`,
     addPeople: 'Add people',
-    openBoard: 'Open the board'
+    openBoard: 'Open the board',
+    pinned: n => `Pinned · ${n}`,
+    you: 'You',
+    unavailable: 'Unavailable'
   },
   vi: {
     overview: 'Tổng quan kênh',
@@ -32,7 +37,10 @@ const copies: Record<
     following: name => `Đang theo dõi #${name}`,
     members: n => `Thành viên · ${n}`,
     addPeople: 'Thêm người',
-    openBoard: 'Mở bảng việc'
+    openBoard: 'Mở bảng việc',
+    pinned: n => `Đã ghim · ${n}`,
+    you: 'Bạn',
+    unavailable: 'Không xem được'
   },
   ja: {
     overview: 'チャンネルの概要',
@@ -42,7 +50,10 @@ const copies: Record<
     following: name => `#${name} をフォロー中`,
     members: n => `メンバー · ${n}`,
     addPeople: 'メンバーを追加',
-    openBoard: 'ボードを開く'
+    openBoard: 'ボードを開く',
+    pinned: n => `ピン留め · ${n}`,
+    you: 'あなた',
+    unavailable: '表示できません'
   },
   zh: {
     overview: '频道概览',
@@ -52,7 +63,10 @@ const copies: Record<
     following: name => `正在关注 #${name}`,
     members: n => `成员 · ${n}`,
     addPeople: '添加成员',
-    openBoard: '打开看板'
+    openBoard: '打开看板',
+    pinned: n => `已置顶 · ${n}`,
+    you: '你',
+    unavailable: '无法显示'
   },
   'zh-hant': {
     overview: '頻道概覽',
@@ -62,9 +76,24 @@ const copies: Record<
     following: name => `正在關注 #${name}`,
     members: n => `成員 · ${n}`,
     addPeople: '新增成員',
-    openBoard: '打開看板'
+    openBoard: '打開看板',
+    pinned: n => `已釘選 · ${n}`,
+    you: '你',
+    unavailable: '無法顯示'
   }
 }
+
+/** The open room's members and pins, as the Matrix snapshot holds them (display only). */
+export interface TeamSpaceChannelFacts {
+  roomId: string
+  members: readonly MatrixMember[]
+  pinned: readonly MatrixPinnedMessage[]
+  selfId?: string
+}
+
+/** Faces shown before "+N", and pins before the channel header's own list. */
+const FACES = 6
+const PINS = 3
 
 type BoardCounts = { toDo: number; doing: number; done: number }
 
@@ -117,23 +146,32 @@ function useBoardCounts(companyId: string, projectId: string | null): BoardCount
 export function TeamSpaceChannelOverview({
   channel,
   chief,
+  facts,
   onAddPeople,
   onAskChief,
   onClose,
-  onOpenBoard
+  onOpenBoard,
+  onOpenPinned
 }: {
   channel: CompanyChannelView
   chief?: { name: string }
+  facts?: TeamSpaceChannelFacts
   onAddPeople?(): void
   onAskChief?(): void
   onClose(): void
   onOpenBoard(): void
+  onOpenPinned?(eventId: string, threadRootId?: string): void
 }) {
   const { locale } = useI18n()
   const copy = copies[locale]
   const board = matrixCompanyBoardCopy(locale)
   const counts = useBoardCounts(channel.companyId, channel.projectId)
   const purpose = channel.purpose || channel.topic
+  const joined = (facts?.members ?? []).filter(member => member.membership === 'join')
+  const pins = facts?.pinned ?? []
+
+  const nameOf = (userId: string) =>
+    userId === facts?.selfId ? copy.you : joined.find(member => member.userId === userId)?.name ?? userId
 
   return (
     <aside
@@ -191,14 +229,72 @@ export function TeamSpaceChannelOverview({
             ))}
           </button>
         </section>
+        {pins.length > 0 && (
+          <section data-team-space-channel-pins>
+            <h3 className="atum-neutral-panel-label">{copy.pinned(pins.length)}</h3>
+            <ul className="atum-neutral-panel-card flex flex-col gap-0.5 p-1">
+              {pins.slice(0, PINS).map(entry => {
+                const message = entry.message && !entry.message.decryptionFailed ? entry.message : undefined
+
+                return (
+                  <li key={entry.eventId}>
+                    <button
+                      className="flex w-full items-start gap-2 rounded-(--atum-r-control) px-2.5 py-2 text-start hover:bg-(--atum-hover) disabled:hover:bg-transparent"
+                      data-team-space-channel-pin={entry.eventId}
+                      disabled={!onOpenPinned}
+                      onClick={() => onOpenPinned?.(entry.eventId, message?.threadRootId)}
+                      type="button"
+                    >
+                      <PinFilled aria-hidden className="mt-0.5 size-3.5 shrink-0 text-(--atum-ink-faint)" />
+                      <span className="min-w-0 flex-1">
+                        {message ? (
+                          <>
+                            <span className="block truncate text-xs font-medium text-(--atum-ink-muted)">{nameOf(message.sender)}</span>
+                            <span className="line-clamp-2 block break-words text-(--atum-ink)">{message.body}</span>
+                          </>
+                        ) : (
+                          <span className="block text-(--atum-ink-muted)">{copy.unavailable}</span>
+                        )}
+                      </span>
+                    </button>
+                  </li>
+                )
+              })}
+            </ul>
+          </section>
+        )}
         <section>
           <h3 className="atum-neutral-panel-label">{copy.members(channel.memberCount)}</h3>
-          {onAddPeople && (
-            <div className="atum-neutral-panel-card flex items-center justify-end">
-              <button className="ak-btn ak-btn--secondary ak-btn--sm" data-team-space-channel-add-people onClick={onAddPeople} type="button">
-                <UserPlus aria-hidden className="ak-icon ak-icon--sm" />
-                {copy.addPeople}
-              </button>
+          {(joined.length > 0 || onAddPeople) && (
+            <div className="atum-neutral-panel-card flex items-center gap-3" data-team-space-channel-faces={joined.length}>
+              {joined.length > 0 && (
+                <span className="flex min-w-0 flex-1 items-center">
+                  {joined.slice(0, FACES).map((member, index) => (
+                    <Tip key={member.userId} label={nameOf(member.userId)}>
+                      <span className={index ? '-ms-1.5' : undefined}>
+                        <MatrixMemberAvatar
+                          avatarMxc={member.avatarMxc}
+                          className="size-7 shrink-0 rounded-(--atum-r-avatar) text-[0.75rem] leading-none ring-2 ring-(--atum-main-bg)"
+                          id={member.userId}
+                          name={member.name}
+                          presence={false}
+                        />
+                      </span>
+                    </Tip>
+                  ))}
+                  {channel.memberCount > Math.min(joined.length, FACES) && (
+                    <span className="ms-1.5 text-xs tabular-nums text-(--atum-ink-muted)">
+                      +{channel.memberCount - Math.min(joined.length, FACES)}
+                    </span>
+                  )}
+                </span>
+              )}
+              {onAddPeople && (
+                <button className="ak-btn ak-btn--secondary ak-btn--sm ms-auto shrink-0" data-team-space-channel-add-people onClick={onAddPeople} type="button">
+                  <UserPlus aria-hidden className="ak-icon ak-icon--sm" />
+                  {copy.addPeople}
+                </button>
+              )}
             </div>
           )}
         </section>
