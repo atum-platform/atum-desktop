@@ -32,7 +32,6 @@ function lab(names = ['A']) {
 
   let active = names[0]
   const cleared: string[] = []
-  const resets: string[] = []
   const byRoot = (root: string) => [...accounts.values()].find(entry => entry.account.root === root)!
 
   const session = new WorkSession({
@@ -48,10 +47,9 @@ function lab(names = ['A']) {
     pairing: { timeoutMs: 120, pollMs: 15 }
   })
 
-  session.onResetDone(account => void resets.push(account.key))
 
   return {
-    session, events, cleared, resets, accounts,
+    session, events, cleared, accounts,
     switchTo: (name: string) => void (active = name),
     entry: (name: string) => accounts.get(name)!
   }
@@ -171,7 +169,7 @@ describe('owner view', () => {
 
 describe('account switch and switch-back', () => {
   it('retires A completely, keeps B apart, and refuses every old A credential on switch-back', async () => {
-    const { session, entry, switchTo, cleared, resets } = lab(['A', 'B'])
+    const { session, entry, switchTo, cleared } = lab(['A', 'B'])
     const a = entry('A')
     const aViews = views(a.home)
     await session.openOwnerView(aViews.create)
@@ -185,7 +183,6 @@ describe('account switch and switch-back', () => {
     expect(cleared).toContain(partitionFor('A'))
     expect(a.host.current()).toBeUndefined()
     expect([a.home.accepts(oldCookie), a.home.accepts(strayBearer), a.home.acceptsGrant(strayGrant)]).toEqual([false, false, false])
-    expect(resets).toEqual(['A'])
 
     switchTo('B')
     const bViews = views(entry('B').home)
@@ -228,7 +225,6 @@ describe('update through the session', () => {
       update: {
         currentPin: () => ({ version: '0.1.11', resources: '/p1' }),
         hostFor: pin => (pin.version === '0.1.12' ? v2 : host),
-        stopsOwed: () => false,
         freeBytes: () => 1e12,
         verifyPin: async () => undefined
       },
@@ -254,7 +250,7 @@ describe('update through the session', () => {
     expect(host.starts).toBe(1)
   })
 
-  it('a refusal known up front (a stop owed) is answered BEFORE the view, the partition or the server are touched', async () => {
+  it('a refusal known up front (a downgrade) is answered BEFORE the view, the partition or the server are touched', async () => {
     const { entry, cleared } = lab()
     const { account, home, host } = entry('A')
 
@@ -267,7 +263,6 @@ describe('update through the session', () => {
       update: {
         currentPin: () => ({ version: '0.1.11', resources: '/p1' }),
         hostFor: () => host,
-        stopsOwed: () => true,
         freeBytes: () => 1e12,
         verifyPin: async () => undefined
       },
@@ -279,7 +274,7 @@ describe('update through the session', () => {
     const started = host.starts
     const cookie = first.made[0].cookie
 
-    expect(await session.update({ version: '0.1.12', resources: '/p2' })).toEqual({ outcome: 'refused', reason: 'stops_owed' })
+    expect(await session.update({ version: '0.1.0', resources: '/p2' })).toEqual({ outcome: 'refused', reason: 'downgrade' })
 
     // nothing moved: the same view, the same server, no reset (the cookie still works), no partition cleared
     expect(first.made[0].closed).toBe(false)
@@ -301,7 +296,7 @@ describe('update through the session', () => {
       authTools: () => ({ cli: home.cli(), grants: home.grants() }),
       clearPartition: async () => undefined,
       homeRunning: () => home.running,
-      update: { currentPin: () => shipped, hostFor: pin => (pin.version === '0.1.12' ? v2 : host), stopsOwed: () => false, freeBytes: () => 1e12, verifyPin: async () => undefined },
+      update: { currentPin: () => shipped, hostFor: pin => (pin.version === '0.1.12' ? v2 : host), freeBytes: () => 1e12, verifyPin: async () => undefined },
       pairing: { timeoutMs: 120, pollMs: 15 }
     })
 
@@ -334,7 +329,7 @@ describe('update through the session', () => {
       clearPartition: async () => undefined,
       homeRunning: () => home.running,
       // The previous binary is not part of the new build: only the shipped pin has a host that is not the old one.
-      update: { currentPin: () => shipped, hostFor: pin => (pin.version === '0.1.12' ? v2 : host), stopsOwed: () => false, freeBytes: () => 1e12, verifyPin: async () => undefined },
+      update: { currentPin: () => shipped, hostFor: pin => (pin.version === '0.1.12' ? v2 : host), freeBytes: () => 1e12, verifyPin: async () => undefined },
       pairing: { timeoutMs: 120, pollMs: 15 }
     })
 
@@ -363,12 +358,11 @@ describe('update through the session', () => {
     expect(session.held()).toBe(false)
   })
 
-  it('a stop owed with the server up refuses the shipped pin change before anything starts; a shipped pin below the committed one never starts', async () => {
+  it('a shipped pin below the committed one never starts', async () => {
     const { entry, events } = lab()
     const { account, home, host } = entry('A')
     const v2 = new FakeHost(home, events, '0.1.12')
     let shipped = { version: '0.1.11', resources: '/p1' }
-    let owed = false
 
     const session = new WorkSession({
       account: () => account,
@@ -376,7 +370,7 @@ describe('update through the session', () => {
       authTools: () => ({ cli: home.cli(), grants: home.grants() }),
       clearPartition: async () => undefined,
       homeRunning: () => home.running,
-      update: { currentPin: () => shipped, hostFor: pin => (pin.version === '0.1.12' ? v2 : host), stopsOwed: () => owed, freeBytes: () => 1e12, verifyPin: async () => undefined },
+      update: { currentPin: () => shipped, hostFor: pin => (pin.version === '0.1.12' ? v2 : host), freeBytes: () => 1e12, verifyPin: async () => undefined },
       pairing: { timeoutMs: 120, pollMs: 15 }
     })
 
@@ -386,8 +380,6 @@ describe('update through the session', () => {
     await host.stop()
 
     shipped = { version: '0.1.12', resources: '/p2' }
-    owed = true
-    await expect(session.start()).rejects.toMatchObject({ code: 'work_update_stops_owed' })
     expect(v2.starts).toBe(0)
     expect(host.starts).toBe(1)
 
@@ -450,7 +442,7 @@ it('awaits background startup before an explicit update preflights and replaces 
     update: {
       currentPin: () => ({ version: '0.1.11', resources: '/p1' }),
       hostFor: pin => pin.version === '0.1.12' ? next : host,
-      stopsOwed: () => false, freeBytes: () => 1e12,
+      freeBytes: () => 1e12,
       verifyPin: async () => undefined
     }
   })

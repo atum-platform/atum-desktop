@@ -1,8 +1,6 @@
-import { homedir } from 'node:os'
-
 import { describe, expect, it } from 'vitest'
 
-import { workDelegatedEnvironment, workPairingOrigin, workProvider, workRuntimeEnvironment } from './process'
+import { workPairingOrigin, workProvider } from './process'
 
 describe('Work pairing handoff', () => {
   it('accepts the pinned loopback form and returns only the origin', () => {
@@ -21,16 +19,7 @@ describe('Work pairing handoff', () => {
   })
 })
 
-it('isolates delegated gateway and connector HOME while owner providers inherit the real HOME', () => {
-  const owner = workRuntimeEnvironment('/account/work', '/resources')
-  const delegated = { ...owner, ...workDelegatedEnvironment('/account/work/delegated') }
-  expect(owner.HOME).toBe(homedir())
-  expect(delegated.HOME).not.toBe(homedir())
-  expect(delegated.CODEX_HOME).toBe('/account/work/delegated/.codex')
-  const connector = workProvider('/python', '/account/work/delegated', 'Delegated', false, true)
-  const ownerProvider = workProvider('/python', '/owner', 'Owner', true)
-  expect(connector.config.commandArgs).toEqual(ownerProvider.config.commandArgs)
-  expect(ownerProvider.config.commandArgs.slice(-3)).toEqual(['-m', 'acp_adapter.managed', '--wait-for-gateway'])
-  expect(connector.environment).toContainEqual({ name: 'HOME', value: delegated.HOME, sensitive: false })
-  expect(ownerProvider.environment.some(entry => entry.name === 'HOME')).toBe(false)
+it('starts the owner provider with the managed gateway wait enabled', () => {
+  const provider = workProvider('/python', '/account/work/owner')
+  expect(provider.config.commandArgs.slice(-3)).toEqual(['-m', 'acp_adapter.managed', '--wait-for-gateway'])
 })

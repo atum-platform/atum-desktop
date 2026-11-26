@@ -39,7 +39,7 @@ import { ComposerSurface } from '@/app/chat/composer/composer-surface'
 import { AccountConnectSheet } from '@/app/connections/connect-sheet'
 import { workCopy } from '@/app/work/copy'
 import { WorkRelayMessageLine } from '@/app/work/relay-chrome'
-import { $work, $workActive, connectWorkBridge, loadWorkEnrollmentDeferred, setWorkActive, workOnRail } from '@/app/work/store'
+import { $work, $workActive, connectWorkBridge, setWorkActive, workOnRail } from '@/app/work/store'
 import { WorkScreen } from '@/app/work/work-screen'
 import { MarkdownContent } from '@/components/assistant-ui/markdown-surface'
 import { Button } from '@/components/ui/button'
@@ -7155,11 +7155,7 @@ function MatrixAccountView({
   const workActive = useStore($workActive)
 
   // Work's projection from main: the rail shows Work only while there is one for this account.
-  useEffect(() => {
-    loadWorkEnrollmentDeferred()
-
-    return connectWorkBridge(window.atumMatrix.work)
-  }, [])
+  useEffect(() => connectWorkBridge(window.atumMatrix.work), [])
 
   const copy = useMatrixCopy()
   const launch = useLaunchCopy()
@@ -9046,11 +9042,6 @@ function MatrixAccountView({
           main={() =>
             workOnScreen && work && window.atumMatrix.work ? (
               <WorkScreen
-                agentName={principal => {
-                  const agent = snapshot.agents?.find(each => each.principal === principal)
-
-                  return agent ? matrixRosterAgentName(agent, shell.assistantName) : undefined
-                }}
                 bridge={window.atumMatrix.work}
                 leadsRow={titleBarLeads}
                 obstructed={
@@ -9062,7 +9053,6 @@ function MatrixAccountView({
                 onAddProtons={openTopUp}
                 owner={snapshot.identity?.userId}
                 projection={work}
-                relayChats={work.relayChats}
                 reserveOverlay={facts.overlayWidth > 0}
                 windowControls={
                   // Every page's title bar leads the same way: the lights, the hide-left-panel

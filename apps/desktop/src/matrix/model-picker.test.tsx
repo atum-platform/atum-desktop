@@ -2227,7 +2227,7 @@ describe('a plan that cannot answer now (owner 2026-11-11)', () => {
     ['en', 'none', 'Your plan works in Work on your Mac', 'Open Work']
   ] as const)('greys ChatGPT for an assistant (%s, Mac %s) with one line and one action, Open Work (D6)', async (locale, presence, line, action) => {
     resetWorkStoreForTests()
-    $work.set({ view: 'ready', assistants: 'on', agents: [], protons: 'ok' })
+    $work.set({ view: 'ready', protons: 'ok' })
 
     try {
       const { modelDestinations } = cloudPicker(presence, { locale })

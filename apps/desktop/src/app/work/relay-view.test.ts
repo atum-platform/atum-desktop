@@ -12,7 +12,6 @@ import {
   workRelayFallbackReason,
   type WorkRelayPickerInput,
   workRelayPickerView,
-  workRelaySharedContext,
   type WorkRelayTurnChrome,
   workRelayTurnChrome,
   workRelayUsage
@@ -237,10 +236,7 @@ describe('the plan usage line and the shared-context line', () => {
     expect(workRelayUsage({ plan: 'codex', state: 'exhausted', observedAt: 1, usedPercent: 100 })).toEqual({ kind: 'limit' })
   })
 
-  it('lists each assistant once, in order', () => {
-    expect(workRelaySharedContext([LUNA, RIN, LUNA])).toEqual([LUNA, RIN])
-    expect(workRelaySharedContext([])).toEqual([])
-  })
+
 })
 
 describe('the words (airy: one line, no cost, no relay, no token)', () => {

@@ -22,7 +22,7 @@ export interface WorkSessionOptions {
   }
   /** Wipes a partition's cookies and storage even when no view exists. */
   clearPartition(partition: string): Promise<void>
-  /** Lane G's policy: false while a stop is owed and on the first start after a crash. Default false. */
+  /** Whether the start resumes interrupted threads. Defaults to false. */
   continuation?(): boolean
   /** Update wiring; omit to run without an update driver. */
   update?: Omit<UpdateDeps, 'paths' | 'coordinator' | 'stopRunning'>
@@ -45,7 +45,7 @@ export type OpenOwnerView =
   | { state: 'failed'; reason: string }
 
 /**
- * Lane R's one door for sign-in, reset and update. Lane G and the shell call
+ * The owner session handles sign-in, reset and update. The shell calls
  * this, never `WorkHost.start` directly: every start passes the marker first,
  * so no home serves before an interrupted restore and reset have finished.
  */
@@ -57,16 +57,7 @@ export class WorkSession {
     this.host = options.host
   }
 
-  /** "Reset done, re-issue sessions" for lane G. Fires for every reset of every account. */
-  onResetDone(listener: (account: WorkSessionAccount, report: ResetReport) => void): () => void {
-    this.resetListeners.add(listener)
-
-    return () => void this.resetListeners.delete(listener)
-  }
-
-  private readonly resetListeners = new Set<(account: WorkSessionAccount, report: ResetReport) => void>()
-
-  /** True while an update or an unfinished reset owns the account: the gate admits nothing. */
+  /** True while an update or an unfinished reset owns the account. */
   held(): boolean {
     const account = this.options.account()
 
@@ -342,12 +333,6 @@ export class WorkSession {
       cli,
       grants,
       homeRunning: this.options.homeRunning ? () => this.options.homeRunning!(paths) : homeRunningFromRuntimeFile(paths)
-    })
-
-    coordinator.onResetDone(report => {
-      for (const listener of this.resetListeners) {
-        listener(account, report)
-      }
     })
 
     const state: AccountState = {

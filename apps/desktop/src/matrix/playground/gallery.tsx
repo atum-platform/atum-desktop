@@ -267,7 +267,7 @@ export function PlaygroundGallery({ view }: { view: PlaygroundView }) {
     return <PlaygroundWorkSettings />
   }
 
-  // Relay R1's picker rows and chip, Work's shared-context line, the plan's usage and the consent: `&relay=…` (relay-gallery.tsx).
+  // Relay R1's picker rows and chip, the plan's usage and the consent: `&relay=…` (relay-gallery.tsx).
   if (view === 'work-google-write') {
     return <PlaygroundWorkGoogleWrite />
   }

@@ -1,4 +1,4 @@
-import { type CSSProperties, type ReactNode, useEffect, useMemo, useRef, useState } from 'react'
+import { type CSSProperties, type ReactNode, useEffect, useRef, useState } from 'react'
 
 import { AtumMainHeaderSurface } from '@/app/atum/shell-surface'
 import { AccountConnectProgress } from '@/app/connections/connect-sheet'
@@ -7,10 +7,7 @@ import { MatrixGoogleWorkWriteProposals } from '@/matrix/google-write-card'
 
 import type { MatrixWorkBridge, MatrixWorkProjection, MatrixWorkViewState } from '../../../shared/matrix-work'
 
-import { type WorkAgentNames, WorkAssistantsBand, WorkAssistantsPill } from './assistants'
 import { workCopy, type WorkWords } from './copy'
-import { WorkRelaySharedContextLine } from './relay-chrome'
-import { workRelaySharedContext } from './relay-view'
 import { useWorkViewPlacement } from './use-work-view-placement'
 import { useWorkHistoryArrows, useWorkSidebar, WorkRightPanelToggle, WorkRosterControls, WorkTitle } from './work-band'
 
@@ -19,18 +16,11 @@ export interface WorkScreenProps {
   projection: MatrixWorkProjection
   /** A modal or menu covers the window: the native view leaves until it closes. */
   obstructed: boolean
-  /** The name of an agent from the account's own record; undefined falls back to "An assistant". */
-  agentName(principal: string): string | undefined
   /** S's follow-up exposes no Protons action from inside the view, so the title bar carries it. */
   onAddProtons(): void
   windowControls?: ReactNode
   leadsRow?: boolean
   reserveOverlay?: boolean
-  /**
-   * Relay R1 (O14): assistants whose chat with the owner runs in a thread on this Mac. One line says that what the owner types
-   * in those threads can show up in their replies. Absent or empty: no line.
-   */
-  relayChats?: readonly string[]
   /**
    * The signed-in Matrix user. Present: Google changes Work asks for wait above the view on the same
    * owner card an assistant's do, for this account only.
@@ -74,30 +64,21 @@ function QuietState({ bridge, copy, view }: { bridge: Pick<MatrixWorkBridge, 're
 }
 
 /**
- * The Work page (plan §9): the owner's own Work view across the region right of the rail, with one quiet control
- * for "Assistants can start work here". Work an assistant started is an ordinary thread in the view's own
- * list, marked "Started by {name}" there (FL); this page only says who is working right now.
+ * The owner’s native Work view and the title bar shared with the Matrix shell.
  */
 export function WorkScreen({
-  agentName,
   bridge,
   leadsRow,
   obstructed,
   onAddProtons,
   owner,
   projection,
-  relayChats,
   reserveOverlay,
   windowControls
 }: WorkScreenProps) {
   const { locale } = useI18n()
   const copy = workCopy(locale)
   const host = useRef<HTMLDivElement>(null)
-
-  const names = useMemo<WorkAgentNames>(
-    () => ({ name: principal => agentName(principal) ?? copy.anAssistant }),
-    [agentName, copy]
-  )
 
   useWorkViewPlacement(bridge, host, projection.view !== 'off' && projection.view !== 'unavailable' && !obstructed)
   const sidebar = useWorkSidebar(bridge, projection.view === 'ready')
@@ -131,7 +112,6 @@ export function WorkScreen({
                 {copy.addProtons}
               </button>
             )}
-            <WorkAssistantsPill agents={projection.agents} copy={copy} names={names} state={projection.assistants} />
             {projection.view === 'ready' && <WorkRightPanelToggle bridge={bridge} locale={locale} state={sidebar?.rightPanel} />}
           </div>
         }
@@ -144,16 +124,6 @@ export function WorkScreen({
           <WorkTitle bridge={bridge} copy={copy} ready={projection.view === 'ready'} />
         </div>
       </AtumMainHeaderSurface>
-      <WorkAssistantsBand
-        agents={projection.agents}
-        bridge={bridge}
-        copy={copy}
-        names={names}
-        state={projection.assistants}
-      />
-      {projection.view === 'ready' && (
-        <WorkRelaySharedContextLine names={workRelaySharedContext(relayChats ?? []).map(names.name)} />
-      )}
       {/* Above the view, never over it: main paints the view natively, so the host shrinks to make room. */}
       {owner && <MatrixGoogleWorkWriteProposals key={owner} owner={owner} />}
       {/* The shared panel frame (owner, 2026-11-24/25): the host fills the main column, whose padding

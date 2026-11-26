@@ -1,7 +1,13 @@
-import type { OwnerSdkHost } from '../mount/owner-event'
+import type { MatrixSdkCommand } from '../../../shared/matrix'
 
 import type { Answer } from './contract'
 import type { ConnectorPorts } from './service'
+
+/** The owner's SDK host: the existing `human` host of the Matrix composition (`host.queue.command`). */
+export interface OwnerSdkHost {
+  userId: string
+  command(command: MatrixSdkCommand): Promise<unknown>
+}
 
 export function matrixConnector(input: {
   owner(): OwnerSdkHost | undefined

@@ -14042,7 +14042,7 @@ describe('the rail goes where it is clicked, the first time', () => {
         destination: { kind: 'room', roomId: personalRoom.id } }
     })
 
-    act(() => $work.set({ view: 'off', assistants: 'off', agents: [], protons: 'ok' }))
+    act(() => $work.set({ view: 'off', protons: 'ok' }))
 
     const places = ['Chats', 'Store', 'Team space', 'Atum Drive', 'Work']
 
