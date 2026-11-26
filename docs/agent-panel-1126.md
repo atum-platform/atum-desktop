@@ -59,5 +59,18 @@ diff off #136/#141's files. Folding that tab into the same body is a possible fo
 
 ## Verification
 
-Commands and results are in the commit body and the coordinator handoff. Screenshots:
-`~/.atum/operations/evidence/agent-panel-1126/`.
+Run on 2026-11-26 in `apps/desktop` (Asia/Ho_Chi_Minh):
+
+| check | command | result |
+| --- | --- | --- |
+| typecheck | `npm run typecheck` | rc 0 |
+| lint | `npx eslint <changed files>` | rc 0, 0 errors (remaining warnings sit outside this branch's lines) |
+| full suite | `npx vitest run src/matrix src/app` | 9717/9719; the two failures were 15 s timeouts of "returns to the last Chat from every rail screen" under full-suite load. They pass alone, and `app.test.tsx` as a whole passes 465/465. |
+| affected suites after the lint/type fix | `npx vitest run src/matrix/assistant-card src/matrix/agent-desk src/matrix/assistant-info-panel src/matrix/model-picker src/matrix/app.test.tsx` | 810/810 |
+| public guard | `python3 scripts/public_guard.py --base origin/main --head HEAD` | rc 0 |
+
+Screenshots (playground `?scenario=chat&card=primary`, 1440x900 @2x, light and dark):
+`~/.atum/operations/evidence/agent-panel-1126/` holds `before-panel-*`, `after-panel-*` and `after-panel-end-*`, plus
+`shoot.mjs`, which reproduces them against `npx vite --host 127.0.0.1 --port 5174`. The playground fixture has no
+Macs, schedule reader or sent files, so Your devices, Pause and Files stay hidden there, as the rule says. The
+`app.test` case "keeps the agent's controls in its panel" covers those rows.
