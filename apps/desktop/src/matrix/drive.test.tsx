@@ -21,6 +21,7 @@ import { $matrixDriveQuery, learnMatrixDrivePlaces, setMatrixDriveLayout } from 
 import { $matrixDriveTaskSelection, setMatrixDriveTaskScope } from './drive-selection'
 import { MatrixNavArrows } from './nav-arrows'
 import { $matrixNavLocal, resetMatrixNav } from './navigation-history'
+import { setMatrixRightPanel } from './right-panel'
 
 vi.stubGlobal('ResizeObserver', class {
   observe() {}
@@ -1089,4 +1090,59 @@ it('cuts a long icon label in the middle and shows it whole once selected', asyn
   expect(option.textContent).toContain('(3).docx')
   fireEvent.click(option)
   expect(option.textContent).toContain(name)
+})
+
+// Kit step 5: the folder panel's Share and "Ask Atum about it" (layout r2 §2), beside Show in Finder.
+it('folder panel: Share goes to main with nothing from the window; Ask hands Atum the folder’s place', async () => {
+  const view: MatrixDriveView = {
+    state: 'ready',
+    revision: 2,
+    rootLabel: 'Files',
+    folderLabel: 'Plans',
+    canGoBack: true,
+    truncated: false,
+    rows: [{ id: 'opaque-file', name: 'notes.txt', kind: 'file', size: 14, modifiedAt: Date.now() }]
+  }
+
+  const share = vi.fn(async () => {})
+  const ask = vi.fn()
+  const bridge = { read: async () => view, subscribe: () => () => {}, reveal: vi.fn(), share } as unknown as MatrixDriveBridge
+  setMatrixRightPanel('drive', true)
+
+  try {
+    render(
+      <I18nProvider configClient={null} initialLocale="en">
+        <MatrixDrive bridge={bridge} onAskAbout={ask} />
+      </I18nProvider>
+    )
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Share' }))
+    await waitFor(() => expect(share).toHaveBeenCalledExactlyOnceWith())
+
+    fireEvent.click(screen.getByRole('button', { name: 'Ask Atum about it' }))
+    expect(ask).toHaveBeenCalledOnce()
+    expect(ask.mock.calls[0]![0]).toMatch(/^About the folder “Atum Drive.*”: $/u)
+  } finally {
+    setMatrixRightPanel('drive', false)
+  }
+})
+
+it('folder panel: no Share without main’s share, and no Ask without Atum’s chat', async () => {
+  const view: MatrixDriveView = { state: 'ready', revision: 2, canGoBack: false, truncated: false, rows: [] }
+  const bridge = { read: async () => view, subscribe: () => () => {}, reveal: vi.fn() } as unknown as MatrixDriveBridge
+  setMatrixRightPanel('drive', true)
+
+  try {
+    render(
+      <I18nProvider configClient={null} initialLocale="en">
+        <MatrixDrive bridge={bridge} />
+      </I18nProvider>
+    )
+
+    await waitFor(() => expect(document.querySelector('[data-matrix-drive-folder-reveal]')).toBeTruthy())
+    expect(document.querySelector('[data-matrix-drive-folder-share]')).toBeNull()
+    expect(document.querySelector('[data-matrix-drive-folder-ask]')).toBeNull()
+  } finally {
+    setMatrixRightPanel('drive', false)
+  }
 })

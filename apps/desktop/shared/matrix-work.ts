@@ -134,8 +134,13 @@ export interface MatrixWorkRect {
 
 export interface WorkSurfaceModeSnapshot { projectId: string; mode: 'work' | 'code' }
 
-/** The view's thread list: open, and its right edge in the view's CSS pixels (the band lines the bell up with it). */
-export interface WorkSidebarSnapshot { open: boolean; edge: number }
+/**
+ * The view's thread list: open, and its right edge in the view's CSS pixels (the band lines ← → up with it); and
+ * whether T3's own history can step back / forward, so the window's ← → go through it first; and the open
+ * thread's right panel ('open' / 'closed'; absent while the view has none to offer), so its toggle sits on the
+ * title bar's right as every screen's does.
+ */
+export interface WorkSidebarSnapshot { open: boolean; edge: number; back?: boolean; forward?: boolean; rightPanel?: 'open' | 'closed' }
 
 /** A report from the view, or null when it is not one (the view is another origin's page). */
 export function parseWorkSidebar(value: unknown): WorkSidebarSnapshot | null {
@@ -145,8 +150,20 @@ export function parseWorkSidebar(value: unknown): WorkSidebarSnapshot | null {
 
   const row = value as Record<string, unknown>
 
-  return typeof row.open === 'boolean' && typeof row.edge === 'number' && Number.isFinite(row.edge) && row.edge >= 0 && row.edge <= 10_000
-    ? { open: row.open, edge: Math.round(row.edge) } : null
+  const history = (entry: unknown) => entry === undefined || typeof entry === 'boolean'
+
+  const panel = row.rightPanel === undefined || row.rightPanel === 'open' || row.rightPanel === 'closed'
+
+  return typeof row.open === 'boolean' && typeof row.edge === 'number' && Number.isFinite(row.edge) && row.edge >= 0 && row.edge <= 10_000 &&
+    history(row.back) && history(row.forward) && panel
+    ? {
+        open: row.open,
+        edge: Math.round(row.edge),
+        ...(row.back ? { back: true } : {}),
+        ...(row.forward ? { forward: true } : {}),
+        ...(row.rightPanel ? { rightPanel: row.rightPanel as 'open' | 'closed' } : {})
+      }
+    : null
 }
 
 /**
@@ -169,7 +186,7 @@ export function parseWorkAttention(value: unknown): WorkAttentionSnapshot | null
 }
 
 /** T3 commands the Work title band offers as buttons over the roster column (spec §1.4). */
-export const WORK_BAND_COMMANDS = ['sidebar.toggle', 'chat.new', 'chat.newWorktree', 'project.add'] as const
+export const WORK_BAND_COMMANDS = ['sidebar.toggle', 'chat.new', 'chat.newWorktree', 'project.add', 'history.back', 'history.forward', 'rightPanel.toggle'] as const
 export type WorkBandCommand = (typeof WORK_BAND_COMMANDS)[number]
 
 export type MatrixWorkRequest =

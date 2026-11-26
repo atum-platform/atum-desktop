@@ -96,7 +96,7 @@ import { $companyAdmin, clearCompanyAdmin, loadCompanyAdmin } from './team-space
 import { type SendingStanding, sendVerdict } from './team-space/authorize'
 import { $companyBoardLinkRequest, clearCompanyBoardLink } from './team-space/board-links'
 import { type ChannelDialog, ChannelDialogs } from './team-space/channel-dialogs'
-import { TeamSpaceChannelOverview } from './team-space/channel-overview'
+import { type TeamSpaceChannelFacts, TeamSpaceChannelOverview } from './team-space/channel-overview'
 import { ChannelSections } from './team-space/channel-sections'
 import {
   $companyChannels,
@@ -228,6 +228,10 @@ export interface MatrixCompanyWorkspaceProps {
   convergenceAttempts?: number
   /** The selected company channel transcript. The company sidebar stays mounted beside it. */
   channelContent?: ReactNode
+  /** The open room's members and pinned messages, from the Matrix snapshot, for the channel overview. */
+  channelFacts?: TeamSpaceChannelFacts
+  /** Jumps to a pinned message in the open room (its thread when it has one). */
+  onOpenPinned?(roomId: string, eventId: string, threadRootId?: string): void
   /** The window's notice bands: shown at the top of the main column, never above the sidebar. */
   notices?: ReactNode
   /** Reports whether the bound transcript is actually painted and readable. */
@@ -364,11 +368,11 @@ function CompanyOverviewFrame({ children, overlay }: { children: ReactNode; over
  */
 export function MatrixCompanyWorkspace({ accountKey, activeRoomId, activity: syncedActivity = [], bridge, fundingEnabled = false, projectSourcesEnabled = false,
     projectReaderEnabled = false, projectsEnabled = false, rooms = [], searchEnabled = false,
-    overviewFallback = false, channelContent, notices, drafts = { records: [], writable: false }, notesSelf, notesSelfAvatar,
+    overviewFallback = false, channelContent, channelFacts, notices, drafts = { records: [], writable: false }, notesSelf, notesSelfAvatar,
     onOpenNotesSelf, savedMessages = { records: [], writable: false }, citationSenderName,
     convergenceDelayMs = 1_500, convergenceAttempts = 8,
     onAcceptPrivateCosInvite, onChannelVisibilityChange, onFollowCompanyThread, onOpenActivityItem, onOpenChannel,
-    onOpenCompanyDraft, onOpenCompanyThread,
+    onOpenCompanyDraft, onOpenCompanyThread, onOpenPinned,
     onOpenSavedMessage, onOpenSearchResult, onOpenThread, onPurgeCompanyDraft, onReadCompanyThread,
     onRejectPrivateCosRoom, preferredCompanyId,
     threads = [] }: MatrixCompanyWorkspaceProps) {
@@ -3644,10 +3648,14 @@ export function MatrixCompanyWorkspace({ accountKey, activeRoomId, activity: syn
           <TeamSpaceChannelOverview
             channel={neutralChannel}
             chief={sharedChief?.enabled ? { name: boardCopy.chiefOfStaff } : undefined}
+            facts={channelFacts?.roomId === neutralChannel.room.roomId ? channelFacts : undefined}
             onAddPeople={neutralChannel.wire === '1.4' ? () => setDialog({ kind: 'members', channelId: neutralChannel.id }) : (menuAllowed.invite ? openInvite : undefined)}
             onAskChief={privateCosState ? () => void openPrivateCos() : undefined}
             onClose={() => setMatrixRightPanel('workplace', false)}
             onOpenBoard={() => patchCompanySpacePreferences(activeCompanyScope, { tab: 'board' })}
+            onOpenPinned={onOpenPinned && channelFacts
+              ? (eventId, threadRootId) => onOpenPinned(channelFacts.roomId, eventId, threadRootId)
+              : undefined}
           />
         )}
         {activeCompanyTab === 'board' && selectedCompanyId && visibleSnapshot && (
