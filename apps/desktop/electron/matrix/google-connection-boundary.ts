@@ -16,6 +16,7 @@ import {
   type MatrixGoogleWriteActionAnswer,
   type MatrixGoogleWriteActionInput,
   type MatrixGoogleWriteListAnswer,
+  parseMatrixGoogleWorkProposalList,
   parseMatrixGoogleWriteActionInput,
   parseMatrixGoogleWriteProposalList
 } from '../../shared/matrix-google-write-proposal'
@@ -241,22 +242,28 @@ export async function requestMatrixGoogleAccountStatus(
     headers: { Authorization: `Bearer ${accessToken}`, Accept: 'application/json' },
     cache: 'no-store', credentials: 'omit', redirect: 'error', signal
   })
+
   if (response.status === 401) {
     await response.body?.cancel()
     throw new Error('matrix_s1_authentication')
   }
+
   if (response.status !== 200 || !response.headers.get('content-type')?.startsWith('application/json')) {
     await response.body?.cancel()
+
     return { status: null, error: 'network' }
   }
+
   try {
     const value = record(await readDomainJson(response, 32 * 1024))
+
     if (!value || value.profile !== 'atum.google-connection/1' ||
         !Number.isSafeInteger(value.revision) || Number(value.revision) < 0 ||
         !Array.isArray(value.scopes) || !value.scopes.every(scope => typeof scope === 'string') ||
         !['ready', 'disconnected', 'attention'].includes(String(value.state))) {
       return { status: null, error: 'network' }
     }
+
     // The pinned account and a recent refusal are additive: an older platform sends neither, and a malformed value is dropped.
     const email = typeof value.googleEmail === 'string' && value.googleEmail.length <= 320 &&
       /^[^\s@]+@[^\s@]+$/u.test(value.googleEmail)
@@ -281,22 +288,29 @@ export async function requestMatrixGoogleAccountConnect(resource: string, access
     body: JSON.stringify({ profile: 'atum.google-connection/1', requestId: randomUUID(), returnTo: 'desktop' }),
     cache: 'no-store', credentials: 'omit', redirect: 'error', signal
   })
+
   if (response.status === 401) {
     await response.body?.cancel()
     throw new Error('matrix_s1_authentication')
   }
+
   if (response.status !== 200 || !response.headers.get('content-type')?.startsWith('application/json')) {
     await response.body?.cancel()
     throw new Error('matrix_google_unavailable')
   }
+
   const value = record(await readDomainJson(response, 32 * 1024))
+
   if (!value || value.profile !== 'atum.google-connection/1' || value.state !== 'authorization_required' || typeof value.authorizeUrl !== 'string') {
     throw new Error('matrix_google_unavailable')
   }
+
   const url = new URL(value.authorizeUrl)
+
   if (url.origin !== 'https://accounts.google.com' || url.username || url.password) {
     throw new Error('matrix_google_unavailable')
   }
+
   return url.href
 }
 
@@ -357,9 +371,11 @@ export async function requestMatrixGoogleWriteProposals(
   }
 
   try {
-    const proposals = parseMatrixGoogleWriteProposalList(await readDomainJson(response, WRITE_LIST_BYTES))
+    const body = await readDomainJson(response, WRITE_LIST_BYTES)
+    const proposals = parseMatrixGoogleWriteProposalList(body)
+    const work = parseMatrixGoogleWorkProposalList(body)
 
-    return proposals ? { state: 'ok', proposals } : writeUnavailable
+    return proposals && work ? { state: 'ok', proposals, work } : writeUnavailable
   } catch {
     return writeUnavailable
   }
@@ -416,7 +432,11 @@ export interface MatrixGoogleWriteAccount {
  * 401). A second 401 is `refused`; a lost answer, a failure, or an answer that arrives after the
  * account changed is `unavailable`, never confirmed.
  */
-export function matrixGoogleWriteProposals(account: MatrixGoogleWriteAccount): MatrixGoogleWriteProposalsBridge {
+export function matrixGoogleWriteProposals(
+  account: MatrixGoogleWriteAccount,
+  /** The signed-in Matrix user; the list names it so Work cards show only for the account on screen. */
+  owner: () => string | undefined = () => undefined
+): MatrixGoogleWriteProposalsBridge {
   async function owned<T extends { state: string }>(
     send: (accessToken: string, resource: string, signal: AbortSignal) => Promise<T>
   ): Promise<T | MatrixGoogleWriteActionAnswer & { state: 'refused' | 'unavailable' }> {
@@ -435,7 +455,13 @@ export function matrixGoogleWriteProposals(account: MatrixGoogleWriteAccount): M
   }
 
   return {
-    list: () => owned((token, resource, signal) => requestMatrixGoogleWriteProposals(resource, token, signal)),
+    list: async () => {
+      const user = owner()
+      const answer = await owned((token, resource, signal) => requestMatrixGoogleWriteProposals(resource, token, signal))
+
+      // Read for one account and named for it; an answer that outlived a sign-in change already fell to unavailable.
+      return answer.state === 'ok' && user && owner() === user ? { ...answer, owner: user } : answer
+    },
     act: input => owned((token, resource, signal) => requestMatrixGoogleWriteAction(resource, token, input, signal))
   }
 }

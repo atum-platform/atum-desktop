@@ -30,6 +30,7 @@ import {
   playgroundCommerceOptions,
   playgroundHistory
 } from './store-fixtures'
+import { PlaygroundWorkGoogleWrite } from './work-google-write-gallery'
 
 export const PLAYGROUND_VIEWS = [
   ...LISTING_HIRE_VIEWS,
@@ -57,6 +58,7 @@ export const PLAYGROUND_VIEWS = [
   'settings-google',
   'settings-work',
   'relay',
+  'work-google-write',
   'account-menu',
   'loaders',
   'crash',
@@ -266,6 +268,10 @@ export function PlaygroundGallery({ view }: { view: PlaygroundView }) {
   }
 
   // Relay R1's picker rows and chip, Work's shared-context line, the plan's usage and the consent: `&relay=…` (relay-gallery.tsx).
+  if (view === 'work-google-write') {
+    return <PlaygroundWorkGoogleWrite />
+  }
+
   if (view === 'relay') {
     return <PlaygroundRelay />
   }
@@ -306,6 +312,7 @@ export function PlaygroundGallery({ view }: { view: PlaygroundView }) {
 function PlaygroundStorefront({ view }: { view: PlaygroundView }) {
   const [shelf, setShelf] = useState<DiscoverShelf>('featured')
   const [query, setQuery] = useState('')
+
   const [commerce] = useState(() => {
     const instance = new PlaygroundCommerce(playgroundCommerceOptions(new URLSearchParams(location.search)))
     Object.assign(window, { __atumPlaygroundCommerce: instance })

@@ -277,6 +277,11 @@ describe('createMatrixWork', () => {
       localDeviceServiceId: () => '67000000-0000-4000-8000-0000000000d1',
       deviceServicesEndpoint: () => 'https://api.example.test/api/matrix/v1/device-services',
       bearer: async () => 'bearer',
+      shellMcp: {
+        resource: 'https://api.example.test/api/matrix/v1',
+        matrixToken: () => 'matrix-fixture',
+        refreshMatrixToken: async () => 'matrix-refreshed-fixture'
+      },
       prepareChatGptConnect: async () => undefined,
       ownerHost: () => undefined,
       agentMatrixUser: async () => null,
@@ -298,6 +303,21 @@ describe('createMatrixWork', () => {
 
     expect(handlers.has(MATRIX_WORK_IPC.request)).toBe(true)
     expect(await read()).toBeNull()
+  })
+
+  it('removes both legacy manifest files when Desktop starts while signed out', () => {
+    const { deps } = build({ scope: () => null })
+    const root = join(deps.userData, 'work-accounts', 'a'.repeat(32))
+    const { userdata } = workSessionPaths({ root })
+    mkdirSync(userdata, { recursive: true })
+    const manifest = join(userdata, 'managed-mcp-servers.json')
+    writeFileSync(manifest, 'old config')
+    writeFileSync(`${manifest}.next`, 'interrupted write')
+
+    createMatrixWork(deps)
+
+    expect(existsSync(manifest)).toBe(false)
+    expect(existsSync(`${manifest}.next`)).toBe(false)
   })
 
   it('readies a cloud Hermes agent and exposes Work without any local agent enrollment', async () => {

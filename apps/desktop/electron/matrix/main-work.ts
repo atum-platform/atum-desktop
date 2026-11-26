@@ -1,5 +1,5 @@
 import { randomBytes } from 'node:crypto'
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { availableParallelism, loadavg } from 'node:os'
 import { join } from 'node:path'
 
@@ -12,6 +12,7 @@ import { admitConnector } from '../work/connector/admission'
 import { ConnectorHttp } from '../work/connector/http'
 import { matrixConnector } from '../work/connector/matrix'
 import { ConnectorService } from '../work/connector/service'
+import type { ShellMcpOptions } from '../work/connector/shell-mcp'
 import {
   createDeviceServicePlatform,
   createWorkConsentClient,
@@ -34,6 +35,7 @@ import {
 } from '../work/mount'
 import { createWorkHistory } from '../work/mount/history'
 import { homeRunningFromRuntimeFile, partitionFor, type PinRef, type UpdateOutcome, WorkSession, workSessionPaths } from '../work/session'
+import { removeDurably } from '../work/session/files'
 import { createT3AuthCli } from '../work/session/t3-auth'
 import { type WorkAccess, WorkHost } from '../work/sidecar/host'
 import { workRelayRuntimeReady } from '../work/sidecar/process'
@@ -111,6 +113,7 @@ export interface MatrixWorkDeps {
   deviceServicesEndpoint(): string | undefined
   /** The signed-in owner's current domain bearer. */
   bearer(): Promise<string>
+  shellMcp: Omit<ShellMcpOptions, 'current' | 'signal'>
   connectAssertion?(): Promise<string>
   /** Retire the legacy cloud login before opening native Codex setup. */
   prepareChatGptConnect(): Promise<void>
@@ -339,7 +342,30 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
     abort: role => deps.model.abortRole?.(role)
   })
 
-  const rootFor = (accountKey: string) => join(deps.userData, 'work-accounts', accountKey.slice(0, 32))
+  const accountsDir = join(deps.userData, 'work-accounts')
+  const rootFor = (accountKey: string) => join(accountsDir, accountKey.slice(0, 32))
+
+  const removeLegacyMcpManifest = (root: string) => {
+    try {
+      const file = join(workSessionPaths({ root }).userdata, 'managed-mcp-servers.json')
+      removeDurably(file)
+      removeDurably(`${file}.next`)
+    } catch {
+      deps.log('[atum-work] legacy_mcp_manifest_cleanup_failed')
+    }
+  }
+
+  try {
+    for (const entry of readdirSync(accountsDir, { withFileTypes: true })) {
+      if (entry.isDirectory() && /^[0-9a-f]{32}$/u.test(entry.name)) {
+        removeLegacyMcpManifest(join(accountsDir, entry.name))
+      }
+    }
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+      deps.log('[atum-work] legacy_mcp_manifest_cleanup_failed')
+    }
+  }
 
   // Resolve once per signed-in generation. A late /me answer cannot bind another account's Work.
   let owner: { accountKey: string; generation: number; principal: string } | undefined
@@ -372,9 +398,12 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
         })
 
   let connector: ConnectorHttp | undefined
+  let connectorLifetime: AbortController | undefined
   let connectorEnvironment: Record<string, string> = {}
 
   const closeConnector = () => {
+    connectorLifetime?.abort()
+    connectorLifetime = undefined
     const old = connector
     connector = undefined
     connectorEnvironment = {}
@@ -386,11 +415,15 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
 
     if (bound) {
       closeConnector()
+      removeLegacyMcpManifest(bound.root)
+      const lifetime = new AbortController()
+      connectorLifetime = lifetime
+      const connectorSignal = AbortSignal.any([signal, lifetime.signal])
 
       const current = () => {
         const active = account()
 
-        return !signal.aborted && active?.key === bound.key && active.generation === bound.generation
+        return !connectorSignal.aborted && active?.key === bound.key && active.generation === bound.generation
       }
 
       const secret = randomBytes(32).toString('base64url')
@@ -411,10 +444,28 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
         })
       )
 
-      const candidate = new ConnectorHttp(service, secret)
-      const endpoint = await candidate.start()
+      const candidate = new ConnectorHttp(service, secret, { ...deps.shellMcp, current, signal: connectorSignal })
+      let endpoint: string
+
+      try {
+        endpoint = await candidate.start()
+      } catch {
+        const stillCurrent = current()
+
+        lifetime.abort()
+        await candidate.close()
+
+        if (!stillCurrent || signal.aborted) {
+          throw new Error('work_account_changed')
+        }
+
+        deps.log('[atum-work] connector_unavailable')
+
+        return
+      }
 
       if (!current()) {
+        lifetime.abort()
         await candidate.close()
         throw new Error('work_account_changed')
       }

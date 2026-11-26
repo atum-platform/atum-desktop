@@ -155,3 +155,51 @@ to one line naming the request, with its state underneath. The card never shows 
 - `apps/desktop/src/matrix/google-write-card.tsx` and `google-write-card-copy.ts`: the card,
   the per-chat card list (`MatrixGoogleWriteProposals`, mounted above the composer in
   `app.tsx`) and the copy.
+
+## Work proposals (owner, 2026-11-25: one rule)
+
+The owner's own Work on this Mac can ask for Google changes too. Each one waits behind the same
+card and the same owner endpoint as an assistant's, so nothing reaches Google until the owner
+approves it. Shell (atum-platform migration `0550_google_mcp_work_proposals.sql`,
+`apps/shell/src/lib/google-proposals.ts`) lists these proposals in the same owner list with
+`source:"work"`, `agent:null` and `room:null`. Their `draft` is the exact preview Shell will
+execute, and the digest covers that preview.
+
+- **Seven actions.** `send_email`, `create_event` and `update_event` use the agent draft shapes.
+  `create_draft` and `update_draft` use the email shape plus `action` and `sourceId`, and
+  `update_draft` also has `draftId`. `mailbox` carries `operation`, exactly one of `threadId` or
+  `messageId`, and `labels` only for `add_labels` and `remove_labels`. `create_label` carries
+  `name`. The reader is `parseMatrixGoogleWorkProposalList`. It is as strict as the agent
+  reader, and it keeps one proposal, because Shell keeps one open Work proposal per owner.
+- **Never in an agent chat.** The agent reader drops Work entries, and the Work reader drops
+  agent entries. Main returns them separately, as `proposals` and `work`.
+- **Where the card shows.** The Work page puts it above the native Work view
+  (`MatrixGoogleWorkWriteProposals` in `WorkScreen`). It sits outside the host region, so the
+  native view shrinks and does not cover the card. A muted line under the question reads
+  "From Work on this Mac".
+- **Account binding.** Main names the account it read the list for, `owner` (the Matrix user).
+  The page shows Work cards only when that name is the account on screen. It shows nothing for
+  a list that names no account or names another one, and it drops its cards when the account
+  changes. Main already discards any answer that arrives after a sign-in change.
+- **Refresh.** No chat event signals a Work proposal, so the page reads the list on mount, on
+  window focus, every 5 s while the page is visible (`MATRIX_GOOGLE_WORK_POLL_MS`), and after
+  each decision. A push signal would replace the interval. That is deferred.
+- **States.** Pending shows Approve and Decline. Settled states are one line each:
+  - Approved: "Approved." Shell carries out the change right away, and the result goes to Work.
+  - Declined: "Declined. Nothing was changed."
+  - Superseded: "A newer request from Work replaced this one."
+  - Expired: the proposal left the list unanswered and was not replaced. Shell lists a Work
+    proposal for 24 h.
+  - Changed: the digest does not match, and nothing is offered.
+  - A Shell refusal also settles to the expired line.
+- **Evidence.** The playground view `?view=work-google-write` renders the real card for every
+  action and settled state. Tests: `src/matrix/google-work-write-card.test.tsx`,
+  `shared/matrix-google-write-proposal.test.ts` ("Work proposal reader"),
+  `electron/matrix/google-connection-boundary.test.ts` and `src/app/work/work-screen.test.tsx`.
+
+### 2026-11-26 integration
+
+The card branch was rebased onto Desktop main. Fold the card into the account-connections
+branch for one Desktop pull request. The account connector exposes Google mutations to
+Work and the existing card is where the owner approves them. The two parts should enter
+the same Desktop release.
