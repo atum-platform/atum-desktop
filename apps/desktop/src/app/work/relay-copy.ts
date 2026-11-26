@@ -31,10 +31,7 @@ export interface WorkRelayWords {
   /** The plan's usage line in Settings. Never blocking, never a cost. */
   usageUsed(percent: number, at?: string): string
   usageLimit(at?: string): string
-  usageScheduled(runs: number): string
   usageUnknown: string
-  /** O14: one line in Work for the assistants whose chat runs in a thread there. */
-  sharedContext(names: readonly string[]): string
   /** The consent sheet when the plan also answers the assistants' chats (§6). */
   consentChatsLine: string
   consentScheduled: string
@@ -78,12 +75,7 @@ const en: WorkRelayWords = {
   },
   usageUsed: (percent, at) => (at ? `${percent}% used · resets ${at}` : `${percent}% used`),
   usageLimit: at => (at ? `Limit reached · resets ${at}` : 'Limit reached'),
-  usageScheduled: runs => `${runs} scheduled runs`,
   usageUnknown: 'Usage not reported',
-  sharedContext: names =>
-    names.length === 1
-      ? `What you type in ${names[0]}’s chat here can show up in its replies.`
-      : 'What you type in your assistants’ chats here can show up in their replies.',
   consentChatsLine: 'Your chats with them run on your Mac with this plan. Stop it anytime.',
   consentScheduled: 'Also for scheduled work'
 }
@@ -126,12 +118,7 @@ const vi: WorkRelayWords = {
   },
   usageUsed: (percent, at) => (at ? `Đã dùng ${percent}% · làm mới ${at}` : `Đã dùng ${percent}%`),
   usageLimit: at => (at ? `Hết lượt · làm mới ${at}` : 'Hết lượt'),
-  usageScheduled: runs => `${runs} lượt chạy theo lịch`,
   usageUnknown: 'Chưa có số liệu sử dụng',
-  sharedContext: names =>
-    names.length === 1
-      ? `Những gì bạn nhập vào cuộc trò chuyện của ${names[0]} ở đây có thể xuất hiện trong câu trả lời của trợ lý.`
-      : 'Những gì bạn nhập vào cuộc trò chuyện của các trợ lý ở đây có thể xuất hiện trong câu trả lời của họ.',
   consentChatsLine: 'Cuộc trò chuyện của bạn với họ chạy trên máy Mac bằng gói này. Dừng bất cứ lúc nào.',
   consentScheduled: 'Cả việc theo lịch'
 }

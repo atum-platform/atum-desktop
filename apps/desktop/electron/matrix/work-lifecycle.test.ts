@@ -1,18 +1,16 @@
 import { describe, expect, it } from 'vitest'
 
-import type { RetireResult, WorkMountAccount } from '../work/mount'
 import type { WorkSurfaceParts } from '../work/surface'
 
-import { MatrixWorkLifecycle, type MatrixWorkLifecyclePorts, workAccountFor } from './work-lifecycle'
+import { MatrixWorkLifecycle, type MatrixWorkLifecyclePorts, type WorkAccount, workAccountFor } from './work-lifecycle'
 
-const LUNA: WorkMountAccount = { key: 'k1', generation: 1, root: '/w/k1', accountId: '67000000-0000-4000-8000-0000000000a1' }
+const LUNA: WorkAccount = { key: 'k1', generation: 1, root: '/w/k1', accountId: '67000000-0000-4000-8000-0000000000a1' }
 
-function lab(initial: WorkMountAccount | null = LUNA) {
+function lab(initial: WorkAccount | null = LUNA) {
   const events: string[] = []
-  const state = { account: initial ?? undefined as WorkMountAccount | undefined, phase: 'idle', prepareFails: false, retire: { settled: true, failed: [] } as RetireResult }
-  const clock = { now: 1_000_000 }
+  const state = { account: initial ?? undefined as WorkAccount | undefined, prepareFails: false }
 
-  const parts = (account: WorkMountAccount) => ({ account } as unknown as WorkSurfaceParts)
+  const parts = (account: WorkAccount) => ({ account } as unknown as WorkSurfaceParts)
 
   const ports: MatrixWorkLifecyclePorts = {
     account: () => state.account,
@@ -23,24 +21,14 @@ function lab(initial: WorkMountAccount | null = LUNA) {
         throw new Error('services_down')
       }
     },
-    mount: {
-      setSurface: async surface => void events.push(`surface:${surface}`),
-      reconcile: async () => void events.push('reconcile'),
-      retire: async account => {
-        events.push(`retire:${account.key}.${account.generation}`)
-
-        return state.retire
-      },
-      quit: async () => void events.push('quit'),
-      state: () => ({ phase: state.phase })
-    },
-    attach: value => void events.push(value ? `attach:${(value as unknown as { account: WorkMountAccount }).account.key}` : 'detach'),
+    retire: async account => void events.push(`retire:${account.key}.${account.generation}`),
+    quit: async () => void events.push('quit'),
+    attach: value => void events.push(value ? `attach:${(value as unknown as { account: WorkAccount }).account.key}` : 'detach'),
     parts,
-    now: () => clock.now,
     log: line => void events.push(`log:${line}`)
   }
 
-  return { lifecycle: new MatrixWorkLifecycle(ports), events, state, clock }
+  return { lifecycle: new MatrixWorkLifecycle(ports), events, state }
 }
 
 describe('workAccountFor', () => {
@@ -55,14 +43,14 @@ describe('workAccountFor', () => {
 })
 
 describe('MatrixWorkLifecycle', () => {
-  it('builds Work once per account: services, then the page\'s parts, then the surface on', async () => {
+  it('builds Work once per account: services, then the page’s parts', async () => {
     const { events, lifecycle } = lab()
 
     await lifecycle.activate()
     await lifecycle.activate()
     await lifecycle.activate()
 
-    expect(events).toEqual(['prepare', 'attach:k1', 'surface:on'])
+    expect(events).toEqual(['prepare', 'attach:k1'])
     expect(lifecycle.boundAccount()).toEqual(LUNA)
   })
 
@@ -74,7 +62,7 @@ describe('MatrixWorkLifecycle', () => {
 
     state.account = LUNA
     await lifecycle.activate()
-    expect(events).toEqual(['prepare', 'attach:k1', 'surface:on'])
+    expect(events).toEqual(['prepare', 'attach:k1'])
   })
 
   it('an account change retires the old one (page detached first) before the new one is built', async () => {
@@ -85,7 +73,7 @@ describe('MatrixWorkLifecycle', () => {
     state.account = { ...LUNA, key: 'k2', root: '/w/k2' }
     await lifecycle.activate()
 
-    expect(events).toEqual(['detach', 'retire:k1.1', 'prepare', 'attach:k2', 'surface:on'])
+    expect(events).toEqual(['detach', 'retire:k1.1', 'prepare', 'attach:k2'])
   })
 
   it('a new generation of the same account is a different Work: the old server stops first', async () => {
@@ -97,7 +85,7 @@ describe('MatrixWorkLifecycle', () => {
     await lifecycle.activate()
 
     expect(events.slice(0, 2)).toEqual(['detach', 'retire:k1.1'])
-    expect(events.at(-1)).toBe('surface:on')
+    expect(events.at(-1)).toBe('attach:k1')
   })
 
   it('sign-out: the page detaches before the mount retires, and a second retire does nothing', async () => {
@@ -110,19 +98,9 @@ describe('MatrixWorkLifecycle', () => {
     const second = await lifecycle.retire()
 
     expect(events).toEqual(['detach', 'retire:k1.1'])
-    expect(first?.settled).toBe(true)
-    expect(second).toBeUndefined()
+    expect(first).toBe(true)
+    expect(second).toBe(false)
     expect(lifecycle.boundAccount()).toBeUndefined()
-  })
-
-  it('reports an unsettled retire in the log without hiding it', async () => {
-    const { events, lifecycle, state } = lab()
-    await lifecycle.activate()
-    state.retire = { settled: false, failed: ['gate_retire:t3_down'] }
-
-    await lifecycle.retire()
-
-    expect(events.at(-1)).toBe('log:[atum-work] retire settled=false failed=gate_retire:t3_down')
   })
 
   it('a sign-out that arrives while the account is still being bound waits for the bind and binds nothing', async () => {
@@ -160,7 +138,7 @@ describe('MatrixWorkLifecycle', () => {
     state.prepareFails = false
     events.length = 0
     await lifecycle.activate()
-    expect(events).toEqual(['prepare', 'attach:k1', 'surface:on'])
+    expect(events).toEqual(['prepare', 'attach:k1'])
   })
 
   it('an account that signed out while services started is never bound', async () => {
@@ -177,34 +155,6 @@ describe('MatrixWorkLifecycle', () => {
     await lifecycle.activate()
     expect(events).toEqual(['prepare'])
     expect(lifecycle.boundAccount()).toBeUndefined()
-  })
-
-  it('retries a start that failed at most every thirty seconds', async () => {
-    const { clock, events, lifecycle, state } = lab()
-    await lifecycle.activate()
-    events.length = 0
-
-    state.phase = 'running'
-    await lifecycle.activate()
-    expect(events).toEqual([])
-
-    // the bind's own start counts as the first try
-    state.phase = 'failed'
-    await lifecycle.activate()
-    expect(events).toEqual([])
-
-    clock.now += 31_000
-    await lifecycle.activate()
-    await lifecycle.activate()
-    expect(events).toEqual(['reconcile'])
-
-    clock.now += 29_000
-    await lifecycle.activate()
-    expect(events).toEqual(['reconcile'])
-
-    clock.now += 2_000
-    await lifecycle.activate()
-    expect(events).toEqual(['reconcile', 'reconcile'])
   })
 
   it('quit is not a revocation: detach and close, with no retire, and nothing binds afterwards', async () => {

@@ -20,8 +20,8 @@ it('shows the most used current account-wide window from each T3 plan with its o
     provider('claudeAgent', [{ ...window, usedPercent: 100 }]),
     provider('antigravity', [window])
   ], now)).toEqual([
-    { plan: 'codex', state: 'available', observedAt: now - 1000, usedPercent: 45, resetsAt: now + 60_000, windowStart: now - 299 * 60_000 },
-    { plan: 'claude', state: 'exhausted', observedAt: now - 1000, usedPercent: 100, resetsAt: now + 60_000, windowStart: now - 299 * 60_000 }
+    { plan: 'codex', state: 'available', observedAt: now - 1000, usedPercent: 45, resetsAt: now + 60_000 },
+    { plan: 'claude', state: 'exhausted', observedAt: now - 1000, usedPercent: 100, resetsAt: now + 60_000 }
   ])
 })
 

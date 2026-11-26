@@ -28,6 +28,7 @@ function readRun(home: string, sessionId: string): WorkRun | undefined {
       JOIN orchestration_v2_projection_provider_threads p
         ON r.provider_thread_id = p.provider_thread_id
       WHERE json_extract(p.payload_json, '$.nativeThreadRef.nativeId') = ?
+        -- Include already-started historical delegated runs in managed usage.
         AND json_extract(p.payload_json, '$.providerInstanceId') IN ('atum-managed', 'atum-managed-delegated')
         AND r.status IN ('starting', 'running', 'waiting')
       LIMIT 2

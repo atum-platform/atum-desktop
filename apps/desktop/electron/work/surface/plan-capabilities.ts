@@ -1,7 +1,8 @@
 import { z } from 'zod'
 
-import type { PlanCapabilities } from '../gate/plan-fact'
 import { PLAN_PROVIDER_BY_INSTANCE } from '../plan-providers'
+
+import type { PlanCapabilities } from './plan-facts'
 
 const modelId = /^[A-Za-z0-9][A-Za-z0-9._/-]{0,199}$/u
 const modelLabel = /^[A-Za-z0-9][A-Za-z0-9 ._()/+:-]{0,119}$/u

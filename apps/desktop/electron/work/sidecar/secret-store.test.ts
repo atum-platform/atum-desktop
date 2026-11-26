@@ -4,8 +4,6 @@ import { join } from 'node:path'
 
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { T3Sessions } from '../gate/sessions'
-
 import { createKeychainSecretStore, workSecretsPath } from './secret-store'
 
 // A test-only safeStorage: reversible but not plaintext, so a test can tell encrypted bytes from clear text.
@@ -67,24 +65,5 @@ describe('keychain secret store', () => {
     expect(closed.get('agent:luna')).toBeUndefined()
     expect(onFailure).toHaveBeenCalledWith('auth_storage_unavailable')
     expect(readFileSync(workSecretsPath(a), 'utf8')).not.toContain('other')
-  })
-
-  it('is the store the T3 sessions keep an agent’s bearer in', () => {
-    const a = account()
-    const secrets = createKeychainSecretStore({ account: a, safeStorage })
-
-    const sessions = new T3Sessions({
-      origin: () => undefined,
-      pairing: { create: async () => 'unused' },
-      auth: { sessionIds: async () => [], revokeSession: async () => undefined },
-      store: secrets,
-      agentName: () => 'Luna',
-      knownAgents: () => ['luna'],
-      unfinished: () => false
-    })
-
-    secrets.set('agent:luna', JSON.stringify({ token: 'bearer-1', sessionId: 'session-1' }))
-
-    expect(sessions.agentSessionId('luna')).toBe('session-1')
   })
 })

@@ -270,7 +270,7 @@ describe('Work off marker', () => {
   it('reads the owner\'s switch: on by default, off after setEnabled(false), on again after setEnabled(true)', async () => {
     const root = mkdtempSync(join(tmpdir(), 'wh-'))
     roots.push(root)
-    const host = hostFor(root)
+    const host = hostFor(join(root, 'fresh-account'))
 
     expect(host.enabled()).toBe(true)
     await host.setEnabled(false)
