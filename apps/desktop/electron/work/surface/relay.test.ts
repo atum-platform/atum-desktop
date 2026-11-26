@@ -6,29 +6,73 @@ import { createOwnerRelay } from './relay'
 
 const principal = '00000000-0000-4000-8000-00000000b001'
 const catalog = { published: true, plans: { codex: { state: 'connected' as const } } }
+const claude = { provider: 'atum-work', plan: 'claude', model: 'claude-opus-5-5' }
+const codex = { provider: 'atum-work', plan: 'codex', model: 'gpt-6.2-astra' }
+const read = { operation: 'work_selection_read', agentPrincipal: principal }
+
+const write = (expectedRevision: number) => ({
+  operation: 'work_selection_set', agentPrincipal: principal, expectedRevision, selection: codex
+})
+
+function ownerRelay(...replies: Response[]) {
+  const meta = vi.fn(() => '[]')
+  const mount = { service: () => ({ ledger: { meta } }) } as unknown as WorkMount
+  const fetcher = vi.fn<typeof fetch>()
+
+  for (const reply of replies) {fetcher.mockResolvedValueOnce(reply)}
+
+  const relay = createOwnerRelay(mount, async () => catalog, () => ({
+    endpoint: 'https://example.test/device-services', bearer: async () => 'synthetic-test-bearer', fetch: fetcher
+  }))
+
+  return { relay, meta, requests: () => fetcher.mock.calls.map(([, init]) => JSON.parse(init?.body as string)) }
+}
 
 describe('owner plan selection', () => {
-  it('reads the existing revision from the local ledger even when the gate route is unavailable', async () => {
-    const selection = { provider: 'atum-work', plan: 'codex', model: 'test-model', revision: 7 }
-    const meta = vi.fn(() => JSON.stringify([{ agentPrincipal: principal, selection }]))
-    const mount = { service: () => ({ ledger: { meta } }) } as unknown as WorkMount
-    const relay = createOwnerRelay(mount, async () => catalog, () => { throw new Error('unused') })
+  it('restores the server selection and uses its revision after an empty-ledger restart', async () => {
+    const snapshot = { selection: claude, revision: 2 }
+    const saved = { ...codex, revision: 3 }
+    const { relay, meta, requests } = ownerRelay(Response.json(snapshot), Response.json(snapshot), Response.json(saved))
 
-    expect(await relay.readPlans(principal)).toEqual({ ...catalog, selection })
-    expect(meta).toHaveBeenCalledWith('relay_selections')
+    expect(await relay.readPlans(principal)).toEqual({ ...catalog, selection: { ...claude, revision: 2 } })
+    expect(await relay.select(principal, codex.model)).toEqual(saved)
+    expect(requests()).toEqual([read, read, write(2)])
+    expect(meta).not.toHaveBeenCalled()
   })
 
-  it('writes the exact 1.3 selection through the existing endpoint and rejects malformed replies', async () => {
-    const fetcher = vi.fn(async (_url: string, init: RequestInit) => {
-      expect(JSON.parse(init.body as string)).toEqual({ operation: 'work_selection_set', agentPrincipal: principal, expectedRevision: 7, selection: { provider: 'atum-work', plan: 'codex', model: 'test-model' } })
+  it.each([200, 409])('re-reads and retries a conflict once, then handles HTTP %s', async status => {
+    const saved = { ...codex, revision: 4 }
 
-      return new Response(JSON.stringify({ provider: 'atum-work', plan: 'codex', model: 'test-model', revision: 8 }), { status: 200 })
-    })
+    const { relay, requests } = ownerRelay(
+      Response.json({ revision: 2, selection: claude }), new Response(null, { status: 409 }),
+      Response.json({ revision: 3, selection: null }),
+      status === 200 ? Response.json(saved) : new Response(null, { status })
+    )
 
-    const relay = createOwnerRelay({ service: () => undefined } as unknown as WorkMount, async () => catalog, () => ({ endpoint: 'https://example.test/device-services', bearer: async () => 'synthetic-test-bearer', fetch: fetcher as typeof fetch }))
-    expect(await relay.select(principal, 7, 'test-model')).toMatchObject({ revision: 8 })
-    expect(await relay.readPlans(principal)).toEqual({ ...catalog, selection: { provider: 'atum-work', plan: 'codex', model: 'test-model', revision: 8 } })
-    fetcher.mockResolvedValueOnce(new Response('{}', { status: 200 }))
-    await expect(relay.select(principal, 7, 'test-model')).rejects.toThrow()
+    const select = relay.select(principal, codex.model)
+
+    if (status === 200) {
+      await expect(select).resolves.toEqual(saved)
+    } else {
+      await expect(select).rejects.toMatchObject({ status })
+    }
+
+    expect(requests()).toEqual([read, write(2), read, write(3)])
+  })
+
+  it('rejects malformed snapshots before attempting a write', async () => {
+    const { relay, requests } = ownerRelay(Response.json({ selection: null }))
+
+    await expect(relay.select(principal, codex.model)).rejects.toThrow()
+    expect(requests()).toEqual([read])
+  })
+
+  it('does not retry a denied selection', async () => {
+    const { relay, requests } = ownerRelay(
+      Response.json({ revision: 0, selection: null }), new Response(null, { status: 403 })
+    )
+
+    await expect(relay.select(principal, codex.model)).rejects.toMatchObject({ status: 403 })
+    expect(requests()).toEqual([read, write(0)])
   })
 })

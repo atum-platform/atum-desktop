@@ -1573,32 +1573,47 @@ describe('account subscriptions in the model picker', () => {
     expect(selectRelay).not.toHaveBeenCalled()
   })
 
-  it.each([ROOM.id, 'assistant-card:agent:cloud'])('selects native Codex models through the existing Work write (%s)', async id => {
+  it.each([ROOM.id, 'assistant-card:agent:cloud'])('restores the saved Claude model and switches to native ChatGPT (%s)', async id => {
     $accountConnections.set(ACCOUNT_CONNECTIONS_FIXTURE)
     const read = deferred<WorkAgentPlans>()
-    const selectRelay = vi.fn(async () => ({ provider: 'atum-work' as const, plan: 'codex' as const, model: 'gpt-6-sol', revision: 8 }))
-    const readPlanConsent = vi.fn(async () => { throw new Error('legacy gate offline') })
+    const refresh = deferred<WorkAgentPlans>()
+    const readAgentPlans = vi.fn(() => refresh.promise).mockReturnValueOnce(read.promise)
+    const selectRelay = vi.fn(async () => ({ provider: 'atum-work' as const, plan: 'codex' as const, model: 'gpt-6.2-astra', revision: 3 }))
+    const writeSubscription = vi.fn()
     picker({ ...ROOM, id }, {
       cloud: true, here: 'cloud', agentPrincipal: nativePlanAgent, preferenceScope: 'account:test',
       cloudChoice: { offered: ['default'], current: 'default', revision: 1 },
-      bridge: { work: { readAgentPlans: vi.fn(() => read.promise), readPlanConsent, selectRelay } as unknown as NonNullable<MatrixUiBridge['work']> }
+      bridge: {
+        modelDestinations: { writeSubscription } as unknown as NonNullable<MatrixUiBridge['modelDestinations']>,
+        work: { readAgentPlans, selectRelay } as unknown as NonNullable<MatrixUiBridge['work']>
+      }
     })
-    const card = await open(/Model:/)
-    await act(async () => read.resolve({
+
+    const snapshot: WorkAgentPlans = {
       published: true,
-      plans: { codex: { state: 'connected', models: [{ id: 'gpt-6-sol', displayName: 'Native GPT-6 Sol' }] } },
-      selection: { provider: 'atum-work', plan: 'codex', model: 'previous-native-model', revision: 7 }
-    }))
+      plans: {
+        codex: { state: 'connected', models: [{ id: 'gpt-6.2-astra', displayName: 'GPT-6.2-Astra' }] },
+        claude: { state: 'connected', models: [{ id: 'claude-opus-5-5', displayName: 'Claude Opus 5.5' }] }
+      },
+      selection: { provider: 'atum-work', plan: 'claude', model: 'claude-opus-5-5', revision: 2 }
+    }
+
+    await act(async () => read.resolve(snapshot))
+    expect(screen.getByRole('button', { name: /Model: Claude Opus 5\.5/ })).toBeTruthy()
+    const card = await open(/Model: Claude Opus 5\.5/)
     fireEvent.click(rail(card, 'openai-codex'))
 
-    const model = row(card, SOL_ROUTE)
-    expect(rowIds(card)).toEqual([SOL_ROUTE])
+    const astra = 'openai-codex:gpt-6.2-astra'
+    const model = row(card, astra)
+    expect(rowIds(card)).toEqual([astra])
     expect(model.disabled).toBe(false)
-    expect(model.textContent).toContain('Native GPT-6 Sol')
 
     fireEvent.click(model)
-    await waitFor(() => expect(selectRelay).toHaveBeenCalledWith(nativePlanAgent, 7, 'gpt-6-sol', 'codex'))
-    expect(readPlanConsent).not.toHaveBeenCalled()
+    await waitFor(() => expect(selectRelay).toHaveBeenCalledWith(nativePlanAgent, 'gpt-6.2-astra', 'codex'))
+    expect(writeSubscription).not.toHaveBeenCalled()
+    await waitFor(() => expect(screen.getByRole('button', { name: /Model: GPT-6\.2-Astra/ })).toBeTruthy())
+    await act(async () => refresh.resolve(snapshot))
+    expect(screen.getByRole('button', { name: /Model: GPT-6\.2-Astra/ })).toBeTruthy()
   })
 
   it('labels a cloud current-model fallback as Cloud, never This Mac', async () => {
