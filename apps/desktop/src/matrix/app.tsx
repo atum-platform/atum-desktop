@@ -169,6 +169,7 @@ import {
 import { matrixAgentDeskAgent, matrixAgentDeskSteers } from './agent-desk-model'
 import { useMatrixAgentHandleBackfill } from './agent-handle-backfill'
 import { agentHomeTitleIconShown, MatrixAgentHomeRow } from './agent-home-control'
+import { bindAgentPlansAccount } from './agent-plans-store'
 import { authorizedBotApi, botApiAppForMessage, isBotApiRoom } from './app-bots/bot-api'
 import { MatrixBotApiKeyboard, MatrixBotApiText } from './app-bots/bot-api-text'
 import { MatrixBotApiPhotoView } from './app-bots/bot-photo'
@@ -7040,6 +7041,15 @@ export function MatrixApp({
           activateTeamSpaceCacheAccount(next.identity ? teamSpaceAccountKey(next.identity) : null)
         }
 
+        // Mac-plan views belong to one signed-in session: a new account, signing out, or signing in
+        // again (even as the same person) empties them and retires every read and write still in
+        // flight (agent-plans-store.ts).
+        if (next.identity) {
+          bindAgentPlansAccount(next.identity.userId)
+        } else if (next.state === 'signed_out' || next.state === 'signing_in') {
+          bindAgentPlansAccount(null)
+        }
+
         // Handles (and the contacts reads filling them) belong to this account; signing out
         // tears them down before anything renders for the next one.
         bindMatrixHandleOwnerFromSnapshot(next)
@@ -8005,7 +8015,9 @@ function MatrixAccountView({
       ...(focus ? { focus } : {})
     })
 
-    if (cardPanelRoom.id !== snapshot.roomId) {
+    // Selecting also leaves a Store, Team Space or app destination for the chat (Drive, Workplace and
+    // Work are this window's own views; the request leaves them once the chat is the selected room).
+    if (cardPanelRoom.id !== snapshot.roomId || (snapshot.destination && snapshot.destination.kind !== 'room')) {
       void runMatrixCommand({ kind: 'select', roomId: cardPanelRoom.id }).catch(error => {
         setPanelRequest(current => (current?.attempt === attempt ? undefined : current))
         fail(error)
@@ -8026,7 +8038,9 @@ function MatrixAccountView({
       return
     }
 
-    if (room?.id !== panelRequest.roomId || assistantInfo?.principal !== panelRequest.principal) {
+    // The selected room's own agent, read directly: `assistantInfo` is withheld while Drive (or another
+    // view) is in front, and waiting on it would leave the request queued there (review 2026-11-26).
+    if (room?.id !== panelRequest.roomId || (room && matrixAgentDeskAgent(snapshot, room))?.principal !== panelRequest.principal) {
       return
     }
 
@@ -8039,7 +8053,7 @@ function MatrixAccountView({
     setPanelFocus(panelRequest.focus ? { principal: panelRequest.principal, focus: panelRequest.focus } : undefined)
     openWorkspace('info')
     // eslint-disable-next-line react-hooks/exhaustive-deps -- opens once the requested chat is on screen.
-  }, [panelRequest, room?.id, assistantInfo?.principal])
+  }, [panelRequest, room?.id, snapshot.agents])
 
   // Drive's folder panel "Ask Atum about it": the primary assistant's own chat, with the folder's place
   // in its box for the person to finish. Nothing is sent and no path leaves the window.

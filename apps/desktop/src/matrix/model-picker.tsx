@@ -79,6 +79,7 @@ import {
   acknowledgeAgentPlanSelection,
   agentPlansKey,
   beginAgentPlansRead,
+  beginAgentPlansWrite,
   failAgentPlansRead,
   settleAgentPlansRead
 } from './agent-plans-store'
@@ -419,10 +420,12 @@ export function MatrixModelPicker({
           }),
           models: agentPlans?.plans[plan]?.models ?? [],
           select: async (model: string) => {
+            // Numbered before it goes, so a later Atum write acknowledged first keeps the plan cleared.
+            const write = plansKey ? beginAgentPlansWrite(plansKey) : undefined
             const saved = await selectAgentPlan(agentPrincipal, model, plan)
 
             // Every picker for this agent sees the acknowledged selection; reads begun before it retire.
-            if (plansKey) {acknowledgeAgentPlanSelection(plansKey, saved)}
+            if (write) {acknowledgeAgentPlanSelection(write, saved)}
 
             return { status: 'saved' }
           },
@@ -965,10 +968,10 @@ export function MatrixModelPicker({
     )
 
   // Any Atum write for a cloud agent replaces the plan selection on the server (0536's clear
-  // trigger), so every picker for this agent forgets it at once instead of naming the plan until a re-read.
-  const forgetRelaySelection = () => {
-    if (plansKey) {acknowledgeAgentPlanCleared(plansKey)}
-  }
+  // trigger), so every picker for this agent forgets it at once instead of naming the plan until a
+  // re-read. The write is numbered when it starts and acknowledged in the store whatever happens to
+  // this picker meanwhile (closed, or its selection superseded): the store, not the card, owns it.
+  const planClearWrite = (applies: boolean) => (applies && plansKey ? beginAgentPlansWrite(plansKey) : undefined)
 
   const modelsFor = (each: MatrixModelPickerRelay) => each.models ?? (each.view.plan === 'codex' ? chatgptModels : accountPickerPlans(accountConnections).flatMap(pick => pick.plan === each.view.plan && pick.kind !== 'connect' ? pick.models : []))
 
@@ -1626,18 +1629,26 @@ export function MatrixModelPicker({
     done: () => void,
     current: () => boolean,
     refused?: () => void,
-    failed: () => void = fail
+    failed: () => void = fail,
+    /** Store-level effect of an accepted write; runs even when this picker has moved on. */
+    accepted?: () => void
   ) => {
     void window.atumMatrix
       .command({ kind: 'setModel', roomId: room.id, ...change })
       .then(result => {
+        const refusedByServer = (result as { status?: unknown } | null)?.status === 'refused'
+
+        if (!refusedByServer) {
+          accepted?.()
+        }
+
         if (!current()) {
           return
         }
 
         // A cloud choice the server refused (ineligible alias, policy changed): the row goes
         // back to what runs, said by the row itself, never as the chat's failure line.
-        if ((result as { status?: unknown } | null)?.status === 'refused') {
+        if (refusedByServer) {
           undo()
           refused?.()
 
@@ -1685,20 +1696,22 @@ export function MatrixModelPicker({
     const sameHost = () => currentRoom.current === roomAtRequest && currentScope.current === scopeAtRequest
     const current = backToAtumFirst ? sameHost : context.current
 
-    const write = () =>
+    const write = () => {
+      const planWrite = planClearWrite(cloud && !macAnswers)
+
       save(
         { model },
         () => setPendingModel(null),
         () => {
           setPendingModel({ value: model, saved: true })
           rememberRecent(routeId)
-
-          if (cloud && !macAnswers) {forgetRelaySelection()}
         },
         current,
         refused,
-        refusedHere
+        refusedHere,
+        planWrite ? () => acknowledgeAgentPlanCleared(planWrite) : undefined
       )
+    }
 
     if (!backToAtumFirst) {
       write()
@@ -2043,9 +2056,13 @@ export function MatrixModelPicker({
       setEffortNotice(undefined)
       setRetryPick(null)
       setPendingHome({ option: homeOption, route: picked.route, saved: false })
+      const planWrite = planClearWrite(Boolean(cloudSubscriptions))
 
       void homeBridge.model(agentPrincipal, homeOption).then(
         result => {
+          // The store hears an accepted write even when this card has moved on.
+          if (result.status === 'saved' && planWrite) {acknowledgeAgentPlanCleared(planWrite)}
+
           if (!context.current()) {
             return
           }
@@ -2059,8 +2076,6 @@ export function MatrixModelPicker({
 
           setPendingHome({ option: homeOption, route: picked.route, saved: true })
           rememberRecent(picked.route.id)
-
-          if (cloudSubscriptions) {forgetRelaySelection()}
         },
         () => {
           if (!context.current()) {

@@ -40,6 +40,7 @@ import { MATRIX_NOTES_SELF_ROOM_TYPE } from '../../shared/matrix-notes-self'
 import type { MatrixPagesBridge } from '../../shared/matrix-pages'
 import type { MatrixPermissionsSnapshot } from '../../shared/matrix-permissions'
 
+import { $agentPlans, agentPlansKey, beginAgentPlansRead, settleAgentPlansRead } from './agent-plans-store'
 import { MatrixApp } from './app'
 import { $assistantCard, $assistantNameOverrides, openAssistantCard } from './assistant-card'
 import { ATUM_LINKS } from './atum-links'
@@ -4506,6 +4507,62 @@ describe('isolated Matrix composition', () => {
 
     fireEvent.click(window.document.querySelector<HTMLElement>('[data-atum-nav-home]')!)
     await waitFor(() => expect(window.document.querySelector('[data-matrix-assistant-info="main-a"]')).toBeTruthy())
+  })
+
+  // Re-check 2026-11-26: the shared Mac-plan views outlived the session, so signing back in reused them.
+  it('empties the shared Mac-plan views on sign-out, and a new sign-in as the same person starts clean', async () => {
+    const { emit } = fixture()
+    emit(controlsState)
+
+    const key = agentPlansKey('account:@owner:test', 'main-a')
+    const stale = beginAgentPlansRead(key)
+    settleAgentPlansRead(beginAgentPlansRead(key), {
+      published: true,
+      plans: { claude: { state: 'connected' } },
+      selection: { provider: 'atum-work', plan: 'claude', model: 'claude-opus-5-5', revision: 2 }
+    })
+    expect($agentPlans.get()[key]).toBeTruthy()
+
+    emit(signedOut)
+    await waitFor(() => expect($agentPlans.get()).toEqual({}))
+
+    // Back in as the same person: nothing from before, and a read begun before sign-out is ignored.
+    emit(controlsState)
+    settleAgentPlansRead(stale, { published: true, plans: {}, selection: null })
+    expect($agentPlans.get()[key]).toBeUndefined()
+  })
+
+  // Review 2026-11-26: Settings › Assistants on Drive queued the request behind Drive, where it never opened.
+  it('opens an assistant’s panel from Settings while Drive is in front: Drive goes and its chat comes with the panel', async () => {
+    setMatrixRightPanel('chat', false)
+
+    const drive = {
+      read: vi.fn(async () => ({ state: 'ready', revision: 1, canGoBack: false, truncated: false, rows: [] })),
+      subscribe: vi.fn(() => () => {}),
+      taskStatus: vi.fn(async () => ({ state: 'unavailable' as const }))
+    } as unknown as MatrixDriveBridge
+
+    const { emit } = fixture(undefined, 'en', undefined, undefined, drive)
+
+    emit({
+      ...controlsState,
+      rooms: controlsState.rooms.map(each => ({ ...each, agentPrincipal: 'main-a' })),
+      agents: [
+        { principal: 'main-a', userId: '@atum:test', ready: true, isDefault: true, atumModel: true, hermes: 'ready', answering: 'cloud' }
+      ]
+    } as MatrixSnapshot)
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Atum Drive' }))
+    await waitFor(() => expect(window.document.querySelector('[data-atum-nav-drive][aria-current="page"]')).toBeTruthy())
+
+    // What Settings › Assistants does with the row it was clicked on.
+    act(() => openAssistantCard({ kind: 'agent', principal: 'main-a' }))
+
+    await waitFor(() => expect(window.document.querySelector('[data-matrix-assistant-info="main-a"]')).toBeTruthy())
+    expect(window.document.querySelector('[data-atum-nav-drive][aria-current="page"]')).toBeNull()
+    expect(window.document.querySelector('[data-matrix-drive-browser]')).toBeNull()
+    expect(window.document.querySelector('[data-assistant-card]')).toBeNull()
+    expect(JSON.parse(window.localStorage.getItem('io.atum.rightPanel') ?? '{}').chat).toBe(true)
   })
 
   it('opens conversation info from the titlebar in a chat with a person, and the workbench in an assistant chat', async () => {

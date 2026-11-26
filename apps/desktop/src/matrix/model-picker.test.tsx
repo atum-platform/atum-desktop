@@ -1656,6 +1656,75 @@ describe('account subscriptions in the model picker', () => {
     expect(selected(card)).toHaveLength(1)
   })
 
+  it('clears the plan in both pickers when an Atum switch is acknowledged after its picker closed', async () => {
+    // Re-check 2026-11-26: closing re-read Opus before the save landed, and the save's acknowledgement
+    // was skipped because closing retired the picker's own selection, so both kept naming Opus.
+    $accountConnections.set(ACCOUNT_CONNECTIONS_FIXTURE)
+
+    let server: WorkAgentPlans = {
+      published: true,
+      plans: {
+        codex: { state: 'connected', models: [{ id: 'gpt-6.2-astra', displayName: 'GPT-6.2-Astra' }] },
+        claude: { state: 'connected', models: [{ id: 'claude-opus-5-5', displayName: 'Claude Opus 5.5' }] }
+      },
+      selection: { provider: 'atum-work', plan: 'claude', model: 'claude-opus-5-5', revision: 2 }
+    }
+
+    const readAgentPlans = vi.fn(async () => server)
+    const save = deferred<null>()
+
+    const command = vi.fn(async (value: Parameters<MatrixUiBridge['command']>[0]) =>
+      value.kind === 'setModel' ? save.promise : null
+    )
+
+    window.atumMatrix = {
+      command,
+      work: { readAgentPlans, selectRelay: vi.fn() } as unknown as NonNullable<MatrixUiBridge['work']>
+    } as unknown as MatrixUiBridge
+
+    const shared = {
+      agentPrincipal: nativePlanAgent,
+      cloud: true,
+      cloudChoice: { offered: ['default' as const], current: 'default' as const, revision: 1 },
+      disabled: false,
+      fail: vi.fn(),
+      here: 'cloud' as const,
+      preferenceScope: 'account:test'
+    }
+
+    render(
+      <I18nProvider configClient={null} initialLocale="en">
+        <div data-surface="composer"><MatrixModelPicker {...shared} room={ROOM} /></div>
+        <div data-surface="panel"><MatrixModelPicker {...shared} room={{ ...ROOM, id: 'assistant-card:agent:cloud' }} /></div>
+      </I18nProvider>
+    )
+
+    const chip = (surface: 'composer' | 'panel') =>
+      within(window.document.querySelector<HTMLElement>(`[data-surface="${surface}"]`)!).getByRole('button', { name: /^Model:/ })
+
+    await waitFor(() => expect(chip('panel').getAttribute('aria-label')).toMatch(/Claude Opus 5\.5/))
+
+    fireEvent.click(chip('composer'))
+    const card = await screen.findByRole('dialog', { name: 'Model' })
+    fireEvent.click(rail(card, 'atum'))
+    fireEvent.click(row(card, NGUYET_THUC_ROUTE))
+    await waitFor(() => expect(command).toHaveBeenCalledWith(expect.objectContaining({ kind: 'setModel', model: 'nguyet-thuc' })))
+
+    // Close while the save is pending: the re-read it triggers still answers Opus.
+    const readsBefore = readAgentPlans.mock.calls.length
+    fireEvent.keyDown(card, { key: 'Escape' })
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Model' })).toBeNull())
+    await waitFor(() => expect(readAgentPlans.mock.calls.length).toBeGreaterThan(readsBefore))
+    await act(async () => { await Promise.resolve() })
+
+    // The save lands; the server's trigger cleared the plan.
+    server = { ...server, selection: null }
+    await act(async () => save.resolve(null))
+
+    await waitFor(() => expect(chip('panel').getAttribute('aria-label')).not.toMatch(/Claude Opus/))
+    expect(chip('composer').getAttribute('aria-label')).not.toMatch(/Claude Opus/)
+  })
+
   it('keeps the composer and panel pickers on one Mac-plan selection, and retires reads begun before a write', async () => {
     // Review P1-1 (2026-11-26): each picker held its own copy, so a switch in one left the other stale.
     $accountConnections.set(ACCOUNT_CONNECTIONS_FIXTURE)

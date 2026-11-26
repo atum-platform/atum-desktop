@@ -70,6 +70,15 @@ diff off #136/#141's files. Folding that tab into the same body is a possible fo
 
 Each new test was confirmed to fail on the code before the fix.
 
+### Re-check fixes (2026-11-26)
+
+| Finding | Change | Test |
+| --- | --- | --- |
+| Opening an assistant from Settings while Drive was in front did nothing (the request waited on `assistantInfo`, which Drive withholds) | The request is fulfilled once its chat is the selected room, read from the room's own agent (`matrixAgentDeskAgent`), not from `assistantInfo`. Fulfilling it leaves Drive, Workplace and Work and opens the panel. A Store, Team Space or app destination is left by selecting the chat even when it is already the selected room. | `app.test.tsx` "opens an assistant's panel from Settings while Drive is in front…" |
+| A successful Atum switch could leave both pickers naming the old plan (the read triggered by closing returned first, then the acknowledgement was skipped because the picker had closed). An older plan acknowledgement could restore a cleared plan. | Store-level writes are numbered when they start and acknowledged in the store whatever happens to the picker. A later-started write acknowledged first wins. A clear keeps a tombstone at the highest plan revision known, so no read or acknowledgement at or below it brings the plan back, while a newer pick does. | `agent-plans-store.test.ts` (both races); `model-picker.test.tsx` "clears the plan in both pickers when an Atum switch is acknowledged after its picker closed" |
+| Sign-out left the plan views in memory | The window's snapshot subscription binds the store to the signed-in user (`bindAgentPlansAccount`). Signing out, or signing in again even as the same person, empties it, and reads and writes from an earlier session are ignored. | `agent-plans-store.test.ts` (session); `app.test.tsx` "empties the shared Mac-plan views on sign-out…" |
+| Settings › Device's "Stop now" did not say it stops every agent on this Mac | Relabelled "Stop all agents" (vi "Dừng mọi trợ lý", ja/zh/zh-Hant to match). It sits beside "An agent is using this Mac now". | `cloud-device-settings.test.tsx` |
+
 ## Verification
 
 Run on 2026-11-26 in `apps/desktop` (Asia/Ho_Chi_Minh):
