@@ -1,4 +1,4 @@
-import { type DragEvent, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { type DragEvent, Fragment, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
@@ -13,7 +13,7 @@ import { cn } from '@/lib/utils'
 import contextFileLimits from '../../../../../hermes_cli/data/context-file-limits.json'
 import { appCatalogNames } from '../../../shared/app-catalog'
 import type { MatrixAgentView, MatrixSnapshot } from '../../../shared/matrix'
-import { matrixAgentActions, matrixAgentNeedsLocalSetup } from '../../../shared/matrix-agent-actions'
+import { matrixAgentActions, matrixAgentAnswersInCloud, matrixAgentNeedsLocalSetup } from '../../../shared/matrix-agent-actions'
 import { matrixAliasCopy } from '../../../shared/matrix-alias-copy'
 import type { MatrixAssistantCard, MatrixAssistantCardError } from '../../../shared/matrix-assistant-card'
 import {
@@ -97,16 +97,25 @@ const NAME_PROBLEMS: Partial<Record<MatrixAssistantCardError, AssistantNameProbl
 export function AssistantCard({
   agent,
   compact,
+  controls,
   focusName,
   focusRoutines = false,
+  lead,
   onClose,
   onMessage,
   placement = 'sheet',
-  snapshot
+  snapshot,
+  trail
 }: {
   agent: MatrixAgentView
   compact: boolean
+  /** The panel's live controls for this chat (notifications, devices, Pause), rows under Model. */
+  controls?: ReactNode
   focusName: boolean
+  /** What it is doing now, under its name; only while it works or waits (the panel's). */
+  lead?: ReactNode
+  /** Its files, after its rows (the panel's, only when there are some). */
+  trail?: ReactNode
   /** The composer's "Add routines" lands on the panel itself, not one row further in. */
   focusRoutines?: boolean
   onClose(): void
@@ -463,6 +472,7 @@ export function AssistantCard({
           </NoticeBand>
         )}
         {offline && <p className="atum-card-caption text-center">{copy.offline}</p>}
+        {lead}
         <AgentHandle agent={agent} name={name} ready={ready} snapshot={snapshot} />
         <section className="atum-card-section">
           {loadFailed ? (
@@ -494,6 +504,7 @@ export function AssistantCard({
         <CardRows
           agent={agent}
           card={card}
+          controls={controls}
           copy={copy}
           focusRoutines={focusRoutines}
           locale={locale}
@@ -501,6 +512,7 @@ export function AssistantCard({
           snapshot={snapshot}
           status={status}
         />
+        {trail}
         {!primary && (
           <section className="atum-card-section">
             <div className="atum-settings-group">
@@ -725,6 +737,7 @@ function CardAvatar({
 function CardRows({
   agent,
   card,
+  controls,
   copy,
   focusRoutines,
   locale,
@@ -734,6 +747,7 @@ function CardRows({
 }: {
   agent: MatrixAgentView
   card?: MatrixAssistantCard
+  controls?: ReactNode
   copy: AssistantCardCopy
   focusRoutines: boolean
   locale: string
@@ -765,7 +779,18 @@ function CardRows({
   // the authoritative home, its owner-placement readiness, and manual moves.
   const homeBridge = window.atumMatrix.agentHome
 
-  if (agent.home && homeBridge) {
+  // Cloud-only (AGENT_HOMES_CLOUD_ONLY): every assistant lives in the cloud, so "Lives on: The cloud"
+  // says nothing and the row goes (owner 2026-11-26: "obsolete now"); the Macs it can use are the
+  // panel's Your devices row. Only an assistant still on a Mac, or one moving, keeps it: there it is
+  // the way to the cloud, and the place it answers from is news.
+  const placed = agent.home?.placement
+  const awayFromCloud = agent.home
+    ? agent.home.lives.kind !== 'cloud' ||
+      Boolean(agent.home.move || agent.home.issue) ||
+      (placed !== undefined && placed.current !== 'cloud')
+    : !matrixAgentAnswersInCloud(agent)
+
+  if (agent.home && homeBridge && awayFromCloud) {
     rows.push(
       <MatrixAgentHomeRow
         agentName={agent.name}
@@ -775,11 +800,7 @@ function CardRows({
         view={agent.home}
       />
     )
-  }
-
-  // Cloud-only U1: an assistant without `agent.home` gets the same row, read-only (where it answers
-  // and the Macs it can use). The legacy execution-order editor is gone from the card.
-  if (!(agent.home && homeBridge)) {
+  } else if (!(agent.home && homeBridge) && awayFromCloud) {
     rows.push(<MatrixAgentPlaceRow agent={agent} key="agent-home" />)
   }
 
@@ -791,6 +812,10 @@ function CardRows({
         preferenceScope={`account:${snapshot.identity?.userId ?? 'signed-out'}`}
       />
     )
+  }
+
+  if (controls) {
+    rows.push(<Fragment key="controls">{controls}</Fragment>)
   }
 
   if (store) {

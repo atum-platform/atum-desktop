@@ -894,8 +894,9 @@ describe('where an assistant answers is said once, in its read-only place row (U
     await screen.findByRole('textbox', { name: 'Lan giúp bạn việc gì?' })
     const card = window.document.querySelector<HTMLElement>('[data-assistant-card]')!
 
-    // The read-only row says where it lives and nothing on the card offers to move it.
-    expect(card.querySelector('[data-assistant-card-place]')?.textContent).toContain('Đám mây')
+    // Cloud-only: every assistant lives in the cloud, so no row says so (owner 2026-11-26: "obsolete"),
+    // and nothing on the card offers to move it.
+    expect(card.querySelector('[data-assistant-card-place], [data-assistant-card-home]')).toBeNull()
     expect(card.querySelector('[data-agent-move], [data-assistant-card-answer-where]')).toBeNull()
     expect(outsidePlaceRow(card)).not.toMatch(LOCATION)
     // Canonical photos do not need the cloud agent's host; setup, move and Advanced stay absent.
@@ -1247,7 +1248,7 @@ describe('the failover policy on the card', () => {
     expect(window.document.querySelector('[data-assistant-card-answer-where]')).toBeNull()
   })
 
-  it('shows the read-only place row, never the legacy execution-order editor, without an authoritative home', async () => {
+  it('shows no place row for a cloud assistant and never the legacy execution-order editor, without an authoritative home', async () => {
     const base = snapshot()
     const policy = policyView()
     const read = vi.fn(async () => policy)
@@ -1276,11 +1277,37 @@ describe('the failover policy on the card', () => {
     await waitFor(() => expect(assistants.read).toHaveBeenCalledWith(LAN))
 
     expect(window.document.querySelector('[data-assistant-card-answer-where]')).toBeNull()
+    // "Lives on: The cloud" is gone under cloud-only; the Macs it can use are the panel's Your devices row.
+    expect(window.document.querySelector('[data-assistant-card-place], [data-assistant-card-home]')).toBeNull()
+    expect(read).not.toHaveBeenCalled()
+  })
+
+  it('keeps the read-only place row, with the Macs it can use, for an assistant still answering on this Mac', async () => {
+    const base = snapshot()
+    base.agents = base.agents?.map(each =>
+      each.principal === LAN ? { ...each, answering: undefined, macRole: 'answering' as const } : each
+    )
+
+    const sourcesRead = vi.fn(async () => ({
+      gates: { google: true, folders: true, messages: true, browser: true, location: true, team_spaces: true },
+      sources: [],
+      macs: [{ id: 'air', name: 'MacBook Air', thisMac: true, state: 'needs_permission' as const }]
+    }))
+
+    window.atumMatrix = {
+      assistants,
+      command: vi.fn().mockResolvedValue(null),
+      agentSources: { read: sourcesRead, set: vi.fn() }
+    } as unknown as MatrixUiBridge
+
+    render(<Window base={base} />)
+    act(() => openAssistantCard({ kind: 'agent', principal: LAN }))
+    await waitFor(() => expect(assistants.read).toHaveBeenCalledWith(LAN))
+
     const row = window.document.querySelector<HTMLElement>('[data-assistant-card-place]')!
-    expect(row.textContent).toContain('Đám mây')
+    expect(row.textContent).toContain('Máy này')
     fireEvent.click(row)
 
-    // The popover: where it lives, then the Macs it can use; the one needing a fix opens Connections.
     const popover = await waitFor(() => {
       const found = window.document.querySelector<HTMLElement>('[data-agent-home-popover] [data-agent-home-can-use]')
       expect(found).toBeTruthy()
@@ -1288,26 +1315,23 @@ describe('the failover policy on the card', () => {
       return found!
     })
 
-    expect(popover.textContent).toContain('Dùng được')
     expect(popover.querySelector('button[data-agent-home-can-use-mac="needs_permission"]')?.textContent).toContain('Cần cấp quyền')
-    expect(popover.querySelector('button[data-agent-home-can-use-mac="ready"]')).toBeNull()
-    expect(popover.querySelector('[data-agent-home-can-use-mac="ready"]')?.textContent).toContain('Sẵn sàng')
-    expect(read).not.toHaveBeenCalled()
   })
 
   it('shows only D1 home when an authoritative home and a legacy policy coexist', async () => {
     const base = snapshot()
     const policy = policyView()
 
+    // Still on a Mac (cloud-only shows the home row only away from the cloud: the way back to it).
     const home: NonNullable<MatrixAgentView['home']> = {
-      lives: { kind: 'cloud' },
+      lives: { kind: 'mac', name: 'Mac mini', thisMac: false },
       move: null,
       targets: [{ id: '00000000-0000-4000-8000-b454f82c5857', name: 'Mac mini' }],
       issue: null,
       placement: {
         profile: 'atum.agent-home/2.5',
         moveAvailable: true,
-        current: 'cloud',
+        current: '00000000-0000-4000-8000-b454f82c5857',
         reachability: 'reachable',
         modelStatus: 'applied',
         destinations: [

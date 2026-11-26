@@ -13,7 +13,6 @@ import type { MatrixHostAgentControl, MatrixHostDeskFiles, MatrixHostDeskSchedul
 import { matrixAgentDeskText } from '../../shared/matrix-agent-desk-copy'
 import type { MatrixReachMac } from '../../shared/matrix-agent-sources'
 import { matrixAgentStatusText } from '../../shared/matrix-agent-status-copy'
-import type { MatrixDeviceBridge } from '../../shared/matrix-device'
 import { matrixKnowledgeSourcesCopy } from '../../shared/matrix-knowledge-sources-copy'
 
 import {
@@ -31,6 +30,7 @@ import { formatDriveSize } from './drive'
 import { HermesPrompt } from './hermes-prompts'
 import { matrixMacRowLine, MatrixMacState, useMatrixReachMacs } from './mac-reach-rows'
 import { MatrixPersonAvatar } from './member-avatar'
+import { roomAgentActivity } from './room-agent'
 import { matrixRosterAgentName } from './roster-model'
 import { runMatrixCommand } from './text-document-actions'
 import type { MatrixCloudStop } from './use-cloud-stop'
@@ -184,18 +184,19 @@ export interface MatrixAgentDeskStop {
 /**
  * Stop for the desk, on the existing paths only: the composer's own cloud Stop (one hook: the
  * Shell host Stop route for a Hermes-runtime agent's owner or scheduled turn,
- * `stopTurn` on the old cloud path), a Mac-run agent's own cancel, and, while it
- * is using this Mac, the device host's Stop (Settings › Device) when that host says it is in use.
+ * `stopTurn` on the old cloud path) and a Mac-run agent's own cancel. Both are this chat's turn only.
+ *
+ * Never the device host's Stop: its status says only that SOME grant is live and its Stop fences the
+ * whole device (electron/matrix/device/runtime.ts), so from one agent's panel it would also interrupt
+ * another agent using this Mac. That device-wide action stays in Settings › Device, labelled there.
  * Nothing is decided here; each path's owner refuses what it will not do.
  */
 export function matrixAgentDeskStop({
   cloud,
-  onThisMac,
   roomId,
   running
 }: {
   cloud: MatrixCloudStop
-  onThisMac: boolean
   roomId: string
   running: boolean
 }): MatrixAgentDeskStop {
@@ -209,15 +210,6 @@ export function matrixAgentDeskStop({
         cloud.stop()
       } else if (running) {
         void window.atumMatrix.cancelHermes(roomId).catch(() => undefined)
-      }
-
-      const device = (window as { atumDevice?: MatrixDeviceBridge }).atumDevice
-
-      if (onThisMac && device) {
-        void device
-          .status()
-          .then(status => (status.active ? device.stop() : undefined))
-          .catch(() => undefined)
       }
     }
   }
@@ -803,6 +795,24 @@ function Routines({ schedule }: { schedule: ReturnType<typeof useAgentSchedule> 
 }
 
 /**
+ * This chat's own notifications switch (Matrix push rules through the `mute` command), optimistic:
+ * it flips at once and returns to the room's state if main refuses. One implementation for the
+ * desk's Controls and the agent panel's Notifications row.
+ */
+export function useMatrixRoomMute(room: Pick<MatrixRoom, 'id' | 'muted'>) {
+  const [muted, setMuted] = useState(Boolean(room.muted))
+
+  useEffect(() => setMuted(Boolean(room.muted)), [room.muted])
+
+  const toggle = (on: boolean) => {
+    setMuted(!on)
+    void runMatrixCommand({ kind: 'mute', roomId: room.id, muted: !on }).catch(() => setMuted(Boolean(room.muted)))
+  }
+
+  return { muted, toggle }
+}
+
+/**
  * Controls: the agent's settings that are real somewhere already. Notifications are this chat's
  * own mute (Matrix push rules); the model is the one picker row the agent's card uses; Pause is
  * native cron through the host (it still answers you and starts nothing on its own, said in a
@@ -826,17 +836,10 @@ function Controls({
 }) {
   const { locale } = useI18n()
   const copy = matrixAgentDeskText(locale)
-  const [muted, setMuted] = useState(Boolean(room.muted))
+  const { muted, toggle } = useMatrixRoomMute(room)
   const [more, setMore] = useState(false)
   const schedule = useAgentSchedule(active, agent)
   const paused = matrixAgentDeskPaused(schedule.jobs)
-
-  useEffect(() => setMuted(Boolean(room.muted)), [room.muted])
-
-  const toggle = (on: boolean) => {
-    setMuted(!on)
-    void runMatrixCommand({ kind: 'mute', roomId: room.id, muted: !on }).catch(() => setMuted(Boolean(room.muted)))
-  }
 
   return (
     <section aria-label={copy.controls} data-agent-desk-controls>
@@ -916,30 +919,21 @@ function Controls({
  * sent here, then its own files when the host shares them); Controls holds its real settings. No
  * money, no explanations, no second chat: steering is the composer.
  */
-export function MatrixAgentDesk({
-  active,
-  agent,
-  browser,
-  cloudStop,
-  onOpenBrowser,
-  room,
-  snapshot
-}: {
-  /** The desk is on screen: device and host reads run only then. */
+export interface MatrixAgentDeskInput {
+  /** On screen: device and host reads run only then. */
   active: boolean
   agent: MatrixAgentView
-  /** The window has its in-app browser: the address bar shows, as on the new tab. */
-  browser: boolean
   cloudStop: MatrixCloudStop
-  onOpenBrowser(url: string): void
   room: MatrixRoom
   snapshot: MatrixSnapshot
-}) {
-  const { locale, t } = useI18n()
-  const copy = matrixAgentDeskText(locale)
+}
+
+/** What the desk knows of its agent right now: one read, for the desk tab and the agent's panel. */
+export function useMatrixAgentDesk({ active, agent, cloudStop, room, snapshot }: MatrixAgentDeskInput) {
+  const { locale } = useI18n()
   const name = useMatrixAgentDeskName(agent)
   const macs = useMatrixReachMacs(active)
-  const running = snapshot.hermesActivity?.roomId === room.id && snapshot.hermesActivity.state === 'running'
+  const running = roomAgentActivity(snapshot, room.id)?.state === 'running'
   const prompts = snapshot.agentTurns?.find(turn => turn.roomId === room.id)?.prompts
 
   const now = matrixAgentDeskNow({
@@ -956,11 +950,39 @@ export function MatrixAgentDesk({
   })
 
   const devices = matrixAgentDeskDevices(macs ?? [], now)
-  const onThisMac = devices.some(each => each.inUse && each.mac.thisMac) || (now.state === 'device' && !now.device)
-  const stop = matrixAgentDeskStop({ cloud: cloudStop, onThisMac, roomId: room.id, running })
+  const stop = matrixAgentDeskStop({ cloud: cloudStop, roomId: room.id, running })
   const deviceInUse = devices.some(each => each.inUse)
   const sent = matrixAgentDeskSentFiles(snapshot.messages, agent.userId)
   const steers = matrixAgentDeskSteers({ runtime: agent.runtime, running })
+
+  return { name, now, devices, stop, deviceInUse, sent, steers }
+}
+
+export type MatrixAgentDeskState = ReturnType<typeof useMatrixAgentDesk>
+
+export function MatrixAgentDesk({
+  active,
+  agent,
+  browser,
+  cloudStop,
+  onOpenBrowser,
+  room,
+  snapshot
+}: MatrixAgentDeskInput & {
+  /** The window has its in-app browser: the address bar shows, as on the new tab. */
+  browser: boolean
+  onOpenBrowser(url: string): void
+}) {
+  const { locale, t } = useI18n()
+  const copy = matrixAgentDeskText(locale)
+
+  const { name, now, devices, stop, deviceInUse, sent, steers } = useMatrixAgentDesk({
+    active,
+    agent,
+    cloudStop,
+    room,
+    snapshot
+  })
 
   return (
     <div className="flex h-full min-h-0 flex-col" data-agent-desk-frame>
@@ -1037,3 +1059,76 @@ function FilesSection({
     </section>
   )
 }
+
+/**
+ * The agent's panel (its card beside its chat) takes the desk's live parts as they are: Now only
+ * while it works or waits (with the device in use under it), and Files only when there are some.
+ */
+export function MatrixAgentDeskNowSection({ cloudStop, desk }: { cloudStop: MatrixCloudStop; desk: MatrixAgentDeskState }) {
+  const { locale, t } = useI18n()
+  const notice = cloudStop.refused || cloudStop.stopped
+
+  if (desk.now.state === 'free' && !desk.deviceInUse && !notice) {
+    return null
+  }
+
+  return (
+    <div className="atum-desk atum-card-section flex flex-col gap-4" data-agent-panel-now>
+      <NowBlock name={desk.name} now={desk.now} steers={desk.steers} stop={desk.stop} />
+      {desk.deviceInUse && <DevicesSection devices={desk.devices} focus stop={desk.stop} />}
+      {notice && (
+        <NoticeBand role="status" tone="notice">
+          {cloudStop.stopped ? matrixAgentStatusText('stopped', locale) : t.cloud.stopRefused}
+        </NoticeBand>
+      )}
+    </div>
+  )
+}
+
+export function MatrixAgentDeskFiles({
+  active,
+  agent,
+  desk,
+  roomId
+}: {
+  active: boolean
+  agent: MatrixAgentView
+  desk: MatrixAgentDeskState
+  roomId: string
+}) {
+  const { locale } = useI18n()
+
+  return (
+    <div className="atum-desk atum-card-section" data-agent-panel-files>
+      <FilesSection active={active} agent={agent} locale={locale} roomId={roomId} sent={desk.sent} />
+    </div>
+  )
+}
+
+/** Each of your devices as the desk lists it: its state, Allow where a permission is missing, Stop while in use. */
+export function MatrixAgentDeskDevices({ desk }: { desk: MatrixAgentDeskState }) {
+  const { locale } = useI18n()
+  const copy = matrixAgentDeskText(locale)
+  const sources = matrixKnowledgeSourcesCopy[locale]
+  const permissions = window.atumMatrix.permissions
+
+  return (
+    <div className="atum-desk" data-agent-panel-devices role="list">
+      {desk.devices.map(({ mac, inUse }) => (
+        <DeviceRow
+          inUse={inUse}
+          key={mac.id}
+          locale={locale}
+          mac={mac}
+          permissions={permissions}
+          sources={sources}
+          stop={desk.stop}
+          stopLabel={copy.stop}
+          usingNow={copy.usingNow}
+        />
+      ))}
+    </div>
+  )
+}
+
+export { useAgentSchedule as useMatrixAgentSchedule }

@@ -372,7 +372,9 @@ describe('the agent tab', () => {
     expect(respondHermes).toHaveBeenCalledWith({ id: 'prompt-1', kind: 'approval', choice: 'once' })
   })
 
-  it('On your device lifts that device under Now with a Stop that also stops this Mac’s device host', async () => {
+  it('On your device lifts that device under Now with a Stop for this chat’s turn only, never the device host', async () => {
+    // Review P1-2 (2026-11-26): the device host's status says only that SOME grant is live and its Stop
+    // fences the whole Mac, so a Stop here would also interrupt another agent using it.
     const deviceStop = vi.fn(async () => ({ stopped: true }))
     Object.assign(window, { atumDevice: { status: vi.fn(async () => ({ active: true })), stop: deviceStop } })
     reachMacs([studio, macBook])
@@ -412,7 +414,8 @@ describe('the agent tab', () => {
     })
 
     expect(stopTurn).toHaveBeenCalledWith({ action: 'stopTurn', roomId: ROOM, eventId: '$ask' })
-    await waitFor(() => expect(deviceStop).toHaveBeenCalledTimes(1))
+    await act(async () => { await Promise.resolve() })
+    expect(deviceStop).not.toHaveBeenCalled()
   })
 
   it('leaves this Mac’s device host alone when it is not in use', async () => {

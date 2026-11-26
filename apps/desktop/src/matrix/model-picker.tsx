@@ -73,6 +73,16 @@ import {
 import type { WorkAgentPlans } from '../../shared/matrix-work'
 import { WORK_RELAY_PLANS, WORK_RELAY_PROVIDER, workRelayNoticePlan } from '../../shared/matrix-work-relay'
 
+import {
+  $agentPlans,
+  acknowledgeAgentPlanCleared,
+  acknowledgeAgentPlanSelection,
+  agentPlansKey,
+  beginAgentPlansRead,
+  beginAgentPlansWrite,
+  failAgentPlansRead,
+  settleAgentPlansRead
+} from './agent-plans-store'
 import { ChatGptTrainingConfirm } from './chatgpt-training-confirm'
 import { useModelPickerCopy } from './model-picker-copy'
 import { ModelPickerEffortColumn, pickerEffortChoice } from './model-picker-effort-column'
@@ -347,8 +357,11 @@ export function MatrixModelPicker({
   lastFallback?: MatrixSubscriptionFallback
   /** Optional preloaded plan rows for the playground. */
   workRelay?: readonly MatrixModelPickerRelay[]
-  /** A row that opens this picker, replacing the composer's model pill. */
-  trigger?: ReactNode
+  /**
+   * A row that opens this picker, replacing the composer's model pill. As a function it learns the
+   * Mac plan's model when one answers (the chip's own name), so the row and the chip never disagree.
+   */
+  trigger?: ReactNode | ((answering: { plan?: string }) => ReactNode)
   /** Controlled open state, for a surface whose row owns it. */
   open?: boolean
   onOpenChange?: (open: boolean) => void
@@ -373,27 +386,21 @@ export function MatrixModelPicker({
   const open = controlledOpen ?? openState
   const readAgentPlans = cloud && agentPrincipal && !providedWorkRelay ? window.atumMatrix.work?.readAgentPlans : undefined
   const selectAgentPlan = window.atumMatrix.work?.selectRelay
-  const plansKey = agentPrincipal ? JSON.stringify([scope, agentPrincipal]) : undefined
-  const [nativePlans, setNativePlans] = useState<{ key: string; value: WorkAgentPlans | null }>()
-  const planRead = useRef<{ key: string } | null>(null)
-  const agentPlans = nativePlans && nativePlans.key === plansKey ? nativePlans.value : undefined
+  // One entry per account and agent, shared by the composer's chip and the panel's Model row, so a
+  // switch acknowledged in either shows in both at once (agent-plans-store.ts).
+  const plansKey = agentPrincipal ? agentPlansKey(scope, agentPrincipal) : undefined
+  const sharedPlans = useStore($agentPlans)
+  const agentPlans: WorkAgentPlans | null | undefined = plansKey ? sharedPlans[plansKey]?.value : undefined
 
   // Also re-read when the owner view becomes ready after the hidden Work startup.
   useEffect(() => {
     if (!readAgentPlans || !agentPrincipal || !plansKey) {return}
 
-    const request = { key: plansKey }
-    planRead.current = request
+    const read = beginAgentPlansRead(plansKey)
     void readAgentPlans(agentPrincipal).then(
-      value => { if (planRead.current === request) {setNativePlans({ key: plansKey, value })} },
-      () => {
-        if (planRead.current === request) {
-          setNativePlans(previous => previous?.key === plansKey ? previous : { key: plansKey, value: null })
-        }
-      }
+      value => settleAgentPlansRead(read, value),
+      () => failAgentPlansRead(read)
     )
-
-    return () => { if (planRead.current === request) {planRead.current = null} }
   }, [agentPrincipal, open, plansKey, readAgentPlans, work?.view])
 
   const planReadReason = readAgentPlans && agentPlans === undefined ? words.modelsLoading : words.modelsUnavailable
@@ -413,15 +420,12 @@ export function MatrixModelPicker({
           }),
           models: agentPlans?.plans[plan]?.models ?? [],
           select: async (model: string) => {
+            // Numbered before it goes, so a later Atum write acknowledged first keeps the plan cleared.
+            const write = plansKey ? beginAgentPlansWrite(plansKey) : undefined
             const saved = await selectAgentPlan(agentPrincipal, model, plan)
 
-            // Retire reads that started before the server acknowledged this write.
-            if (planRead.current?.key === plansKey) {planRead.current = null}
-
-            setNativePlans(previous => previous && previous.key === plansKey && previous.value
-              && saved.revision >= (previous.value.selection?.revision ?? 0)
-              ? { key: previous.key, value: { ...previous.value, selection: saved } }
-              : previous)
+            // Every picker for this agent sees the acknowledged selection; reads begun before it retire.
+            if (write) {acknowledgeAgentPlanSelection(write, saved)}
 
             return { status: 'saved' }
           },
@@ -950,7 +954,24 @@ export function MatrixModelPicker({
   const hasCodexRelay = relays.some(each => each.view.plan === 'codex')
   const relayWords = workRelayCopy(locale)
   const relayPlanName = WORK_RELAY_PLAN_NAMES[selectedRelay?.view.plan ?? 'codex']
-  const relayCurrent = cloudSubscriptions && !(cloud && pendingModel) ? selectedRelay?.view.currentModel : undefined
+
+  // The Mac plan's selection answers, on a placed cloud home too; an Atum pick in flight holds it back.
+  const relayCurrent =
+    cloudSubscriptions && !(cloud && pendingModel) && !pendingHome ? selectedRelay?.view.currentModel : undefined
+
+  const isRelayCurrent = (route: MatrixModelRoute) =>
+    Boolean(
+      relayCurrent &&
+        selectedRelay &&
+        route.provider === WORK_RELAY_PROVIDER[selectedRelay.view.plan].picker &&
+        route.model === relayCurrent
+    )
+
+  // Any Atum write for a cloud agent replaces the plan selection on the server (0536's clear
+  // trigger), so every picker for this agent forgets it at once instead of naming the plan until a
+  // re-read. The write is numbered when it starts and acknowledged in the store whatever happens to
+  // this picker meanwhile (closed, or its selection superseded): the store, not the card, owns it.
+  const planClearWrite = (applies: boolean) => (applies && plansKey ? beginAgentPlansWrite(plansKey) : undefined)
 
   const modelsFor = (each: MatrixModelPickerRelay) => each.models ?? (each.view.plan === 'codex' ? chatgptModels : accountPickerPlans(accountConnections).flatMap(pick => pick.plan === each.view.plan && pick.kind !== 'connect' ? pick.models : []))
 
@@ -1168,7 +1189,11 @@ export function MatrixModelPicker({
 
   const isCurrent = (route: MatrixModelRoute) =>
     homeMode
-      ? route.id === homeCurrentRouteId
+      ? pendingCloudSubscription
+        ? route.id === pendingCloudSubscription.route.id
+        : relayCurrent
+          ? isRelayCurrent(route)
+          : route.id === homeCurrentRouteId
       : route.provider === 'atum' || route.provider === MATRIX_SHELF_PROVIDER.id
         ? route.current && !savedCloudPlan && !relayCurrent && !pendingCloudSubscription && !answersWithConnection
         : pendingCloudSubscription
@@ -1604,18 +1629,26 @@ export function MatrixModelPicker({
     done: () => void,
     current: () => boolean,
     refused?: () => void,
-    failed: () => void = fail
+    failed: () => void = fail,
+    /** Store-level effect of an accepted write; runs even when this picker has moved on. */
+    accepted?: () => void
   ) => {
     void window.atumMatrix
       .command({ kind: 'setModel', roomId: room.id, ...change })
       .then(result => {
+        const refusedByServer = (result as { status?: unknown } | null)?.status === 'refused'
+
+        if (!refusedByServer) {
+          accepted?.()
+        }
+
         if (!current()) {
           return
         }
 
         // A cloud choice the server refused (ineligible alias, policy changed): the row goes
         // back to what runs, said by the row itself, never as the chat's failure line.
-        if ((result as { status?: unknown } | null)?.status === 'refused') {
+        if (refusedByServer) {
           undo()
           refused?.()
 
@@ -1638,7 +1671,7 @@ export function MatrixModelPicker({
     // A no-op only when this Atum model is the SAVED choice: under a plan choice the 1.1 alias is
     // not saved, so the click writes (and the write replaces the plan choice).
     if (
-      (model === managedCurrent && !savedCloudPlan && !pendingCloudSubscription && !answersWithConnection) ||
+      (model === managedCurrent && !savedCloudPlan && !relayCurrent && !pendingCloudSubscription && !answersWithConnection) ||
       switching ||
       pendingEffort
     ) {
@@ -1663,7 +1696,9 @@ export function MatrixModelPicker({
     const sameHost = () => currentRoom.current === roomAtRequest && currentScope.current === scopeAtRequest
     const current = backToAtumFirst ? sameHost : context.current
 
-    const write = () =>
+    const write = () => {
+      const planWrite = planClearWrite(cloud && !macAnswers)
+
       save(
         { model },
         () => setPendingModel(null),
@@ -1673,8 +1708,10 @@ export function MatrixModelPicker({
         },
         current,
         refused,
-        refusedHere
+        refusedHere,
+        planWrite ? () => acknowledgeAgentPlanCleared(planWrite) : undefined
       )
+    }
 
     if (!backToAtumFirst) {
       write()
@@ -2019,9 +2056,13 @@ export function MatrixModelPicker({
       setEffortNotice(undefined)
       setRetryPick(null)
       setPendingHome({ option: homeOption, route: picked.route, saved: false })
+      const planWrite = planClearWrite(Boolean(cloudSubscriptions))
 
       void homeBridge.model(agentPrincipal, homeOption).then(
         result => {
+          // The store hears an accepted write even when this card has moved on.
+          if (result.status === 'saved' && planWrite) {acknowledgeAgentPlanCleared(planWrite)}
+
           if (!context.current()) {
             return
           }
@@ -2448,7 +2489,9 @@ export function MatrixModelPicker({
   return (
     <Popover onOpenChange={changeOpen} open={open}>
       {trigger ? (
-        <PopoverTrigger asChild>{trigger}</PopoverTrigger>
+        <PopoverTrigger asChild>{typeof trigger === 'function'
+          ? trigger(shownPlanName ? { plan: shownPlanName } : {})
+          : trigger}</PopoverTrigger>
       ) : (
         <Tip label={chipWarning ?? copy.modelPicker}>
           <PopoverTrigger asChild>
