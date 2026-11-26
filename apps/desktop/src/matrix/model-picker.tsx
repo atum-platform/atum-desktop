@@ -347,8 +347,11 @@ export function MatrixModelPicker({
   lastFallback?: MatrixSubscriptionFallback
   /** Optional preloaded plan rows for the playground. */
   workRelay?: readonly MatrixModelPickerRelay[]
-  /** A row that opens this picker, replacing the composer's model pill. */
-  trigger?: ReactNode
+  /**
+   * A row that opens this picker, replacing the composer's model pill. As a function it learns the
+   * Mac plan's model when one answers (the chip's own name), so the row and the chip never disagree.
+   */
+  trigger?: ReactNode | ((answering: { plan?: string }) => ReactNode)
   /** Controlled open state, for a surface whose row owns it. */
   open?: boolean
   onOpenChange?: (open: boolean) => void
@@ -950,7 +953,27 @@ export function MatrixModelPicker({
   const hasCodexRelay = relays.some(each => each.view.plan === 'codex')
   const relayWords = workRelayCopy(locale)
   const relayPlanName = WORK_RELAY_PLAN_NAMES[selectedRelay?.view.plan ?? 'codex']
-  const relayCurrent = cloudSubscriptions && !(cloud && pendingModel) ? selectedRelay?.view.currentModel : undefined
+  // The Mac plan's selection answers, on a placed cloud home too; an Atum pick in flight holds it back.
+  const relayCurrent =
+    cloudSubscriptions && !(cloud && pendingModel) && !pendingHome ? selectedRelay?.view.currentModel : undefined
+
+  const isRelayCurrent = (route: MatrixModelRoute) =>
+    Boolean(
+      relayCurrent &&
+        selectedRelay &&
+        route.provider === WORK_RELAY_PROVIDER[selectedRelay.view.plan].picker &&
+        route.model === relayCurrent
+    )
+
+  // Any Atum write for a cloud agent replaces the plan selection on the server (0536's clear
+  // trigger), so the read held here forgets it at once instead of naming the plan until a re-read.
+  const forgetRelaySelection = () => {
+    if (planRead.current?.key === plansKey) {planRead.current = null}
+
+    setNativePlans(previous => previous && previous.key === plansKey && previous.value?.selection
+      ? { key: previous.key, value: { ...previous.value, selection: null } }
+      : previous)
+  }
 
   const modelsFor = (each: MatrixModelPickerRelay) => each.models ?? (each.view.plan === 'codex' ? chatgptModels : accountPickerPlans(accountConnections).flatMap(pick => pick.plan === each.view.plan && pick.kind !== 'connect' ? pick.models : []))
 
@@ -1168,7 +1191,11 @@ export function MatrixModelPicker({
 
   const isCurrent = (route: MatrixModelRoute) =>
     homeMode
-      ? route.id === homeCurrentRouteId
+      ? pendingCloudSubscription
+        ? route.id === pendingCloudSubscription.route.id
+        : relayCurrent
+          ? isRelayCurrent(route)
+          : route.id === homeCurrentRouteId
       : route.provider === 'atum' || route.provider === MATRIX_SHELF_PROVIDER.id
         ? route.current && !savedCloudPlan && !relayCurrent && !pendingCloudSubscription && !answersWithConnection
         : pendingCloudSubscription
@@ -1638,7 +1665,7 @@ export function MatrixModelPicker({
     // A no-op only when this Atum model is the SAVED choice: under a plan choice the 1.1 alias is
     // not saved, so the click writes (and the write replaces the plan choice).
     if (
-      (model === managedCurrent && !savedCloudPlan && !pendingCloudSubscription && !answersWithConnection) ||
+      (model === managedCurrent && !savedCloudPlan && !relayCurrent && !pendingCloudSubscription && !answersWithConnection) ||
       switching ||
       pendingEffort
     ) {
@@ -1670,6 +1697,8 @@ export function MatrixModelPicker({
         () => {
           setPendingModel({ value: model, saved: true })
           rememberRecent(routeId)
+
+          if (cloud && !macAnswers) {forgetRelaySelection()}
         },
         current,
         refused,
@@ -2035,6 +2064,8 @@ export function MatrixModelPicker({
 
           setPendingHome({ option: homeOption, route: picked.route, saved: true })
           rememberRecent(picked.route.id)
+
+          if (cloudSubscriptions) {forgetRelaySelection()}
         },
         () => {
           if (!context.current()) {
@@ -2448,7 +2479,9 @@ export function MatrixModelPicker({
   return (
     <Popover onOpenChange={changeOpen} open={open}>
       {trigger ? (
-        <PopoverTrigger asChild>{trigger}</PopoverTrigger>
+        <PopoverTrigger asChild>{typeof trigger === 'function'
+          ? trigger(relayCurrentName && !pendingCloudSubscription ? { plan: relayCurrentName } : {})
+          : trigger}</PopoverTrigger>
       ) : (
         <Tip label={chipWarning ?? copy.modelPicker}>
           <PopoverTrigger asChild>

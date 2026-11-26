@@ -1616,6 +1616,46 @@ describe('account subscriptions in the model picker', () => {
     expect(screen.getByRole('button', { name: /Model: GPT-6\.2-Astra/ })).toBeTruthy()
   })
 
+  it('names the Mac plan on a placed cloud home, checks its row, and switches back to Atum through the home', async () => {
+    // Owner 2026-11-26 (Raymond): the server held Claude Opus 5.5, the chip said Nguyệt Thực and clicks did nothing.
+    $accountConnections.set(ACCOUNT_CONNECTIONS_FIXTURE)
+    const model = vi.fn(async () => ({ status: 'saved' as const }))
+    const selectRelay = vi.fn()
+
+    const plans: WorkAgentPlans = {
+      published: true,
+      plans: {
+        codex: { state: 'connected', models: [{ id: 'gpt-6.2-astra', displayName: 'GPT-6.2-Astra' }] },
+        claude: { state: 'connected', models: [{ id: 'claude-opus-5-5', displayName: 'Claude Opus 5.5' }] }
+      },
+      selection: { provider: 'atum-work', plan: 'claude', model: 'claude-opus-5-5', revision: 2 }
+    }
+
+    picker(ROOM, {
+      cloud: true, here: 'cloud', local: true, managed: true, agentPrincipal: nativePlanAgent, preferenceScope: 'account:test',
+      home: cloudHome(),
+      bridge: {
+        agentHome: homeBridge(model),
+        work: { readAgentPlans: async () => plans, selectRelay } as unknown as NonNullable<MatrixUiBridge['work']>
+      }
+    })
+
+    await waitFor(() => expect(screen.getByRole('button', { name: /Model: Claude Opus 5\.5/ })).toBeTruthy())
+    const card = await open(/Model: Claude Opus 5\.5/)
+    expect(selected(card)).toHaveLength(1)
+    expect(row(card, 'claude-plan:claude-opus-5-5').getAttribute('aria-current')).toBe('true')
+
+    // Nguyệt Thực is the home's stored model, but the plan answers: picking it is a real switch.
+    fireEvent.click(rail(card, 'atum'))
+    expect(row(card, NGUYET_THUC_ROUTE).getAttribute('aria-current')).not.toBe('true')
+    fireEvent.click(row(card, NGUYET_THUC_ROUTE))
+    await waitFor(() => expect(model).toHaveBeenCalledWith(nativePlanAgent, expect.objectContaining({ model: 'nguyet-thuc' })))
+    expect(selectRelay).not.toHaveBeenCalled()
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Model: Nguyệt Thực 1.3' })).toBeTruthy())
+    expect(row(card, NGUYET_THUC_ROUTE).getAttribute('aria-current')).toBe('true')
+    expect(selected(card)).toHaveLength(1)
+  })
+
   it('labels a cloud current-model fallback as Cloud, never This Mac', async () => {
     picker(ROOM, { cloud: true, connected: CHATGPT, managed: false, onSubscriptions: null })
     const card = await open(/Model:/)
