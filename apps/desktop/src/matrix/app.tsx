@@ -7973,7 +7973,20 @@ function MatrixAccountView({
   // One card place (owner 2026-11-26): the agent's name or face, its roster Info, Settings › its row and
   // "Add routines" open its panel beside its own chat, not a sheet with the same rows. The chat is
   // selected first when another is open; the panel opens once that chat is on screen.
-  const [panelRequest, setPanelRequest] = useState<{ principal: string; roomId: string; focus?: 'name' | 'routines' }>()
+  //
+  // The request belongs to one navigation attempt (review P2-3): a refused selection (the document-save
+  // preflight, a failed select) or a move to some other chat retires it, and nothing (the chat panel
+  // preference, the view, the rename focus) changes until the requested chat is the one on screen.
+  const panelAttempt = useRef(0)
+
+  const [panelRequest, setPanelRequest] = useState<{
+    attempt: number
+    principal: string
+    roomId: string
+    fromRoomId?: string
+    focus?: 'name' | 'routines'
+  }>()
+
   const [panelFocus, setPanelFocus] = useState<{ principal: string; focus: 'name' | 'routines' }>()
 
   useEffect(() => {
@@ -7982,26 +7995,47 @@ function MatrixAccountView({
     }
 
     const { focus, principal } = assistantCardTarget
+    const attempt = ++panelAttempt.current
     closeAssistantCard()
-    setPanelRequest({ principal, roomId: cardPanelRoom.id, ...(focus ? { focus } : {}) })
-    setDriveActive(false)
-    setWorkplaceActive(false)
-    setWorkActive(false)
-    setDrawerOpen(false)
-    setMatrixRightPanel('chat', true)
+    setPanelRequest({
+      attempt,
+      principal,
+      roomId: cardPanelRoom.id,
+      ...(snapshot.roomId ? { fromRoomId: snapshot.roomId } : {}),
+      ...(focus ? { focus } : {})
+    })
 
     if (cardPanelRoom.id !== snapshot.roomId) {
-      void runMatrixCommand({ kind: 'select', roomId: cardPanelRoom.id }).catch(fail)
+      void runMatrixCommand({ kind: 'select', roomId: cardPanelRoom.id }).catch(error => {
+        setPanelRequest(current => (current?.attempt === attempt ? undefined : current))
+        fail(error)
+      })
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- a card request is the only trigger.
   }, [assistantCardTarget, cardPanelRoom?.id])
 
   useEffect(() => {
-    if (!panelRequest || room?.id !== panelRequest.roomId || assistantInfo?.principal !== panelRequest.principal) {
+    if (!panelRequest) {
+      return
+    }
+
+    // Superseded: the window went to a chat that is neither the one asked for nor the one it left.
+    if (room?.id && room.id !== panelRequest.roomId && room.id !== panelRequest.fromRoomId) {
+      setPanelRequest(undefined)
+
+      return
+    }
+
+    if (room?.id !== panelRequest.roomId || assistantInfo?.principal !== panelRequest.principal) {
       return
     }
 
     setPanelRequest(undefined)
+    setDriveActive(false)
+    setWorkplaceActive(false)
+    setWorkActive(false)
+    setDrawerOpen(false)
+    setMatrixRightPanel('chat', true)
     setPanelFocus(panelRequest.focus ? { principal: panelRequest.principal, focus: panelRequest.focus } : undefined)
     openWorkspace('info')
     // eslint-disable-next-line react-hooks/exhaustive-deps -- opens once the requested chat is on screen.
@@ -9636,7 +9670,7 @@ function MatrixAccountView({
                   onPercentChange={setWorkspacePercent}
                   percent={workspacePercent}
                   room={room}
-                  snapshot={snapshot}
+                  snapshot={roomView}
                   windowControls={
                     compact || !sidebarShowing ? (
                       <AtumWindowControlsSurface

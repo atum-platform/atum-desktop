@@ -1656,6 +1656,152 @@ describe('account subscriptions in the model picker', () => {
     expect(selected(card)).toHaveLength(1)
   })
 
+  it('keeps the composer and panel pickers on one Mac-plan selection, and retires reads begun before a write', async () => {
+    // Review P1-1 (2026-11-26): each picker held its own copy, so a switch in one left the other stale.
+    $accountConnections.set(ACCOUNT_CONNECTIONS_FIXTURE)
+
+    const models = {
+      codex: { state: 'connected' as const, models: [{ id: 'gpt-6.2-astra', displayName: 'GPT-6.2-Astra' }] },
+      claude: { state: 'connected' as const, models: [{ id: 'claude-opus-5-5', displayName: 'Claude Opus 5.5' }] }
+    }
+
+    const opus = { provider: 'atum-work' as const, plan: 'claude' as const, model: 'claude-opus-5-5', revision: 2 }
+    let server: WorkAgentPlans = { published: true, plans: models, selection: opus }
+    const stale = deferred<WorkAgentPlans>()
+    let reads = 0
+
+    const readAgentPlans = vi.fn(async () => {
+      reads += 1
+
+      // The third read (the composer opening) is in flight across the write and answers with the old selection.
+      return reads === 3 ? stale.promise : server
+    })
+
+    const selectRelay = vi.fn(async (_agent: string, model: string, plan: 'codex' | 'claude') => {
+      const saved = { provider: 'atum-work' as const, plan, model, revision: (server.selection?.revision ?? 0) + 1 }
+      server = { ...server, selection: saved }
+
+      return saved
+    })
+
+    window.atumMatrix = {
+      command: vi.fn(async () => null),
+      work: { readAgentPlans, selectRelay } as unknown as NonNullable<MatrixUiBridge['work']>
+    } as unknown as MatrixUiBridge
+
+    const shared = {
+      agentPrincipal: nativePlanAgent,
+      cloud: true,
+      cloudChoice: { offered: ['default' as const], current: 'default' as const, revision: 1 },
+      disabled: false,
+      fail: vi.fn(),
+      here: 'cloud' as const,
+      preferenceScope: 'account:test'
+    }
+
+    render(
+      <I18nProvider configClient={null} initialLocale="en">
+        <div data-surface="composer"><MatrixModelPicker {...shared} room={ROOM} /></div>
+        <div data-surface="panel"><MatrixModelPicker {...shared} room={{ ...ROOM, id: 'assistant-card:agent:cloud' }} /></div>
+      </I18nProvider>
+    )
+
+    const chip = (surface: 'composer' | 'panel') =>
+      within(window.document.querySelector<HTMLElement>(`[data-surface="${surface}"]`)!).getByRole('button', { name: /^Model:/ })
+
+    await waitFor(() => expect(chip('composer').getAttribute('aria-label') ?? chip('composer').textContent).toMatch(/Claude Opus 5\.5/))
+    expect(chip('panel').getAttribute('aria-label') ?? chip('panel').textContent).toMatch(/Claude Opus 5\.5/)
+
+    // Switch from the composer.
+    fireEvent.click(chip('composer'))
+    let card = await screen.findByRole('dialog', { name: 'Model' })
+    fireEvent.click(rail(card, 'openai-codex'))
+    fireEvent.click(row(card, 'openai-codex:gpt-6.2-astra'))
+    await waitFor(() => expect(selectRelay).toHaveBeenCalledWith(nativePlanAgent, 'gpt-6.2-astra', 'codex'))
+
+    // The panel names the new plan at once, with no read of its own.
+    await waitFor(() => expect(chip('panel').getAttribute('aria-label') ?? chip('panel').textContent).toMatch(/GPT-6\.2-Astra/))
+    const readsAfterWrite = readAgentPlans.mock.calls.length
+
+    // The read begun before the write comes back with Opus: it is retired, never shown.
+    await act(async () => stale.resolve({ published: true, plans: models, selection: opus }))
+    expect(chip('panel').getAttribute('aria-label') ?? chip('panel').textContent).toMatch(/GPT-6\.2-Astra/)
+    expect(chip('composer').getAttribute('aria-label') ?? chip('composer').textContent).toMatch(/GPT-6\.2-Astra/)
+    expect(readAgentPlans.mock.calls.length).toBe(readsAfterWrite)
+
+    fireEvent.keyDown(card, { key: 'Escape' })
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Model' })).toBeNull())
+
+    // Picking Opus back from the panel is a real switch, not "already current".
+    fireEvent.click(chip('panel'))
+    card = await screen.findByRole('dialog', { name: 'Model' })
+    fireEvent.click(rail(card, 'claude-plan'))
+    expect(row(card, 'claude-plan:claude-opus-5-5').getAttribute('aria-current')).not.toBe('true')
+    fireEvent.click(row(card, 'claude-plan:claude-opus-5-5'))
+    await waitFor(() => expect(selectRelay).toHaveBeenLastCalledWith(nativePlanAgent, 'claude-opus-5-5', 'claude'))
+    await waitFor(() => expect(chip('composer').getAttribute('aria-label') ?? chip('composer').textContent).toMatch(/Claude Opus 5\.5/))
+  })
+
+  it.each(['accepted', 'refused'] as const)(
+    'names the same plan on a row trigger as on the chip while a plan pick is in flight, then %s',
+    async outcome => {
+      // Review P2-4 (2026-11-26): the panel's Model row showed the Atum fallback while the chip named the pick.
+      $accountConnections.set(ACCOUNT_CONNECTIONS_FIXTURE)
+      const write = deferred<{ provider: 'atum-work'; plan: 'codex'; model: string; revision: number }>()
+      const selectRelay = vi.fn(() => write.promise)
+
+      const plans: WorkAgentPlans = {
+        published: true,
+        plans: {
+          codex: { state: 'connected', models: [{ id: 'gpt-6.2-astra', displayName: 'GPT-6.2-Astra' }] },
+          claude: { state: 'connected', models: [{ id: 'claude-opus-5-5', displayName: 'Claude Opus 5.5' }] }
+        },
+        selection: { provider: 'atum-work', plan: 'claude', model: 'claude-opus-5-5', revision: 2 }
+      }
+
+      window.atumMatrix = {
+        command: vi.fn(async () => null),
+        work: { readAgentPlans: async () => plans, selectRelay } as unknown as NonNullable<MatrixUiBridge['work']>
+      } as unknown as MatrixUiBridge
+
+      render(
+        <I18nProvider configClient={null} initialLocale="en">
+          <MatrixModelPicker
+            agentPrincipal={nativePlanAgent}
+            cloud
+            cloudChoice={{ offered: ['default'], current: 'default', revision: 1 }}
+            disabled={false}
+            fail={vi.fn()}
+            here="cloud"
+            preferenceScope="account:test"
+            room={{ ...ROOM, id: 'assistant-card:agent:cloud' }}
+            trigger={answering => <button data-row-trigger type="button">{answering.plan ?? 'Nguyệt Thực'}</button>}
+          />
+        </I18nProvider>
+      )
+
+      const shown = () => window.document.querySelector('[data-row-trigger]')!.textContent
+
+      await waitFor(() => expect(shown()).toBe('Claude Opus 5.5'))
+      fireEvent.click(window.document.querySelector('[data-row-trigger]')!)
+      const card = await screen.findByRole('dialog', { name: 'Model' })
+      fireEvent.click(rail(card, 'openai-codex'))
+      fireEvent.click(row(card, 'openai-codex:gpt-6.2-astra'))
+      await waitFor(() => expect(selectRelay).toHaveBeenCalled())
+
+      // In flight: the row names the pick, as the chip does, never the Atum fallback.
+      expect(shown()).toBe('GPT-6.2-Astra')
+
+      if (outcome === 'accepted') {
+        await act(async () => write.resolve({ provider: 'atum-work', plan: 'codex', model: 'gpt-6.2-astra', revision: 3 }))
+        expect(shown()).toBe('GPT-6.2-Astra')
+      } else {
+        await act(async () => write.reject(new Error('refused')))
+        await waitFor(() => expect(shown()).toBe('Claude Opus 5.5'))
+      }
+    }
+  )
+
   it('labels a cloud current-model fallback as Cloud, never This Mac', async () => {
     picker(ROOM, { cloud: true, connected: CHATGPT, managed: false, onSubscriptions: null })
     const card = await open(/Model:/)

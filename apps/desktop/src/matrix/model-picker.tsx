@@ -73,6 +73,15 @@ import {
 import type { WorkAgentPlans } from '../../shared/matrix-work'
 import { WORK_RELAY_PLANS, WORK_RELAY_PROVIDER, workRelayNoticePlan } from '../../shared/matrix-work-relay'
 
+import {
+  $agentPlans,
+  acknowledgeAgentPlanCleared,
+  acknowledgeAgentPlanSelection,
+  agentPlansKey,
+  beginAgentPlansRead,
+  failAgentPlansRead,
+  settleAgentPlansRead
+} from './agent-plans-store'
 import { ChatGptTrainingConfirm } from './chatgpt-training-confirm'
 import { useModelPickerCopy } from './model-picker-copy'
 import { ModelPickerEffortColumn, pickerEffortChoice } from './model-picker-effort-column'
@@ -376,27 +385,21 @@ export function MatrixModelPicker({
   const open = controlledOpen ?? openState
   const readAgentPlans = cloud && agentPrincipal && !providedWorkRelay ? window.atumMatrix.work?.readAgentPlans : undefined
   const selectAgentPlan = window.atumMatrix.work?.selectRelay
-  const plansKey = agentPrincipal ? JSON.stringify([scope, agentPrincipal]) : undefined
-  const [nativePlans, setNativePlans] = useState<{ key: string; value: WorkAgentPlans | null }>()
-  const planRead = useRef<{ key: string } | null>(null)
-  const agentPlans = nativePlans && nativePlans.key === plansKey ? nativePlans.value : undefined
+  // One entry per account and agent, shared by the composer's chip and the panel's Model row, so a
+  // switch acknowledged in either shows in both at once (agent-plans-store.ts).
+  const plansKey = agentPrincipal ? agentPlansKey(scope, agentPrincipal) : undefined
+  const sharedPlans = useStore($agentPlans)
+  const agentPlans: WorkAgentPlans | null | undefined = plansKey ? sharedPlans[plansKey]?.value : undefined
 
   // Also re-read when the owner view becomes ready after the hidden Work startup.
   useEffect(() => {
     if (!readAgentPlans || !agentPrincipal || !plansKey) {return}
 
-    const request = { key: plansKey }
-    planRead.current = request
+    const read = beginAgentPlansRead(plansKey)
     void readAgentPlans(agentPrincipal).then(
-      value => { if (planRead.current === request) {setNativePlans({ key: plansKey, value })} },
-      () => {
-        if (planRead.current === request) {
-          setNativePlans(previous => previous?.key === plansKey ? previous : { key: plansKey, value: null })
-        }
-      }
+      value => settleAgentPlansRead(read, value),
+      () => failAgentPlansRead(read)
     )
-
-    return () => { if (planRead.current === request) {planRead.current = null} }
   }, [agentPrincipal, open, plansKey, readAgentPlans, work?.view])
 
   const planReadReason = readAgentPlans && agentPlans === undefined ? words.modelsLoading : words.modelsUnavailable
@@ -418,13 +421,8 @@ export function MatrixModelPicker({
           select: async (model: string) => {
             const saved = await selectAgentPlan(agentPrincipal, model, plan)
 
-            // Retire reads that started before the server acknowledged this write.
-            if (planRead.current?.key === plansKey) {planRead.current = null}
-
-            setNativePlans(previous => previous && previous.key === plansKey && previous.value
-              && saved.revision >= (previous.value.selection?.revision ?? 0)
-              ? { key: previous.key, value: { ...previous.value, selection: saved } }
-              : previous)
+            // Every picker for this agent sees the acknowledged selection; reads begun before it retire.
+            if (plansKey) {acknowledgeAgentPlanSelection(plansKey, saved)}
 
             return { status: 'saved' }
           },
@@ -967,13 +965,9 @@ export function MatrixModelPicker({
     )
 
   // Any Atum write for a cloud agent replaces the plan selection on the server (0536's clear
-  // trigger), so the read held here forgets it at once instead of naming the plan until a re-read.
+  // trigger), so every picker for this agent forgets it at once instead of naming the plan until a re-read.
   const forgetRelaySelection = () => {
-    if (planRead.current?.key === plansKey) {planRead.current = null}
-
-    setNativePlans(previous => previous && previous.key === plansKey && previous.value?.selection
-      ? { key: previous.key, value: { ...previous.value, selection: null } }
-      : previous)
+    if (plansKey) {acknowledgeAgentPlanCleared(plansKey)}
   }
 
   const modelsFor = (each: MatrixModelPickerRelay) => each.models ?? (each.view.plan === 'codex' ? chatgptModels : accountPickerPlans(accountConnections).flatMap(pick => pick.plan === each.view.plan && pick.kind !== 'connect' ? pick.models : []))
@@ -2481,7 +2475,7 @@ export function MatrixModelPicker({
     <Popover onOpenChange={changeOpen} open={open}>
       {trigger ? (
         <PopoverTrigger asChild>{typeof trigger === 'function'
-          ? trigger(relayCurrentName && !pendingCloudSubscription ? { plan: relayCurrentName } : {})
+          ? trigger(shownPlanName ? { plan: shownPlanName } : {})
           : trigger}</PopoverTrigger>
       ) : (
         <Tip label={chipWarning ?? copy.modelPicker}>

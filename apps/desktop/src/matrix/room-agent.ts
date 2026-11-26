@@ -66,6 +66,20 @@ export function snapshotForRoom(snapshot: MatrixSnapshot): MatrixSnapshot {
   }
 }
 
+/**
+ * The native activity of one room's agent, as `snapshotForRoom` projects it: the singular field when it
+ * names this room (the primary on this Mac), else that room's own `agentTurns[].activity` (another
+ * Mac-run agent). The agent's desk and panel read this, so a secondary agent's work shows there too.
+ */
+export function roomAgentActivity(
+  snapshot: Pick<MatrixSnapshot, 'agentTurns' | 'hermesActivity'>,
+  roomId: string
+): MatrixSnapshot['hermesActivity'] {
+  return snapshot.hermesActivity?.roomId === roomId
+    ? snapshot.hermesActivity
+    : snapshot.agentTurns?.find(turn => turn.roomId === roomId)?.activity
+}
+
 /** Some agent is waiting for the person's input: native views step aside for the prompts. */
 export function anyAgentPrompts(snapshot: MatrixSnapshot): boolean {
   return Boolean(

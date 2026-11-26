@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Switch } from '@/components/ui/switch'
@@ -11,9 +11,9 @@ import {
   MatrixAgentDeskDevices,
   matrixAgentDeskPaused,
   type MatrixAgentDeskState,
-  useMatrixAgentSchedule
+  useMatrixAgentSchedule,
+  useMatrixRoomMute
 } from '../agent-desk'
-import { runMatrixCommand } from '../text-document-actions'
 
 /**
  * The agent's controls on its card beside its chat, as the desk had them (owner 2026-11-26: "control
@@ -44,14 +44,7 @@ export function AssistantCardControls({
 function NotificationsRow({ room }: { room: MatrixRoom }) {
   const { locale } = useI18n()
   const copy = matrixAgentDeskText(locale)
-  const [muted, setMuted] = useState(Boolean(room.muted))
-
-  useEffect(() => setMuted(Boolean(room.muted)), [room.muted])
-
-  const toggle = (on: boolean) => {
-    setMuted(!on)
-    void runMatrixCommand({ kind: 'mute', roomId: room.id, muted: !on }).catch(() => setMuted(Boolean(room.muted)))
-  }
+  const { muted, toggle } = useMatrixRoomMute(room)
 
   return (
     <label className="atum-settings-row cursor-pointer" data-assistant-card-notifications>

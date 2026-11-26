@@ -57,6 +57,19 @@ first. The sheet remains only for an assistant with no chat of its own yet (`Ass
 Not changed: the workbench's pinned desk tab (shown while documents or tabs are open) is left as is to keep this
 diff off #136/#141's files. Folding that tab into the same body is a possible follow-up.
 
+## 3. Review fixes (PR #143, cross-family review 2026-11-26)
+
+| Finding | Change | Test |
+| --- | --- | --- |
+| P1-1: the composer's and the panel's pickers each held their own Mac-plan view, so a switch in one left the other stale | One nanostore entry per account and agent (`src/matrix/agent-plans-store.ts`). Both pickers read it. An acknowledged plan write, or an Atum write that clears the plan on the server, updates it for both. A read begun before an acknowledged write is dropped, and so is an older read that settles after a newer one. | `model-picker.test.tsx` "keeps the composer and panel pickers on one Mac-plan selection…" (both pickers mounted) |
+| P1-2: the panel's Stop also called the device host's Stop, which fences the whole Mac and may serve another agent | `matrixAgentDeskStop` is room-scoped only (the cloud Stop or this chat's `cancelHermes`), in the panel and in the desk tab. The device-wide Stop stays in Settings › Device, where it is labelled. | `app.test.tsx` "shows a secondary agent's own work in its panel, and its Stop stops only that chat's turn"; `agent-desk.test.tsx` "…a Stop for this chat's turn only, never the device host" |
+| P2-3: a refused chat selection left the panel request pending | The request belongs to one navigation attempt. It is retired on a failed select or a move to a third chat. The panel preference, the view and the rename focus apply only once the requested chat is on screen. The chat is resolved as the roster does (marked main, then the open chat, then the latest), limited to chats whose panel shows that agent. | `app.test.tsx` "drops an agent-panel request whose chat selection is refused…" |
+| P2-4: the panel's Model row showed the Atum name while a plan pick was in flight | The row trigger gets the chip's own plan name (pick in flight, then the relay selection, then a saved cloud plan). | `model-picker.test.tsx` "names the same plan on a row trigger as on the chip while a plan pick is in flight, then accepted / refused" |
+| P2-5: the panel read the primary's activity, so a second Mac-run agent's work never showed | The panel gets the composer's room projection (`snapshotForRoom`, as `roomView`). The desk reads activity through `roomAgentActivity` (`room-agent.ts`), so the desk tab is covered too. | the P1-2 `app.test.tsx` case (primary and secondary in different rooms) |
+| Notifications duplicated the desk's optimistic mute | One `useMatrixRoomMute` hook in `agent-desk.tsx`, used by the desk's Controls and the panel's row | existing desk and panel mute tests |
+
+Each new test was confirmed to fail on the code before the fix.
+
 ## Verification
 
 Run on 2026-11-26 in `apps/desktop` (Asia/Ho_Chi_Minh):
