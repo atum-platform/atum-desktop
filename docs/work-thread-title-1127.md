@@ -41,7 +41,7 @@ Run in `apps/desktop` (exit codes read directly):
 | lint | `npx eslint <changed files>` | rc 0, 0 errors, 0 warnings |
 | focused | `npx vitest run src/app/work` | 6 files, 65 passed |
 | wider | `npx vitest run src/app/work src/app/atum src/matrix/playground electron/work electron/matrix/main-work.test.ts` | 102 files passed (2 skipped), 1737 tests |
-| public guard | `python3 scripts/public_guard.py --base origin/main --head HEAD` (repo root) | see the commit's lane report |
+| public guard | `python3 scripts/public_guard.py --base origin/main --head HEAD` (repo root) | rc 0, "PASS: 6 new commits" (#147's five and this one), no leaks |
 
 New tests: `work-history.test.tsx` (thread parsing; the capability), `work-screen.test.tsx` (name · repo ·
 branch and no band + for a newer view; "Work" without a thread; an older view keeps "Work" and the +, and
