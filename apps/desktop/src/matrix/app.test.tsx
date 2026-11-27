@@ -13325,6 +13325,61 @@ describe("Home's chat (launch night, second wave)", () => {
       ...extra
     })
 
+    it('opens a human group thread from the message and lists it in chat details', async () => {
+      const decision = message('$decision', { body: 'Keep the launch plan' })
+
+      const reply = message('$response', {
+        own: false, sender: linh.userId, body: 'One change to the plan', thread: true, threadRootId: '$decision'
+      })
+
+      const threads = [{
+        root: decision, replies: [reply], participantIds: [decision.sender, reply.sender], replyCount: 1,
+        lastActivityAt: reply.timestamp, unread: false, highlights: 0, followed: false
+      }]
+
+      await openChat(groupChat([decision], { threads }))
+
+      expect(screen.queryByRole('button', { name: 'Open threads' })).toBeNull()
+      const starters = within(root('$decision')).getAllByRole('button', { name: 'Reply in thread' })
+      expect(starters).toHaveLength(1)
+      expect(root('$response')).toBeNull()
+      fireEvent.click(starters[0]!)
+      fireEvent.click(await screen.findByRole('button', { name: 'Close threads' }))
+
+      fireEvent.click(within(root('$decision')).getByRole('button', { name: /^1 reply, Last reply / }))
+      const panel = await screen.findByRole('complementary', { name: 'Threads' })
+      expect(within(panel).getByText('One change to the plan')).toBeTruthy()
+      fireEvent.click(within(panel).getByRole('button', { name: 'Close threads' }))
+
+      fireEvent.click(screen.getByRole('button', { name: 'Show conversation info' }))
+      const recent = await screen.findByRole('region', { name: 'Threads' })
+      expect(within(recent).getByRole('button', { name: /Keep the launch plan.*1 reply/ })).toBeTruthy()
+      fireEvent.click(within(recent).getByRole('button', { name: 'All threads' }))
+      const list = await screen.findByRole('complementary', { name: 'Threads' })
+      fireEvent.click(within(list).getByRole('button', { name: /Keep the launch plan/ }))
+      expect(await within(list).findByText('One change to the plan')).toBeTruthy()
+    })
+
+    it('leaves the thread action out of an assistant DM', async () => {
+      await openChat(ready)
+      expect(screen.queryByRole('button', { name: 'Reply in thread' })).toBeNull()
+    })
+
+    it('opens a human group pin in read-only mode after demotion', async () => {
+      const decision = message('$decision', { body: 'The pinned group decision' })
+      await openChat(groupChat([decision], {
+        pinnedMessages: { canChange: false, entries: [{ eventId: decision.id, message: decision }] }
+      }))
+
+      fireEvent.keyDown(root(decision.id).querySelector<HTMLButtonElement>('[data-matrix-message-actions]')!, { key: 'Enter' })
+      expect(screen.queryByRole('menuitem', { name: 'Unpin message' })).toBeNull()
+      fireEvent.keyDown(screen.getByRole('menu'), { key: 'Escape' })
+
+      fireEvent.click(screen.getByRole('button', { name: '1 pinned message' }))
+      const panel = await screen.findByRole('complementary', { name: 'Pinned messages' })
+      expect(within(panel).getByText(decision.body)).toBeTruthy()
+    })
+
     it('reacts from a message, shows reactions as chips with yours highlighted, and a chip takes yours back', async () => {
       const command = vi.fn<MatrixUiBridge['command']>(async () => null)
       await openChat(

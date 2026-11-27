@@ -653,7 +653,7 @@ async function decryptReportFixture(
   } as unknown as Parameters<MatrixEvent['attemptDecryption']>[0])
 }
 
-it('watches threads only in the selected joined company room and detaches on switch or leave', async () => {
+it('watches threads only in the selected eligible room and detaches on switch or leave', async () => {
   const f = await fixture()
 
   const companyRoom = (id: string) => {
@@ -680,6 +680,57 @@ it('watches threads only in the selected joined company room and detaches on swi
   f.client.emit(RoomEvent.MyMembership, second, 'leave', 'join')
   await vi.waitFor(() => expect(second.listenerCount(ThreadEvent.Update)).toBe(0))
   expect(second.listenerCount(RoomEvent.UnreadNotifications)).toBe(0)
+})
+
+it('projects synced pins in a human group and people DM and rechecks power before a stale write', async () => {
+  const f = await fixture()
+  f.client.emit(ClientEvent.Sync, SyncState.Prepared, null)
+  const group = plainRoomFixture(f.client, '!group:test')
+  const dm = plainRoomFixture(f.client, '!dm:test')
+  f.client.store.storeAccountDataEvents([new MatrixEvent({
+    type: EventType.Direct, content: { [bob]: [dm.roomId] }
+  })])
+  const send = vi.spyOn(f.client, 'sendStateEvent').mockResolvedValue({ event_id: '$new-pins' })
+  const state = (target: Room, type: string, content: Record<string, unknown>) => new MatrixEvent({
+    type, state_key: '', room_id: target.roomId, event_id: `$${type}`, sender: bob, content
+  })
+
+  for (const target of [group, dm]) {
+    target.currentState.setStateEvents([
+      state(target, EventType.RoomCreate, { creator: bob }),
+      state(target, EventType.RoomPowerLevels, { users: { [alice]: 50, [bob]: 100 }, state_default: 50 }),
+      state(target, EventType.RoomPinnedEvents, { pinned: ['$other-device'] })
+    ])
+    await target.addLiveEvents([new MatrixEvent({
+      type: EventType.RoomMessage, event_id: '$decision', room_id: target.roomId, sender: bob,
+      content: { msgtype: 'm.text', body: 'Decision' }
+    })], { addToState: false })
+
+    await f.sdk.command({ kind: 'select', roomId: target.roomId })
+    expect(f.latest().pinnedMessages).toEqual({ canChange: true, entries: [{ eventId: '$other-device' }] })
+    expect(f.latest().threads).toEqual(target === group ? [] : undefined)
+
+    const pin = { kind: 'pinMessage' as const, roomId: target.roomId, eventId: '$decision', pinned: true }
+    await f.sdk.command(pin)
+    expect(send).toHaveBeenLastCalledWith(target.roomId, EventType.RoomPinnedEvents, { pinned: ['$other-device', '$decision'] }, '')
+
+    // A later remote removal wins. The next write is based on the latest synced list.
+    target.currentState.setStateEvents([state(target, EventType.RoomPinnedEvents, { pinned: [] })])
+    await f.sdk.command(pin)
+    expect(send).toHaveBeenLastCalledWith(target.roomId, EventType.RoomPinnedEvents, { pinned: ['$decision'] }, '')
+    send.mockClear()
+
+    target.currentState.setStateEvents([
+      state(target, EventType.RoomPinnedEvents, { pinned: ['$decision'] }),
+      state(target, EventType.RoomPowerLevels, { users: { [alice]: 0, [bob]: 100 }, state_default: 50 })
+    ])
+    f.client.emit(RoomStateEvent.Events, state(target, EventType.RoomPowerLevels, {}), target.currentState, null)
+    await vi.waitFor(() => expect(f.latest().pinnedMessages).toMatchObject({
+      canChange: false, entries: [{ eventId: '$decision', message: { body: 'Decision' } }]
+    }))
+    await expect(f.sdk.command({ ...pin, pinned: false })).rejects.toThrow('matrix_pin_forbidden')
+    expect(send).not.toHaveBeenCalled()
+  }
 })
 
 it("projects a Team Space channel's joins and departures beside its messages, and none for an ordinary chat", async () => {
