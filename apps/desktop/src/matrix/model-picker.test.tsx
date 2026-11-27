@@ -922,7 +922,9 @@ describe('the T3-layout conversation model picker', () => {
     expect(card.querySelector('[data-matrix-model-connect]')).toBeTruthy()
   })
 
-  it('retires an in-flight local pick when the card closes', async () => {
+  it('keeps naming an in-flight local pick after the card closes, never the previous model', async () => {
+    // Owner 2026-11-27: closing the card retired the pick, so the chip flashed the previous model
+    // until the projection caught up, although the write went through.
     const selectedRoute = deferred<MatrixModelRouteSelection>()
     const selectModelRoute = vi.fn(() => selectedRoute.promise)
     picker(ROOM, { managed: false, connected: CHATGPT, bridge: plan({ select: selectModelRoute }) })
@@ -931,10 +933,24 @@ describe('the T3-layout conversation model picker', () => {
     fireEvent.click(row(card, GPT6_ROUTE))
     fireEvent.keyDown(window.document, { key: 'Escape' })
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    expect(screen.queryByRole('button', { name: 'Model: ChatGPT · GPT-5.6 Luna' })).toBeNull()
 
     await act(async () => selectedRoute.resolve({ status: 'applied', current: GPT6_ROUTE }))
+    expect(screen.getByRole('button', { name: 'Model: ChatGPT · GPT-6 Luna' })).toBeTruthy()
+    expect(readMatrixModelPickerPreferences(window.localStorage, ROOM.id).recent).toEqual([GPT6_ROUTE])
+  })
+
+  it('goes back to the running model when an in-flight local pick fails after the card closed', async () => {
+    const selectedRoute = deferred<MatrixModelRouteSelection>()
+    picker(ROOM, { managed: false, connected: CHATGPT, bridge: plan({ select: vi.fn(() => selectedRoute.promise) }) })
+    const card = await open('Model: ChatGPT · GPT-5.6 Luna')
+    await waitFor(() => expect(rows(card)).toHaveLength(3))
+    fireEvent.click(row(card, GPT6_ROUTE))
+    fireEvent.keyDown(window.document, { key: 'Escape' })
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+
+    await act(async () => selectedRoute.reject(new Error('matrix_model_route_failed')))
     expect(screen.getByRole('button', { name: 'Model: ChatGPT · GPT-5.6 Luna' })).toBeTruthy()
-    expect(readMatrixModelPickerPreferences(window.localStorage, ROOM.id).recent).toEqual([])
   })
 
   it('starts each open on the current model’s rail and clears the old search', async () => {
@@ -1810,6 +1826,84 @@ describe('account subscriptions in the model picker', () => {
     await waitFor(() => expect(selectRelay).toHaveBeenLastCalledWith(nativePlanAgent, 'claude-opus-5-5', 'claude'))
     await waitFor(() => expect(chip('composer').getAttribute('aria-label') ?? chip('composer').textContent).toMatch(/Claude Opus 5\.5/))
   })
+
+  it.each(['acknowledged', 'refused'] as const)(
+    'never paints the previous model when the picker closes while a plan pick is in flight and the close-read answers first (%s)',
+    async outcome => {
+      // Owner 2026-11-27: pick a plan model, click out, and the chip flashed Nguyệt Thực before the pick.
+      $accountConnections.set(ACCOUNT_CONNECTIONS_FIXTURE)
+
+      const models = {
+        codex: { state: 'connected' as const, models: [{ id: 'gpt-6.2-astra', displayName: 'GPT-6.2-Astra' }] },
+        claude: { state: 'connected' as const, models: [{ id: 'claude-opus-5-5', displayName: 'Claude Opus 5.5' }] }
+      }
+
+      const before: WorkAgentPlans = { published: true, plans: models, selection: null }
+      const closeRead = deferred<WorkAgentPlans>()
+      const write = deferred<{ provider: 'atum-work'; plan: 'claude'; model: string; revision: number }>()
+      let reads = 0
+
+      // The first read settles at once; the read the close triggers is held until we release it.
+      const readAgentPlans = vi.fn(async () => {
+        reads += 1
+
+        return reads === 1 ? before : closeRead.promise
+      })
+
+      const selectRelay = vi.fn(() => write.promise)
+
+      window.atumMatrix = {
+        command: vi.fn(async () => null),
+        work: { readAgentPlans, selectRelay } as unknown as NonNullable<MatrixUiBridge['work']>
+      } as unknown as MatrixUiBridge
+
+      render(
+        <I18nProvider configClient={null} initialLocale="en">
+          <MatrixModelPicker
+            agentPrincipal={nativePlanAgent}
+            cloud
+            cloudChoice={{ offered: ['default'], current: 'default', revision: 1 }}
+            disabled={false}
+            fail={vi.fn()}
+            here="cloud"
+            preferenceScope="account:test"
+            room={ROOM}
+          />
+        </I18nProvider>
+      )
+
+      const chipText = () => {
+        const chip = screen.getByRole('button', { name: /^Model:/ })
+
+        return chip.getAttribute('aria-label') ?? chip.textContent ?? ''
+      }
+
+      await waitFor(() => expect(chipText()).toMatch(/Nguyệt Thực/))
+      fireEvent.click(screen.getByRole('button', { name: /^Model:/ }))
+      const card = await screen.findByRole('dialog', { name: 'Model' })
+      fireEvent.click(rail(card, 'claude-plan'))
+      fireEvent.click(row(card, 'claude-plan:claude-opus-5-5'))
+      await waitFor(() => expect(selectRelay).toHaveBeenCalledWith(nativePlanAgent, 'claude-opus-5-5', 'claude'))
+      expect(chipText()).toMatch(/Claude Opus 5\.5/)
+
+      // Click out: the close re-reads; that read answers with the state from before the write.
+      fireEvent.keyDown(card, { key: 'Escape' })
+      await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Model' })).toBeNull())
+      expect(chipText()).toMatch(/Claude Opus 5\.5/)
+      await waitFor(() => expect(reads).toBeGreaterThanOrEqual(2))
+      await act(async () => closeRead.resolve(before))
+      expect(chipText()).toMatch(/Claude Opus 5\.5/)
+      expect(chipText()).not.toMatch(/Nguyệt Thực/)
+
+      if (outcome === 'acknowledged') {
+        await act(async () => write.resolve({ provider: 'atum-work', plan: 'claude', model: 'claude-opus-5-5', revision: 1 }))
+        expect(chipText()).toMatch(/Claude Opus 5\.5/)
+      } else {
+        await act(async () => write.reject(new Error('work_relay_refused')))
+        await waitFor(() => expect(chipText()).toMatch(/Nguyệt Thực/))
+      }
+    }
+  )
 
   it.each(['accepted', 'refused'] as const)(
     'names the same plan on a row trigger as on the chip while a plan pick is in flight, then %s',

@@ -92,32 +92,55 @@ function DevicesRow({ desk }: { desk: MatrixAgentDeskState }) {
   )
 }
 
-/** One Pause for the agent's routines (native cron through the host), with its meaning as a tooltip. */
+/**
+ * One Pause for the agent's scheduled work (native cron through the host's agent-control route), with
+ * its meaning as a tooltip. A cloud agent the host serves always has the row (owner 2026-11-27: "agent
+ * card don't see pause"): with routines it is the switch; with none, or while its schedule cannot be
+ * read, the row says so and the switch waits, so it never claims to pause what it cannot.
+ */
 function PauseRow({ active, agent }: { active: boolean; agent: MatrixAgentView }) {
   const { locale } = useI18n()
   const copy = matrixAgentDeskText(locale)
   const schedule = useMatrixAgentSchedule(active, agent)
   const paused = matrixAgentDeskPaused(schedule.jobs)
 
-  if (!schedule.canControl) {
+  if (!schedule.hosted) {
     return null
   }
 
+  const state = schedule.canControl ? (paused ? 'paused' : 'running') : schedule.read === 'ready' ? 'empty' : schedule.read
+  const note =
+    schedule.problem === 'stopped'
+      ? copy.computerOff
+      : schedule.problem
+        ? copy.controlFailed
+        : state === 'empty'
+          ? copy.nothingScheduled
+          : state === 'failed'
+            ? copy.scheduleUnavailable
+            : undefined
+
   return (
-    <label
-      className="atum-settings-row cursor-pointer"
-      data-assistant-card-pause={paused ? 'paused' : 'running'}
-      title={copy.pauseHint}
-    >
+    <div className="atum-settings-row" data-assistant-card-pause={state} title={copy.pauseHint}>
       <span className="atum-settings-row-text min-w-0 flex-1">
         <span className="atum-settings-row-title">{copy.pause}</span>
-        {schedule.problem && (
+        {note && (
           <span className="atum-settings-row-help" role="status">
-            {schedule.problem === 'stopped' ? copy.computerOff : copy.controlFailed}
+            {note}
           </span>
         )}
       </span>
-      <Switch aria-label={copy.pause} checked={paused} onCheckedChange={on => (on ? schedule.pause() : schedule.resume())} />
-    </label>
+      {state === 'failed' && (
+        <button className="ak-btn ak-btn--sm" data-assistant-card-pause-retry onClick={schedule.reload} type="button">
+          {copy.tryAgain}
+        </button>
+      )}
+      <Switch
+        aria-label={copy.pause}
+        checked={paused}
+        disabled={!schedule.canControl}
+        onCheckedChange={on => (on ? schedule.pause() : schedule.resume())}
+      />
+    </div>
   )
 }

@@ -1,6 +1,6 @@
 import { type ReactNode, useEffect, useLayoutEffect, useRef } from 'react'
 
-import { Tip } from '@/components/ui/tooltip'
+import { Tip, TipSide } from '@/components/ui/tooltip'
 import { useI18n } from '@/i18n'
 import { ATUM_WORKSPACE_MAX_PERCENT, ATUM_WORKSPACE_MIN_PERCENT } from '@/lib/atum-shell-geometry'
 import { ArrowsDiagonal, ArrowsDiagonalMinimize, LayoutSidebarRight, Plus, X } from '@/lib/icons'
@@ -233,6 +233,8 @@ export function AtumWorkspaceSurface({
           onKeyDown={onTabsKeyDown}
         >
           {overFrame && windowControls}
+          {/* The band's tips open sideways, never down over a document's native view (owner 2026-11-27). */}
+          <TipSide side="left">
           <div
             aria-label={t.dm.artifact.tabsAria}
             // Preserve user-visible identity, state and recovery behavior across connection changes.
@@ -318,9 +320,11 @@ export function AtumWorkspaceSurface({
                 </button>
               </Tip>
             )}
+            {/* The panel toggle, last as on every screen, pressed while its panel is open (layout r1 C). */}
             <Tip label={t.atum.workspace.close}>
               <button
                 aria-label={t.atum.workspace.close}
+                aria-pressed
                 className="atum-icon-btn relative size-7 after:absolute after:-inset-1"
                 data-icon-only
                 data-testid="atum-workspace-close"
@@ -331,6 +335,7 @@ export function AtumWorkspaceSurface({
               </button>
             </Tip>
           </div>
+          </TipSide>
         </div>
         <div className="min-h-0 flex-1 overflow-hidden" id={panelId} role={active ? 'tabpanel' : 'region'}>
           {children}

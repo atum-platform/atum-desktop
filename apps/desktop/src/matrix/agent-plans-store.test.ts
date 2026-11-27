@@ -7,9 +7,11 @@ import {
   acknowledgeAgentPlanCleared,
   acknowledgeAgentPlanSelection,
   agentPlansKey,
+  agentPlansShownSelection,
   beginAgentPlansRead,
   beginAgentPlansWrite,
   bindAgentPlansAccount,
+  failAgentPlansWrite,
   resetAgentPlansForTests,
   settleAgentPlansRead
 } from './agent-plans-store'
@@ -84,5 +86,56 @@ describe('the shared Mac-plan view', () => {
     // The new session's own read is kept.
     settleAgentPlansRead(beginAgentPlansRead(KEY), plans(astra(4)))
     expect(selection()).toEqual(astra(4))
+  })
+
+  describe('a write in flight (owner 2026-11-27: closing the picker flashed the old model)', () => {
+    const shown = () => agentPlansShownSelection($agentPlans.get()[KEY])
+
+    it('names the pick from the moment it starts, and drops a read that settles while it is out', () => {
+      settleAgentPlansRead(beginAgentPlansRead(KEY), plans(null))
+      const write = beginAgentPlansWrite(KEY, { kind: 'select', plan: 'claude', model: 'claude-opus-5-5' })
+      expect(shown()).toMatchObject({ plan: 'claude', model: 'claude-opus-5-5' })
+
+      // The picker closing re-reads after the write started; the server still answers with no plan.
+      settleAgentPlansRead(beginAgentPlansRead(KEY), plans(null))
+      expect(shown()).toMatchObject({ model: 'claude-opus-5-5' })
+
+      acknowledgeAgentPlanSelection(write, opus(1))
+      expect(shown()).toEqual(opus(1))
+      expect($agentPlans.get()[KEY]?.pending).toBeUndefined()
+    })
+
+    it('drops a read begun before the write even when it settles after the acknowledgement', () => {
+      settleAgentPlansRead(beginAgentPlansRead(KEY), plans(null))
+      const late = beginAgentPlansRead(KEY)
+      const write = beginAgentPlansWrite(KEY, { kind: 'select', plan: 'codex', model: 'gpt-6.2-astra' })
+      acknowledgeAgentPlanSelection(write, astra(1))
+      settleAgentPlansRead(late, plans(null))
+      expect(shown()).toEqual(astra(1))
+    })
+
+    it('shows what the server last said again when the write fails', () => {
+      settleAgentPlansRead(beginAgentPlansRead(KEY), plans(opus(2)))
+      const write = beginAgentPlansWrite(KEY, { kind: 'select', plan: 'codex', model: 'gpt-6.2-astra' })
+      expect(shown()).toMatchObject({ model: 'gpt-6.2-astra' })
+      failAgentPlansWrite(write)
+      expect(shown()).toEqual(opus(2))
+
+      // Nothing is in flight any more, so reads apply again.
+      settleAgentPlansRead(beginAgentPlansRead(KEY), plans(astra(3)))
+      expect(shown()).toEqual(astra(3))
+    })
+
+    it('names no plan while an Atum write that clears it is in flight, and the latest-started write wins', () => {
+      settleAgentPlansRead(beginAgentPlansRead(KEY), plans(opus(2)))
+      const pick = beginAgentPlansWrite(KEY, { kind: 'select', plan: 'codex', model: 'gpt-6.2-astra' })
+      const clear = beginAgentPlansWrite(KEY, { kind: 'clear' })
+      expect(shown()).toBeNull()
+
+      acknowledgeAgentPlanCleared(clear)
+      acknowledgeAgentPlanSelection(pick, astra(3))
+      expect(shown()).toBeNull()
+      expect($agentPlans.get()[KEY]?.pending).toBeUndefined()
+    })
   })
 })

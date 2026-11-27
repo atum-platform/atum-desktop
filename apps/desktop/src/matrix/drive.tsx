@@ -38,7 +38,6 @@ import {
   MoreHorizontal,
   Pause,
   RefreshCw,
-  SearchIcon,
   Settings,
   Share,
   Upload,
@@ -100,6 +99,7 @@ import {
 } from './drive-selection'
 import type { MatrixDriveTaskScope } from './drive-selection'
 import { setMatrixNavLocal } from './navigation-history'
+import { MatrixPanelSearch, MatrixPanelSearchRow } from './panel-search'
 import { MatrixPlusMenu, type MatrixPlusMenuItem, plusMenuCopy } from './plus-menu'
 import { useMatrixDriveRailView } from './rail-badges'
 import { $matrixRightPanel, setMatrixRightPanel } from './right-panel'
@@ -272,25 +272,15 @@ export function MatrixDriveSidebar({
         {titleBarAction}
       </div>
       {/* D: Drive's search (it lists matches in the page) and New (layout r2 D, §4). */}
-      <div className="flex shrink-0 items-center gap-1.5 px-2 pt-1 pb-2" data-matrix-drive-search-row>
-        <label className="ak-field ak-field--search h-8 min-w-0 flex-1">
-          <SearchIcon aria-hidden className="ak-icon ak-icon--sm" />
-          <input
-            aria-label={copy.search}
-            data-matrix-drive-search
-            onChange={event => $matrixDriveQuery.set(event.currentTarget.value)}
-            onKeyDown={event => {
-              if (event.key === 'Escape' && query) {
-                event.preventDefault()
-                $matrixDriveQuery.set('')
-              }
-            }}
-            placeholder={copy.search}
-            value={query}
-          />
-        </label>
+      <MatrixPanelSearchRow data-matrix-drive-search-row>
+        <MatrixPanelSearch
+          data-matrix-drive-search
+          label={copy.search}
+          onValueChange={next => $matrixDriveQuery.set(next)}
+          value={query}
+        />
         <MatrixPlusMenu items={plusItems} label={plus.newMenu} screen="drive" />
-      </div>
+      </MatrixPanelSearchRow>
       {/* Finder's sidebar on the roster panel itself: Recents, the Drive's own folders as Favorites
           (the owner's and the ones assistants made alike), and the Drive under Locations. */}
       <nav aria-label={copy.title} className="min-h-0 flex-1 overflow-y-auto px-(--ak-s2) pb-(--ak-s3)">
