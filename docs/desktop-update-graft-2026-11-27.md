@@ -55,7 +55,7 @@ with Chrome installed. The renderer sends no update requests to a real feed.
 For a real Electron transfer using unsigned fixture bytes, run
 `node apps/desktop/scripts/updates-local-feed.mjs <Electron-executable>`.
 It uses a disposable loopback feed and verifies both channel filenames, the
-stage input and repeated renderer IPC reads. Its stage callback validates the
+stage input, repeated renderer IPC reads and ordinary Quit. Its stage callback validates the
 fixture bytes without invoking codesign, replacement, or installer processes.
 
 ## Signed qualification
@@ -67,8 +67,8 @@ and disposable account state, run the input harness:
 node apps/desktop/scripts/updates-qualify.mjs LEGACY.app BRIDGE.app NEXT.app
 ```
 
-The harness checks bundle identity, architecture, version ordering, signature
-and Gatekeeper assessment. It does not modify or launch the apps. Run the
+The harness checks bundle identity, architecture, version ordering, signature,
+matching Apple signing teams, and Gatekeeper assessment. It does not modify or launch the apps. Run the
 following scenarios against disposable latest and beta feeds with matching
 signed ZIPs and checksums. Do not publish the test feed to production.
 

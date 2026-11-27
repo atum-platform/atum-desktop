@@ -1,6 +1,6 @@
 import { spawn } from 'node:child_process'
 import { mkdtemp, rm, writeFile } from 'node:fs/promises'
-import { tmpdir } from 'node:os'
+import { homedir, tmpdir } from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { build } from 'esbuild'
@@ -10,6 +10,7 @@ if (process.platform !== 'darwin' || !electron) {
   throw new Error('Pass the path to the Electron executable on a Mac.')
 }
 const scratch = await mkdtemp(path.join(tmpdir(), 'atum-update-feed-'))
+const cacheName = path.basename(scratch)
 const adapter = fileURLToPath(new URL('../electron/t3-updates/service.ts', import.meta.url))
 const main = `
   import { app, BrowserWindow, ipcMain } from 'electron';
@@ -19,7 +20,6 @@ const main = `
   import { createAtumUpdates } from ${JSON.stringify(adapter)};
   const scratch = ${JSON.stringify(scratch)};
   app.setPath('userData', scratch);
-  app.setPath('cache', scratch);
   const payload = Buffer.from('isolated unsigned updater test payload');
   const digest = createHash('sha512').update(payload).digest('base64');
   const manifest = 'version: 1.1.0\\nfiles:\\n  - url: demo-arm64.zip\\n    sha512: ' + digest
@@ -75,7 +75,7 @@ const main = `
     }
     if (tracks.size !== 2) throw new Error('Expected both generic feed filenames');
     console.log('PASS: latest and beta stock Mac transfer, staged callback, repeated renderer IPC reads');
-    app.exit(0);
+    app.quit();
   } catch (error) {
     console.error(error.message);
     app.exit(1);
@@ -87,7 +87,7 @@ const main = `
 try {
   await writeFile(path.join(scratch, 'package.json'), JSON.stringify({ name: 'atum-update-fixture', main: 'main.mjs', version: '1.0.0' }))
   await writeFile(path.join(scratch, 'dev-app-update.yml'),
-    'provider: generic\nurl: http://127.0.0.1/\nupdaterCacheDirName: atum-update-fixture\n')
+    `provider: generic\nurl: http://127.0.0.1/\nupdaterCacheDirName: ${cacheName}\n`)
   await writeFile(path.join(scratch, 'preload.cjs'),
     "const { contextBridge, ipcRenderer } = require('electron'); contextBridge.exposeInMainWorld('fixture', { read: () => ipcRenderer.invoke('fixture:updates') });")
   await build({ stdin: { contents: main, resolveDir: path.dirname(adapter) }, outfile: path.join(scratch, 'main.mjs'), bundle: true,
@@ -107,5 +107,6 @@ try {
   })
   process.exitCode = code
 } finally {
+  await rm(path.join(homedir(), 'Library', 'Caches', cacheName), { recursive: true, force: true })
   await rm(scratch, { recursive: true, force: true })
 }

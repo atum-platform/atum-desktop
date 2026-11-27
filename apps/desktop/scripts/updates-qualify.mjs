@@ -1,4 +1,4 @@
-import { execFileSync } from 'node:child_process'
+import { execFileSync, spawnSync } from 'node:child_process'
 import { realpathSync, statSync } from 'node:fs'
 import path from 'node:path'
 
@@ -15,6 +15,9 @@ const verify = candidate => {
   if (!bundle.endsWith('.app') || !statSync(bundle).isDirectory()) {throw new Error('Expected an application bundle.')}
   command('/usr/bin/codesign', ['--verify', '--deep', '--strict', bundle])
   command('/usr/sbin/spctl', ['--assess', '--type', 'execute', bundle])
+  const signature = spawnSync('/usr/bin/codesign', ['--display', '--verbose=4', bundle], { encoding: 'utf8' })
+  const team = /^TeamIdentifier=([A-Z0-9]+)$/m.exec(signature.stderr)?.[1]
+  if (signature.status !== 0 || !team) {throw new Error('Missing signing team on the bundle.')}
   const id = read(bundle, 'CFBundleIdentifier')
   const version = read(bundle, 'CFBundleShortVersionString')
   if (id !== 'com.atum.matrix-candidate' || !/^\d+\.\d+\.\d+$/.test(version)) {
@@ -22,10 +25,14 @@ const verify = candidate => {
   }
   command('/usr/bin/lipo', ['-verify_arch', 'arm64', path.join(bundle, 'Contents/MacOS', read(bundle, 'CFBundleExecutable'))])
 
-  return version
+  return { team, version }
 }
 try {
-  const versions = args.map(verify)
+  const bundles = args.map(verify)
+  if (new Set(bundles.map(bundle => bundle.team)).size !== 1) {
+    throw new Error('Expected all three signed bundles to have the same signing team.')
+  }
+  const versions = bundles.map(bundle => bundle.version)
   const [legacy, bridge, next] = versions
   const compare = (left, right) => left.localeCompare(right, undefined, { numeric: true })
   if (compare(legacy, bridge) >= 0 || compare(bridge, next) >= 0) {throw new Error('Expected increasing release versions.')}
