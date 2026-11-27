@@ -3,6 +3,7 @@ import {
   EventType,
   type MatrixClient,
   MatrixEvent,
+  Method,
   NotificationCountType,
   ReceiptType,
   RelationType,
@@ -11,9 +12,13 @@ import {
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import type { MatrixMessage } from '../../shared/matrix'
+import { MATRIX_ASSISTANT_ROOM_TYPE } from '../../shared/matrix-assistant-room'
 import { MATRIX_COMPANY_CHANNEL_TYPE, MATRIX_COMPANY_CONVERSATION_TYPE } from '../../shared/matrix-company-channel-room'
+import { MATRIX_NOTES_SELF_ROOM_TYPE } from '../../shared/matrix-notes-self'
 
 import { matrixMessage } from './message'
+import { latestSettledEvent } from './read-receipts'
+import { matrixThreadRoomKind } from './thread-room'
 import {
   MATRIX_COMPANY_THREADS_MAX,
   MATRIX_THREAD_ATTENTION,
@@ -78,6 +83,26 @@ function attention(room: Room, content: Record<string, unknown>) {
   room.addAccountData([new MatrixEvent({ type: MATRIX_THREAD_ATTENTION, content })])
 }
 
+function groupRoom(f: ReturnType<typeof fixture>) {
+  vi.mocked(f.room.getType).mockReturnValue(undefined)
+  f.room.currentState.setStateEvents([new MatrixEvent({
+    type: EventType.RoomCreate,
+    state_key: '',
+    room_id: ROOM_ID,
+    event_id: '$create',
+    sender: OWNER,
+    content: { creator: OWNER }
+  })])
+}
+
+function threadReply(id: string, rootId: string, timestamp: number) {
+  return event(EventType.RoomMessage, LINH, {
+    msgtype: 'm.text',
+    body: 'Follow-up',
+    'm.relates_to': { rel_type: RelationType.Thread, event_id: rootId, is_falling_back: true }
+  }, id, timestamp)
+}
+
 afterEach(() => vi.restoreAllMocks())
 
 describe('ordinary room thread rows', () => {
@@ -127,16 +152,14 @@ describe('standard Matrix thread replies', () => {
     await expect(sendMatrixThreadReply(f.client, f.room, 'Tuesday', '$root', '$root', [LINH, LINH])).resolves.toBe(
       '$sent'
     )
-    expect(f.sendEvent).toHaveBeenCalledExactlyOnceWith(ROOM_ID, EventType.RoomMessage, {
+    expect(f.sendEvent).toHaveBeenCalledExactlyOnceWith(ROOM_ID, '$root', EventType.RoomMessage, {
       msgtype: 'm.text',
       body: 'Tuesday',
       'm.relates_to': {
-        rel_type: RelationType.Thread,
-        event_id: '$root',
         'm.in_reply_to': { event_id: '$root' }
       },
       'm.mentions': { user_ids: [LINH] }
-    })
+    }, undefined)
   })
 
   it('uses the same flat thread contract in a joined company DM', async () => {
@@ -145,10 +168,10 @@ describe('standard Matrix thread replies', () => {
     await add(f.room, event(EventType.RoomMessage, LINH, { msgtype: 'm.text', body: 'Launch?' }, '$root'))
 
     await expect(sendMatrixThreadReply(f.client, f.room, 'Tuesday', '$root')).resolves.toBe('$sent')
-    expect(f.sendEvent).toHaveBeenCalledExactlyOnceWith(ROOM_ID, EventType.RoomMessage, expect.objectContaining({
+    expect(f.sendEvent).toHaveBeenCalledExactlyOnceWith(ROOM_ID, '$root', EventType.RoomMessage, expect.objectContaining({
       body: 'Tuesday',
       'm.relates_to': expect.objectContaining({ rel_type: RelationType.Thread, event_id: '$root' })
-    }))
+    }), undefined)
   })
 
   it.each([
@@ -210,16 +233,56 @@ describe('standard Matrix thread replies', () => {
     expect(f.setRoomAccountData).not.toHaveBeenCalled()
   })
 
-  it('never creates a Team Space thread in a personal or legacy group room', async () => {
-    const f = fixture()
-    vi.mocked(f.room.getType).mockReturnValue(undefined)
-    await add(f.room, event(EventType.RoomMessage, LINH, { msgtype: 'm.text', body: 'Root' }, '$root'))
+  it.each([MATRIX_ASSISTANT_ROOM_TYPE, MATRIX_NOTES_SELF_ROOM_TYPE, undefined])(
+    'rejects thread actions in unsupported rooms of type %s',
+    async type => {
+      const f = fixture()
 
-    await expect(sendMatrixThreadReply(f.client, f.room, 'x', '$root')).rejects.toThrow('matrix_thread_unavailable')
-    await expect(setMatrixThreadFollow(f.client, f.room, '$root', true)).rejects.toThrow('matrix_thread_unavailable')
-    await expect(readMatrixThread(f.client, f.room, '$root')).rejects.toThrow('matrix_thread_unavailable')
-    expect(f.sendEvent).not.toHaveBeenCalled()
-    expect(f.setRoomAccountData).not.toHaveBeenCalled()
+      if (type === undefined) {
+        groupRoom(f)
+        f.client.store.storeAccountDataEvents([new MatrixEvent({ type: EventType.Direct, content: { [LINH]: [ROOM_ID] } })])
+        expect(matrixThreadRoomKind(f.room)).toBe('direct')
+      } else {
+        vi.mocked(f.room.getType).mockReturnValue(type)
+      }
+
+      await add(f.room, event(EventType.RoomMessage, LINH, { msgtype: 'm.text', body: 'Root' }, '$root'))
+      await expect(sendMatrixThreadReply(f.client, f.room, 'x', '$root')).rejects.toThrow('matrix_thread_unavailable')
+      await expect(setMatrixThreadFollow(f.client, f.room, '$root', true)).rejects.toThrow('matrix_thread_unavailable')
+      await expect(readMatrixThread(f.client, f.room, '$root')).rejects.toThrow('matrix_thread_unavailable')
+      expect(f.sendEvent).not.toHaveBeenCalled()
+      expect(f.setRoomAccountData).not.toHaveBeenCalled()
+    }
+  )
+
+  it('starts a group thread on an invited assistant answer with the native fallback on the wire', async () => {
+    const f = fixture()
+    groupRoom(f)
+    f.sendEvent.mockRestore()
+    f.room.currentState.setStateEvents([new MatrixEvent({
+      type: EventType.RoomMember, state_key: '@assistant:test', room_id: ROOM_ID,
+      sender: '@assistant:test', content: { membership: 'join' }
+    })])
+
+    const transport = vi.spyOn(f.client.http, 'authedRequest').mockResolvedValue({ event_id: '$sent' })
+    await add(f.room, event(EventType.RoomMessage, '@assistant:test', { msgtype: 'm.text', body: 'An answer' }, '$root'))
+
+    await expect(sendMatrixThreadReply(f.client, f.room, 'Follow-up', '$root', undefined, ['@assistant:test'])).resolves.toBe('$sent')
+
+    expect(transport.mock.calls.at(-1)?.slice(0, 4)).toEqual([
+      Method.Put,
+      expect.stringContaining('/send/m.room.message/'),
+      undefined,
+      expect.objectContaining({
+        'm.mentions': { user_ids: ['@assistant:test'] },
+        'm.relates_to': {
+          rel_type: RelationType.Thread,
+          event_id: '$root',
+          is_falling_back: true,
+          'm.in_reply_to': { event_id: '$root' }
+        }
+      })
+    ])
   })
 })
 
@@ -539,7 +602,7 @@ describe('thread attention', () => {
   it('acknowledges the latest server reply and clears only local thread counters', async () => {
     const f = fixture()
     const root = event(EventType.RoomMessage, LINH, { msgtype: 'm.text', body: 'Root' }, '$root', 10)
-    const reply = event(EventType.RoomMessage, LINH, { msgtype: 'm.text', body: 'Reply' }, '$reply', 20)
+    const reply = threadReply('$reply', '$root', 20)
     await add(f.room, root)
     const setUnread = vi.fn()
     vi.spyOn(f.room, 'getThread').mockReturnValue({ events: [root, reply], setUnread } as never)
@@ -551,6 +614,24 @@ describe('thread attention', () => {
       [NotificationCountType.Total, 0],
       [NotificationCountType.Highlight, 0]
     ])
+  })
+
+  it('keeps a group reply under the root and sends a private threaded receipt without moving the main marker', async () => {
+    const f = fixture()
+    groupRoom(f)
+    vi.spyOn(f.client, 'supportsThreads').mockReturnValue(true)
+    const root = event(EventType.RoomMessage, LINH, { msgtype: 'm.text', body: 'Decision' }, '$root', 10)
+    const reply = threadReply('$reply', '$root', 20)
+    f.room.addAccountData([new MatrixEvent({ type: EventType.FullyRead, content: { event_id: '$root' } })])
+    await add(f.room, root, reply)
+    const wire = vi.spyOn(f.client.http, 'authedRequest').mockResolvedValue({})
+
+    expect(latestSettledEvent(f.room)).toBe(root)
+    expect(matrixThreads(f.room, OWNER, value => matrixMessage(value, OWNER, new Set(), f.room, false, true, true)))
+      .toMatchObject([{ root: { id: '$root' }, replies: [{ id: '$reply', threadRootId: '$root' }], replyCount: 1 }])
+    await readMatrixThread(f.client, f.room, '$root')
+    expect(wire.mock.calls).toEqual([[Method.Post, expect.stringContaining('/receipt/m.read.private/'), undefined, { thread_id: '$root' }]])
+    expect(f.room.getAccountData(EventType.FullyRead)?.getContent()).toEqual({ event_id: '$root' })
   })
 
   it('does not clear unread state until a server reply is available to acknowledge', async () => {

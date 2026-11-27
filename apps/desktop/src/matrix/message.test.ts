@@ -182,9 +182,12 @@ it('projects the frozen protected company channel and thread fixtures, but never
     attachment: true, attachmentSize: 1_048_576, body: 'brief.pdf'
   })
   expect(matrixMessage(event(channel, '@linh:test'), '@owner:test', new Set())).toMatchObject({ attachment: false })
-  expect(matrixMessage(event(thread, '@linh:test'), '@owner:test', new Set(), room)).toMatchObject({
-    attachment: true, thread: true, threadRootId: '$thread-root', replyTo: '$thread-root'
+  const threadMessage = matrixMessage(event(thread, '@linh:test'), '@owner:test', new Set(), room)
+
+  expect(threadMessage).toMatchObject({
+    attachment: true, thread: true, threadRootId: '$thread-root'
   })
+  expect(threadMessage).not.toHaveProperty('replyTo')
   expect(matrixMessage(event({ ...channel, url: 'mxc://atum.example/plain-company-bytes' }, '@linh:test'), '@owner:test', new Set(), room))
     .toMatchObject({ attachment: false })
   expect(matrixMessage(event({ ...channel, file: { url: 'mxc://atum.example/encrypted-company-bytes' } }, '@linh:test'), '@owner:test', new Set(), room))
@@ -562,7 +565,10 @@ describe("Matrix's own message features in the projection (launch night)", () =>
     expect(project(target, '$t')).not.toHaveProperty('thread')
 
     vi.spyOn(target, 'getType').mockReturnValue(MATRIX_COMPANY_CHANNEL_TYPE)
-    expect(project(target, '$t')).toMatchObject({ thread: true, threadRootId: '$root', replyTo: '$root' })
+    const threadMessage = project(target, '$t')
+
+    expect(threadMessage).toMatchObject({ thread: true, threadRootId: '$root' })
+    expect(threadMessage).not.toHaveProperty('replyTo')
     expect(project(target, '$old')).toMatchObject({ resultFor: '$root' })
     expect(project(target, '$old')).not.toHaveProperty('thread')
   })
