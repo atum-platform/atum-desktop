@@ -335,7 +335,7 @@ const bridge: MatrixUiBridge = {
     history: before => ipcRenderer.invoke(channel.ui, { kind: 'walletHistory', before })
   },
   voice: {
-    microphone: roomId => ipcRenderer.invoke(MATRIX_VOICE_IPC.microphone, roomId),
+    microphone: (roomId, mode) => ipcRenderer.invoke(MATRIX_VOICE_IPC.microphone, roomId, mode),
     settings: roomId => ipcRenderer.invoke(MATRIX_VOICE_IPC.request, { kind: 'settings', roomId }),
     transcribe: (roomId, dataUrl, mimeType) =>
       ipcRenderer.invoke(MATRIX_VOICE_IPC.request, { kind: 'transcribe', roomId, dataUrl, mimeType }),

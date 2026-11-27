@@ -1,0 +1,176 @@
+import { randomUUID } from 'node:crypto'
+import { lstatSync, realpathSync } from 'node:fs'
+import path from 'node:path'
+
+import type { WorkDeliverableStatus } from '../work/sidecar/deliverable-contract'
+
+import { validMacDeliverablePath } from './drive-deliverables-source'
+import { executeNativeDriveImport, type NativeDriveImportInput, type NativeWorkDriveTarget } from './drive-import-native'
+
+const mainInstance = randomUUID()
+
+/** Explicit native skill result. All paths are relative to the host-owned run output directory. */
+export interface WorkDeliverableResult {
+  path: string
+  format: 'docx'
+  preview: { path: string; format: 'pdf' } | null
+}
+
+/** Main-only scope captured at run admission. Persist with the owning run for restart. */
+export interface WorkDeliverableScope {
+  artifactId: string
+  mainInstance: string
+  target: NativeWorkDriveTarget
+  folder: string[]
+  folderIdentity: number[]
+  outputRoot: string
+  outputIdentity: number[]
+}
+
+interface WorkDeliverableDrive {
+  workspace(agentPrincipal: string): Promise<string | null>
+  target(): NativeWorkDriveTarget | undefined
+  remaining(): number | undefined
+  manifestFor(paths: readonly string[]): Promise<{
+    root: string
+    files: Map<string, { etag?: string; size?: number; resource: { storage: string; space: string; opaque: string } } | null>
+  } | null>
+  open(relativePath: string, identity: { dev: number; ino: number }): Promise<void>
+}
+
+function directoryIdentity(folder: string): number[] {
+  const stat = lstatSync(folder)
+
+  if (!stat.isDirectory() || realpathSync(folder) !== folder) {throw new Error('work_deliverable_directory_invalid')}
+
+  return [stat.dev, stat.ino]
+}
+
+function sameBinding(a: NativeWorkDriveTarget, b: NativeWorkDriveTarget): boolean {
+  return a.root === b.root && a.dev === b.dev && a.ino === b.ino && a.bindingKey === b.bindingKey
+}
+
+function sameLiveTarget(a: NativeWorkDriveTarget | undefined, b: NativeWorkDriveTarget): boolean {
+  return Boolean(a && a.ownerKey === b.ownerKey && sameBinding(a, b))
+}
+
+/** Main-only receiver. The native Work host is responsible for authenticating and settling the run. */
+export class WorkDeliverables {
+  constructor(private readonly home: string, private readonly python: string, private readonly drive: WorkDeliverableDrive) {}
+
+  async pin(artifactId: string, agentPrincipal: string, outputRoot: string): Promise<WorkDeliverableScope | undefined> {
+    const target = this.drive.target()
+
+    if (!target) {return undefined}
+
+    const enrolledWorkspace = await this.drive.workspace(agentPrincipal)
+
+    if (!sameLiveTarget(this.drive.target(), target)) {return undefined}
+    const workspace = enrolledWorkspace && /^\/Agents\/([^/]+)$/u.exec(enrolledWorkspace)
+
+    if (!workspace || !validMacDeliverablePath(`Agents/${workspace[1]}/deliverables`)) {
+      throw new Error('work_deliverable_workspace_invalid')
+    }
+
+    const folder = ['Agents', workspace[1], 'deliverables']
+
+    if (!path.isAbsolute(outputRoot) || path.normalize(outputRoot) !== outputRoot ||
+        outputRoot === target.root || outputRoot.startsWith(target.root + path.sep)) {
+      throw new Error('work_deliverable_directory_invalid')
+    }
+
+    return {
+      artifactId, mainInstance, target, folder, folderIdentity: directoryIdentity(path.join(target.root, ...folder)),
+      outputRoot, outputIdentity: directoryIdentity(outputRoot)
+    }
+  }
+
+  async receive(scope: WorkDeliverableScope, result: WorkDeliverableResult, signal?: AbortSignal, admitted?: () => boolean): Promise<WorkDeliverableStatus> {
+    return (await this.check(scope, result, 'work-place', signal, admitted)).status
+  }
+
+  async status(scope: WorkDeliverableScope, result: WorkDeliverableResult, signal?: AbortSignal): Promise<WorkDeliverableStatus> {
+    return (await this.check(scope, result, 'work-probe', signal)).status
+  }
+
+  async open(scope: WorkDeliverableScope, result: WorkDeliverableResult, admitted?: () => boolean): Promise<void> {
+    const checked = await this.check(scope, result, 'work-probe', undefined, admitted)
+
+    if (!checked.receipt || admitted?.() === false || !sameLiveTarget(this.drive.target(), checked.receipt.target)) {
+      throw new Error('work_deliverable_unavailable')
+    }
+
+    await this.drive.open(checked.receipt.relativePath, checked.receipt)
+  }
+
+  private async check(
+    scope: WorkDeliverableScope, result: WorkDeliverableResult, mode: 'work-place' | 'work-probe',
+    signal?: AbortSignal, admitted?: () => boolean
+  ): Promise<{ status: WorkDeliverableStatus; receipt?: { relativePath: string; dev: number; ino: number; target: NativeWorkDriveTarget } }> {
+    if (signal?.aborted || admitted?.() === false) {return { status: { state: 'cancelled' } }}
+
+    if (!result || result.format !== 'docx' || !validMacDeliverablePath(result.path) || !/\.docx$/iu.test(result.path) ||
+        (result.preview !== null && (result.preview?.format !== 'pdf' ||
+          !validMacDeliverablePath(result.preview.path) || !/\.pdf$/iu.test(result.preview.path)))) {
+      return { status: { state: 'invalid' } }
+    }
+
+    const target = this.drive.target()
+
+    if (!target) {return { status: { state: 'drive_unavailable' } }}
+    const current = () => admitted?.() !== false && sameLiveTarget(this.drive.target(), target)
+    const workRecovery = scope.mainInstance !== mainInstance
+
+    if (!sameBinding(target, scope.target) || (!workRecovery && target.ownerKey !== scope.target.ownerKey)) {
+      return { status: { state: 'changed' } }
+    }
+
+    const input: NativeDriveImportInput = {
+      mode, home: this.home, target, workRecovery, remaining: this.drive.remaining(),
+      work: {
+        id: scope.artifactId, bindingKey: target.bindingKey, folder: scope.folder, folderIdentity: scope.folderIdentity,
+        outputRoot: scope.outputRoot, outputIdentity: scope.outputIdentity, path: result.path.split('/')
+      }
+    }
+
+    const native = await executeNativeDriveImport(this.python, input, signal, current)
+
+    if (signal?.aborted) {return { status: { state: 'cancelled' } }}
+
+    if (!current() || native.state === 'changed') {return { status: { state: 'changed' } }}
+
+    if (native.state === 'no_room') {return { status: { state: 'no_room' } }}
+
+    if (native.state === 'refused') {return { status: { state: 'invalid' } }}
+    const placed = native.placement
+
+    if (native.state !== 'completed' || !placed) {return { status: { state: 'retry' } }}
+
+    const relativePath = [...scope.folder, placed.name].join('/')
+    const manifest = await this.drive.manifestFor([relativePath]).catch(() => null)
+    const clean = manifest?.files.get(relativePath)
+
+    if (!current()) {return { status: { state: 'changed' } }}
+
+    if (signal?.aborted) {return { status: { state: 'cancelled' } }}
+    const display = { artifactId: scope.artifactId, name: placed.name }
+
+    if (manifest?.root !== target.root || !clean?.etag || clean.size !== placed.size ||
+        !clean.resource.storage || !clean.resource.space || !clean.resource.opaque) {
+      return { status: { state: 'syncing', ...display } }
+    }
+
+    // A server fact is only evidence for the same local version checked before and after the request.
+    const verified = await executeNativeDriveImport(this.python, { ...input, mode: 'work-probe' }, signal, current)
+
+    if (signal?.aborted) {return { status: { state: 'cancelled' } }}
+
+    if (!current() || verified.state === 'changed') {return { status: { state: 'changed' } }}
+
+    if (verified.state !== 'completed' || verified.placement?.sha256 !== placed.sha256) {
+      return { status: { state: 'retry' } }
+    }
+
+    return { status: { state: 'saved', ...display }, receipt: { relativePath, dev: placed.dev, ino: placed.ino, target } }
+  }
+}

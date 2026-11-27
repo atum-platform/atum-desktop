@@ -3,6 +3,7 @@
 import { spawnSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import {
+  appendFileSync,
   chmodSync,
   cpSync,
   existsSync,
@@ -34,6 +35,8 @@ export { RESTRICTED_PRODUCTIVITY_SKILL_SOURCE_PATHS, RESTRICTED_RUNTIME_SOURCE_P
 const here = dirname(fileURLToPath(import.meta.url))
 const desktopRoot = resolve(here, '..')
 const defaultRepoRoot = resolve(desktopRoot, '../..')
+const workDocxRequirements = join(here, 'work-docx.requirements.txt')
+const workMemoScript = join(here, 'work-memo.py')
 
 const TARGETS = Object.freeze({
   arm64: {
@@ -804,6 +807,8 @@ function installLockedDependencies({ uv, repoRoot, scratchRoot, pythonRoot, pyth
     { cwd: repoRoot, capture: true }
   )
 
+  // Reuse the pinned lxml and typing-extensions already selected by the Hermes lock.
+  appendFileSync(requirements, '\n' + readFileSync(workDocxRequirements, 'utf8'))
   run(uv, [
     'pip',
     'install',
@@ -856,7 +861,7 @@ function probeStagedRuntime({ pythonRoot, sourceRoot, expectedArch }) {
     sourceRoot,
     expectedPythonRoot: pythonRoot,
     inside: ['hermes_cli', 'hermes_cli.config', 'tui_gateway', 'tui_gateway.server', 'acp_adapter.managed'],
-    other: ['yaml', 'dotenv', 'acp', 'mcp'],
+    other: ['yaml', 'dotenv', 'acp', 'mcp', 'docx'],
     methods: requiredSetupMethods()
   })
 
@@ -924,6 +929,8 @@ export function stageBundledRuntime({
       pythonRoot,
       pythonPlatform: targetSpec.pythonPlatform
     })
+    mkdirSync(join(scratchRoot, 'work-authoring'))
+    cpSync(workMemoScript, join(scratchRoot, 'work-authoring', 'memo.py'))
     archiveHermesSource({ repoRoot, commit, destination: sourceRoot, scratchRoot })
     const privateSourceInputs = applyRuntimeOverlay({ repoRoot, destination: sourceRoot })
     const excludedSourcePaths = excludeRestrictedStagedSkills(sourceRoot)
@@ -976,6 +983,10 @@ export function stageBundledRuntime({
         file: 'uv.lock',
         sha256: sha256File(join(repoRoot, 'uv.lock')),
         profile: 'all-no-dev'
+      },
+      workAuthoring: {
+        requirementsSha256: sha256File(workDocxRequirements),
+        memoScriptSha256: sha256File(workMemoScript)
       },
       browser,
       tools

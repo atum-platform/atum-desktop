@@ -233,6 +233,7 @@ import type {
   MatrixProviderOAuthSession,
   MatrixProviderWriteResult
 } from '../../shared/matrix-provider-settings'
+import { matrixHumanVoiceRoom } from '../../shared/matrix-rich-content'
 import { matrixRuntimeConfirmationCopy } from '../../shared/matrix-runtime-copy'
 import type {
   MatrixOwnDevices,
@@ -970,6 +971,7 @@ import { installMatrixWindow, matrixWindowOptions } from './window'
 import { matrixEndedSession, matrixHumanSnapshot, matrixSavedIdentity, matrixWindowChoice } from './window-launch'
 import { MatrixWindowedLog } from './windowed-log'
 import { MatrixWordDocument } from './word-document'
+import { WorkDeliverables } from './work-deliverable'
 import { MatrixWebPreviewOffers } from './workbench-preview'
 import { readMatrixWorkspaceDriveRoots } from './workspace-root-facts'
 import { MatrixWorkspaceStartup } from './workspace-startup'
@@ -2603,6 +2605,26 @@ function createDeviceIdentity(): MacDeviceIdentity {
   })
 }
 
+/** Resolve the selected assistant's owner-authorized workspace, fenced across the owner RPC. */
+async function matrixAgentWorkspaceLabel(agentPrincipal: string): Promise<string | null> {
+  const owner = account?.appScope()
+
+  if (
+    !owner ||
+    closing ||
+    !allAgents().some(agent => !agent.closed && isCloudAgent(agent) && cloudPrincipal(agent) === agentPrincipal)
+  ) {
+    return null
+  }
+
+  const answer = await s1Call({ kind: 'workspace', agentPrincipal }, AbortSignal.timeout(15_000))
+  const current = account?.appScope()
+
+  return current?.accountKey === owner.accountKey && current.generation === owner.generation && !closing
+    ? workspaceLabelFor(answer, agentPrincipal)
+    : null
+}
+
 /** Main owns native authority; the runtime receives only live account facts and sealed storage. */
 function buildDeviceRuntime(): DeviceRuntime {
   const home = app.getPath('home')
@@ -2620,24 +2642,7 @@ function buildDeviceRuntime(): DeviceRuntime {
     // No trusted root facts: the runtime gives no write access outside a working copy.
   }
 
-  const workspaceLabel = async (agentPrincipal: string) => {
-    const owner = account?.appScope()
-
-    if (
-      !owner ||
-      closing ||
-      !allAgents().some(agent => !agent.closed && isCloudAgent(agent) && cloudPrincipal(agent) === agentPrincipal)
-    ) {
-      return null
-    }
-
-    const answer = await s1Call({ kind: 'workspace', agentPrincipal }, AbortSignal.timeout(15_000))
-    const current = account?.appScope()
-
-    return current?.accountKey === owner.accountKey && current.generation === owner.generation && !closing
-      ? workspaceLabelFor(answer, agentPrincipal)
-      : null
-  }
+  const workspaceLabel = matrixAgentWorkspaceLabel
 
   deviceWorkspace = new DriveWorkspaceCopies({
     drive: {
@@ -19510,17 +19515,28 @@ async function start() {
 
     return binding.scope.request(operation)
   })
-  ipcMain.handle(MATRIX_VOICE_IPC.microphone, async (event, roomId: unknown) => {
+  ipcMain.handle(MATRIX_VOICE_IPC.microphone, async (event, roomId: unknown, mode: unknown) => {
     requireMatrixCaller(event, ui?.webContents, UI_URL)
     microphoneConsent = undefined
-    const binding = await bindMatrixVoice(voiceSource, roomId)
-    const granted = process.platform !== 'darwin' || (await systemPreferences.askForMediaAccess('microphone'))
-
-    if (!granted || !binding.isCurrent()) {
+    const owner = hosts.get('human')
+    const voiceNoteCurrent = () =>
+      Boolean(owner && hosts.get('human') === owner && !closing && !anyOperation() &&
+        state.state === 'ready' && state.roomId === roomId &&
+        state.rooms.some(room => room.id === roomId && room.membership === 'join'))
+    const isCurrent = mode === 'voiceNote'
+      ? voiceNoteCurrent
+      : (await bindMatrixVoice(voiceSource, roomId)).isCurrent
+    if (!isCurrent()) {
       return false
     }
 
-    microphoneConsent = binding.isCurrent
+    const granted = process.platform !== 'darwin' || (await systemPreferences.askForMediaAccess('microphone'))
+
+    if (!granted || !isCurrent()) {
+      return false
+    }
+
+    microphoneConsent = isCurrent
 
     return true
   })
@@ -20648,7 +20664,15 @@ async function start() {
       }
     }
 
+    const workDrive = drive
     work = createMatrixWork({
+      deliverables: runtime && workDrive ? new WorkDeliverables(app.getPath('home'), runtime.python, {
+        workspace: matrixAgentWorkspaceLabel,
+        target: () => (closing || !state.identity ? undefined : workDrive.workDeliverableTarget()),
+        remaining: () => workDrive.importQuota()?.remaining,
+        manifestFor: paths => workDrive.manifestFor(paths),
+        open: (relativePath, identity) => workDrive.openWorkDeliverable(relativePath, identity)
+      }) : undefined,
       userData: app.getPath('userData'),
       home: app.getPath('home'),
       resources: process.resourcesPath,
@@ -25357,6 +25381,26 @@ async function start() {
           }
         }
 
+        if (teamSpaceRoom && (
+          input.kind === 'pollCreate' || input.kind === 'pollVote' || input.kind === 'pollEnd' || input.kind === 'locationSend'
+        )) {
+          throw new Error('matrix_command_invalid')
+        }
+
+        if (input.kind === 'attach' && input.voiceNote) {
+          const voiceAgent = agentOfRoom(input.roomId)
+
+          if (!teamSpaceRoom && voiceAgent?.userId && !voiceAgent.closed &&
+            isCloudAgent(voiceAgent) && cloudAgentMacRole(voiceAgent) !== 'answering') {
+            return command({ ...input, voiceNoteAssistant: voiceAgent.userId })
+          }
+
+          if (teamSpaceRoom || input.transcriptionProvider ||
+            !matrixHumanVoiceRoom(commandRoom, allAgents().map(agent => agent.userId))) {
+            throw new Error('matrix_voice_unavailable')
+          }
+        }
+
         if (input.kind === 'attach' && teamSpaceRoom) {
           if (!owner || !companyFiles || sdkBusy || state.state !== 'ready') {
             throw new Error(companyFiles ? 'matrix_company_file_unavailable' : 'matrix_company_file_unsupported')
@@ -25836,6 +25880,10 @@ async function start() {
             file.bytes.byteLength > MATRIX_MAX_FILE_BYTES
           ) {
             throw new Error('matrix_file_invalid')
+          }
+
+          if (input.inline) {
+            return file.bytes
           }
 
           const target = await dialog.showSaveDialog(ui!, {

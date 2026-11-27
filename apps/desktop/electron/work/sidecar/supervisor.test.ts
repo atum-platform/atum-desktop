@@ -1,9 +1,10 @@
-import { execFileSync, spawnSync } from 'node:child_process'
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { execFileSync, spawn, spawnSync } from 'node:child_process'
+import { once } from 'node:events'
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 // The supervisor's child ownership, run for real with Python: a helper that detaches (new session, reparented to
 // launchd) is still found by its owner token and stopped with the rest.
@@ -28,6 +29,55 @@ afterEach(() => {
 })
 
 describe.skipIf(!python || process.platform !== 'darwin')('supervisor child ownership', () => {
+  it('passes the private Node channel only to the ordinary Work server', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ws-ipc-'))
+    dirs.push(dir)
+    mkdirSync(join(dir, 'hermes_cli'))
+    writeFileSync(join(dir, 'hermes_cli', 'main.py'), `
+import os, time
+assert 'NODE_CHANNEL_FD' not in os.environ
+with open('gateway-ready', 'w'): pass
+time.sleep(60)
+`)
+    const sidecar = join(dir, 'work-fixture')
+    writeFileSync(sidecar, `#!${process.execPath}
+const assert = require('node:assert/strict')
+assert.equal(process.env.T3_SERVICE_LAUNCHER_CONTEXT, undefined)
+process.on('message', message => process.send({ ...message, accepted: true }))
+process.send({ type: 'work-deliverable-pin' })
+`, { mode: 0o700 })
+
+    const child = spawn(python!, ['-I', '-B', '-c', `
+import importlib.util, json, os, sys
+module = importlib.util.spec_from_file_location("supervisor", sys.argv[1])
+supervisor = importlib.util.module_from_spec(module)
+module.loader.exec_module(supervisor)
+spec = json.loads(sys.stdin.buffer.readline(262144))
+channel = {name: os.environ.pop(name) for name in
+           ("NODE_CHANNEL_FD", "NODE_CHANNEL_SERIALIZATION_MODE")}
+children = supervisor.Children()
+try:
+    supervisor.run(spec, children, channel)
+finally:
+    children.stop()
+`, supervisor], { stdio: ['pipe', 'ignore', 'ignore', 'ipc'] })
+
+    const exit = once(child, 'close')
+    child.stdin.write(JSON.stringify({ cwd: dir, executable: sidecar, gateway: { PYTHONPATH: dir }, environment: {} }) + '\n')
+
+    try {
+      const options = { signal: AbortSignal.timeout(8_000) }
+      expect((await once(child, 'message', options))[0]).toEqual({ type: 'work-deliverable-pin' })
+      const response = once(child, 'message', options)
+      child.send({ type: 'work-deliverable-pinned' })
+      expect((await response)[0]).toEqual({ type: 'work-deliverable-pinned', accepted: true })
+      await vi.waitFor(() => expect(existsSync(join(dir, 'gateway-ready'))).toBe(true))
+    } finally {
+      child.stdin.end()
+      await exit
+    }
+  }, 15_000)
+
   it('finds and kills a helper that detached and was reparented, which a walk down the process tree cannot see', () => {
     const dir = mkdtempSync(join(tmpdir(), 'ws-sup-'))
     dirs.push(dir)

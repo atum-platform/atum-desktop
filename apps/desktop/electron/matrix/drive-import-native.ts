@@ -4,6 +4,7 @@ import type { MatrixDriveImportSkip } from '../../shared/matrix-drive'
 import { ownedBackgroundChildren } from '../owned-background-children'
 
 import type { MatrixDriveImportPattern } from './drive-exclusions'
+import { nativeWorkPlacement } from './work-deliverable-native'
 
 export interface NativeDriveImportTarget {
   root: string
@@ -13,8 +14,12 @@ export interface NativeDriveImportTarget {
   ownerKey: string
 }
 
+export interface NativeWorkDriveTarget extends NativeDriveImportTarget {
+  bindingKey: string
+}
+
 export interface NativeDriveImportInput {
-  mode: 'plan' | 'run' | 'cleanup'
+  mode: 'plan' | 'run' | 'cleanup' | 'work-place' | 'work-probe'
   home: string
   target?: NativeDriveImportTarget
   sources?: readonly string[]
@@ -26,6 +31,16 @@ export interface NativeDriveImportInput {
   remaining?: number
   /** Test-only native seam, never renderer input. */
   testCancelAfterCopy?: number
+  work?: {
+    id: string
+    bindingKey: string
+    folder: string[]
+    folderIdentity: number[]
+    outputRoot: string
+    outputIdentity: number[]
+    path: string[]
+  }
+  workRecovery?: boolean
 }
 
 export interface NativeDriveImportReply {
@@ -47,6 +62,7 @@ export interface NativeDriveImportReply {
   used?: number
   fingerprint?: string
   added: number
+  placement?: { name: string; sha256: string; size: number; dev: number; ino: number }
 }
 
 /** Owned stdlib process; no renderer paths, credentials, inherited environment or stderr logs. */
@@ -513,13 +529,19 @@ def run(cfg, drive, data, reply):
                 os.fsync(parent)
         os.close(parent)
 
+${nativeWorkPlacement}
+
 reply = {'state':'unavailable','added':0}
 drive = None
+cfg = {}
 try:
     cfg = json.loads(sys.stdin.readline())
     if cfg['mode'] == 'cleanup':
         cleanup(cfg)
         reply['state'] = 'completed'
+    elif cfg['mode'] in ('work-place', 'work-probe'):
+        drive = bound_target(cfg)
+        work_placement(cfg, drive, reply)
     else:
         drive = bound_target(cfg)
         data = inventory(cfg)
@@ -532,7 +554,10 @@ except Cancelled: reply['state'] = 'cancelled'
 except Changed: reply['state'] = 'changed'
 except Refused as error: reply.update({'state':'refused','reason':error.reason})
 except OSError as error:
-    reply['state'] = 'no_room' if error.errno in (errno.ENOSPC,errno.EDQUOT) else 'unavailable'
+    if error.errno in (errno.ENOSPC,errno.EDQUOT): reply['state'] = 'no_room'
+    elif cfg.get('mode') in ('work-place', 'work-probe') and error.errno in (errno.ELOOP,errno.ENOTDIR):
+        reply['state'] = 'refused'
+    else: reply['state'] = 'unavailable'
 except: reply['state'] = 'unavailable'
 finally:
     if drive is not None: os.close(drive)
