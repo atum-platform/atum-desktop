@@ -39,7 +39,7 @@ function timeZones(current: string): string[] {
   }
 }
 
-/** Settings › General › Notifications: portable Team space policy, kept beside device switches. */
+/** Settings › General › Notifications: Team Space thread defaults and quiet hours, kept beside device switches. */
 export function MatrixNotificationPolicySettings({ snapshot }: { snapshot: MatrixSnapshot }) {
   const { locale } = useI18n()
   const copy = matrixNotificationCopy(locale)

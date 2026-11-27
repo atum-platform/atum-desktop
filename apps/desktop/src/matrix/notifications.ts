@@ -11,12 +11,10 @@ import {
   isCompanyPrivateCosClaim,
   MATRIX_COMPANY_PRIVATE_COS_STATE_EVENT
 } from '../../shared/matrix-company-private-cos-claim'
-import {
-  type MatrixNotificationPolicyContent,
-  matrixResolvedNotificationLevel
-} from '../../shared/matrix-notification-policy'
+import type { MatrixNotificationPolicyContent } from '../../shared/matrix-notification-policy'
 
 import { matrixEventAttentionKind, matrixEventThreadRoot } from './attention'
+import { readRoomNotificationMode } from './room-notification-mode'
 
 const PRIVATE_COS_NOTIFICATION_ROOM_LIMIT = 1_000
 
@@ -30,9 +28,8 @@ export function matrixCompanyPrivateCosNotificationRoomIds(value: unknown): Set<
   return new Set(value)
 }
 
-/** Only event admission lives here. Ordinary rooms keep SDK push-rule evaluation; Team space
- * uses the portable private-account policy without changing server unread counts. Late decryption
- * may finish a live candidate, never turn recovered history into alerts. */
+/** The SDK admits deliveries. Atum can suppress their presentation further.
+ * Late decryption may finish a live candidate without alerting for recovered history. */
 export function watchMatrixNotifications(
   client: MatrixClient,
   ready: () => boolean,
@@ -97,30 +94,35 @@ export function watchMatrixNotifications(
       return
     }
 
-    const currentPolicy = policy?.()
-    const teamSpace = Boolean(
-      room && [MATRIX_COMPANY_CHANNEL_TYPE, MATRIX_COMPANY_CONVERSATION_TYPE].includes(room.getType() ?? '')
-    )
     const actions = client.getPushActionsForEvent(event, true)
-    let sound = Boolean(actions?.tweaks.sound)
 
-    if (teamSpace && room && currentPolicy) {
-      const level = matrixResolvedNotificationLevel(currentPolicy, roomId, matrixEventThreadRoot(event))
-      const attention = matrixEventAttentionKind(event, room, client.getSafeUserId())
+    if (!actions?.notify) {
+      candidates.delete(event)
 
-      if (level === 'nothing' || level === 'mentions' && attention === undefined) {
+      return
+    }
+
+    const currentPolicy = policy?.()
+
+    if (
+      currentPolicy && room &&
+      [MATRIX_COMPANY_CHANNEL_TYPE, MATRIX_COMPANY_CONVERSATION_TYPE].includes(room.getType() ?? '')
+    ) {
+      const root = matrixEventThreadRoot(event)
+      const thread = root ? currentPolicy.threadOverrides[roomId]?.[root] ?? currentPolicy.accountLevel : undefined
+      const legacyLevel = currentPolicy.channelOverrides[roomId]
+
+      const legacy = legacyLevel && readRoomNotificationMode(client, room)?.mode === 'inherit'
+        ? legacyLevel
+        : undefined
+
+      if (thread === 'nothing' || legacy === 'nothing' ||
+        ((thread === 'mentions' || legacy === 'mentions') &&
+          !matrixEventAttentionKind(event, room, client.getSafeUserId()))) {
         candidates.delete(event)
 
         return
       }
-
-      // `all` and participated-thread replies may intentionally exceed the homeserver's
-      // default mention rule. The portable sound switch is still applied at the host boundary.
-      sound = actions?.notify ? Boolean(actions.tweaks.sound) : true
-    } else if (!actions?.notify) {
-      candidates.delete(event)
-
-      return
     }
 
     candidates.delete(event)
@@ -131,7 +133,7 @@ export function watchMatrixNotifications(
     }
 
     try {
-      offer({ roomId, eventId, sound })
+      offer({ roomId, eventId, sound: Boolean(actions.tweaks.sound) })
     } catch {
       // A retired/unsupported native host must not break SDK timeline handling.
     }

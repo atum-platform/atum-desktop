@@ -96,33 +96,33 @@ it.each(['', 'unexpected-state-key'])(
   }
 )
 
-it('applies Team space levels locally without changing unread or highlight badges', () => {
+it('can only narrow an SDK delivery and leaves unread and highlight counts alone', () => {
   const f = fixture()
   f.watcher.stop()
   vi.spyOn(f.room, 'getType').mockReturnValue(MATRIX_COMPANY_CHANNEL_TYPE)
   f.client.pushRules!.global.override![0]!.actions = [PushRuleActionName.DontNotify]
   f.room.setUnreadNotificationCount(NotificationCountType.Total, 7)
   f.room.setUnreadNotificationCount(NotificationCountType.Highlight, 2)
-  let policy = defaultMatrixNotificationPolicy('UTC')
+  const policy = defaultMatrixNotificationPolicy('UTC')
   policy.channelOverrides[f.room.roomId] = 'all'
   const watcher = watchMatrixNotifications(f.client, () => true, f.offer, () => policy)
 
-  f.timeline(f.event('$all'))
-  expect(f.offer).toHaveBeenCalledExactlyOnceWith({ roomId: '!room:test', eventId: '$all', sound: true })
+  f.timeline(f.event('$server-suppressed'))
+  expect(f.offer).not.toHaveBeenCalled()
 
-  policy = { ...policy, channelOverrides: { [f.room.roomId]: 'nothing' } }
-  f.timeline(f.event('$nothing'))
-  expect(f.offer).toHaveBeenCalledOnce()
-  expect(f.room.getUnreadNotificationCount(NotificationCountType.Total)).toBe(7)
-  expect(f.room.getUnreadNotificationCount(NotificationCountType.Highlight)).toBe(2)
+  f.client.pushRules!.global.override![0]!.actions = [PushRuleActionName.Notify]
+  policy.channelOverrides[f.room.roomId] = 'nothing'
+  f.timeline(f.event('$legacy-off'))
+  expect(f.offer).not.toHaveBeenCalled()
 
-  policy = { ...policy, channelOverrides: { [f.room.roomId]: 'mentions' } }
+  policy.channelOverrides[f.room.roomId] = 'mentions'
   f.timeline(f.event('$ordinary'))
   f.timeline(f.event('$mention', {}, {
-    msgtype: 'm.text', body: 'Alice', 'm.mentions': { user_ids: ['@alice:test'] }
+    msgtype: 'm.text', body: 'Hello', 'm.mentions': { user_ids: ['@alice:test'] }
   }))
-  expect(f.offer).toHaveBeenLastCalledWith({ roomId: '!room:test', eventId: '$mention', sound: true })
-  expect(f.offer).toHaveBeenCalledTimes(2)
+  expect(f.offer).toHaveBeenCalledExactlyOnceWith({ roomId: f.room.roomId, eventId: '$mention', sound: false })
+  expect(f.room.getUnreadNotificationCount(NotificationCountType.Total)).toBe(7)
+  expect(f.room.getUnreadNotificationCount(NotificationCountType.Highlight)).toBe(2)
   watcher.stop()
 })
 

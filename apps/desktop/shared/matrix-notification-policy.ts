@@ -6,6 +6,11 @@ export const MATRIX_NOTIFICATION_POLICY_TARGET_PREFIX = 'io.atum.notification.v2
 export type MatrixNotificationLevel = 'all' | 'mentions' | 'nothing'
 export type MatrixNotificationOverride = 'inherit' | MatrixNotificationLevel
 
+export interface MatrixRoomNotificationMode {
+  mode: MatrixNotificationOverride
+  defaultLevel: 'all' | 'mentions'
+}
+
 export interface MatrixQuietHours {
   enabled: boolean
   startMinute: number
@@ -324,17 +329,6 @@ export function applyMatrixNotificationPolicyChange(
   }
 
   return next
-}
-
-/** Notification attention is one explicit ladder: thread, channel, account. */
-export function matrixResolvedNotificationLevel(
-  policy: Pick<MatrixNotificationPolicyContent, 'accountLevel' | 'channelOverrides' | 'threadOverrides'>,
-  roomId: string,
-  rootId?: string
-): MatrixNotificationLevel {
-  return (rootId ? policy.threadOverrides[roomId]?.[rootId] : undefined) ??
-    policy.channelOverrides[roomId] ??
-    policy.accountLevel
 }
 
 function minuteInTimeZone(now: number, timeZone: string): number | undefined {
