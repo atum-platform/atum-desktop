@@ -9617,12 +9617,7 @@ function MatrixAccountView({
               />
               <div className="atum-rail-foot" data-matrix-rail-foot>
                 <MatrixAttentionAnnouncer agentName={attentionAgentName} snapshot={snapshot} />
-                <MatrixUpdateFooter
-                  onOpenUpdates={() => {
-                    setSettingsPane('help')
-                    setSettingsOpen(true)
-                  }}
-                />
+                <MatrixUpdateFooter />
                 <MatrixRailAccount
                   attention={attentionSection}
                   attentionLabel={attentionSummary.label}

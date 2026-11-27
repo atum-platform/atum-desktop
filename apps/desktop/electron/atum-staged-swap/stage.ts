@@ -27,7 +27,7 @@ import {
   transition,
   undoSwapSync
 } from './state'
-import { appendProgress, clearMarkers, isStockOnly, removeJournal, stageRoot, writeJournal } from './store'
+import { appendProgress, clearMarkers, removeJournal, stageRoot, writeJournal } from './store'
 import { spawnWaiter, type WaiterOptions } from './waiter'
 
 export { stageRoot } from './store'
@@ -213,7 +213,7 @@ export class StagedSwap {
     const size = Number((await this.tools.run('/usr/bin/du', ['-sk', target])).stdout.trim().split(/\s/u)[0]) * 1024
 
     const reason = ineligible({
-      enabled: this.options.enabled() && !isStockOnly(this.root, version),
+      enabled: this.options.enabled(),
       macMajor: this.tools.macMajor(),
       gktool: await this.tools.gktoolPresent(),
       translocated: target.includes('/AppTranslocation/') || await fs.realpath(target) !== target,
@@ -356,6 +356,16 @@ export class StagedSwap {
     this.seal = null
 
     if (path.dirname(directory) === this.root) {await fs.rm(directory, { recursive: true, force: true }).catch(() => undefined)}
+  }
+
+  async assertPrepared(expectedVersion: string): Promise<void> {
+    if (!this.options.enabled() || !this.ready || expectedVersion !== this.stagedVersion) {
+      throw new Error('The verified update is no longer available.')
+    }
+    this.recheck = null
+    this.beginRestart()
+
+    if (!await this.recheck) {throw new Error('The verified update changed before restart.')}
   }
 
   /** Start the stat-walk at the click so it overlaps the teardown instead of following it. */

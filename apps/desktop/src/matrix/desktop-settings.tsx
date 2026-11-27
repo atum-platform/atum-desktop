@@ -1,6 +1,6 @@
 import { useStore } from '@nanostores/react'
 import { atom } from 'nanostores'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 
 import { Button } from '@/components/ui/button'
 import { writeClipboardText } from '@/components/ui/copy-button'
@@ -16,7 +16,8 @@ import { ATUM_LINKS } from './atum-links'
 import { $matrixDesktopServices, useMatrixDesktopServicesCopy } from './desktop-services'
 import { useMatrixSettingsCopy } from './settings-copy'
 import { SettingsLinkRow, SettingsRow, SettingsSection } from './settings-row'
-import { SoftwareUpdate, UpdateAffordance } from './updates/presentation'
+import { SoftwareUpdate } from './updates/presentation'
+import { SidebarUpdatePill, UPDATE_RELEASE_HISTORY } from './updates/sidebar-pill'
 
 /** The feedback sheet: opened from the account menu or Settings, mounted once by the rail. */
 export const $matrixFeedbackOpen = atom(false)
@@ -112,7 +113,7 @@ export function MatrixDesktopSettings({ onOpenFeedback }: { onOpenFeedback(): vo
           currentVersion={status.version}
           locale={locale}
           openDownload={() => window.atumMatrix.openLink(ATUM_LINKS.download).then(() => true)}
-          restart={() => window.atumDesktopServices!.restart()}
+          restart={() => window.atumDesktopServices!.restart(status.update.version ?? undefined)}
           setChannel={channel => window.atumDesktopServices!.setUpdateChannel(channel)}
           status={status.update}
         />
@@ -294,23 +295,24 @@ export function MatrixFeedbackDialog() {
 }
 
 /** One native-authoritative update control at the rail foot. */
-export function MatrixUpdateFooter({ onOpenUpdates }: { onOpenUpdates(): void }) {
+export function MatrixUpdateFooter() {
   const status = useStore($matrixDesktopServices)
   const { locale } = useI18n()
+  const bridge = window.atumDesktopServices
 
-  if (!status || !window.atumDesktopServices) {
-    return null
-  }
+  const actions = useMemo(() => bridge?.downloadUpdate ? {
+    checkUpdates: bridge.checkUpdates, downloadUpdate: bridge.downloadUpdate, restart: bridge.restart
+  } : null, [bridge])
+
+  if (!status?.desktopUpdate || !actions) {return null}
 
   return (
-    <UpdateAffordance
+    <SidebarUpdatePill
+      bridge={actions}
       busy={status.busy}
-      checkNow={() => window.atumDesktopServices!.checkUpdates()}
       locale={locale}
-      openDownload={() => window.atumMatrix.openLink(ATUM_LINKS.download).then(() => true)}
-      openUpdates={onOpenUpdates}
-      restart={() => window.atumDesktopServices!.restart()}
-      status={status.update}
+      openReleaseHistory={() => void window.atumMatrix.openLink(UPDATE_RELEASE_HISTORY)}
+      state={status.desktopUpdate}
     />
   )
 }

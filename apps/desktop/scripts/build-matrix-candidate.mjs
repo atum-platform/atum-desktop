@@ -6,6 +6,7 @@ import { createRequire } from 'node:module'
 import { execFileSync } from 'node:child_process'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { patchElectronUpdater } from './patch-electron-updater.mjs'
 import { resolveStamp } from './write-build-stamp.mjs'
 import { stageAtumAppWindow } from './stage-atum-app-window.mjs'
 import { stageAtumKeys } from './stage-atum-keys.mjs'
@@ -18,6 +19,7 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 if (Number(process.versions.node.split('.')[0]) < 22)
   throw new Error('The Matrix candidate build requires Node 22 or later.')
 const require = createRequire(path.join(root, 'package.json'))
+patchElectronUpdater()
 const out = path.join(root, 'dist-matrix')
 const repoRoot = path.resolve(root, '../..')
 // Use the checkout actually being bundled, not an inherited CI SHA. Untracked

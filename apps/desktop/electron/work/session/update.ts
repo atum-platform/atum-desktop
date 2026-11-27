@@ -278,6 +278,8 @@ export class UpdateDriver {
     const host = deps.hostFor(target)
     let incarnation: UpdateIncarnation | undefined
 
+    let selected = false
+
     try {
       incarnation = await host.start({
         continuation: false,
@@ -299,18 +301,28 @@ export class UpdateDriver {
         const { trial } = incarnation
         await withDeadline(trial.prepared, deps.prepareWithinMs ?? 20_000)
         log('update_trial_prepared')
-        await withDeadline(trial.commit(), deps.commitWithinMs ?? 25_000)
+      }
+
+      const state = this.readState()
+      this.writeState({ version: 1, pin: target.version, committed: [...(state?.committed ?? []), snapshotId] })
+      selected = true
+
+      if (incarnation.trial) {
+        await withDeadline(incarnation.trial.commit(), deps.commitWithinMs ?? 25_000)
       }
     } catch (error) {
+      if (selected) {
+        // The child may have received committed and started effects before the
+        // relay failed. Leave the snapshot marker for forward recovery.
+        await host.stop()
+        log('update_selected_ack_failed')
+        throw new WorkSessionError('work_update_activation_unconfirmed')
+      }
       log('update_trial_failed')
 
       return this.rollback(host, current.previous, redactPairingSecrets(error instanceof Error ? error.message : 'trial_failed'))
     }
 
-    // 4. Commit. The record that makes a downgrade impossible is written
-    //    before the marker is cleared, so a crash between them is a commit.
-    const state = this.readState()
-    this.writeState({ version: 1, pin: target.version, committed: [...(state?.committed ?? []), snapshotId] })
     coordinator.markers.clear()
     rmSync(paths.snapshot, { recursive: true, force: true })
     log('update_committed')

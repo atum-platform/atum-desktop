@@ -13,32 +13,20 @@ import { createReportingSink } from '../atum-reporting-sinks'
 import { loadOrCreateInstallationId } from '../desktop-installation'
 import { type DesktopServicesConfig, readDesktopServicesConfig } from '../desktop-services-config'
 import {
-  createDesktopUpdateDiskPreflight,
   createDesktopUpdateSettings,
-  createShipItOperationLease,
-  recoverPendingShipItInstall,
   retireLegacyShipItState,
-  sweepLegacyShipItQuarantines,
-  sweepOrphanedShipItTemporaryDirectories,
-  trustedUpdateNotes
+  sweepLegacyShipItQuarantines
 } from '../desktop-update-settings'
-import {
-  createDesktopUpdater,
-  type DesktopUpdateNotes,
-  type DesktopUpdaterLogger,
-  type DesktopUpdateSettings,
-  type ElectronUpdaterPort,
-  type NativeUpdaterPort
-} from '../desktop-updater'
+import { createAtumUpdates } from '../t3-updates/service'
+import type { DesktopUpdateSettings } from '../t3-updates/settings-contract'
 
 /** One instance owned by the Matrix main process, never by a room or SDK host. */
 export class MatrixDesktopServices {
   private readonly reporting: AtumObservability
-  private readonly updater: ReturnType<typeof createDesktopUpdater>
+  private readonly updater: ReturnType<typeof createAtumUpdates>
   private readonly started = Date.now()
   private shellReady = false
   private syncReady = false
-  private restarting = false
   private previousBusy = false
   private pendingMessages = 0
 
@@ -53,22 +41,12 @@ export class MatrixDesktopServices {
       packaged: boolean
       supported: boolean
       busy: () => boolean
-      quit: () => void
-      beforeInstall?: () => void
-      forceExit?: () => void
-      previousRestart?: { outcome: 'updated' | 'not_updated' } | null
-      restartFeedback?: { begin(toVersion: string): void; cancel(): void; fail(): void }
-      bundlePath?: string
-      temporaryPath?: string
-      resetClosing: () => void
+      resources: string
+      currentChannel: 'latest' | 'beta' | null
+      admit: (expectedVersion: string) => Promise<string | null>
+      native: Parameters<typeof createAtumUpdates>[0]['native']
       changed: (status: MatrixDesktopServicesStatus) => void
-      loadUpdater: () => Promise<ElectronUpdaterPort>
-      nativeUpdater: NativeUpdaterPort
-      locale?: () => string
       updateSettings?: DesktopUpdateSettings
-      updateNotes?: DesktopUpdateNotes
-      updaterLogger?: DesktopUpdaterLogger
-      setInterval: (callback: () => void, delay: number) => unknown
       log: (message: string) => void
       createSink?: (options: Parameters<typeof createReportingSink>[0]) => ReportingSink
     }
@@ -140,59 +118,19 @@ export class MatrixDesktopServices {
           })
         : undefined
     })
-    let notes = options.updateNotes
-
-    try {
-      if (config.updateFeedUrl) {
-        notes ??= trustedUpdateNotes(config.updateFeedUrl)
-      }
-    } catch {
-      options.log('[Matrix] Release notes are unavailable for this feed')
-    }
-
-    this.updater = createDesktopUpdater({
-      busy: () => this.pendingMessages > 0 || options.busy(),
-      changed: () => this.changed(),
-      currentVersion: options.version,
-      feedUrl: config.updateFeedUrl,
-      isPackaged: options.packaged,
-      loadUpdater: options.loadUpdater,
-      logger: options.updaterLogger ?? {
-        info: message => options.log(`[auto-update] ${String(message)}`),
-        warn: message => options.log(`[auto-update] ${String(message)}`),
-        error: message => options.log(`[auto-update] ${String(message)}`)
-      },
-      nativeUpdater: options.nativeUpdater,
-      nativeStateLease: legacyShipIt ? createShipItOperationLease(legacyShipIt) : undefined,
-      recoverPendingInstall: legacyShipIt && options.bundlePath
-        ? async () => {
-            if (options.temporaryPath) {
-              await sweepOrphanedShipItTemporaryDirectories({ ...legacyShipIt, temporaryPath: options.temporaryPath })
-            }
-
-            return recoverPendingShipItInstall({ ...legacyShipIt, bundlePath: options.bundlePath!, currentVersion: options.version })
-          }
-        : undefined,
-      prepareDownload: legacyShipIt && options.bundlePath && options.temporaryPath
-        ? async info => {
-            await createDesktopUpdateDiskPreflight({
-              bundlePath: options.bundlePath!, temporaryPath: options.temporaryPath!,
-              cachePath: path.dirname(legacyShipIt.cacheDirectory)
-            })(info)
-          }
-        : undefined,
-      notes,
-      locale: options.locale?.() ?? 'vi',
-      quit: options.quit,
-      beforeInstall: options.beforeInstall,
-      forceExit: options.forceExit,
-      previousRestart: options.previousRestart,
-      restartFeedback: options.restartFeedback,
-      record: event => this.capture(event),
-      setInterval: options.setInterval,
-      settings,
+    this.updater = createAtumUpdates({
+      version: options.version,
+      packaged: options.packaged,
       supported: options.supported,
-      notify: () => {}
+      feedUrl: config.updateFeedUrl,
+      resources: options.resources,
+      userData: options.userData,
+      currentChannel: options.currentChannel,
+      native: options.native,
+      admit: async version => this.busy() ? 'Wait for local work to finish, then try again.' : options.admit(version),
+      changed: () => this.changed(),
+      log: options.log,
+      settings
     })
   }
 
@@ -201,6 +139,7 @@ export class MatrixDesktopServices {
     return {
       reporting: this.reporting.status(),
       update: this.updater.status(),
+      desktopUpdate: this.updater.state(),
       version: this.options.version,
       busy: this.busy()
     }
@@ -309,72 +248,19 @@ export class MatrixDesktopServices {
   checkUpdates() {
     return this.updater.checkNow()
   }
-  restart() {
-    if (this.restarting) {return false}
-    this.restarting = this.updater.restart()
-
-    return this.restarting
+  downloadUpdate() {
+    return this.updater.download()
   }
-  /**
-   * The quit was refused before teardown finished (the open document's checkpoint said
-   * no, or timed out): nothing is installing, so take the notice down and let Update
-   * work again.
-   */
-  closeAborted() {
-    if (this.restarting) {
-      this.options.log('[Matrix] Update postponed because the quit was refused; retry quitting')
-    }
-    this.restarting = false
-    this.updater.cancelRestart()
+  restart(expectedVersion?: string) {
+    return this.updater.restart(expectedVersion)
   }
-  /** Restart consumes one stock install handoff after teardown. Ordinary Quit
-   * returns normally so electron-updater's install-on-quit policy owns it. */
-  afterClose(success: boolean): 'quit' | 'handled' | 'retry' {
-    if (!success && ['downloaded', 'restarting'].includes(this.updater.status().state)) {
-      this.restarting = false
-      this.updater.cancelRestart()
-      this.options.resetClosing()
-      this.capture({
-        name: 'update_failed',
-        properties: { stage: 'install', code: 'failed' }
-      })
-      this.options.log('[Matrix] Update postponed because shutdown did not finish; retry quitting')
-
-      return 'retry'
-    }
-
+  endSession(success: boolean) {
+    void this.updater.stop()
     this.reporting.endSession(!success)
-
-    if (success) {
-      this.restarting = false
-      return this.updater.afterTeardown() ? 'handled' : 'quit'
-    }
-
-    return 'quit'
   }
-
   crashed(delivery?: { delivered?: boolean }) {
     this.reporting.endSession(true, delivery)
   }
-}
-
-/**
- * The quit handler's after-close step. A refused document checkpoint (`refused`) keeps
- * the app open and must also undo whatever Update started, or its notice stays up for
- * good and Update stops answering.
- */
-export function matrixAfterClose(
-  services: MatrixDesktopServices | null | undefined,
-  success: boolean,
-  refused: boolean
-): 'quit' | 'handled' | 'retry' {
-  if (refused) {
-    services?.closeAborted()
-
-    return 'retry'
-  }
-
-  return services?.afterClose(success) ?? 'quit'
 }
 
 /** Owned top frames only. SDK/management pages get error reporting, never settings. */
@@ -398,7 +284,14 @@ export function installMatrixDesktopServicesIpc(options: {
   handle(channels.feedback, message => services.feedback(message))
   handle(channels.channel, channel => services.setUpdateChannel(channel))
   handle(channels.check, () => services.checkUpdates())
-  handle(channels.restart, () => services.restart())
+  handle(channels.download, () => services.downloadUpdate())
+  handle(channels.restart, expectedVersion => {
+    if (typeof expectedVersion !== 'string' || !/^\d+\.\d+\.\d+(?:-[a-zA-Z0-9.-]+)?$/.test(expectedVersion) || expectedVersion.length > 64) {
+      return false
+    }
+
+    return services.restart(expectedVersion)
+  })
 
   for (const [channel, action] of [
     [channels.ready, () => services.ready()],

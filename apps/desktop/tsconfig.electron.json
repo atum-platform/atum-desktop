@@ -24,7 +24,7 @@
   // transaction adapter against the actual file lease and export services.
   // The Matrix SDK seam's contract and command queue are DOM-free too: the main process
   // keeps one queue per SDK window, and browser and headless hosts share it (G8-36).
-  "include": ["shared/work-question.ts",
+  "include": ["vendor/t3-updates/apps/desktop/src/**/*.ts", "vendor/t3-updates/packages/**/*.ts", "shared/work-question.ts",
     "shared/beta-features.ts",
     "shared/app-panel.ts",
     "shared/gmail-compose.ts",

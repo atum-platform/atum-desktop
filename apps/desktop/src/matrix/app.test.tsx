@@ -2476,6 +2476,13 @@ describe('isolated Matrix composition', () => {
         state: 'downloaded',
         version: '1.0.1'
       },
+      desktopUpdate: {
+        enabled: true, status: 'downloaded', channel: 'latest', currentVersion: '1.0.0',
+        hostArch: 'arm64', appArch: 'arm64', runningUnderArm64Translation: false,
+        availableVersion: '1.0.1', downloadedVersion: '1.0.1', releaseNotes: [],
+        omittedReleaseCount: 0, downloadPercent: 100, checkedAt: null,
+        message: null, errorContext: null, canRetry: false
+      },
       version: '1.0.0',
       busy: false
     }
@@ -2489,6 +2496,7 @@ describe('isolated Matrix composition', () => {
       feedback: vi.fn(async () => ({ sent: true })),
       setUpdateChannel: vi.fn(async () => true),
       checkUpdates: vi.fn(async () => true),
+      downloadUpdate: vi.fn(async () => true),
       restart: vi.fn(async () => true),
       error: vi.fn()
     } satisfies MatrixDesktopServicesBridge

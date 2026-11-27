@@ -12,7 +12,6 @@ import {
   dialog,
   ipcMain,
   Menu,
-  autoUpdater as nativeAutoUpdater,
   nativeImage,
   nativeTheme,
   net,
@@ -28,7 +27,6 @@ import {
   systemPreferences,
   WebContentsView
 } from 'electron'
-import { autoUpdater as appUpdater } from 'electron-updater'
 
 import {
   type AgentSourceSweepSnapshot,
@@ -267,11 +265,11 @@ import { type AppViewController, createAppViewController } from '../app-view/con
 import { AtumConsumerFilesService } from '../atum-consumer-files'
 import { AtumPdfViewController, clearPdfViewSessionStorage, hardenPdfViewSession } from '../atum-pdf-view'
 import { createReportingSink } from '../atum-reporting-sinks'
-import { cleanStaleStages, confirmHealthyStart } from '../atum-staged-swap/cleanup'
+import { confirmHealthyStart } from '../atum-staged-swap/cleanup'
 import { recoverAtStartup } from '../atum-staged-swap/recovery'
+import { StagedSwap } from '../atum-staged-swap/stage'
 import { ATUM_BUNDLE_ID as STAGED_APP_ID } from '../atum-staged-swap/state'
-import { consumeFailureNotice, markStarted, stagedSwapEnabled, stageRoot } from '../atum-staged-swap/store'
-import { StagedMacUpdater } from '../atum-staged-swap/updater'
+import { markStarted, stagedSwapEnabled } from '../atum-staged-swap/store'
 import { readGoogleClient } from '../atum-utilities'
 import { createConsumerBrowserController } from '../consumer-browser/controller'
 import { EncryptedStore } from '../encrypted-store'
@@ -281,7 +279,7 @@ import { NativeAppsController } from '../native-apps'
 import { ownedBackgroundChildren } from '../owned-background-children'
 import { createAtumKeepAwake } from '../power-save'
 import { reportBackendExit, reportChildProcessGone, reportRendererGone } from '../process-exit-reports'
-import { createUpdateHandoff, restoredUpdateBounds, type UpdateHandoff, type UpdateHandoffResult } from '../update-handoff'
+import { readUpdateBounds, restoredUpdateBounds, saveUpdateBounds, type UpdateHandoffBounds } from '../update-handoff'
 import { saveUserSelectedFile } from '../user-selected-file-save'
 import { createWordMacAdapter } from '../word-companion-mac'
 import { createWordLiveMacAdapter } from '../word-live-mac'
@@ -559,7 +557,7 @@ import {
 } from './credential-renewal'
 import { MatrixCronDelivery, type MatrixCronPost } from './cron-delivery'
 import { applyMatrixJobsHold, MatrixCronHolds, matrixJobsTickerMissing, reconcileMatrixJobsHold } from './cron-hold'
-import { installMatrixDesktopServicesIpc, matrixAfterClose, MatrixDesktopServices } from './desktop-services'
+import { installMatrixDesktopServicesIpc, MatrixDesktopServices } from './desktop-services'
 import { MatrixDeviceApproval } from './device-approval'
 import { MatrixDeviceIsolationPolicy } from './device-isolation'
 import { MatrixDeviceLedger } from './device-ledger'
@@ -2053,8 +2051,8 @@ let nativeApps: NativeAppsController | undefined
 let desktopServices: MatrixDesktopServices | undefined
 /** Restart-to-update continuity: the progress window, the saved place, and what the last Restart left. */
 let stagedRecoveryFailed = false
-let updateHandoff: UpdateHandoff | null = null
-let previousRestart: UpdateHandoffResult | null = null
+let previousUpdateBounds: UpdateHandoffBounds | null = null
+let updateShutdownSafe = false
 let matrixApps: ReturnType<typeof createMatrixApps> | undefined
 /** Self-work slice A: the Work page, its server and the assistants' route, for the signed-in account (main-work.ts). */
 let work: MatrixWork | undefined
@@ -2063,7 +2061,7 @@ let outcomeStore: EncryptedStore
 let pendingMatrixDrafts: PendingMatrixDrafts | undefined
 let documents: MatrixRoomDocuments
 const documentClose = new MatrixDocumentClose()
-let documentCloseFailed = false
+let pendingUpdateSwap: { run: () => Promise<void>; refused: () => void } | null = null
 
 async function prepareDocumentClose(): Promise<void> {
   const window = ui
@@ -17552,7 +17550,7 @@ async function checkForUpdatesFromMenu(locale: DesktopLocale) {
     return
   }
 
-  const started = services.checkUpdates()
+  const started = await services.checkUpdates()
   const deadline = Date.now() + 60_000
   let seenChecking = false
   let status = services.status()
@@ -17563,7 +17561,7 @@ async function checkForUpdatesFromMenu(locale: DesktopLocale) {
     if (status.update.state === 'checking') {
       seenChecking = true
     } else if (
-      seenChecking ||
+      seenChecking || status.desktopUpdate?.status === 'up-to-date' ||
       ['downloading', 'downloaded', 'error'].includes(status.update.state) ||
       (!started && status.update.state === 'unavailable')
     ) {
@@ -17597,7 +17595,19 @@ async function checkForUpdatesFromMenu(locale: DesktopLocale) {
     ui && !ui.isDestroyed() ? await dialog.showMessageBox(ui, options) : await dialog.showMessageBox(options)
 
   if (answer.restart && choice.response === 0) {
-    void services.restart()
+    void services.restart(status.update.version ?? undefined)
+  }
+}
+
+function appUpdaterReleaseChannel(resources: string): 'latest' | 'beta' | null {
+  try {
+    const yml = readFileSync(path.join(resources, 'app-update.yml'), 'utf8')
+
+    const channel = /^channel:\s*['"]?(latest|beta)['"]?\s*$/m.exec(yml)?.[1]
+
+    return channel === 'beta' || channel === 'latest' ? channel : null
+  } catch {
+    return null
   }
 }
 
@@ -17622,26 +17632,19 @@ async function start() {
 
   buildRevision = revision
 
-  updateHandoff = app.isPackaged && process.platform === 'darwin'
-    ? createUpdateHandoff({
-        directory: path.join(app.getPath('userData'), 'update-handoff'),
-        currentVersion: app.getVersion(),
-        bundlePath: path.resolve(process.resourcesPath, '..', '..'),
-        stageProgress: path.join(app.getPath('home'), 'Library', 'Caches', 'com.atum.matrix-candidate', 'staged-swap', 'progress.log'),
-        shipItLog: path.join(app.getPath('home'), 'Library', 'Caches', 'com.atum.matrix-candidate.ShipIt', 'ShipIt_stderr.log'),
-        pid: process.pid,
-        locale: windowLocale,
-        bounds: () => (ui && !ui.isDestroyed() && !ui.isFullScreen() ? ui.getNormalBounds() : null),
-        log: message => console.warn(message)
-      })
-    : null
-  previousRestart = updateHandoff?.consume() ?? null
+  const handoffDirectory = path.join(app.getPath('userData'), 'update-handoff')
+  previousUpdateBounds = app.isPackaged ? readUpdateBounds(handoffDirectory) : null
 
-  // A staged update that rolled back is reported once; after that automatic checks carry on.
-  if (app.isPackaged && process.platform === 'darwin' &&
-    consumeFailureNotice(stageRoot(app.getPath('home'), STAGED_APP_ID), app.getVersion())) {
-    previousRestart = { outcome: 'not_updated', fromVersion: app.getVersion(), toVersion: app.getVersion(), startedAt: Date.now(), bounds: null }
-  }
+  const signedStageEnabled = () => stagedSwapEnabled(path.join(app.getPath('userData'), 'updates.json'))
+  const stage = new StagedSwap({
+    home: app.getPath('home'),
+    id: STAGED_APP_ID,
+    target: path.resolve(process.resourcesPath, '..', '..'),
+    version: app.getVersion(),
+    handoffDirectory: path.join(app.getPath('userData'), 'update-handoff'),
+    enabled: signedStageEnabled,
+    log: line => console.warn(line)
+  })
 
   desktopServices = new MatrixDesktopServices({
     configPath: path.join(process.resourcesPath, 'atum-desktop-services.json'),
@@ -17651,62 +17654,61 @@ async function start() {
     version: app.getVersion(),
     revision,
     packaged: app.isPackaged,
-    supported: process.platform === 'darwin' && process.arch === 'arm64',
-    busy: () => closing || anyOperation() || domainOperation || allAgents().some(each => Boolean(each.invocation)),
-    quit: () => app.quit(),
-    bundlePath: path.resolve(process.resourcesPath, '..', '..'),
-    temporaryPath: app.getPath('temp'),
-    forceExit: () => {localBrain?.killNow(); ownedBackgroundChildren.killNow(); app.exit(0)},
-    beforeInstall: () => {
-      closing = true
+    supported: process.platform === 'darwin' && process.arch === 'arm64' && !stagedRecoveryFailed,
+    resources: process.resourcesPath,
+    currentChannel: appUpdaterReleaseChannel(process.resourcesPath),
+    busy: () => isolationBusy() || allAgents().some(each => Boolean(each.invocation)),
+    admit: async expectedVersion => {
+      if (isolationBusy() || !signedStageEnabled()) {
+        return 'Wait for local work to finish, then try again.'
+      }
 
-      // Document persistence already completed; hidden SDK windows and renderer
-      // beforeunload handlers must not veto the native installation handoff.
-      for (const window of BrowserWindow.getAllWindows()) {window.destroy()}
+      const scope = state.identity
+      await stage.assertPrepared(expectedVersion)
+
+      if (scope?.userId !== state.identity?.userId || scope?.deviceId !== state.identity?.deviceId) {
+        return 'The active account changed. Check for updates and try again.'
+      }
+
+      return isolationBusy() ? 'Wait for local work to finish, then try again.' : null
     },
-    previousRestart,
-    restartFeedback: updateHandoff ?? undefined,
-    resetClosing: () => {closing = false},
+    native: {
+      stage,
+      install: () => new Promise<void>((resolve, reject) => {
+        if (pendingUpdateSwap || closing) {
+          reject(new Error('A restart is already in progress.'))
+
+          return
+        }
+        updateShutdownSafe = false
+        pendingUpdateSwap = {
+          async run() {
+            try {
+              if (!updateShutdownSafe) {throw new Error('Local services did not finish shutting down.')}
+              if (ui && !ui.isDestroyed() && !ui.isFullScreen()) {
+                saveUpdateBounds(handoffDirectory, ui.getNormalBounds())
+              }
+              await stage.install({ relaunch: true })
+              resolve()
+              app.exit(0)
+            } catch (error) {
+              reject(error)
+              // The closed owners cannot continue in this process. The waiter, when
+              // present, owns reopening and recovery of the previous signed bundle.
+              if (!stage.waiterRunning) {app.relaunch()}
+              app.exit(0)
+            }
+          },
+          refused: () => reject(new Error('Restart postponed because the workspace could not be saved.'))
+        }
+        app.quit()
+      })
+    },
     changed: status => {
       if (ui && !ui.isDestroyed()) {
         ui.webContents.send(MATRIX_DESKTOP_SERVICES.changed, status)
       }
     },
-    loadUpdater: async () => {
-      if (stagedRecoveryFailed) {throw new Error('The update did not finish; signed backup retained and updates paused')}
-
-      const staged = app.isPackaged && process.platform === 'darwin' && process.arch === 'arm64'
-      const stagedEnabled = () => stagedSwapEnabled(path.join(app.getPath('userData'), 'updates.json'))
-
-      // Prepared swap is the normal path. A literal `updates.stagedSwap: false` is the rollback
-      // switch for this Mac; legacy settings without the field stay on the default.
-      if (!staged || !stagedEnabled()) {
-        // Switched off (or never on): drop any staged copy left behind. Best effort, off the launch path.
-        if (staged) {void cleanStaleStages({ home: app.getPath('home'), id: STAGED_APP_ID }).catch(() => undefined)}
-
-        return appUpdater
-      }
-
-      return new StagedMacUpdater({
-        fallback: appUpdater,
-        home: app.getPath('home'),
-        id: STAGED_APP_ID,
-        target: path.resolve(process.resourcesPath, '..', '..'),
-        version: app.getVersion(),
-        handoffDirectory: path.join(app.getPath('userData'), 'update-handoff'),
-        enabled: stagedEnabled,
-        exit: relaunch => {
-          if (relaunch) {app.relaunch()}
-          app.exit(0)
-        },
-        reportInstallFailure: () => desktopServices?.capture({ name: 'update_failed', properties: { stage: 'install', code: 'failed' } }),
-        log: line => console.warn(line)
-      })
-    },
-    nativeUpdater: nativeAutoUpdater,
-    locale: windowLocale,
-    updaterLogger: console,
-    setInterval: (callback, delay) => setInterval(callback, delay).unref(),
     log: message => console.warn(message),
     createSink: options => createReportingSink({ ...options, fetch: fetchMatrixReporting })
   })
@@ -26135,27 +26137,12 @@ async function start() {
 
   // Back from Restart to update: open exactly where the old window was (the chat itself is
   // already remembered per device, room-navigation.ts).
-  if (previousRestart?.bounds && !productWindow.isAuthMode()) {
-    ui.setBounds(restoredUpdateBounds(previousRestart.bounds, screen.getDisplayMatching(previousRestart.bounds).workArea))
+  if (previousUpdateBounds && !productWindow.isAuthMode()) {
+    ui.setBounds(restoredUpdateBounds(previousUpdateBounds, screen.getDisplayMatching(previousUpdateBounds).workArea))
   }
 
   if (deviceLaunch !== 'login_hidden') {
     ui.show()
-    // The restart progress window closes the moment this one is up.
-    updateHandoff?.shown()
-  }
-
-  // Healthy start-up, with or without a window: a hidden login launch after an install on Quit never shows one,
-  // and would otherwise be rolled back at the next launch with its rollback copy kept for ever (re-review F3).
-  if (app.isPackaged && process.platform === 'darwin') {
-    confirmHealthyStart({
-      hidden: deviceLaunch === 'login_hidden',
-      home: app.getPath('home'),
-      id: STAGED_APP_ID,
-      bundle: path.resolve(process.resourcesPath, '..', '..'),
-      handoffDirectory: path.join(app.getPath('userData'), 'update-handoff'),
-      log: line => console.warn(line)
-    })
   }
 
   // Time from the process's start to a visible window: the part of a cold start before the
@@ -26186,6 +26173,17 @@ async function start() {
       }
 
       void reconcileOrphanedEnrollments()
+    }
+
+    if (app.isPackaged && process.platform === 'darwin') {
+      confirmHealthyStart({
+        hidden: deviceLaunch === 'login_hidden',
+        home: app.getPath('home'),
+        id: STAGED_APP_ID,
+        bundle: path.resolve(process.resourcesPath, '..', '..'),
+        handoffDirectory: path.join(app.getPath('userData'), 'update-handoff'),
+        log: line => console.warn(line)
+      })
     }
   } catch {
     startupState = undefined
@@ -26309,22 +26307,42 @@ if (stagedRecovery === 'exiting') {
 
         // Credential/SDK shutdown starts beside lease release, never behind it.
         try {
-          await Promise.allSettled([
+          const results = await Promise.allSettled([
             release, clearNativeApps, brainStop, driveStop, deviceStop, workStop,
             timedStop('sdk', () => account ? account.close(stopSdk) : stopSdk()),
             matrixConsumerBrowser.releaseConsumerPartitions()
           ])
+          updateShutdownSafe = !drained.timedOut && results.every(result => result.status === 'fulfilled')
         } finally {
           matrixConsumerBrowser.dispose()
         }
       },
       () => app.quit(),
-      success => matrixAfterClose(desktopServices, success, documentCloseFailed),
+      success => {
+        const swap = pendingUpdateSwap
+        pendingUpdateSwap = null
+
+        if (!success) {
+          swap?.refused()
+
+          return 'retry'
+        }
+        if (swap) {
+          void swap.run()
+
+          return 'handled'
+        }
+
+        desktopServices?.endSession(true)
+
+        return 'quit'
+      },
       {
         prepare: async () => {
-          documentCloseFailed = false
-
-          try {await prepareDocumentClose()} catch (error) {documentCloseFailed = true; throw error}
+          await prepareDocumentClose()
+          if (pendingUpdateSwap && isolationBusy()) {
+            throw new Error('Local work started during restart preparation.')
+          }
         },
         // No new work is admitted after the document checkpoint. Window-close
         // handlers must allow native quitAndInstall to close every SDK window.

@@ -53,6 +53,16 @@
         "licenseFiles": ["texts/MIT.txt", "app/t3code-LICENSE.txt"]
       },
       {
+        "id": "t3code-desktop-updater",
+        "name": "T3 Code desktop update service and status icons",
+        "version": "Work 0.1.19 (commit a7e44d458c49125a97ce3f8cf63c8efebdd0d8a1)",
+        "license": "MIT",
+        "copyright": ["Copyright (c) 2026 T3 Tools Inc."],
+        "source": "https://github.com/pingdotgg/t3code/tree/14ae67a9a80f44ccf158d2fbcc957241eec57f74",
+        "notes": ["Atum vendors the updater, reducer, status icons, and HTTP download patch in apps/desktop/vendor/t3-updates."],
+        "licenseFiles": ["texts/MIT.txt", "app/t3code-LICENSE.txt"]
+      },
+      {
         "id": "t3code-design-system",
         "name": "T3 Code design layer (tokens, theme roles, composer and control recipes) as the Atum Kit base",
         "version": "tag v0.1.11 (commit 59651c1761f6c63e9b6056839067066968e6a406)",

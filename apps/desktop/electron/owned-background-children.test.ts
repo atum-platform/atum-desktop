@@ -1,10 +1,8 @@
 import { spawn } from 'node:child_process'
 import { once } from 'node:events'
-import { EventEmitter } from 'node:events'
 
 import { describe, expect, it, vi } from 'vitest'
 
-import { createDesktopUpdater, type ElectronUpdaterPort } from './desktop-updater'
 import { createMatrixQuitHandler } from './matrix/quit'
 import { OwnedBackgroundChildren } from './owned-background-children'
 
@@ -38,12 +36,10 @@ async function child() {
 }
 
 describe('update quit with live owned children', () => {
-  it('one Restart waits for persistence then kills a stubborn child before stock install', async () => {
+  it('one Restart waits for persistence then kills a stubborn child before handing off', async () => {
     const children = new OwnedBackgroundChildren()
     const background = children.track(await child(), true)
     const bystander = await child()
-    const native = new EventEmitter()
-    const events = new EventEmitter()
     let release!: () => void
 
     const checkpoint = new Promise<void>(resolve => {
@@ -56,53 +52,26 @@ describe('update quit with live owned children', () => {
     let installState: { killSent: boolean; bystanderAlive: boolean } | undefined
     const signal = vi.spyOn(process, 'kill')
 
-    const stock = Object.assign(events, {
-      checkForUpdates: async () => null,
-      setFeedURL() {},
-      quitAndInstall: () => {
+    handler = createMatrixQuitHandler(
+      () => new Promise(() => {}),
+      quit,
+      () => {
         installs++
-        // Snapshot at install time; assertions outside this callback cannot
-        // be swallowed by the updater's catch around quitAndInstall.
         installState = {
           killSent: process.platform === 'win32'
             ? background.killed
             : signal.mock.calls.some(([pid, kind]) => pid === -background.pid! && kind === 'SIGKILL'),
           bystanderAlive: alive(bystander.pid!)
         }
-      }
-    }) as unknown as ElectronUpdaterPort
 
-    const updater = createDesktopUpdater({
-      busy: () => false,
-      currentVersion: '1.0.0',
-      feedUrl: 'https://updates.example/',
-      isPackaged: true,
-      loadUpdater: async () => stock,
-      logger: console,
-      nativeUpdater: native,
-      quit,
-      setInterval() {},
-      settings: {
-        migrate: async () => ({ applied: null, channel: 'latest' }),
-        getChannel: async () => 'latest',
-        setChannel: async () => {}
+        return 'handled'
       },
-      setInstallTimer: () => 0
-    })
-
-    handler = createMatrixQuitHandler(
-      () => new Promise(() => {}),
-      quit,
-      () => (updater.afterTeardown() ? 'handled' : 'quit'),
       { prepare: () => checkpoint, deadlineMs: 30, forceCleanup: () => children.killNow() }
     )
 
     try {
-      await updater.start()
-      events.emit('update-downloaded', { version: '1.1.0' })
-      native.emit('update-downloaded')
-      expect(updater.restart()).toBe(true)
-      expect(updater.restart()).toBe(false)
+      quit()
+      quit()
       await new Promise(resolve => setTimeout(resolve, 50))
       expect(alive(background.pid!)).toBe(true) // No killing before document save.
       expect(installs).toBe(0)
