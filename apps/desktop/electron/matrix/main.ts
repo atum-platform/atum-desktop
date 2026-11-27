@@ -970,6 +970,7 @@ import { installMatrixWindow, matrixWindowOptions } from './window'
 import { matrixEndedSession, matrixHumanSnapshot, matrixSavedIdentity, matrixWindowChoice } from './window-launch'
 import { MatrixWindowedLog } from './windowed-log'
 import { MatrixWordDocument } from './word-document'
+import { WorkDeliverables } from './work-deliverable'
 import { MatrixWebPreviewOffers } from './workbench-preview'
 import { readMatrixWorkspaceDriveRoots } from './workspace-root-facts'
 import { MatrixWorkspaceStartup } from './workspace-startup'
@@ -2602,6 +2603,26 @@ function createDeviceIdentity(): MacDeviceIdentity {
   })
 }
 
+/** Resolve the selected assistant's owner-authorized workspace, fenced across the owner RPC. */
+async function matrixAgentWorkspaceLabel(agentPrincipal: string): Promise<string | null> {
+  const owner = account?.appScope()
+
+  if (
+    !owner ||
+    closing ||
+    !allAgents().some(agent => !agent.closed && isCloudAgent(agent) && cloudPrincipal(agent) === agentPrincipal)
+  ) {
+    return null
+  }
+
+  const answer = await s1Call({ kind: 'workspace', agentPrincipal }, AbortSignal.timeout(15_000))
+  const current = account?.appScope()
+
+  return current?.accountKey === owner.accountKey && current.generation === owner.generation && !closing
+    ? workspaceLabelFor(answer, agentPrincipal)
+    : null
+}
+
 /** Main owns native authority; the runtime receives only live account facts and sealed storage. */
 function buildDeviceRuntime(): DeviceRuntime {
   const home = app.getPath('home')
@@ -2619,24 +2640,7 @@ function buildDeviceRuntime(): DeviceRuntime {
     // No trusted root facts: the runtime gives no write access outside a working copy.
   }
 
-  const workspaceLabel = async (agentPrincipal: string) => {
-    const owner = account?.appScope()
-
-    if (
-      !owner ||
-      closing ||
-      !allAgents().some(agent => !agent.closed && isCloudAgent(agent) && cloudPrincipal(agent) === agentPrincipal)
-    ) {
-      return null
-    }
-
-    const answer = await s1Call({ kind: 'workspace', agentPrincipal }, AbortSignal.timeout(15_000))
-    const current = account?.appScope()
-
-    return current?.accountKey === owner.accountKey && current.generation === owner.generation && !closing
-      ? workspaceLabelFor(answer, agentPrincipal)
-      : null
-  }
+  const workspaceLabel = matrixAgentWorkspaceLabel
 
   deviceWorkspace = new DriveWorkspaceCopies({
     drive: {
@@ -20601,7 +20605,15 @@ async function start() {
       }
     }
 
+    const workDrive = drive
     work = createMatrixWork({
+      deliverables: runtime && workDrive ? new WorkDeliverables(app.getPath('home'), runtime.python, {
+        workspace: matrixAgentWorkspaceLabel,
+        target: () => (closing || !state.identity ? undefined : workDrive.workDeliverableTarget()),
+        remaining: () => workDrive.importQuota()?.remaining,
+        manifestFor: paths => workDrive.manifestFor(paths),
+        open: (relativePath, identity) => workDrive.openWorkDeliverable(relativePath, identity)
+      }) : undefined,
       userData: app.getPath('userData'),
       home: app.getPath('home'),
       resources: process.resourcesPath,

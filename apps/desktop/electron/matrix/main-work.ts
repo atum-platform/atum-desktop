@@ -34,6 +34,7 @@ import { createWorkConsentClient, deviceServiceCall } from '../work/surface/plat
 import { readWorkProviders } from '../work/surface/provider-config'
 import { createOwnerRelay } from '../work/surface/relay'
 
+import type { WorkDeliverables } from './work-deliverable'
 import { MatrixWorkLifecycle, type WorkAccount, workAccountFor } from './work-lifecycle'
 
 /** Atum's panel radius (`--atum-r-panel`, styles.css): Work's native view is rounded to it. */
@@ -66,6 +67,7 @@ export interface MatrixWorkWalletPort {
 }
 
 export interface MatrixWorkDeps {
+  deliverables?: WorkDeliverables
   userData: string
   home: string
   /** `process.resourcesPath` of the app (the staged `work-runtime` and the Hermes runtime live under it). */
@@ -113,6 +115,8 @@ export interface MatrixWorkDeps {
 }
 
 export interface MatrixWork {
+  /** Host-side receipt receiver for authenticated native Work settlements. */
+  deliverables?: WorkDeliverables
   /** Main-owned update of the pinned Work server (snapshot, trial, commit or rollback). */
   update(target: PinRef): Promise<UpdateOutcome>
   /** The window may have become ready, or the account may have changed. Idempotent. */
@@ -814,6 +818,7 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
   })
 
   return {
+    deliverables: deps.deliverables,
     activate: async () => {
       // keys() drops a key whose account or generation is no longer the signed-in one, and cancels its forwards
       modelKeys.keys()
