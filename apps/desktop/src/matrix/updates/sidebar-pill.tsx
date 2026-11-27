@@ -5,15 +5,16 @@ import { BrandMark } from '@/components/brand-mark'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog'
 import { Tip } from '@/components/ui/tooltip'
-import { cn } from '@/lib/utils'
 import type { Locale } from '@/i18n'
+import { cn } from '@/lib/utils'
 
+import type { MatrixDesktopServicesBridge } from '../../../shared/matrix-desktop-services'
 import { resolveDesktopUpdateButtonAction } from '../../../vendor/t3-updates/apps/web/src/components/desktopUpdate.logic'
 import { DesktopUpdateStatusIcon } from '../../../vendor/t3-updates/apps/web/src/components/sidebar/DesktopUpdateStatusIcon'
 import { UPDATE_RESTART_DELAY_MS } from '../../../vendor/t3-updates/apps/web/src/components/sidebar/useUpdateEverything'
 import type { DesktopUpdateState } from '../../../vendor/t3-updates/packages/contracts/src/desktopUpdates'
-import type { MatrixDesktopServicesBridge } from '../../../shared/matrix-desktop-services'
 import { ATUM_LINKS } from '../atum-links'
+
 import { updateCopy } from './copy'
 
 const everythingLabel: Record<Locale, string> = {
@@ -43,7 +44,6 @@ interface Props {
 export function SidebarUpdatePill({ state, locale, busy, bridge, openReleaseHistory }: Props) {
   const copy = updateCopy(locale)
   const action = resolveDesktopUpdateButtonAction(state)
-  const version = state.downloadedVersion ?? state.availableVersion
   const [confirmation, setConfirmation] = useState<'restart' | 'everything' | null>(null)
   const [confirmedVersion, setConfirmedVersion] = useState<string | null>(null)
   const [deadline, setDeadline] = useState<number | null>(null)
@@ -164,7 +164,7 @@ export function SidebarUpdatePill({ state, locale, busy, bridge, openReleaseHist
       {activeCountdown ? (
         <>
           <span className="truncate text-xs" role="status">{label}</span>
-          <Button size="sm" onClick={() => setDeadline(null)}>{copy.later}</Button>
+          <Button onClick={() => setDeadline(null)} size="sm">{copy.later}</Button>
         </>
       ) : action === 'install' && (
         <Tip label={everythingLabel[locale]}>
@@ -183,32 +183,32 @@ export function SidebarUpdatePill({ state, locale, busy, bridge, openReleaseHist
         </Tip>
       )}
       {!activeCountdown && state.releaseNotes.length > 0 && (
-        <Button aria-expanded={notesOpen} size="sm" variant="ghost" onClick={() => setNotesOpen(!notesOpen)}>
+        <Button aria-expanded={notesOpen} onClick={() => setNotesOpen(!notesOpen)} size="sm" variant="ghost">
           {copy.whatsNew}
         </Button>
       )}
       {notesOpen && state.releaseNotes.length > 0 && (
         <div className="absolute bottom-full right-0 z-30 mb-2 max-h-72 w-56 overflow-auto rounded-xl border bg-background p-3 shadow-md">
           {state.releaseNotes.map(note => (
-            <section key={note.version} className="mb-2 text-xs">
+            <section className="mb-2 text-xs" key={note.version}>
               <h3 className="font-medium">{copy.currentVersion(note.version)}</h3>
               <ul className="list-inside list-disc">{note.items.map((item, index) => <li key={index}>{item}</li>)}</ul>
             </section>
           ))}
-          <Button size="sm" variant="ghost" onClick={openReleaseHistory}>{copy.downloadAtum}</Button>
+          <Button onClick={openReleaseHistory} size="sm" variant="ghost">{copy.downloadAtum}</Button>
         </div>
       )}
       {(failure || state.notAppliedVersion || state.errorContext === 'install' || (busy && action === 'install')) && (
         <span className="max-w-32 truncate text-xs text-(--atum-ink-muted)" role="status">{failure ?? state.message ?? (busy ? copy.restartBusy : copy.installFailed)}</span>
       )}
-      <Dialog open={confirmation !== null} onOpenChange={open => {if (!open) {setConfirmation(null)}}}>
+      <Dialog onOpenChange={open => {if (!open) {setConfirmation(null)}}} open={confirmation !== null}>
         <DialogContent className="max-w-sm">
           <BrandMark className="size-9" />
           <DialogTitle>{confirmation === 'everything' ? everythingLabel[locale] : copy.restartToUpdate}</DialogTitle>
-          <DialogDescription>{copy.ready(version)}</DialogDescription>
+          <DialogDescription>{copy.ready(confirmedVersion)}</DialogDescription>
           <div className="flex justify-end gap-2">
-            <Button variant="ghost" onClick={() => setConfirmation(null)}>{copy.later}</Button>
-            <Button autoFocus onClick={confirm}>{confirmation === 'everything' ? everythingLabel[locale] : copy.restart}</Button>
+            <Button onClick={() => setConfirmation(null)} variant="ghost">{copy.later}</Button>
+            <Button autoFocus disabled={!confirmedVersion || confirmedVersion !== state.downloadedVersion || busy} onClick={confirm}>{confirmation === 'everything' ? everythingLabel[locale] : copy.restart}</Button>
           </div>
         </DialogContent>
       </Dialog>

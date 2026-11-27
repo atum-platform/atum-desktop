@@ -1,22 +1,24 @@
 import path from 'node:path'
+
 import * as NodeFileSystem from '@effect/platform-node/NodeFileSystem'
 import * as Effect from 'effect/Effect'
+import * as Exit from 'effect/Exit'
 import * as Layer from 'effect/Layer'
 import * as ManagedRuntime from 'effect/ManagedRuntime'
 import * as Option from 'effect/Option'
-import * as Exit from 'effect/Exit'
 import * as Scope from 'effect/Scope'
 
+import type { AtumUpdateChannel, AtumUpdateStatus } from '../../shared/atum-update-flow'
 import * as DesktopState from '../../vendor/t3-updates/apps/desktop/src/app/DesktopState'
 import { ElectronUpdater } from '../../vendor/t3-updates/apps/desktop/src/electron/ElectronUpdater'
 import * as Policy from '../../vendor/t3-updates/apps/desktop/src/updates/DesktopUpdatePolicy'
 import * as Updates from '../../vendor/t3-updates/apps/desktop/src/updates/DesktopUpdates'
 import { createInitialDesktopUpdateState } from '../../vendor/t3-updates/apps/desktop/src/updates/updateMachine'
 import type { DesktopRuntimeInfo, DesktopUpdateChannel, DesktopUpdateState } from '../../vendor/t3-updates/packages/contracts/src/desktopUpdates'
-import type { AtumUpdateChannel, AtumUpdateStatus } from '../../shared/atum-update-flow'
-import type { DesktopUpdateSettings } from './settings-contract'
+
 import { createMacUpdatePort } from './mac'
 import { DesktopAppSettings, DesktopBackendPool, DesktopConfig, DesktopEnvironment, DesktopSshEnvironment, ElectronWindow } from './services'
+import type { DesktopUpdateSettings } from './settings-contract'
 
 const wireChannel = (channel: unknown): DesktopUpdateChannel => channel === 'beta' ? 'nightly' : 'latest'
 const savedChannel = (channel: DesktopUpdateChannel): AtumUpdateChannel => channel === 'nightly' ? 'beta' : 'latest'

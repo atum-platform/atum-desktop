@@ -1,9 +1,9 @@
 import type path from 'node:path'
 
-import type * as Duration from 'effect/Duration'
-import type * as Option from 'effect/Option'
 import * as Context from 'effect/Context'
+import type * as Duration from 'effect/Duration'
 import * as Effect from 'effect/Effect'
+import type * as Option from 'effect/Option'
 
 import type { DesktopRuntimeInfo, DesktopUpdateChannel, DesktopUpdateState } from '../../vendor/t3-updates/packages/contracts/src/desktopUpdates'
 

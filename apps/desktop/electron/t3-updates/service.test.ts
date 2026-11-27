@@ -2,6 +2,7 @@ import { EventEmitter } from 'node:events'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
+
 import { expect, it, vi } from 'vitest'
 
 import { createAtumUpdates } from './service'

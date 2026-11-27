@@ -1,5 +1,6 @@
+import type { EventEmitter } from 'node:events'
+
 import * as Effect from 'effect/Effect'
-import { EventEmitter } from 'node:events'
 import { MacUpdater } from 'electron-updater'
 import type { UpdateDownloadedEvent } from 'electron-updater'
 

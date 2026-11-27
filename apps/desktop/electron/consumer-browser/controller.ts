@@ -154,6 +154,7 @@ export async function assertPublicBrowserDestination(raw: string): Promise<strin
 
 export function createConsumerBrowserController(deps: ConsumerBrowserControllerDeps): {
   dispose: () => void
+  hasActiveDownloads: () => boolean
   releaseAppPartitions: () => Promise<void>
   releaseConsumerPartitions: () => Promise<void>
 } {
@@ -164,6 +165,7 @@ export function createConsumerBrowserController(deps: ConsumerBrowserControllerD
   const previewSessions = new WeakSet<Session>()
   const popupTimestamps = new Map<number, number[]>()
   const downloadsInFlight = new WeakMap<Session, number>()
+  const activeDownloadItems = new Set<DownloadItem>()
   // One pinned-address proxy per prepared browser partition. Chromium sends it hostnames and never
   // resolves them itself, so the address we vetted is the address that is dialled (no DNS rebinding).
   const egresses = new Map<string, { egress: AppViewEgress; owner: object }>()
@@ -219,11 +221,13 @@ export function createConsumerBrowserController(deps: ConsumerBrowserControllerD
     }
 
     downloadsInFlight.set(browserSession, inFlight + 1)
+    activeDownloadItems.add(item)
     // No save path is set, so Electron asks where to save: nothing lands on disk unseen.
     item.setSaveDialogOptions({
       defaultPath: path.join(deps.downloads.directory(), consumerBrowserDownloadName(item.getFilename()))
     })
     item.once('done', (_done, state) => {
+      activeDownloadItems.delete(item)
       downloadsInFlight.set(browserSession, Math.max(0, (downloadsInFlight.get(browserSession) ?? 1) - 1))
 
       if (state === 'completed') {
@@ -477,6 +481,7 @@ export function createConsumerBrowserController(deps: ConsumerBrowserControllerD
       deps.ipcMain.removeHandler(CONSUMER_BROWSER_IPC.prepare)
       deps.ipcMain.removeHandler(CONSUMER_BROWSER_IPC.release)
     },
+    hasActiveDownloads: () => activeDownloadItems.size > 0,
     releaseAppPartitions: async () => {
       const appPartitions = new Set(deps.knownAppIds.filter(validAppId).map(appPartition))
 

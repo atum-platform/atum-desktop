@@ -2061,7 +2061,7 @@ let outcomeStore: EncryptedStore
 let pendingMatrixDrafts: PendingMatrixDrafts | undefined
 let documents: MatrixRoomDocuments
 const documentClose = new MatrixDocumentClose()
-let pendingUpdateSwap: { run: () => Promise<void>; refused: () => void } | null = null
+let pendingUpdateSwap: { currentOwner: () => boolean; run: () => Promise<void>; refused: () => void } | null = null
 
 async function prepareDocumentClose(): Promise<void> {
   const window = ui
@@ -17646,6 +17646,7 @@ async function start() {
     log: line => console.warn(line)
   })
 
+  let admittedUpdateOwner: (() => boolean) | undefined
   desktopServices = new MatrixDesktopServices({
     configPath: path.join(process.resourcesPath, 'atum-desktop-services.json'),
     applicationIdentifier: 'com.atum.matrix-candidate',
@@ -17659,29 +17660,44 @@ async function start() {
     currentChannel: appUpdaterReleaseChannel(process.resourcesPath),
     busy: () => isolationBusy() || allAgents().some(each => Boolean(each.invocation)),
     admit: async expectedVersion => {
-      if (isolationBusy() || !signedStageEnabled()) {
+      admittedUpdateOwner = undefined
+      if (isolationBusy() || matrixConsumerBrowser.hasActiveDownloads() || !signedStageEnabled()) {
         return 'Wait for local work to finish, then try again.'
       }
 
-      const scope = state.identity
+      const scope = account?.appScope()
+      const identity = state.identity
       await stage.assertPrepared(expectedVersion)
 
-      if (scope?.userId !== state.identity?.userId || scope?.deviceId !== state.identity?.deviceId) {
+      const currentOwner = () => {
+        const active = account?.appScope()
+
+        return active?.accountKey === scope?.accountKey && active?.generation === scope?.generation &&
+          identity?.userId === state.identity?.userId && identity?.deviceId === state.identity?.deviceId
+      }
+      if (!currentOwner()) {
         return 'The active account changed. Check for updates and try again.'
       }
+      if (isolationBusy() || matrixConsumerBrowser.hasActiveDownloads()) {
+        return 'Wait for local work to finish, then try again.'
+      }
+      admittedUpdateOwner = currentOwner
 
-      return isolationBusy() ? 'Wait for local work to finish, then try again.' : null
+      return null
     },
     native: {
       stage,
       install: () => new Promise<void>((resolve, reject) => {
-        if (pendingUpdateSwap || closing) {
-          reject(new Error('A restart is already in progress.'))
+        const currentOwner = admittedUpdateOwner
+        admittedUpdateOwner = undefined
+        if (pendingUpdateSwap || closing || !currentOwner?.()) {
+          reject(new Error('Restart is no longer available. Try again.'))
 
           return
         }
         updateShutdownSafe = false
         pendingUpdateSwap = {
+          currentOwner,
           async run() {
             try {
               if (!updateShutdownSafe) {throw new Error('Local services did not finish shutting down.')}
@@ -26340,7 +26356,7 @@ if (stagedRecovery === 'exiting') {
       {
         prepare: async () => {
           await prepareDocumentClose()
-          if (pendingUpdateSwap && isolationBusy()) {
+          if (pendingUpdateSwap && (!pendingUpdateSwap.currentOwner() || isolationBusy() || matrixConsumerBrowser.hasActiveDownloads())) {
             throw new Error('Local work started during restart preparation.')
           }
         },
