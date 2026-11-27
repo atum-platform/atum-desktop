@@ -171,6 +171,7 @@ import { matrixAgentDeskAgent, matrixAgentDeskSteers } from './agent-desk-model'
 import { useMatrixAgentHandleBackfill } from './agent-handle-backfill'
 import { agentHomeTitleIconShown, MatrixAgentHomeRow } from './agent-home-control'
 import { bindAgentPlansAccount } from './agent-plans-store'
+import { NewAssistantButton } from './agent-roster'
 import { authorizedBotApi, botApiAppForMessage, isBotApiRoom } from './app-bots/bot-api'
 import { MatrixBotApiKeyboard, MatrixBotApiText } from './app-bots/bot-api-text'
 import { MatrixBotApiPhotoView } from './app-bots/bot-photo'
@@ -470,7 +471,7 @@ import {
 import { anyAgentPrompts, assistantTarget, primaryAgent, snapshotForRoom } from './room-agent'
 import { MatrixRosterConversations } from './roster-conversations'
 import { useRosterCopy } from './roster-copy'
-import { MatrixRosterCreate, type MatrixRosterCreation } from './roster-create'
+import { matrixCanCreateAssistant, MatrixRosterCreate, type MatrixRosterCreation } from './roster-create'
 import { useRosterCreateCopy } from './roster-create-copy'
 import {
   $matrixRosterFilterByAccount,
@@ -6916,7 +6917,6 @@ function MatrixRoster({
           value={rosterFilter}
         />
         <MatrixStartChatButton
-          canCreateAssistant={Boolean(snapshot.assistant && snapshot.agentCreation)}
           canFindPeople={Boolean(snapshot.domainEnabled && window.atumMatrix?.aliases)}
           disabled={snapshot.state !== 'ready'}
           onCreate={kind => setCreating({ kind })}
@@ -6981,7 +6981,10 @@ function MatrixRoster({
           snapshot.domainEnabled &&
           snapshot.state === 'ready' && <AssistantSetupCard state={snapshot.assistantSetup} />}
         <MatrixRosterConversations
-          // New assistant lives in the New chat sheet's footer, not as a row here (Atum Kit mockups).
+          // New assistant is the last row of the Assistants (owner, 2026-11-27).
+          agentActions={matrixCanCreateAssistant(snapshot) ? (
+            <NewAssistantButton disabled={snapshot.state !== 'ready'} onClick={() => setCreating({ kind: 'assistant' })} />
+          ) : undefined}
           assistantOpening={Boolean(assistantOpening)}
           cloudOnly={cloudOnly}
           externalResultCount={externalSearchResultCount}
