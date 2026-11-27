@@ -13,8 +13,8 @@
       "source": "apps/desktop/src/updates/updateMachine.ts",
       "blob": "80751315657c0ca338268937ffce6e78d5571338",
       "destination": "apps/desktop/src/updates/updateMachine.ts",
-      "sha256": "30ddcf87905ec74b1e2be19a0af75957f3d227938efebd18ae9e9bbf237a94a2",
-      "overlay": "Adapter imports, Vitest entry, and product branding where applicable.",
+      "sha256": "993dfa60b32610419906d9dd641b5ca3f559e3f0b0a425338a466db0b49dc3b7",
+      "overlay": "Adapter imports, Vitest entry, and product branding where applicable. Import reduceDesktopUpdateStateOnDownloadLost from the comparison pin.",
       "changes": [
         [
           5,
@@ -22,7 +22,32 @@
           [
             "} from \"../../../../packages/contracts/src/desktopUpdates.ts\";\n"
           ]
+        ],
+        [
+          211,
+          211,
+          [
+            "export function reduceDesktopUpdateStateOnDownloadLost(\n",
+            "  state: DesktopUpdateState,\n",
+            "): DesktopUpdateState {\n",
+            "  if (state.downloadedVersion === null) return state;\n",
+            "  return {\n",
+            "    ...withoutTrackMismatch(state),\n",
+            "    status: \"available\",\n",
+            "    availableVersion: state.downloadedVersion,\n",
+            "    downloadedVersion: null,\n",
+            "    downloadPercent: null,\n",
+            "    message: null,\n",
+            "    errorContext: null,\n",
+            "    canRetry: false,\n",
+            "  };\n",
+            "}\n",
+            "\n"
+          ]
         ]
+      ],
+      "portedFromUpstream": [
+        "reduceDesktopUpdateStateOnDownloadLost"
       ]
     },
     {
@@ -131,7 +156,7 @@
       "source": "apps/desktop/src/updates/DesktopUpdates.ts",
       "blob": "7976503d9e761e6faba40cb87ec2c6c5b323288f",
       "destination": "apps/desktop/src/updates/DesktopUpdates.ts",
-      "sha256": "036fb8458aca2d34fb6b75841a093886a35b69fe07c8a327ad45e856ff96b687",
+      "sha256": "5fc68438891d3c75c81a6094fd6d0a5ba25a3dd8d5df193848dfdcba30710d02",
       "overlay": "Adapter imports, Vitest entry, and product branding where applicable.",
       "changes": [
         [
@@ -171,6 +196,13 @@
           ]
         ],
         [
+          53,
+          53,
+          [
+            "  reduceDesktopUpdateStateOnDownloadLost,\n"
+          ]
+        ],
+        [
           413,
           414,
           [
@@ -192,10 +224,55 @@
           ]
         ],
         [
+          551,
+          554,
+          [
+            "  // Re-runs admission after each finished action against the resulting update state.\n",
+            "  const admitAfterActiveAction = Effect.fn(\"desktop.updates.admitAfterActiveAction\")(function* (\n",
+            "    admit: Effect.Effect<\"admitted\" | \"refused\" | \"wait-for-action\">,\n"
+          ]
+        ],
+        [
+          557,
+          558,
+          [
+            "    while (admission === \"wait-for-action\") {\n"
+          ]
+        ],
+        [
+          660,
+          661,
+          [
+            "      admitAfterActiveAction(\n"
+          ]
+        ],
+        [
+          669,
+          670,
+          [
+            "              ? (\"wait-for-action\" as const)\n"
+          ]
+        ],
+        [
           689,
           690,
           [
             "          offered.channel !== environment.releaseChannelOf(environment.appVersion),\n"
+          ]
+        ],
+        [
+          896,
+          897,
+          [
+            "        const admission = yield* admitAfterActiveAction(\n"
+          ]
+        ],
+        [
+          911,
+          913,
+          [
+            "              return activeAction.value === \"check\" || activeAction.value === \"download\"\n",
+            "                ? (\"wait-for-action\" as const)\n"
           ]
         ],
         [
@@ -205,7 +282,11 @@
             "        const target = (yield* Ref.get(updateStateRef)).downloadedVersion!;\n",
             "        const deferReason = yield* pool.admit(target);\n",
             "        if (deferReason !== null) {\n",
-            "          yield* updateState((state) => reduceDesktopUpdateStateOnInstallFailure(state, deferReason));\n",
+            "          yield* updateState(\n",
+            "            deferReason === \"stage-lost\"\n",
+            "              ? reduceDesktopUpdateStateOnDownloadLost\n",
+            "              : (state) => reduceDesktopUpdateStateOnInstallFailure(state, deferReason),\n",
+            "          );\n",
             "          yield* finishUpdateAction(\"install\");\n",
             "          return { accepted: true, completed: false, failed: true };\n",
             "        }\n"

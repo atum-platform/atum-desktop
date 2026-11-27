@@ -50,6 +50,7 @@ import {
   reduceDesktopUpdateStateOnCheckStart,
   reduceDesktopUpdateStateOnDownloadComplete,
   reduceDesktopUpdateStateOnDownloadFailure,
+  reduceDesktopUpdateStateOnDownloadLost,
   reduceDesktopUpdateStateOnDownloadProgress,
   reduceDesktopUpdateStateOnDownloadStart,
   reduceDesktopUpdateStateOnInstallFailure,
@@ -548,13 +549,13 @@ export const make = Effect.gen(function* () {
       ),
     );
 
-  // Re-runs admit after each finished action, so a caller waiting on a check decides on its result.
-  const admitAfterCheck = Effect.fn("desktop.updates.admitAfterCheck")(function* (
-    admit: Effect.Effect<"admitted" | "refused" | "wait-for-check">,
+  // Re-runs admission after each finished action against the resulting update state.
+  const admitAfterActiveAction = Effect.fn("desktop.updates.admitAfterActiveAction")(function* (
+    admit: Effect.Effect<"admitted" | "refused" | "wait-for-action">,
   ) {
     const actionCompletions = yield* PubSub.subscribe(finishedUpdateActions);
     let admission = yield* stateMutex.withPermits(1)(admit);
-    while (admission === "wait-for-check") {
+    while (admission === "wait-for-action") {
       const finishedAction = yield* PubSub.take(actionCompletions).pipe(
         Effect.timeoutOption(UPDATE_CHECK_WAIT),
       );
@@ -657,7 +658,7 @@ export const make = Effect.gen(function* () {
     refresh: boolean,
   ) {
     const admission = yield* Effect.scoped(
-      admitAfterCheck(
+      admitAfterActiveAction(
         Effect.gen(function* () {
           const state = yield* Ref.get(updateStateRef);
           if (!(yield* Ref.get(updaterConfiguredRef)) || state.status !== "available") {
@@ -666,7 +667,7 @@ export const make = Effect.gen(function* () {
           const activeAction = yield* Ref.get(activeUpdateActionRef);
           if (Option.isSome(activeAction)) {
             return activeAction.value === "check"
-              ? ("wait-for-check" as const)
+              ? ("wait-for-action" as const)
               : ("refused" as const);
           }
           return (yield* tryStartUpdateAction("download"))
@@ -893,7 +894,7 @@ export const make = Effect.gen(function* () {
   const installDownloadedUpdate = (expectedVersion?: string) =>
     Effect.scoped(
       Effect.gen(function* () {
-        const admission = yield* admitAfterCheck(
+        const admission = yield* admitAfterActiveAction(
           Effect.gen(function* () {
             const state = yield* Ref.get(updateStateRef);
             const activeAction = yield* Ref.get(activeUpdateActionRef);
@@ -908,8 +909,8 @@ export const make = Effect.gen(function* () {
               return "refused" as const;
             }
             if (Option.isSome(activeAction)) {
-              return activeAction.value === "check"
-                ? ("wait-for-check" as const)
+              return activeAction.value === "check" || activeAction.value === "download"
+                ? ("wait-for-action" as const)
                 : ("refused" as const);
             }
             const hasInstallableDownload =
@@ -929,7 +930,11 @@ export const make = Effect.gen(function* () {
         const target = (yield* Ref.get(updateStateRef)).downloadedVersion!;
         const deferReason = yield* pool.admit(target);
         if (deferReason !== null) {
-          yield* updateState((state) => reduceDesktopUpdateStateOnInstallFailure(state, deferReason));
+          yield* updateState(
+            deferReason === "stage-lost"
+              ? reduceDesktopUpdateStateOnDownloadLost
+              : (state) => reduceDesktopUpdateStateOnInstallFailure(state, deferReason),
+          );
           yield* finishUpdateAction("install");
           return { accepted: true, completed: false, failed: true };
         }

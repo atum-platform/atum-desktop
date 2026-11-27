@@ -17667,7 +17667,11 @@ async function start() {
 
       const scope = account?.appScope()
       const identity = state.identity
-      await stage.assertPrepared(expectedVersion)
+      try {
+        await stage.assertPrepared(expectedVersion)
+      } catch {
+        return 'stage-lost'
+      }
 
       const currentOwner = () => {
         const active = account?.appScope()

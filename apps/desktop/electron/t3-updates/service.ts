@@ -52,11 +52,12 @@ export function createAtumUpdates(options: Options) {
     runtime?.run(Effect.flatMap(Updates.DesktopUpdates, operation))
 
   const publish = (next: DesktopUpdateState) => {
+    const stageLost = state.downloadedVersion !== null && next.downloadedVersion === null
     state = next
     options.changed()
 
     const key = next.availableVersion && `${next.channel}:${next.availableVersion}`
-    if (next.availableVersion === null) {lastAutoOffer = null}
+    if (next.availableVersion === null || stageLost) {lastAutoOffer = null}
     if (next.status === 'available' && next.errorContext === null && key && key !== lastAutoOffer) {
       lastAutoOffer = key
       // The normal service reservation waits for the in-flight check to finish.

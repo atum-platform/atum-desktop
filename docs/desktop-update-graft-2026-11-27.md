@@ -24,7 +24,8 @@ journal and recovery. The retired stock harness remains a historical gate and
 loads its controller from the pre-graft Git object.
 
 Restart checks the target's staged seal, active account, local busy state,
-and any in-flight browser download.
+and any in-flight browser download. A missing or changed stage is rebuilt
+through the normal download action and requires a fresh Restart.
 A refused document checkpoint leaves the current app open. The swap requires
 the Matrix drain, SDK, Work, device, lease and browser shutdown to settle. A
 failed shutdown keeps the installed app and relaunches it with its usual owner

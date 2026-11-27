@@ -115,3 +115,26 @@ it('checks 15 seconds after startup and again at four hours', async () => {
     vi.useRealTimers()
   }
 })
+
+it('restages a missing verified app without installing on the old authorization', async () => {
+  const prepare = vi.fn(async () => {})
+  const admit = vi.fn(async () => null as string | null)
+  const { service, install, dispose } = await fixture(prepare, admit)
+
+  try {
+    expect(await service.start()).toBe(true)
+    await service.checkNow()
+    await vi.waitFor(() => expect(service.state().status).toBe('downloaded'))
+    admit.mockResolvedValueOnce('stage-lost')
+    expect(await service.restart('1.1.0')).toBe(false)
+    await vi.waitFor(() => {
+      expect(prepare).toHaveBeenCalledTimes(2)
+      expect(service.state().status).toBe('downloaded')
+    })
+    expect(install).not.toHaveBeenCalled()
+    expect(await service.restart('1.1.0')).toBe(true)
+    expect(install).toHaveBeenCalledOnce()
+  } finally {
+    await dispose()
+  }
+})
