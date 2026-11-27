@@ -3,7 +3,7 @@ import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 
 import type { AtumUpdateState, AtumUpdateStatus } from '../../../shared/atum-update-flow'
 
-import { SoftwareUpdate, UpdateAffordance } from './presentation'
+import { SoftwareUpdate } from './presentation'
 
 class TestResizeObserver {
   observe() {}
@@ -68,24 +68,10 @@ describe('SoftwareUpdate', () => {
     expect(container.querySelector('[data-update-status]')?.textContent).toContain(label)
   })
 
-  it('shows progress only in Settings and keeps the rail quiet until ready', () => {
-    const calls = actions()
-    const downloading = status('downloading', { progress: 42 })
-    const { container } = render(
-      <>
-        <SoftwareUpdate
-          busy={false} checkNow={calls.checkNow} currentVersion="1.0.0" locale="en"
-          openDownload={calls.openDownload} restart={calls.restart} setChannel={calls.setChannel} status={downloading}
-        />
-        <UpdateAffordance
-          busy={false} checkNow={calls.checkNow} locale="en" openDownload={calls.openDownload}
-          openUpdates={calls.openUpdates} restart={calls.restart} status={downloading}
-        />
-      </>
-    )
+  it('shows download progress in Settings', () => {
+    const { container } = settings({ status: status('downloading', { progress: 42 }) })
+
     expect(container.querySelector('[data-update-progress] progress')).toBeTruthy()
-    expect(container.querySelector('[data-update-attention]')).toBeNull()
-    expect(container.querySelector('[data-update-warning]')).toBeNull()
   })
 
   it('shows honest mapped errors and a retry action without legacy cleanup copy', async () => {
@@ -210,79 +196,4 @@ describe('SoftwareUpdate', () => {
     expect(screen.getAllByRole('button', { name: 'Restart to update' })).toHaveLength(1)
     expect((screen.getByRole('button', { name: 'Restart to update' }) as HTMLButtonElement).disabled).toBe(true)
   })
-})
-
-describe('UpdateAffordance', () => {
-  it('keeps check failures in Settings and warns in the rail only for download or install failures', () => {
-    const calls = actions()
-    const view = render(
-      <UpdateAffordance
-        busy={false} checkNow={calls.checkNow} locale="en" openDownload={calls.openDownload}
-        openUpdates={calls.openUpdates} restart={calls.restart}
-        status={status('error', { error: { code: 'transport', message: 'network', stage: 'check' } as any })}
-      />
-    )
-    expect(view.container.querySelector('[data-update-warning]')).toBeNull()
-    view.rerender(
-      <UpdateAffordance
-        busy={false} checkNow={calls.checkNow} locale="en" openDownload={calls.openDownload}
-        openUpdates={calls.openUpdates} restart={calls.restart}
-        status={status('error', { error: { code: 'hash_mismatch', message: 'hash', stage: 'download' } as any })}
-      />
-    )
-    expect(view.container.querySelector('[data-update-warning]')).toBeTruthy()
-  })
-
-  it('renders at most three plain-text release notes and one Restart action', () => {
-    const calls = actions()
-    const { container } = render(
-      <UpdateAffordance
-        busy={false} checkNow={calls.checkNow} locale="en" openDownload={calls.openDownload}
-        openUpdates={calls.openUpdates} restart={calls.restart}
-        status={status('downloaded', {
-          notes: ['<script>alert("text only")</script>', 'Second', 'Third', 'Fourth'], version: '1.1.0'
-        })}
-      />
-    )
-    fireEvent.click(screen.getByRole('button', { name: 'Update ready — restart to install' }))
-    const notes = container.ownerDocument.querySelector('[data-update-notes]') as HTMLElement
-    expect(notes.querySelectorAll('li')).toHaveLength(3)
-    expect(notes.querySelector('script')).toBeNull()
-    expect(screen.getAllByRole('button', { name: 'Restart' })).toHaveLength(1)
-  })
-
-  it('disables Restart while busy and reports a rejected restart', async () => {
-    const calls = actions()
-    render(
-      <UpdateAffordance
-        busy checkNow={calls.checkNow} locale="en" openDownload={calls.openDownload}
-        openUpdates={calls.openUpdates} restart={calls.restart}
-        status={status('downloaded', { version: '1.1.0' })}
-      />
-    )
-    fireEvent.click(screen.getByRole('button', { name: 'Update ready — restart to install' }))
-    expect((screen.getByRole('button', { name: 'Restart' }) as HTMLButtonElement).disabled).toBe(true)
-    cleanup()
-    calls.restart.mockResolvedValueOnce(false)
-    render(
-      <UpdateAffordance
-        busy={false} checkNow={calls.checkNow} locale="en" openDownload={calls.openDownload}
-        openUpdates={calls.openUpdates} restart={calls.restart}
-        status={status('downloaded', { version: '1.1.0' })}
-      />
-    )
-    fireEvent.click(screen.getByRole('button', { name: 'Update ready — restart to install' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Restart' }))
-    expect(await screen.findByText('The update could not restart Atum. Please try again.')).toBeTruthy()
-  })
-})
-
-it('explains required disk space and disables Check while preparing', () => {
-  const error = settings({ status: status('error', { error: { code: 'disk_space', stage: 'download', message: '', requiredBytes: 5.4e9 } }) })
-  expect(error.container.textContent).toContain('This update needs 5.4 GB free')
-  error.unmount()
-  const preparing = settings({ status: status('preparing') })
-  expect(preparing.container.textContent).toContain('Preparing update…')
-  expect(preparing.container.querySelector('progress')).toBeNull()
-  expect(preparing.container.querySelector('button')?.disabled).toBe(true)
 })

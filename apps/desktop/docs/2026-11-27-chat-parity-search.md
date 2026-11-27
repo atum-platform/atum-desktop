@@ -9,6 +9,9 @@ DL3 implements desktop S1 and the loaded-history mode of S2 from the reviewed ch
 - Opening a hit selects its room and exact event ID. For an unloaded plain event, the SDK builds a focused context. Atum rings that row and offers a return to the live transcript. An expired room, redacted event or unrecognized target cannot be selected through search.
 - The device-only scope clears the field when selected, cancels scheduled plain requests and discards in-flight replies. The private term is used only by the human SDK's local search of already-decrypted messages in current room and thread timelines. Coverage counts readable loaded messages and eligible private chats. Membership, redaction, local removal and host teardown invalidate access. The fallback makes no durable search copy and starts no backfill.
 - The company private assistant's working chat stays outside roster search, in keeping with the existing company authority and presentation rules.
+- The account's remembered roster filter still narrows local conversation rows
+  while typing. Cross-chat results use the chosen plain or device-only search
+  scope and appear above those rows.
 
 ## Seshat packaging evidence
 
