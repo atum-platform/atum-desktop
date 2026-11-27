@@ -5,6 +5,7 @@
     "lib": ["DOM", "DOM.Iterable", "ES2023"],
     "types": ["node"],
     "allowJs": false,
+    "rewriteRelativeImportExtensions": true,
     "skipLibCheck": true,
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,

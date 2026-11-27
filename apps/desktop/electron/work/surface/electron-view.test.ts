@@ -1,4 +1,5 @@
 import { EventEmitter } from 'node:events'
+import { createRequire } from 'node:module'
 
 import type { BrowserWindow } from 'electron'
 import { describe, expect, it, vi } from 'vitest'
@@ -16,6 +17,7 @@ vi.mock('electron', () => ({
     webContents = Object.assign(new EventEmitter(), {
       isDestroyed: () => !this.webContents,
       focus: vi.fn(),
+      insertCSS: vi.fn(async () => 'work-shell'),
       setWindowOpenHandler: vi.fn()
     })
 
@@ -65,6 +67,32 @@ describe('Work view teardown', () => {
 
     const view = views.at(-1)!
     const contents = view.webContents!
+    contents.emit('dom-ready')
+    const css = vi.mocked((contents as unknown as { insertCSS: (css: string) => Promise<string> }).insertCSS).mock.calls[0][0]
+    // Exercise the scoped selector on both update states and the separate provider pill.
+    const { JSDOM } = createRequire(import.meta.url)('jsdom')
+    const dom = new JSDOM()
+    const { document, getComputedStyle } = dom.window
+    const footer = document.createElement('footer')
+    footer.dataset.sidebar = 'footer'
+    footer.innerHTML = `
+      <ul>
+        <li id="idle" data-slot="sidebar-menu-item" class="ml-auto shrink-0"></li>
+        <li id="running" data-slot="sidebar-menu-item" class="@container/sidebar-update"></li>
+        <li id="normal" data-slot="sidebar-menu-item"></li>
+      </ul>
+      <button data-provider-update-main></button>
+    `
+    const sheet = document.createElement('style')
+    sheet.textContent = css
+    document.head.append(sheet)
+    document.body.append(footer)
+    expect(getComputedStyle(footer.querySelector('#idle')!).display).toBe('none')
+    expect(getComputedStyle(footer.querySelector('#running')!).display).toBe('none')
+    expect(getComputedStyle(footer.querySelector('#normal')!).display).not.toBe('none')
+    expect(getComputedStyle(footer.querySelector('[data-provider-update-main]')!).display).not.toBe('none')
+    dom.window.close()
+
     const rect = { x: 20, y: 10, width: 400, height: 300 }
 
     handle.place(rect)

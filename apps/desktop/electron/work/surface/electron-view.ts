@@ -7,6 +7,15 @@ import type { WorkIncarnation } from '../sidecar/process'
 import { placeOwnerView } from './place-view'
 import type { WorkViewHandle } from './surface'
 
+// The pinned Work chrome can also render Update Everything for provider-only offers.
+// Suppress its two footer menu states in this embed. Its separate CLI provider pill is outside the menu.
+const EMBEDDED_WORK_UPDATE_STYLE = `
+  [data-sidebar="footer"] [data-slot="sidebar-menu-item"].ml-auto.shrink-0,
+  [data-sidebar="footer"] [data-slot="sidebar-menu-item"][class~="@container/sidebar-update"] {
+    display: none !important;
+  }
+`
+
 /**
  * The real owner view: a `WebContentsView` on the account's own partition, with R's policy and S's
  * isolated preload, painted over the Work page's host region of the Matrix window.
@@ -50,7 +59,10 @@ export function createWorkViewFactory(input: {
     throttle.unref?.()
 
     input.log?.('view-created', Date.now() - startedAt)
-    contents.on('dom-ready', () => input.log?.('page-dom-ready', Date.now() - startedAt))
+    contents.on('dom-ready', () => {
+      void contents.insertCSS(EMBEDDED_WORK_UPDATE_STYLE, { cssOrigin: 'user' }).catch(() => undefined)
+      input.log?.('page-dom-ready', Date.now() - startedAt)
+    })
     contents.on('did-finish-load', () => input.log?.('page-load', Date.now() - startedAt))
 
     // A detached preload still needs a desktop viewport, rather than a zero-width mobile layout.

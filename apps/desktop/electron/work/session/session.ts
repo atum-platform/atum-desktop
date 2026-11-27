@@ -7,7 +7,7 @@ import { partitionFor, type WorkSessionAccount, workSessionPaths, type WorkSessi
 import { WorkSessionError } from './redact'
 import { homeRunningFromRuntimeFile, ResetCoordinator, type ResetReport } from './reset'
 import { createPairingGrantLookup, createT3AuthCli, type PairingGrantLookup, type T3AuthCli } from './t3-auth'
-import { type PinHost, type PinRef, type UpdateDeps, UpdateDriver, type UpdateOutcome } from './update'
+import { type PinHost, type PinRef, type UpdateDeps, UpdateDriver, type UpdateOutcome, type WorkUpdateSelection } from './update'
 
 export type { WorkSessionAccount } from './paths'
 
@@ -24,6 +24,7 @@ export interface WorkSessionOptions {
   clearPartition(partition: string): Promise<void>
   /** Whether the start resumes interrupted threads. Defaults to false. */
   continuation?(): boolean
+  plannedUpdate?(account: WorkSessionAccount): WorkUpdateSelection | undefined
   /** Update wiring; omit to run without an update driver. */
   update?: Omit<UpdateDeps, 'paths' | 'coordinator' | 'stopRunning'>
   pairing?: { timeoutMs?: number; pollMs?: number }
@@ -92,13 +93,14 @@ export class WorkSession {
 
     // A pin this build ships that is newer than the one the home last committed goes through the update driver (reset, snapshot,
     // trial, commit or restore) BEFORE the home is opened: starting the new binary on the old home directly is not an update.
-    const updated = await this.applyShippedPin(state)
+    const planned = this.options.plannedUpdate?.(state.account)
+    const updated = await this.applyShippedPin(state, planned)
 
     if (updated) {
       return updated
     }
 
-    const incarnation = await this.host.start({ continuation: this.options.continuation?.() ?? false })
+    const incarnation = await this.host.start({ continuation: Boolean(planned) || (this.options.continuation?.() ?? false) })
 
     if (incarnation.home !== state.paths.home) {
       await this.host.stop().catch(() => undefined)
@@ -113,7 +115,7 @@ export class WorkSession {
    * (an older server on a newer home). A newer one is an update, through the same door as `update()`; its refusals leave the home
    * and the server alone, and so does a trial that rolled back (the previous binary is not part of this build).
    */
-  private async applyShippedPin(state: AccountState): Promise<WorkIncarnation | undefined> {
+  private async applyShippedPin(state: AccountState, planned?: WorkUpdateSelection): Promise<WorkIncarnation | undefined> {
     const { driver } = state
     const shipped = this.options.update?.currentPin()
 
@@ -137,7 +139,7 @@ export class WorkSession {
       return undefined
     }
 
-    const outcome = await this.runUpdate(state, shipped, { closeViews: false })
+    const outcome = await this.runUpdate(state, shipped, { closeViews: false }, planned)
 
     if (outcome.outcome === 'committed' && outcome.incarnation) {
       return outcome.incarnation
@@ -254,7 +256,7 @@ export class WorkSession {
     return this.runUpdate(state, target, { closeViews: true })
   }
 
-  private async runUpdate(state: AccountState, target: PinRef, options: { closeViews: boolean }): Promise<UpdateOutcome> {
+  private async runUpdate(state: AccountState, target: PinRef, options: { closeViews: boolean }, planned?: WorkUpdateSelection): Promise<UpdateOutcome> {
     const driver = state.driver as UpdateDriver
 
     this.updating.add(state.account.root)
@@ -265,7 +267,7 @@ export class WorkSession {
         await this.options.clearPartition(partitionFor(state.account.key))
       }
 
-      const outcome = await driver.update(target)
+      const outcome = await driver.update(target, planned)
 
       if (outcome.outcome !== 'refused') {
         this.host = outcome.host
