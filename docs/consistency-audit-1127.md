@@ -131,7 +131,9 @@ Run in `apps/desktop`, exit codes read directly (no pipes):
 | typecheck | `npm run typecheck` | rc 0 |
 | lint | `npx eslint <every changed .ts/.tsx>` | rc 0, 0 errors (the warnings are on lines this branch didn't write) |
 | affected suites | `npx vitest run src/matrix/app.test.tsx src/matrix/drive.test.tsx src/matrix/store src/matrix/company-workspace.test.tsx src/matrix/agent-desk.test.tsx src/matrix/assistant-card src/matrix/assistant-info-panel src/matrix/model-picker src/matrix/agent-plans-store.test.ts src/matrix/team-space src/app/work src/app/atum src/components src/matrix/company-ai-ui.test.tsx src/matrix/company-marketplace.test.tsx src/matrix/playground src/matrix/start-chat src/matrix/workbench` | rc 0, 3825 passed, 1 skipped |
-| public guard | `python3 scripts/public_guard.py --base origin/main --head HEAD` (repo root) | see the commit |
+| full renderer suites | `npx vitest run src/matrix src/app` | rc 0, 669 files, 9732 passed |
+| public guard | `python3 scripts/public_guard.py --base origin/main --head HEAD` (repo root) | rc 0, "PASS: 4 new commits", no leaks |
+| packaging | none: no DMG or package build in this lane | n/a |
 
 New behaviour tests, each confirmed to fail on the code before the fix:
 - `matrix/model-picker.test.tsx`: "never paints the previous model when the picker closes while a plan pick is in
