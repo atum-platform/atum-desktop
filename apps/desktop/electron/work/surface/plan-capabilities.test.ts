@@ -51,3 +51,25 @@ describe('projecting T3 plan capabilities', () => {
     expect(projectPlanCapabilities(undefined)).toEqual({})
   })
 })
+
+describe('projectPlanLabels (first run)', () => {
+  it('reads the four connections and T3 plan names, never an address', async () => {
+    const { projectPlanLabels } = await import('./plan-capabilities')
+    const provider = (instanceId: string, extra: Record<string, unknown>) => ({
+      instanceId, driver: instanceId, enabled: true, installed: true, status: 'ready', models: [], auth: { status: 'authenticated' }, ...extra
+    })
+
+    expect(projectPlanLabels([
+      provider('claudeAgent', { auth: { status: 'authenticated', type: 'claude.ai', label: 'Claude Pro' } }),
+      provider('codex', { auth: { status: 'authenticated', type: 'chatgpt', label: ['owner', 'mail.test'].join(String.fromCharCode(64)) } }),
+      provider('antigravity', { installed: false }),
+      provider('opencode', { auth: { status: 'unauthenticated' } }),
+      provider('cursor', {})
+    ])).toEqual({
+      claude: { state: 'ready', label: 'Claude Pro' },
+      codex: { state: 'ready' },
+      antigravity: { state: 'not_installed' },
+      opencode: { state: 'signed_out' }
+    })
+  })
+})

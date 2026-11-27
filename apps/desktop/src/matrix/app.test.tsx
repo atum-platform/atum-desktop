@@ -2,6 +2,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testi
 import { createClient, EventType, MatrixEvent, Room } from 'matrix-js-sdk'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { $firstRunPick, resetFirstRunForTests } from '@/app/connections/first-run-store'
 import { resetAccountConnectionsForTest } from '@/app/connections/store'
 import { $work, resetWorkStoreForTests } from '@/app/work/store'
 import { $appViewOverlayCount } from '@/store/app-view-overlay'
@@ -55,6 +56,7 @@ import { resolveProjectedConversation } from './conversation-marker'
 import { conversationRoom } from './conversations'
 import { $matrixDesktopServices } from './desktop-services'
 import { $matrixDriveTaskSelection, selectMatrixDriveFile, setMatrixDriveTaskScope } from './drive-selection'
+import { resetFirstRunGreetingForTests } from './first-run-greeting'
 import { requestFounderChat } from './founder/founder-store'
 import { resetMatrixGoogleNudgeDismissals } from './google-connection-settings'
 import { $matrixLastChatByAccount } from './last-chat'
@@ -432,6 +434,10 @@ function promotedMainSnapshot(): MatrixSnapshot {
 beforeEach(() => {
   resetAllBindings()
   resetAccountConnectionsForTest()
+  // The first-run automatic pick and the greeting's once-per-room marker start fresh.
+  resetFirstRunForTests()
+  resetFirstRunGreetingForTests()
+  Object.keys(window.localStorage).filter(key => key.startsWith('atum.first-run')).forEach(key => window.localStorage.removeItem(key))
   resetMatrixGoogleNudgeDismissals()
   // The first launch's story has its own tests; everything else starts past it.
   window.localStorage.setItem('io.atum.welcome.played', '1')
@@ -8057,7 +8063,7 @@ describe('isolated Matrix composition', () => {
     expect(quotes[0].textContent).toBe('Reply')
   })
 
-  it('opens web links in answers through the main process, like the old app', async () => {
+  it('opens web links in answers in Atum’s own browser (owner 2026-11-27), not the system browser', async () => {
     const { bridge, emit } = fixture()
     await screen.findByRole('button', { name: 'Continue with Google' })
     const room = { id: '!assistant:test', name: 'Atum', membership: 'join', encrypted: true, assistant: true }
@@ -8085,7 +8091,9 @@ describe('isolated Matrix composition', () => {
     })
 
     fireEvent.click(await screen.findByRole('link', { name: /the guide/ }))
-    expect(bridge.openLink).toHaveBeenCalledWith('https://example.com/guide')
+    // The workbench opens a browser tab on the page; main's system-browser door is not used.
+    expect((await screen.findAllByText('example.com')).length).toBeGreaterThan(0)
+    expect(bridge.openLink).not.toHaveBeenCalledWith('https://example.com/guide')
   })
 
   it('keeps a link that is not a web address as inert words in a message', async () => {
@@ -12629,6 +12637,61 @@ describe("Home's chat (launch night, second wave)", () => {
       // Skipped: the same greeting remains, but the card has collapsed to the chip.
       expect(skipped()!.textContent).toContain('You can rename me anytime')
       await waitFor(() => expect(nudge()).not.toBeNull())
+    })
+
+    it('sends the hidden greeting intent once, never shows it, and shows the generated welcome above Connections', async () => {
+      const { bridge, emit } = fixture(async () => cloudFresh)
+      bridge.googleConnections = google
+      emit(cloudFresh)
+      await waitFor(() => expect(welcome()).not.toBeNull())
+      // The launch pick settles (here: nothing to adopt), so the intent goes at once.
+      act(() => $firstRunPick.set({ kind: 'atum' }))
+
+      const seed = 'io.atum.first-run.greeting/1 en Minh'
+      const sentSeeds = () => [
+        ...vi.mocked(bridge.sendTurn).mock.calls.filter(call => call[1] === seed),
+        ...vi.mocked(bridge.command).mock.calls.filter(call => (call[0] as { body?: string }).body === seed)
+      ]
+
+      await waitFor(() => expect(sentSeeds()).toHaveLength(1))
+
+      // The seed is in the room now, and the assistant is writing: the welcome stays, with a quiet typing bubble.
+      const seeded: MatrixSnapshot = {
+        ...cloudFresh,
+        messages: [message('$seed', { body: seed })],
+        rooms: cloudFresh.rooms.map(room => (room.id === cloudFresh.roomId ? { ...room, dialogue: 'started' as const } : room))
+      }
+
+      emit(seeded)
+      await waitFor(() => expect(window.document.querySelector('[data-matrix-first-run-greeting="pending"]')).not.toBeNull())
+      expect(window.document.body.textContent).not.toContain('io.atum.first-run.greeting')
+
+      // Its own welcome arrives: shown in the card, above the Connections block; the seed still never shows.
+      emit({
+        ...seeded,
+        messages: [
+          message('$seed', { body: seed }),
+          message('$welcome', { own: false, sender: '@atum:test', body: 'Hi Minh. We’re starting on GPT-6 Luna.', timestamp: 2 })
+        ]
+      })
+
+      const greeting = await waitFor(() => {
+        const found = window.document.querySelector<HTMLElement>('[data-matrix-first-run-greeting="generated"]')
+        expect(found).not.toBeNull()
+
+        return found!
+      })
+
+      expect(greeting.textContent).toContain('We’re starting on GPT-6 Luna.')
+      const connections = window.document.querySelector('[data-atum-first-run-connections]')!
+      expect(greeting.compareDocumentPosition(connections) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+      expect(window.document.body.textContent).not.toContain('io.atum.first-run.greeting')
+      expect(welcome()?.textContent).not.toContain('You can rename me anytime')
+
+      // Later snapshots never send it again.
+      emit({ ...cloudFresh })
+      await new Promise(resolve => setTimeout(resolve, 50))
+      expect(sentSeeds()).toHaveLength(1)
     })
 
     it('lets the greeting give way to the conversation after the person replies', async () => {

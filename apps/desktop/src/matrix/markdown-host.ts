@@ -3,6 +3,7 @@ import type { MarkdownHost } from '@/components/assistant-ui/markdown-surface'
 import { parseDiscoveryLink } from '../../shared/discovery-links'
 import { parseMatrixMessageLink } from '../../shared/matrix-message-link'
 
+import { openClickedLink } from './in-app-links'
 import { $matrixStoreListingRequest, $matrixStoreShelfRequest } from './store/top-up'
 import { parseCompanyBoardLink, requestCompanyBoardLink } from './team-space/board-links'
 import { requestMatrixMessageLink } from './team-space/message-links'
@@ -59,7 +60,8 @@ export async function openMatrixMarkdownLink(url: string): Promise<void> {
   }
   const destination = parseDiscoveryLink(url)
   if (!destination) {
-    await window.atumMatrix.openLink(url)
+    // Web pages open in Atum's own browser; mail and provider sign-ins stay in the system (in-app-links.ts).
+    await openClickedLink(url)
     return
   }
   if (destination.kind === 'app') {
@@ -77,8 +79,8 @@ export async function openMatrixMarkdownLink(url: string): Promise<void> {
   }
 }
 
-/** First-party discovery fragments navigate Atum. Other web links use the default
- * browser through main; local file access is not admitted by this host. */
+/** First-party discovery fragments navigate Atum. Other web links open in Atum's own browser
+ * (in-app-links.ts); local file access is not admitted by this host. */
 export const MATRIX_MARKDOWN_HOST: MarkdownHost = {
   openLink: url => void openMatrixMarkdownLink(url).catch(() => {}),
   prepareMarkdown: prepareMatrixMessageLinks,

@@ -37,6 +37,8 @@ import {
 } from '@/app/atum/shell-surface'
 import { ComposerSurface } from '@/app/chat/composer/composer-surface'
 import { AccountConnectSheet } from '@/app/connections/connect-sheet'
+import { FirstRunConnections } from '@/app/connections/first-run-connections'
+import { useFirstRunAutoPick } from '@/app/connections/use-first-run-auto-pick'
 import { workCopy } from '@/app/work/copy'
 import { WorkRelayMessageLine } from '@/app/work/relay-chrome'
 import { $work, $workActive, connectWorkBridge, setWorkActive, workOnRail } from '@/app/work/store'
@@ -322,6 +324,8 @@ import {
   matrixFirstRunPlace,
   MatrixFolderAccessRecovery
 } from './first-run-card'
+import { firstRunGreetingSeed, firstRunGreetingSent, withoutFirstRunGreetingSeed } from './first-run-greeting'
+import { FirstRunGreetingSender } from './first-run-greeting-sender'
 import { MatrixForwardDialog } from './forward-dialog'
 import {
   matrixForwardNeedsLocalInvocation,
@@ -354,6 +358,7 @@ import {
   companyHistoryRevealProjected,
   revealMatrixHistoryMessage
 } from './history-search'
+import { registerInAppBrowser } from './in-app-links'
 import { invocationCopy, invocationNoticeVisible } from './invocation-notice'
 import { MatrixLanguageProvider } from './language'
 import { matrixChatRoomToOpen, matrixRememberedChat, rememberMatrixLastChat } from './last-chat'
@@ -638,6 +643,8 @@ const ConversationActions = createContext<{
   composer?: MatrixComposerActions | null
   /** The newest answer keeps its action row in sight. */
   latestAnswerId?: string
+  /** The assistant's first-run greeting: the Connections block stays right under it in the chat's history. */
+  firstRunGreetingReplyId?: string
   /** Your newest message: nothing under it says "Sent" any more, but the composer keeps its
    * starter prompts only until you have written once. */
   latestOwnId?: string
@@ -1648,6 +1655,9 @@ function MatrixEventMessageBubble() {
       )}
       {message.relayTurn && message.relayTurn.kind !== 'none' && !message.redacted && (
         <WorkRelayMessageLine chrome={message.relayTurn} className={underText} plan={workRelayNoticePlan(message.answeredByFallback?.plan)} />
+      )}
+      {action?.firstRunGreetingReplyId === message.id && !message.own && (
+        <FirstRunConnections className="mt-(--ak-s2) max-w-[32.5rem]" />
       )}
       {savedScope && saved && (
         <Tip label={savedCopy.marker}>
@@ -5623,8 +5633,16 @@ function Conversation({
       working
     )
 
+  // The first run: the assistant's generated greeting sits inside the welcome card (with Connections under it), not in the
+  // transcript, until the person writes.
+  const greetingReplyId = snapshot.firstRunGreetingReplyId
+  const greetingInCard = Boolean(
+    room && greetingReplyId && messages.length === 1 && messages[0]?.id === greetingReplyId && matrixFirstRunPlace(snapshot, room.id)
+  )
+  const transcriptMessages = greetingInCard ? [] : messages
+
   const transcript = useExternalStoreRuntime({
-    messages,
+    messages: transcriptMessages,
     convertMessage: (message: (typeof messages)[number]) => message,
     isRunning: false,
     isDisabled: true,
@@ -5664,12 +5682,23 @@ function Conversation({
   const defaultAssistantChat = Boolean(settled && assistantEligible && conversationAgent?.isDefault)
 
   // The new account's first chat: the assistant's welcome opens it, wherever the assistant answers.
+  // The hidden greeting intent and the assistant's answer to it start the room's dialogue, but not the person's: the
+  // welcome (now with the generated greeting) stays until they write (first-run-greeting.ts).
+  const greetingSeedSent = firstRunGreetingSent(room.id)
   const firstRunHere = Boolean(
     room.assistant &&
     assistantEligible &&
-    room.dialogue !== 'started' &&
-    messages.length === 0 &&
+    (room.dialogue !== 'started' || greetingSeedSent) &&
+    (messages.length === 0 || greetingInCard) &&
     matrixFirstRunPlace(snapshot, room.id)
+  )
+  const greetingReply = greetingInCard ? snapshot.messages.find(message => message.id === greetingReplyId) : undefined
+
+  // The hidden opening intent goes once, through the route the composer uses for this room: the local turn on this Mac,
+  // else the ordinary Matrix send to the cloud-placed assistant (<FirstRunGreetingSender>, below).
+  const greetingSend = firstRunHere && !greetingSeedSent && messages.length === 0 ? room.id : null
+  const greetingLocal = Boolean(
+    room.assistant && snapshot.assistantPath !== 'server' && snapshot.readiness && !snapshot.linkedDocument && !cloudRoomAgent(snapshot, room)
   )
 
   const firstRunSkippedHere = Boolean(
@@ -5817,6 +5846,7 @@ function Conversation({
               },
               composer,
               latestAnswerId,
+              firstRunGreetingReplyId: defaultAssistantChat ? snapshot.firstRunGreetingReplyId : undefined,
               latestOwnId,
               firstUnreadId,
               forward: forwarding.open,
@@ -5826,6 +5856,17 @@ function Conversation({
             }}
           >
             <div className="relative min-h-0 flex-1" data-matrix-channel-transcript ref={followTranscriptEnd}>
+              {greetingSend && (
+                <FirstRunGreetingSender
+                  roomId={greetingSend}
+                  seed={firstRunGreetingSeed(locale, snapshot.ownProfile?.displayName)}
+                  send={body =>
+                    greetingLocal
+                      ? window.atumMatrix.sendTurn(greetingSend, body)
+                      : runMatrixCommand({ kind: 'send', roomId: greetingSend, body })
+                  }
+                />
+              )}
               {appHistory.loading && appHistory.entries.length === 0 && (
                 <p className="px-4 py-2 text-xs text-(--atum-ink-muted)" role="status">
                   {appCopy.loading}
@@ -5851,6 +5892,8 @@ function Conversation({
                   ) : firstRunHere || firstRunSkippedHere ? (
                     <MatrixFirstRunCard
                       assistantName={assistantName}
+                      greeting={greetingReply?.body}
+                      greetingPending={firstRunHere && greetingSeedSent && !greetingReply}
                       key={`${snapshot.identity?.userId ?? ''}:${snapshot.identity?.deviceId ?? ''}:${room.id}`}
                       roomId={room.id}
                       skipped={firstRunSkippedHere}
@@ -5889,13 +5932,16 @@ function Conversation({
                 leading={
                   companyChannel && snapshot.historyStart && snapshot.roomId === room.id ? (
                     <ChannelIntroFor accountKey={teamSpaceAccountKey(snapshot.identity)} room={room} />
+                  ) : defaultAssistantChat && snapshot.historyStart && snapshot.roomId === room.id && !snapshot.firstRunGreetingReplyId ? (
+                    // The primary assistant's Connections stay at the start of its chat once it has messages (owner 11-27).
+                    <FirstRunConnections />
                   ) : undefined
                 }
                 loadEarlier={loadEarlier}
                 loadingIndicator={withVideoConsent(
                   firstLearningProgress ? (
                     <MatrixFirstLearningTiles progress={firstLearningProgress} />
-                  ) : agentTyping || workingLine ? (
+                  ) : (agentTyping || workingLine) && !firstRunHere ? (
                     <MatrixAgentWorking
                       agent={companyPresentation ? undefined : conversationAgent}
                       avatarMxc={
@@ -7203,7 +7249,8 @@ function MatrixAccountView({
       return next
     })
 
-    return changed ? { ...projectedSnapshot, rooms } : projectedSnapshot
+    // The hidden first-run greeting intent never shows (first-run-greeting.ts).
+    return withoutFirstRunGreetingSeed(changed ? { ...projectedSnapshot, rooms } : projectedSnapshot)
   }, [privateCosRecords, projectedSnapshot])
 
   const compact = useCompact()
@@ -7258,6 +7305,8 @@ function MatrixAccountView({
   const [documentRequest, setDocumentRequest] = useState(0)
   const [deskRequest, setDeskRequest] = useState(0)
   const [browserRequest, setBrowserRequest] = useState<{ id: string; url: string; scope: string }>()
+  // First run: pick the best plan this Mac already has while the launch screen shows (owner 2026-11-27).
+  useFirstRunAutoPick(snapshot)
   const [terminalRequest, setTerminalRequest] = useState<{ id: string; scope: string; serial: number }>()
   const [appRouteRequest, setAppRouteRequest] = useState<AppBotRouteRequest>()
   const [workspaceExpanded, setWorkspaceExpanded] = useState(false)
@@ -7915,6 +7964,20 @@ function MatrixAccountView({
       setSidebarShowing(false)
     }
   }
+
+  // Links clicked inside Atum open in the workbench's browser tab (in-app-links.ts). Refs keep the host stable.
+  const inAppBrowserOpen = useRef(openWorkspace)
+  const inAppBrowserScope = useRef(currentWorkbenchScope)
+  inAppBrowserOpen.current = openWorkspace
+  inAppBrowserScope.current = currentWorkbenchScope
+  useEffect(
+    () =>
+      registerInAppBrowser(url => {
+        setBrowserRequest({ id: `link-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, url, scope: inAppBrowserScope.current })
+        inAppBrowserOpen.current()
+      }),
+    []
+  )
 
   // Preserve user-visible identity, state and recovery behavior across connection changes.
   // or a document still opens the workbench, which stays mounted behind the info panel.
