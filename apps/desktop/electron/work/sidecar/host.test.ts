@@ -9,17 +9,18 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { MATRIX_WORK_IPC } from '../../../shared/matrix-work'
 import { workSessionPaths } from '../session/paths'
 
+import { WORK_DELIVERABLE_OPEN_CHANNEL, WORK_DELIVERABLE_STATUS_CHANNEL } from './deliverable-contract'
 import { WORK_ACCESS_CHANNEL, WORK_ASSERTION_CHANNEL, WORK_OPEN_PROTONS_CHANNEL, WorkHost } from './host'
 import type * as WorkProcess from './process'
 
 const { handlers, starts } = vi.hoisted(() => ({
-  handlers: new Map<string, (event: IpcMainInvokeEvent) => Promise<unknown>>(),
+  handlers: new Map<string, (event: IpcMainInvokeEvent, value?: unknown) => Promise<unknown>>(),
   starts: vi.fn()
 }))
 
 vi.mock('electron', () => ({
   ipcMain: {
-    handle: (channel: string, handler: (event: IpcMainInvokeEvent) => Promise<unknown>) => {
+    handle: (channel: string, handler: (event: IpcMainInvokeEvent, value?: unknown) => Promise<unknown>) => {
       if (handlers.has(channel)) {
         throw new Error('duplicate channel')
       }
@@ -63,6 +64,11 @@ vi.mock('./process', async importOriginal => {
 })
 
 const account = { key: 'owner', generation: 1, root: '/account-fixture' }
+const deliverablePorts = {
+  deliverableMessage: async () => undefined,
+  deliverableStatus: async () => null,
+  openDeliverable: async () => false
+}
 
 function lab() {
   const connectAssertion = vi.fn<() => Promise<string>>().mockResolvedValue('signed-assertion')
@@ -70,16 +76,22 @@ function lab() {
 
   const surfaceModeChanged = vi.fn()
   const sidebarChanged = vi.fn()
+  const deliverableStatus = vi.fn(deliverablePorts.deliverableStatus)
+  const openDeliverable = vi.fn(deliverablePorts.openDeliverable)
 
   const log = vi.fn()
+  let active = account
 
   const host = new WorkHost({
+    ...deliverablePorts,
+    deliverableStatus,
+    openDeliverable,
     connectAssertion,
     log,
     surfaceModeChanged,
     sidebarChanged,
     resources: '/bundled',
-    account: () => account,
+    account: () => active,
     openProtons,
     readAccess: async () => 'unavailable',
     gatewayEnvironment: () => ({}),
@@ -88,7 +100,10 @@ function lab() {
 
   host.registerOwnerPreload()
 
-  return { host, log, openProtons, sidebarChanged, surfaceModeChanged, connectAssertion }
+  return {
+    host, log, openProtons, sidebarChanged, surfaceModeChanged, connectAssertion, deliverableStatus, openDeliverable,
+    changeGeneration: () => { active = { ...account, generation: 2 } }
+  }
 }
 
 function sender() {
@@ -119,6 +134,33 @@ describe.skipIf(process.platform !== 'darwin' || process.arch !== 'arm64')('Work
   beforeEach(() => {
     handlers.clear()
     starts.mockClear()
+  })
+
+  it('confines deliverable status and opening to the current embedded owner', async () => {
+    const { host, deliverableStatus, openDeliverable, changeGeneration } = lab()
+    const incarnation = await host.start({ continuation: false })
+    const contents = sender()
+    host.bindOwnerView(incarnation, contents)
+    const event = { sender: contents, senderFrame: { parent: null, detached: false, url: incarnation.origin + '/' } } as unknown as IpcMainInvokeEvent
+    const getStatus = handlers.get(WORK_DELIVERABLE_STATUS_CHANNEL)!
+    const open = handlers.get(WORK_DELIVERABLE_OPEN_CHANNEL)!
+    const identity = { threadId: 'thread', runId: 'run', artifactId: 'fixture' }
+
+    await getStatus({ ...event, sender: sender() }, identity)
+    await open({ ...event, senderFrame: { ...event.senderFrame, url: 'http://127.0.0.1:12346/' } } as IpcMainInvokeEvent, identity)
+    expect(deliverableStatus).not.toHaveBeenCalled()
+    expect(openDeliverable).not.toHaveBeenCalled()
+
+    await getStatus(event, identity)
+    await open(event, identity)
+    expect(deliverableStatus).toHaveBeenCalledExactlyOnceWith(account, identity)
+    expect(openDeliverable).toHaveBeenCalledExactlyOnceWith(account, identity, expect.any(Function))
+    changeGeneration()
+    await expect(getStatus(event, identity)).resolves.toBeNull()
+    await expect(open(event, identity)).resolves.toBe(false)
+    expect(deliverableStatus).toHaveBeenCalledTimes(1)
+    expect(openDeliverable).toHaveBeenCalledTimes(1)
+    await host.stop()
   })
 
   it('accepts only fixed startup phases from the owner and reports each once', async () => {
@@ -243,7 +285,7 @@ describe.skipIf(process.platform !== 'darwin' || process.arch !== 'arm64')('Work
     await target.start({ continuation: false })
 
     expect(starts.mock.calls).toEqual([['/bundled'], ['/target'], ['/target']])
-    expect([...handlers.keys()]).toEqual([WORK_ASSERTION_CHANNEL, 'atum:work:startup-phase', MATRIX_WORK_IPC.surfaceModeChanged, MATRIX_WORK_IPC.sidebarChanged, MATRIX_WORK_IPC.attentionChanged, WORK_ACCESS_CHANNEL, WORK_OPEN_PROTONS_CHANNEL])
+    expect([...handlers.keys()]).toEqual([WORK_ASSERTION_CHANNEL, 'atum:work:startup-phase', MATRIX_WORK_IPC.surfaceModeChanged, MATRIX_WORK_IPC.sidebarChanged, MATRIX_WORK_IPC.attentionChanged, WORK_ACCESS_CHANNEL, WORK_OPEN_PROTONS_CHANNEL, WORK_DELIVERABLE_STATUS_CHANNEL, WORK_DELIVERABLE_OPEN_CHANNEL])
   })
 })
 
@@ -258,6 +300,7 @@ describe('Work off marker', () => {
 
   function hostFor(root: string | undefined) {
     return new WorkHost({
+      ...deliverablePorts,
       resources: '/bundled',
       account: () => (root ? { key: 'owner', generation: 1, root } : undefined),
       openProtons: async () => undefined,
