@@ -30,12 +30,16 @@ describe.skipIf(!resources)('packaged Work sidecar', () => {
     })
 
     try {
+      const pin = JSON.parse(await readFile(join(resources!, 'work-runtime', 'pin.json'), 'utf8'))
+      const targetVersion = pin.version
+      expect(targetVersion).toMatch(/^\d+\.\d+\.\d+$/u)
+
       const trial = await sidecar.start({
         continuation: false,
         trial: {
           protocol: 4,
-          childVersion: '0.1.11',
-          update: { id: 'fixture', fromVersion: '0.1.10', targetVersion: '0.1.11', dbPath: paths.database, status: 'pending' }
+          childVersion: targetVersion,
+          update: { id: 'fixture', fromVersion: '0.0.0', targetVersion, dbPath: paths.database, status: 'pending' }
         }
       })
 

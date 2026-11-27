@@ -33,7 +33,11 @@ startup. The handoff restores window bounds once and uses the existing
 account-scoped navigation behavior. Stage health confirmation now follows
 Matrix startup. Work selection is persisted before protocol-4 acknowledgement.
 When acknowledgement fails after durable selection, Work preserves the new pin
-and recovers forward.
+and recovers forward. The installed Work 0.1.19 binary emitted `serverReady` over
+an inherited control descriptor in desktop mode. That mode omits the startup
+pairing message required by the current Atum supervisor. The packaged sidecar
+integration fixture reads the actual Work pin from the bundle before running the
+trial so a historical fixture version cannot reject the current binary.
 
 The old packaged controller, AppUpdater subclass, stock-only fallback,
 restart helper window/script, rail presentation and Matrix install-on-Quit
