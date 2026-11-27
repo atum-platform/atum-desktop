@@ -6,6 +6,8 @@ The M2 group interaction uses the existing message hover action, a single root s
 
 Desktop sends standard `m.thread` replies via matrix-js-sdk 42.4.0. The first reply has a fallback to the root. The SDK uses the last settled reply as the fallback when available. A thread receipt sends private `m.read.private` with the thread ID. The main read-markers path uses the main timeline. Assistant intake and publication are owned by the platform check. The local group intake on this base still filters out thread triggers, so desktop UI and wire support alone do not establish local assistant replies inside a thread.
 
+In a thread panel, only an explicit `m.in_reply_to` without `is_falling_back: true` produces a reply quote. Personal DMs continue to show incoming thread replies inline. The snapshot omits `threads` for rooms without thread controls and returns an empty list for eligible rooms with no threads.
+
 S5 extends shared pins to human groups and people DMs through the existing `m.room.pinned_events` projection and panel. A fresh write uses the synced list and the current state-event power level. Members without write power can still see the pins. Truly simultaneous writes from clients holding the same state can overwrite each other. The homeserver's resolved state is authoritative, and clients converge on sync.
 
 ## Behaviour comparison
