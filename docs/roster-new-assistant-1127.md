@@ -32,3 +32,7 @@ Main's own create/hire guards never required it. Protons played no part in the h
 Typecheck, eslint (0 errors), vitest on new-assistant, roster-create, roster-conversations,
 listing-hire, agent-profile, vietnamese-copy-guard and app suites. Playground screenshots in
 light and dark: `~/.atum/operations/evidence/roster-new-assistant-1127/`.
+
+## Follow-up (owner, 2026-11-27: "remove - roster is only place")
+
+The Start a chat sheet footer no longer offers New assistant; the roster row is the only entry. Tests: `roster-create.test.tsx` (footer is Invite a friend only; the dialog opens via the roster path).
