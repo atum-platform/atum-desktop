@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { Fragment, useEffect, useState } from 'react'
 
 import { Tip } from '@/components/ui/tooltip'
 import { FolderPlus, GitBranch, LayoutSidebarRight, MessagePlus } from '@/lib/icons'
@@ -6,14 +6,15 @@ import { setMatrixNavLocal } from '@/matrix/navigation-history'
 import { MatrixPlusMenu } from '@/matrix/plus-menu'
 import { rightPanelToggleCopy } from '@/matrix/right-panel'
 
-import type { MatrixWorkBridge, WorkBandCommand, WorkSidebarSnapshot, WorkSurfaceModeSnapshot } from '../../../shared/matrix-work'
+import type { MatrixWorkBridge, WorkBandCommand, WorkOpenThread, WorkSidebarSnapshot, WorkSurfaceModeSnapshot } from '../../../shared/matrix-work'
 
 import type { WorkWords } from './copy'
 
 /**
  * New, as the plus menu every screen has (layout r2 §4, owner 2026-11-24): T3's own pencil mapped
  * through the host chrome. New thread ⌘N, New thread in a worktree, then Add project; each runs T3's
- * own command in the owner view. Absent bridge: no button.
+ * own command in the owner view. Absent bridge: no button. Only for older views: a view that draws its own
+ * plus menu in its left panel (`workViewHasNewMenu`) keeps New in one place, so the screen leaves this out.
  */
 export function WorkRosterControls({ bridge, copy }: { bridge: Pick<MatrixWorkBridge, 'runCommand'>; copy: WorkWords }) {
   if (!bridge.runCommand) {
@@ -153,9 +154,30 @@ export function useWorkHistoryArrows(bridge: Pick<MatrixWorkBridge, 'runCommand'
   useEffect(() => () => setMatrixNavLocal(null), [])
 }
 
-/** The page's name in B (layout r1 B). Its mode switch is in C, beside the panel toggle. */
-export function WorkTitle({ copy }: { copy: WorkWords }) {
-  return <h1 className="truncate [font:var(--ak-t-headline)]">{copy.title}</h1>
+/**
+ * The page's name in B (layout r1 B): the open thread as "name · repo · branch" when the view reports one,
+ * "Work" otherwise (no thread open, or an older view). Its mode switch is in C, beside the panel toggle.
+ */
+export function WorkTitle({ copy, thread }: { copy: WorkWords; thread?: WorkOpenThread | null }) {
+  if (!thread) {
+    return <h1 className="truncate [font:var(--ak-t-headline)]">{copy.title}</h1>
+  }
+
+  const context = [thread.repo, thread.branch].filter((part): part is string => Boolean(part))
+
+  return (
+    <h1 className="flex min-w-0 items-baseline gap-1.5 [font:var(--ak-t-headline)]" data-atum-work-thread-title title={[thread.title, ...context].join(' · ')}>
+      <span className="min-w-0 truncate">{thread.title}</span>
+      {context.map((part, index) => (
+        <Fragment key={index}>
+          <span aria-hidden className="shrink-0 text-(--ak-ink-3)">
+            ·
+          </span>
+          <span className="max-w-48 min-w-0 shrink-[2] truncate font-normal text-(--ak-ink-3)">{part}</span>
+        </Fragment>
+      ))}
+    </h1>
+  )
 }
 
 /**

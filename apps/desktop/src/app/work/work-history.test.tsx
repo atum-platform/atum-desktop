@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { $matrixNavCan, $matrixNavLocal, resetMatrixNav, stepMatrixNav } from '@/matrix/navigation-history'
 
-import { parseWorkSidebar, type WorkSidebarSnapshot } from '../../../shared/matrix-work'
+import { parseWorkSidebar, type WorkSidebarSnapshot, workViewHasNewMenu } from '../../../shared/matrix-work'
 
 import { useWorkHistoryArrows, WorkRightPanelToggle } from './work-band'
 
@@ -23,6 +23,25 @@ describe('Work history through the window’s ← →', () => {
     expect(parseWorkSidebar({ open: true, edge: 280, rightPanel: 'open' })).toEqual({ open: true, edge: 280, rightPanel: 'open' })
     expect(parseWorkSidebar({ open: false, edge: 0, rightPanel: 'closed' })).toEqual({ open: false, edge: 0, rightPanel: 'closed' })
     expect(parseWorkSidebar({ open: true, edge: 280, rightPanel: true })).toBeNull()
+  })
+
+  it('reads the open thread from the same report: trimmed, partial when it has no repo or branch, null when it names none', () => {
+    expect(parseWorkSidebar({ open: true, edge: 280, thread: { title: ' Fix login ', repo: 'atum-app', branch: 'feat/login' } })).toEqual({
+      open: true,
+      edge: 280,
+      thread: { title: 'Fix login', repo: 'atum-app', branch: 'feat/login' }
+    })
+    expect(parseWorkSidebar({ open: true, edge: 280, thread: { title: 'Draft', branch: '' } })?.thread).toEqual({ title: 'Draft' })
+    expect(parseWorkSidebar({ open: true, edge: 280, thread: null })?.thread).toBeNull()
+    expect(parseWorkSidebar({ open: true, edge: 280, thread: { title: '  ' } })?.thread).toBeNull()
+    expect(parseWorkSidebar({ open: true, edge: 280, thread: { title: 42 } })?.thread).toBeNull()
+    expect(parseWorkSidebar({ open: true, edge: 280, thread: { title: 'x'.repeat(501) } })?.thread).toBeNull()
+  })
+
+  it('knows a view draws its own plus menu only when its report carries the thread field, even null', () => {
+    expect(workViewHasNewMenu(parseWorkSidebar({ open: true, edge: 280, thread: null }))).toBe(true)
+    expect(workViewHasNewMenu(parseWorkSidebar({ open: true, edge: 280 }))).toBe(false)
+    expect(workViewHasNewMenu(null)).toBe(false)
   })
 
   it('puts the right-panel toggle on the title bar only while the view offers a panel, and runs T3’s toggle', () => {

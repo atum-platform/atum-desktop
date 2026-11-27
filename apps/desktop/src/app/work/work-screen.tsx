@@ -5,7 +5,7 @@ import { AccountConnectProgress } from '@/app/connections/connect-sheet'
 import { useI18n } from '@/i18n'
 import { MatrixGoogleWorkWriteProposals } from '@/matrix/google-write-card'
 
-import type { MatrixWorkBridge, MatrixWorkProjection, MatrixWorkViewState } from '../../../shared/matrix-work'
+import { type MatrixWorkBridge, type MatrixWorkProjection, type MatrixWorkViewState, workViewHasNewMenu } from '../../../shared/matrix-work'
 
 import { workCopy, type WorkWords } from './copy'
 import { useWorkViewPlacement } from './use-work-view-placement'
@@ -85,6 +85,9 @@ export function WorkScreen({
   useWorkHistoryArrows(bridge, sidebar)
   // The view fills this section from its left edge, so the list's edge in the view is its edge here.
   const roster = sidebar?.open && sidebar.edge > 0 ? sidebar.edge : undefined
+  // New lives once: in the view's left panel when it draws its own plus menu, else here. Until the view's
+  // first report the band waits, so a newer view never flashes a second +; a bridge that cannot report keeps it.
+  const showBandNewMenu = bridge.onSidebarChanged ? sidebar !== null && !workViewHasNewMenu(sidebar) : true
 
   // Coming back to the window re-reads the balance, so "Add Protons" leaves after a top-up.
   useEffect(() => {
@@ -122,8 +125,8 @@ export function WorkScreen({
         windowControls={windowControls}
       >
         <div className="flex min-w-0 items-center gap-3">
-          {projection.view === 'ready' && <WorkRosterControls bridge={bridge} copy={copy} />}
-          <WorkTitle copy={copy} />
+          {projection.view === 'ready' && showBandNewMenu && <WorkRosterControls bridge={bridge} copy={copy} />}
+          <WorkTitle copy={copy} thread={projection.view === 'ready' ? sidebar?.thread : null} />
         </div>
       </AtumMainHeaderSurface>
       {/* Above the view, never over it: main paints the view natively, so the host shrinks to make room. */}

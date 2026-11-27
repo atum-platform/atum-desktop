@@ -90,9 +90,51 @@ export interface WorkSurfaceModeSnapshot { projectId: string; mode: 'work' | 'co
  * The view's thread list: open, and its right edge in the view's CSS pixels (the band lines ← → up with it); and
  * whether T3's own history can step back / forward, so the window's ← → go through it first; and the open
  * thread's right panel ('open' / 'closed'; absent while the view has none to offer), so its toggle sits on the
- * title bar's right as every screen's does.
+ * title bar's right as every screen's does; and the open thread itself (below).
  */
-export interface WorkSidebarSnapshot { open: boolean; edge: number; back?: boolean; forward?: boolean; rightPanel?: 'open' | 'closed' }
+export interface WorkSidebarSnapshot {
+  open: boolean
+  edge: number
+  back?: boolean
+  forward?: boolean
+  rightPanel?: 'open' | 'closed'
+  /**
+   * The open thread, so the title bar names it (layout zone B: name · repo · branch); null when none is open.
+   * Absent from older runtimes. Present (even null) also means the view draws its own New plus menu, so
+   * the title bar drops its own (`workViewHasNewMenu`).
+   */
+  thread?: WorkOpenThread | null
+}
+
+/** The open thread as the view reports it. */
+export interface WorkOpenThread { title: string; repo?: string; branch?: string }
+
+const THREAD_TEXT_MAX = 500
+
+/** A thread entry from the view: a title, then repo and branch when it has them. Anything else names no thread. */
+export function parseWorkOpenThread(value: unknown): WorkOpenThread | null {
+  if (!value || typeof value !== 'object') {
+    return null
+  }
+
+  const row = value as Record<string, unknown>
+  const text = (entry: unknown) => (typeof entry === 'string' && entry.length <= THREAD_TEXT_MAX ? entry.trim() : '')
+  const title = text(row.title)
+
+  if (!title) {
+    return null
+  }
+
+  const repo = text(row.repo)
+  const branch = text(row.branch)
+
+  return { title, ...(repo ? { repo } : {}), ...(branch ? { branch } : {}) }
+}
+
+/** Whether the view draws its own New plus menu: runtimes that report `thread` do (atum-work 2026-11-27). */
+export function workViewHasNewMenu(snapshot: WorkSidebarSnapshot | null): boolean {
+  return snapshot !== null && 'thread' in snapshot
+}
 
 /** A report from the view, or null when it is not one (the view is another origin's page). */
 export function parseWorkSidebar(value: unknown): WorkSidebarSnapshot | null {
@@ -113,7 +155,8 @@ export function parseWorkSidebar(value: unknown): WorkSidebarSnapshot | null {
         edge: Math.round(row.edge),
         ...(row.back ? { back: true } : {}),
         ...(row.forward ? { forward: true } : {}),
-        ...(row.rightPanel ? { rightPanel: row.rightPanel as 'open' | 'closed' } : {})
+        ...(row.rightPanel ? { rightPanel: row.rightPanel as 'open' | 'closed' } : {}),
+        ...(row.thread !== undefined ? { thread: parseWorkOpenThread(row.thread) } : {})
       }
     : null
 }

@@ -99,6 +99,15 @@ export function playgroundWork(params: URLSearchParams): { work?: MatrixWorkBrid
   // `workRightPanel=open|closed` stands in for the view's report that a thread with a panel is open.
   const rightPanelParam = params.get('workRightPanel')
   const rightPanel = rightPanelParam === 'open' || rightPanelParam === 'closed' ? rightPanelParam : undefined
+  // `workThread=<name>|<repo>|<branch>` (or `none`) stands in for a newer view's report of the open thread;
+  // a view that reports it draws its own plus menu, so the band drops its +.
+  const threadParam = params.get('workThread')
+  const [threadTitle = '', threadRepo, threadBranch] = threadParam?.split('|') ?? []
+
+  const thread =
+    threadParam === null
+      ? {}
+      : { thread: threadTitle && threadParam !== 'none' ? { title: threadTitle, ...(threadRepo ? { repo: threadRepo } : {}), ...(threadBranch ? { branch: threadBranch } : {}) } : null }
 
   const emit = (next: Partial<MatrixWorkProjection>) => {
     projection = { ...projection, ...next }
@@ -121,7 +130,7 @@ export function playgroundWork(params: URLSearchParams): { work?: MatrixWorkBrid
           : null,
       // `workSidebar=<px>` stands in for the view's thread-list report (its right edge), so the band's
       // bell can be judged against a `workShot`; `runCommand` lets the band show its buttons.
-      getSidebar: async () => (sidebarEdge > 0 ? { open: true, edge: sidebarEdge, ...(rightPanel ? { rightPanel } : {}) } : null),
+      getSidebar: async () => (sidebarEdge > 0 ? { open: true, edge: sidebarEdge, ...(rightPanel ? { rightPanel } : {}), ...thread } : null),
       onSidebarChanged: () => () => {},
       runCommand: async () => true,
       setSurfaceMode: async () => {},

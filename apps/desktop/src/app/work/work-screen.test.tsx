@@ -3,7 +3,7 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vite
 
 import { I18nProvider, type Locale } from '@/i18n'
 
-import type { MatrixWorkBridge, MatrixWorkProjection } from '../../../shared/matrix-work'
+import type { MatrixWorkBridge, MatrixWorkProjection, WorkSidebarSnapshot } from '../../../shared/matrix-work'
 
 import { resetWorkStoreForTests } from './store'
 import { WorkScreen } from './work-screen'
@@ -194,6 +194,55 @@ describe('WorkScreen: the title band (spec §1.4, §8.2)', () => {
     expect(screen.getByRole('menuitem', { name: /Add project/ })).toBeTruthy()
     fireEvent.click(await screen.findByRole('menuitem', { name: /New thread in a worktree/ }))
     expect(work.runCommand?.mock.calls).toEqual([['chat.newWorktree']])
+  })
+})
+
+describe('WorkScreen: the open thread in B and New in one place', () => {
+  function reporting(snapshot: WorkSidebarSnapshot | null) {
+    const work = bridge()
+
+    let push: (next: WorkSidebarSnapshot | null) => void = () => {}
+
+    const reported = Object.assign(work, {
+      getSidebar: vi.fn(async () => snapshot),
+      onSidebarChanged: vi.fn((listener: (next: WorkSidebarSnapshot | null) => void) => {
+        push = listener
+
+        return () => {}
+      })
+    })
+
+    return { work: reported, push: (next: WorkSidebarSnapshot | null) => act(() => push(next)) }
+  }
+
+  it('names the open thread as name · repo · branch and leaves New to the view when it draws its own plus menu', async () => {
+    const { work } = reporting({ open: true, edge: 280, thread: { title: 'Fix login', repo: 'atum-app', branch: 'feat/login' } })
+    show({}, { work })
+
+    const title = await screen.findByRole('heading', { level: 1 })
+    await waitFor(() => expect(title.textContent).toBe('Fix login·atum-app·feat/login'))
+    expect(title.getAttribute('title')).toBe('Fix login · atum-app · feat/login')
+    expect(screen.queryByRole('button', { name: 'New…' })).toBeNull()
+  })
+
+  it('says Work when no thread is open, still without the band’s +', async () => {
+    const { work } = reporting({ open: true, edge: 280, thread: null })
+    show({}, { work })
+
+    await waitFor(() => expect(work.getSidebar).toHaveBeenCalled())
+    expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Work')
+    expect(screen.queryByRole('button', { name: 'New…' })).toBeNull()
+  })
+
+  it('keeps Work and the band’s + for an older view that reports no thread, and shows no + before the first report', async () => {
+    const { work, push } = reporting(null)
+    show({}, { work })
+
+    await waitFor(() => expect(work.getSidebar).toHaveBeenCalled())
+    expect(screen.queryByRole('button', { name: 'New…' })).toBeNull()
+    await push({ open: true, edge: 280 })
+    expect(await screen.findByRole('button', { name: 'New…' })).toBeTruthy()
+    expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Work')
   })
 })
 
