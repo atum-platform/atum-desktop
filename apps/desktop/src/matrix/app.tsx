@@ -473,6 +473,7 @@ import {
   setMatrixRightPanel
 } from './right-panel'
 import { anyAgentPrompts, assistantTarget, primaryAgent, snapshotForRoom } from './room-agent'
+import { RoomUpgradeBand } from './room-upgrade-band'
 import { MatrixRosterConversations } from './roster-conversations'
 import { useRosterCopy } from './roster-copy'
 import { matrixCanCreateAssistant, MatrixRosterCreate, type MatrixRosterCreation } from './roster-create'
@@ -5827,6 +5828,9 @@ function Conversation({
             />
           )}
           {room.membership !== 'join' && <ConversationMembership room={room} snapshot={snapshot} />}
+          {room.membership === 'join' && !notesSelfKnownRoom && (room.successor || room.predecessor) && (
+            <RoomUpgradeBand key={room.id} room={room} snapshot={snapshot} />
+          )}
           {snapshot.agentRoster?.state === 'ready' && room.assistant && room.membership === 'join' && !assistantEligible && (
             <NoticeBand tone="notice">{t.matrixShell.assistantHistoryOnly}</NoticeBand>
           )}

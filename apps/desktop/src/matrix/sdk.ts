@@ -236,6 +236,7 @@ import { roomSelection } from './room-navigation'
 import { writeRoomNotificationMode } from './room-notification-mode'
 import { matrixRoomPolicy } from './room-policy'
 import { readMatrixRoomShared, readMatrixRoomSharedThumbnail } from './room-shared'
+import { joinRoomSuccessor, replacedRoomIds } from './room-upgrade'
 import { matrixSavedMessages } from './saved-messages'
 import { appBotPinnedShield, type MatrixAppBotEvent } from './sdk-app-bot'
 import { loadDeviceForVerification } from './sdk-device-verification'
@@ -1093,9 +1094,11 @@ export async function startMatrixSdk(
     // Moon's and Andy's chats: the roster draws each inside its bot's row, once.
     const appBots = appBotDmRooms(client)
 
+    const replaced = replacedRoomIds(client)
+
     const projectedRooms = client
       .getRooms()
-      .filter(r => r.roomId === roomId || ['join', 'invite'].includes(r.getMyMembership()))
+      .filter(r => r.roomId === roomId || (!replaced.has(r.roomId) && ['join', 'invite'].includes(r.getMyMembership())))
       .filter(r => !ignoredInvitation(client, r))
       .map(r => {
         const appBot = appBots.get(r.roomId)
@@ -3666,6 +3669,23 @@ export async function startMatrixSdk(
 
         if (!stopped && command.select !== false && selectionRevision === revision) {
           roomId = command.roomId
+          destination = null
+          selection.write(roomId)
+          selectionRevision++
+        }
+
+        snapshot()
+
+        return null
+      }
+
+      case 'joinSuccessor': {
+        const revision = selectionRevision
+        const successorId = await joinRoomSuccessor(client, command.roomId, () => !stopped)
+
+        // The person asked to go there, unless they have since opened another chat.
+        if (!stopped && selectionRevision === revision) {
+          roomId = successorId
           destination = null
           selection.write(roomId)
           selectionRevision++

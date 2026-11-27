@@ -109,6 +109,7 @@ import type { MatrixProfileMetadata, MatrixProfilesBridge, MatrixProfileSdkComma
 import type { MatrixProgressMarker, MatrixProgressPresentation, MatrixScheduleIdentity } from './matrix-progress-marker'
 import type { MatrixPollCommand, MatrixRichMessage, MatrixVoiceNote, MatrixVoiceTranscriptionProvider } from './matrix-rich-content'
 import type { MatrixRoomSharedSection } from './matrix-room-shared'
+import type { MatrixRoomPredecessor, MatrixRoomSuccessor } from './matrix-room-upgrade'
 import type { MatrixSavedMessagesSnapshot } from './matrix-saved-messages'
 import type { MatrixNativeSecurityCommand, MatrixSecurity, MatrixSecurityCommand } from './matrix-security'
 import type { MatrixShelfModelId, MatrixShelfModelView } from './matrix-shelf-models'
@@ -245,6 +246,11 @@ export interface MatrixRoom {
    * roster row. Display only; the window loads it through the authenticated member bridge, never
    * from this string. Absent for groups, assistant rooms and app groups. */
   peerAvatarMxc?: string | null
+  /** This room was upgraded: its replacement and whether it can be opened or joined (display hint;
+   * the SDK re-reads room state before `joinSuccessor` acts). Absent for a room that was not replaced. */
+  successor?: MatrixRoomSuccessor
+  /** The room this one replaced, when joined and mutually confirmed: earlier history stays reachable. */
+  predecessor?: MatrixRoomPredecessor
   assistant?: boolean
   /** The agent this private room belongs to: the one that is its other member (display
    * only; main re-reads the room before any turn). */
@@ -1594,6 +1600,9 @@ export type MatrixCommand =
    * end-to-end encryption as before 0.20; the renderer's parser never sets it. */
   | { kind: 'create'; name: string; invite: string[]; direct?: boolean; appPair?: true }
   | { kind: 'join'; roomId: string; /** Background admission does not steal navigation. */ select?: false }
+  /** Explicit "go to the new room" on an upgraded room (`roomId` is the old one). Joins its replacement and
+   * opens it once its create event confirms it points back; never automatic. */
+  | { kind: 'joinSuccessor'; roomId: string }
   | { kind: 'leave'; roomId: string }
   | { kind: 'invite' | 'removeMember' | 'ban' | 'unban'; roomId: string; userId: string }
   | { kind: 'ignore'; userId: string; ignored: boolean }
