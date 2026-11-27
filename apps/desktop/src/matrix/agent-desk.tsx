@@ -550,6 +550,8 @@ function useOwnFiles(active: boolean, agent: MatrixAgentView) {
   const desk = window.atumMatrix.agentDesk
   const [path, setPath] = useState<string>()
   const [view, setView] = useState<MatrixHostDeskFiles>()
+  const [read, setRead] = useState<'loading' | 'ready' | 'failed'>('loading')
+  const [attempt, setAttempt] = useState(0)
 
   useEffect(() => {
     if (!active || !desk || agent.runtime !== 'hermes') {
@@ -557,17 +559,23 @@ function useOwnFiles(active: boolean, agent: MatrixAgentView) {
     }
 
     let current = true
+    setRead('loading')
     void desk
       .read(agent.principal, path === undefined ? { read: 'files' as const } : { read: 'files' as const, path })
       .then(
         next => {
           if (current) {
             setView(next)
+            setRead('ready')
           }
         },
         () => {
-          if (current && path === undefined) {
-            setView(undefined)
+          if (current) {
+            setRead('failed')
+
+            if (path === undefined) {
+              setView(undefined)
+            }
           }
         }
       )
@@ -575,9 +583,17 @@ function useOwnFiles(active: boolean, agent: MatrixAgentView) {
     return () => {
       current = false
     }
-  }, [active, agent.principal, agent.runtime, desk, path])
+  }, [active, agent.principal, agent.runtime, attempt, desk, path])
 
-  return { path, setPath, view: view && (view.rows.length || path !== undefined) ? view : undefined }
+  return {
+    path,
+    setPath,
+    view: view && (view.rows.length || path !== undefined) ? view : undefined,
+    read,
+    reload: () => setAttempt(each => each + 1),
+    /** Its computer's files can be read (a native Hermes cloud agent). */
+    hosted: Boolean(desk?.read && agent.runtime === 'hermes')
+  }
 }
 
 function OwnFiles({ own }: { own: ReturnType<typeof useOwnFiles> }) {
@@ -662,6 +678,9 @@ function useAgentSchedule(active: boolean, agent: MatrixAgentView) {
   const desk = window.atumMatrix.agentDesk
   const [jobs, setJobs] = useState<Jobs>()
   const [problem, setProblem] = useState<'failed' | 'stopped'>()
+  // Whether the last read of its schedule answered: a failed read says so instead of hiding Pause.
+  const [read, setRead] = useState<'loading' | 'ready' | 'failed'>('loading')
+  const [attempt, setAttempt] = useState(0)
   const live = useRef(true)
 
   useEffect(() => {
@@ -678,15 +697,21 @@ function useAgentSchedule(active: boolean, agent: MatrixAgentView) {
     }
 
     let current = true
+    setRead('loading')
     void desk.read(agent.principal, { read: 'schedule' as const }).then(
-      next => current && setJobs(next.jobs),
-      () => undefined
+      next => {
+        if (current) {
+          setJobs(next.jobs)
+          setRead('ready')
+        }
+      },
+      () => current && setRead('failed')
     )
 
     return () => {
       current = false
     }
-  }, [active, agent.principal, agent.runtime, desk])
+  }, [active, agent.principal, agent.runtime, attempt, desk])
 
   const control = (request: MatrixHostAgentControl, optimistic: (jobs: Jobs) => Jobs) => {
     const send = desk?.control
@@ -732,6 +757,10 @@ function useAgentSchedule(active: boolean, agent: MatrixAgentView) {
   return {
     jobs,
     problem,
+    read,
+    reload: () => setAttempt(each => each + 1),
+    /** The host route reads and changes this agent's schedule (a native Hermes cloud agent). */
+    hosted: Boolean(desk?.read && desk.control && agent.runtime === 'hermes'),
     canControl: Boolean(desk?.control && jobs?.length),
     pause: () => control({ action: 'pause' }, setState(state => LIVE.has(state), 'paused')),
     resume: () => control({ action: 'resume' }, setState(state => state === 'paused', 'scheduled')),
@@ -1021,26 +1050,42 @@ export function MatrixAgentDesk({
 function FilesSection({
   active,
   agent,
+  always = false,
   locale,
   roomId,
   sent
 }: {
   active: boolean
   agent: MatrixAgentView
+  /**
+   * The agent's panel (owner 2026-11-27: "agent card don't see pause and files"): a cloud agent whose
+   * computer can be read keeps its Files entry with nothing in it, saying so, or that the read failed.
+   */
+  always?: boolean
   locale: ReturnType<typeof useI18n>['locale']
   roomId: string
   sent: MatrixMessage[]
 }) {
   const copy = matrixAgentDeskText(locale)
   const own = useOwnFiles(active, agent)
+  const empty = !sent.length && !own.view
 
-  if (!sent.length && !own.view) {
+  if (empty && !(always && own.hosted)) {
     return null
   }
 
   return (
-    <section aria-label={copy.files} data-agent-desk-files>
+    <section aria-label={copy.files} data-agent-desk-files={empty ? own.read : ''}>
       <h2 className="atum-launcher-heading">{copy.files}</h2>
+      {empty && own.read === 'ready' && <p className="atum-settings-row-help mt-2">{copy.noFiles}</p>}
+      {empty && own.read === 'failed' && (
+        <p className="atum-settings-row-help mt-2 flex items-center gap-2" role="status">
+          <span>{copy.filesUnavailable}</span>
+          <button className="ak-btn ak-btn--sm" data-agent-desk-files-retry onClick={own.reload} type="button">
+            {copy.tryAgain}
+          </button>
+        </p>
+      )}
       {sent.length > 0 && (
         <div className="ak-group mt-2" role="list" title={copy.sentHere}>
           {sent.map(file => (
@@ -1099,8 +1144,8 @@ export function MatrixAgentDeskFiles({
   const { locale } = useI18n()
 
   return (
-    <div className="atum-desk atum-card-section" data-agent-panel-files>
-      <FilesSection active={active} agent={agent} locale={locale} roomId={roomId} sent={desk.sent} />
+    <div className="atum-desk atum-card-section empty:hidden" data-agent-panel-files>
+      <FilesSection active={active} agent={agent} always locale={locale} roomId={roomId} sent={desk.sent} />
     </div>
   )
 }

@@ -9,7 +9,7 @@ import type { MatrixWorkBridge, MatrixWorkProjection, MatrixWorkViewState } from
 
 import { workCopy, type WorkWords } from './copy'
 import { useWorkViewPlacement } from './use-work-view-placement'
-import { useWorkHistoryArrows, useWorkSidebar, WorkRightPanelToggle, WorkRosterControls, WorkTitle } from './work-band'
+import { useWorkHistoryArrows, useWorkSidebar, WorkModeSwitch, WorkRightPanelToggle, WorkRosterControls, WorkTitle } from './work-band'
 
 export interface WorkScreenProps {
   bridge: MatrixWorkBridge
@@ -112,6 +112,8 @@ export function WorkScreen({
                 {copy.addProtons}
               </button>
             )}
+            {/* C, read from the right edge: the panel toggle last, the mode switch before it (layout r1 C). */}
+            <WorkModeSwitch bridge={bridge} copy={copy} ready={projection.view === 'ready'} />
             {projection.view === 'ready' && <WorkRightPanelToggle bridge={bridge} locale={locale} state={sidebar?.rightPanel} />}
           </div>
         }
@@ -121,7 +123,7 @@ export function WorkScreen({
       >
         <div className="flex min-w-0 items-center gap-3">
           {projection.view === 'ready' && <WorkRosterControls bridge={bridge} copy={copy} />}
-          <WorkTitle bridge={bridge} copy={copy} ready={projection.view === 'ready'} />
+          <WorkTitle copy={copy} />
         </div>
       </AtumMainHeaderSurface>
       {/* Above the view, never over it: main paints the view natively, so the host shrinks to make room. */}

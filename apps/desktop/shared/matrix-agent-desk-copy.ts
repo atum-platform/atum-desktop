@@ -66,6 +66,16 @@ export interface MatrixAgentDeskCopy {
   controlFailed: string
   /** One quiet line when its runtime is stopped (409): nothing was changed. */
   computerOff: string
+  /** Pause's line while it has no routine to pause (the row stays, owner 2026-11-27). */
+  nothingScheduled: string
+  /** Pause's line when its schedule could not be read. */
+  scheduleUnavailable: string
+  /** Files' line while it has none, sent here or on its computer. */
+  noFiles: string
+  /** Files' line when its computer's files could not be read. */
+  filesUnavailable: string
+  /** Read again after one of the two lines above. */
+  tryAgain: string
   /** On the chat's working line: open the side panel on the agent's own tab. */
   watch: string
 }
@@ -106,6 +116,11 @@ export const matrixAgentDeskCopy: Record<DesktopLocale, MatrixAgentDeskCopy> = {
     pauseHint: 'Vẫn trả lời bạn. Không tự bắt đầu việc gì.',
     controlFailed: 'Chưa đổi được.',
     computerOff: 'Máy của nó đang tắt.',
+    nothingScheduled: 'Chưa có việc nào được lên lịch.',
+    scheduleUnavailable: 'Chưa kiểm tra được lịch của nó.',
+    noFiles: 'Chưa có tệp nào.',
+    filesUnavailable: 'Chưa tải được tệp của nó.',
+    tryAgain: 'Thử lại',
     watch: 'Xem'
   },
   en: {
@@ -143,6 +158,11 @@ export const matrixAgentDeskCopy: Record<DesktopLocale, MatrixAgentDeskCopy> = {
     pauseHint: 'Still answers you. Starts nothing on its own.',
     controlFailed: 'Couldn’t change that.',
     computerOff: 'Its computer is off right now.',
+    nothingScheduled: 'Nothing scheduled yet.',
+    scheduleUnavailable: 'Couldn’t check its schedule.',
+    noFiles: 'No files yet.',
+    filesUnavailable: 'Couldn’t load its files.',
+    tryAgain: 'Try again',
     watch: 'Watch'
   },
   ja: {
@@ -180,6 +200,11 @@ export const matrixAgentDeskCopy: Record<DesktopLocale, MatrixAgentDeskCopy> = {
     pauseHint: '返信は続けます。自分から作業は始めません。',
     controlFailed: '変更できませんでした。',
     computerOff: 'エージェントのコンピュータは停止中です。',
+    nothingScheduled: 'まだ予定はありません。',
+    scheduleUnavailable: 'スケジュールを確認できませんでした。',
+    noFiles: 'まだファイルはありません。',
+    filesUnavailable: 'ファイルを読み込めませんでした。',
+    tryAgain: 'もう一度',
     watch: '見る'
   },
   zh: {
@@ -217,6 +242,11 @@ export const matrixAgentDeskCopy: Record<DesktopLocale, MatrixAgentDeskCopy> = {
     pauseHint: '仍会回复你，但不会自行开始任何事。',
     controlFailed: '未能更改。',
     computerOff: '它的电脑目前已关闭。',
+    nothingScheduled: '还没有安排任何事。',
+    scheduleUnavailable: '无法查看它的日程。',
+    noFiles: '还没有文件。',
+    filesUnavailable: '无法加载它的文件。',
+    tryAgain: '重试',
     watch: '查看'
   },
   'zh-hant': {
@@ -254,6 +284,11 @@ export const matrixAgentDeskCopy: Record<DesktopLocale, MatrixAgentDeskCopy> = {
     pauseHint: '仍會回覆你，但不會自行開始任何事。',
     controlFailed: '未能變更。',
     computerOff: '它的電腦目前已關閉。',
+    nothingScheduled: '還沒有安排任何事。',
+    scheduleUnavailable: '無法查看它的日程。',
+    noFiles: '還沒有檔案。',
+    filesUnavailable: '無法載入它的檔案。',
+    tryAgain: '重試',
     watch: '查看'
   }
 }

@@ -95,6 +95,29 @@ describe('Company pages in the title bar', () => {
     }
   })
 
+  it('sits in the title bar\'s mode slot, just left of the panel toggle, when the shell draws one', async () => {
+    // Layout r1 delta 5 and C (owner 2026-11-27): the mode switch is in C, not centred.
+    const scope = 'account-a\u0000company-a'
+    const header = window.document.createElement('div')
+    header.setAttribute('data-atum-main-header', '')
+    const slot = window.document.createElement('div')
+    slot.setAttribute('data-atum-page-mode', '')
+    const toggle = window.document.createElement('button')
+    header.append(slot, toggle)
+    window.document.body.append(header)
+
+    try {
+      withLocale(<CompanySpaceTabs scope={scope} />)
+
+      await waitFor(() => expect(within(slot).getAllByRole('tab').map(tab => tab.textContent)).toEqual(['Chat', 'Board']))
+      expect(header.querySelector('[data-company-title-tabs]')).toBeNull()
+      expect(slot.nextElementSibling).toBe(toggle)
+      expect(header.style.position).toBe('')
+    } finally {
+      header.remove()
+    }
+  })
+
   it('keeps an inline fallback for stories and focused tests', () => {
     withLocale(<CompanySpaceTabs placement="inline" scope={'account-a\u0000company-a'} />)
     expect(screen.getAllByRole('tab')).toHaveLength(2)
