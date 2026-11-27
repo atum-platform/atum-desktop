@@ -2,7 +2,7 @@ import { spawn } from 'node:child_process'
 import fs from 'node:fs/promises'
 import path from 'node:path'
 
-import { isUpdateDirectory } from './state'
+import { isUpdateDirectory, type Journal } from './state'
 import { markerExists, markShown, readJournal, removeJournal, stageRoot } from './store'
 
 export type Remove = (...paths: string[]) => Promise<boolean>
@@ -57,12 +57,13 @@ export async function retireBackup(options: {
   bundle: string
   handoffDirectory: string
   remove?: Remove
+  canRetire?(journal: Journal): boolean
   log: (line: string) => void
 }): Promise<boolean> {
   const root = stageRoot(options.home, options.id)
   const journal = readJournal(options.home, root)
 
-  if (!journal || journal.target !== options.bundle || !markerExists(options.handoffDirectory, 'shown')) {return false}
+  if (!journal || journal.target !== options.bundle || !markerExists(options.handoffDirectory, 'shown') || options.canRetire?.(journal) === false) {return false}
 
   const directory = path.dirname(journal.next)
   const remove = options.remove ?? removeAtBackgroundPriority

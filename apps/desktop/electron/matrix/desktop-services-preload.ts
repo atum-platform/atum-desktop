@@ -28,7 +28,8 @@ export function exposeMatrixDesktopServices(full: boolean) {
     error,
     setUpdateChannel: channel => ipcRenderer.invoke(channels.channel, channel),
     checkUpdates: () => ipcRenderer.invoke(channels.check),
-    restart: () => ipcRenderer.invoke(channels.restart),
+    downloadUpdate: () => ipcRenderer.invoke(channels.download),
+    restart: version => ipcRenderer.invoke(channels.restart, version),
     onChanged: callback => {
       const receive: Parameters<typeof ipcRenderer.on>[1] = (_event, value) => callback(value)
 

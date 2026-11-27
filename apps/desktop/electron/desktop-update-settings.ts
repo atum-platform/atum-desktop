@@ -9,7 +9,7 @@ import semver from 'semver'
 
 import type { AtumUpdateChannel, AtumUpdateNotes } from '../shared/atum-update-flow'
 
-import type { DesktopUpdateNotes, DesktopUpdateSettings } from './desktop-updater'
+import type { DesktopUpdateNotes, DesktopUpdateSettings } from './t3-updates/settings-contract'
 
 const VERSION = /^\d+\.\d+\.\d+(?:-[a-zA-Z0-9.-]+)?$/
 const STOCK_MIGRATION = 1

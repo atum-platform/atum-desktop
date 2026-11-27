@@ -124,12 +124,12 @@ describe.skipIf(process.platform !== 'darwin')('prepare', () => {
     await expect(fs.stat(path.join(w.root, 'previous.app'))).rejects.toThrow()
   })
 
-  it('goes straight to stock for a version that already failed', async () => {
+  it('can stage a version with a legacy stock-only record', async () => {
     const w = await world()
 
     await fs.mkdir(w.root, { recursive: true })
     markStockOnly(w.root, '1.0.1', 'test')
-    await expect(w.swap.prepare(await writeZip(w.home, '1.0.1'), '1.0.1')).rejects.toThrow('disabled')
+    await expect(w.swap.prepare(await writeZip(w.home, '1.0.1'), '1.0.1')).resolves.toBeUndefined()
   })
 
   it('refuses a target in an unsupported folder', async () => {

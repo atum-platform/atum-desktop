@@ -2242,7 +2242,7 @@ export interface MatrixUiBridge {
   /** Pins the native appearance (and so the glass under the shell) to the shell's light/dark choice. */
   setWindowAppearance?(appearance: MatrixWindowAppearance): Promise<void>
   /** A fixed main-owned close request; it grants no new file or window authority. */
-  onDocumentClose?(prepare: () => Promise<void>): () => void
+  onDocumentClose?(prepare: (updating?: boolean) => Promise<void>): () => void
   snapshot(): Promise<MatrixSnapshot>
   /** Google by default; the browser opens at the chosen way in (sign-in.tsx). */
   signIn(method?: MatrixSignInMethod): Promise<void>
