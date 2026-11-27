@@ -1,6 +1,7 @@
 import { type ReactNode, useMemo } from 'react'
 
 import type { MatrixBotApiMessage } from '../../../shared/matrix'
+import { openClickedLink } from '../in-app-links'
 
 import { safeBotApiButtonUrl } from './bot-api'
 
@@ -52,7 +53,14 @@ export function safeBotApiLink(value: unknown): string | undefined {
   }
 }
 
+/** A link in an app's message text: Atum's own browser, like every link in a chat (in-app-links.ts). */
 function openLink(url: string): void {
+  void openClickedLink(url).catch(() => {})
+}
+
+/** An app's URL button is an app action (its sign-in, its checkout): the person's own browser, where their passwords and
+ * passkeys are, and where the app's flow already returns from. */
+function openButtonLink(url: string): void {
   void window.atumMatrix?.openLink(url).catch(() => {})
 }
 
@@ -60,7 +68,7 @@ function openLink(url: string): void {
  * admits only bounded HTTPS URLs; this component checks again before creating an action. */
 export function MatrixBotApiKeyboard({
   keyboard,
-  onOpenLink = openLink
+  onOpenLink = openButtonLink
 }: {
   keyboard: MatrixBotApiMessage['keyboard']
   onOpenLink?: (url: string) => void

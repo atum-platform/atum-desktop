@@ -33,7 +33,7 @@ import {
   type WorkSurfaceParts
 } from '../work/surface'
 import { readAccountConnections } from '../work/surface/account-connections'
-import { projectPlanCapabilities } from '../work/surface/plan-capabilities'
+import { projectPlanCapabilities, projectPlanLabels } from '../work/surface/plan-capabilities'
 import { WorkPlanFacts } from '../work/surface/plan-facts'
 import { readPlanUsage } from '../work/surface/plan-usage'
 import { createWorkConsentClient, deviceServiceCall } from '../work/surface/platform'
@@ -745,6 +745,18 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
             ? readNativePlanCapabilities(bound) : Promise.resolve({})
         }
       }),
+      // First run: the four connections and T3's plan names. Local to this Mac; never reported to the account.
+      async readPlanLabels() {
+        const running = host.current()
+        const active = account()
+
+        if (!running || !host.enabled() || active?.key !== bound.key || active.generation !== bound.generation ||
+            running.accountKey !== bound.key) {return {}}
+
+        const providers = await readWorkProviders(running.origin, deps.sessionFromPartition(partitionFor(bound.key)))
+
+        return host.current() === running ? projectPlanLabels(providers) : {}
+      },
       deviceServiceId: () => deps.deviceServiceId(),
       relay: createOwnerRelay(async () => {
         const deviceServiceId = deps.deviceServiceId()

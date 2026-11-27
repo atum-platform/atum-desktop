@@ -90,7 +90,7 @@ export function closeAccountConnect(): void {
  * included (Q2). Best effort: a failure here never blocks the plan, which still works in Work, and
  * a cloud turn that cannot use it answers on Nguyệt Thực.
  */
-export async function grantAccountPlanUse(bridge: ConnectionsBridge, plan: AccountPlan): Promise<boolean> {
+export async function grantAccountPlanUse(bridge: Pick<ConnectionsBridge, 'readPlanConsent' | 'setPlanConsent'>, plan: AccountPlan): Promise<boolean> {
   try {
     const consent = await bridge.readPlanConsent(plan)
     // Reader-first rollout: retain the server's all-owner scope without sending "all" yet.

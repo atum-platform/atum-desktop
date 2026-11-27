@@ -1,4 +1,7 @@
 import { AtumAssistantAvatar } from '@/app/atum/assistant-avatar'
+import { FirstRunConnections } from '@/app/connections/first-run-connections'
+import { firstRunConnectionsCopy } from '@/app/connections/first-run-copy'
+import { MarkdownContent } from '@/components/assistant-ui/markdown-surface'
 import { Button } from '@/components/ui/button'
 import { useI18n } from '@/i18n'
 
@@ -8,6 +11,7 @@ import { matrixFirstRunCopy, matrixFirstRunName } from '../../shared/matrix-firs
 import { MatrixFirstRunConnectCard } from './first-run-connect-card'
 import { MatrixGoogleConnectNudge } from './google-connection-settings'
 import { MatrixLaunchNotice, matrixLaunchNoticeKind } from './launch-notice'
+import { MATRIX_MARKDOWN_HOST } from './markdown-host'
 import { matrixPersonName } from './person-name'
 import { primaryAgent } from './room-agent'
 
@@ -24,6 +28,9 @@ function greetingName(snapshot: MatrixSnapshot): string | undefined {
   return name && name !== local ? name : undefined
 }
 
+const BUBBLE =
+  'max-w-[32.5rem] rounded-[var(--ak-r-xl)] bg-(--ak-fill-quiet) px-(--ak-s3) py-(--ak-s2) text-pretty text-start text-(length:--atum-t-chat) leading-(--atum-lh-chat) text-(--atum-ink)'
+
 function actualAssistantName(snapshot: MatrixSnapshot, fallback?: string): string {
   return primaryAgent(snapshot)?.name?.trim() || fallback?.trim() || 'Atum'
 }
@@ -34,17 +41,26 @@ function actualAssistantName(snapshot: MatrixSnapshot, fallback?: string): strin
  * for that. The person answers in the chat like any message and the assistant renames itself
  * (electron/matrix/first-run-naming.ts), so this card writes nothing and posts nothing.
  *
+ * The welcome is the assistant's own (owner 2026-11-27, no canned agent text): `greeting` is its answer to the hidden opening
+ * intent (first-run-greeting.ts), shown here with the Connections block under it; `greetingPending` shows a quiet typing bubble
+ * while it is being written. Without either (the intent could not go out), the earlier written welcome stays as before.
+ *
  * Where the assistant answers does not matter: a cloud-placed primary gets the same welcome.
  * After skip, `skipped` keeps the greeting but replaces the card with the small Google chip. There
  * is no Mac or folder preflight here; macOS asks only when a real folder read needs it.
  */
 export function MatrixFirstRunCard({
   assistantName: fallbackName,
+  greeting,
+  greetingPending = false,
   roomId,
   skipped = false,
   snapshot
 }: {
   assistantName?: string
+  /** The assistant's generated welcome (markdown). */
+  greeting?: string
+  greetingPending?: boolean
   roomId?: string
   skipped?: boolean
   snapshot: MatrixSnapshot
@@ -56,7 +72,7 @@ export function MatrixFirstRunCard({
 
   return (
     <div
-      className="flex w-full max-w-[40rem] items-start gap-(--ak-s3) self-center px-4 py-6"
+      className="flex w-full max-w-[40rem] items-start gap-(--ak-s3) [align-self:safe_center] px-4 py-6"
       data-matrix-first-run={skipped ? 'skipped' : snapshot.firstRun ?? 'open'}
     >
       <AtumAssistantAvatar
@@ -66,12 +82,32 @@ export function MatrixFirstRunCard({
         name={name}
       />
       <div className="flex min-w-0 flex-1 flex-col items-start gap-(--ak-s3)">
-        <p className="max-w-[32.5rem] rounded-[var(--ak-r-xl)] bg-(--ak-fill-quiet) px-(--ak-s3) py-(--ak-s2) text-pretty text-start text-(length:--atum-t-chat) leading-(--atum-lh-chat) text-(--atum-ink)">
-          {copy.greeting(greetingName(snapshot), name)}
-        </p>
-        <p className="max-w-[32.5rem] rounded-[var(--ak-r-xl)] bg-(--ak-fill-quiet) px-(--ak-s3) py-(--ak-s2) text-pretty text-start text-(length:--atum-t-chat) leading-(--atum-lh-chat) text-(--atum-ink)">
-          {copy.intro}
-        </p>
+        {greeting ? (
+          <div
+            className={`${BUBBLE} min-w-0`}
+            data-matrix-first-run-greeting="generated"
+          >
+            <MarkdownContent host={MATRIX_MARKDOWN_HOST} isRunning={false} text={greeting} />
+          </div>
+        ) : greetingPending ? (
+          <p aria-label={firstRunConnectionsCopy(locale).greetingWriting(name)} className={`${BUBBLE} flex items-center gap-1 py-(--ak-s3)`} data-matrix-first-run-greeting="pending" role="status">
+            {[0, 1, 2].map(dot => (
+              <span
+                aria-hidden
+                className="size-1.5 animate-pulse rounded-full bg-(--atum-ink-muted)"
+                key={dot}
+                style={{ animationDelay: `${dot * 160}ms` }}
+              />
+            ))}
+          </p>
+        ) : (
+          <>
+            <p className={BUBBLE}>{copy.greeting(greetingName(snapshot), name)}</p>
+            <p className={BUBBLE}>{copy.intro}</p>
+          </>
+        )}
+        {/* The first step on the agent: this Mac's connections, Ready or Connect (owner 2026-11-27). UI chrome, not a message. */}
+        <FirstRunConnections className="max-w-[32.5rem]" />
         {skipped ? (
           <MatrixGoogleConnectNudge
             access={snapshot.googleAssistant}

@@ -166,6 +166,7 @@ import {
   type MatrixFirstLearningProgress,
   matrixFirstLearningStarting
 } from '../../shared/matrix-first-learning'
+import { isFirstRunGreetingSeed } from '../../shared/matrix-first-run-greeting'
 import { matrixFirstRunPlace } from '../../shared/matrix-first-run-place'
 import { MATRIX_GOOGLE_CONNECTION_IPC, MATRIX_GOOGLE_WRITE_IPC } from '../../shared/matrix-google-connections'
 import { MATRIX_GOOGLE_PROTECTED_MODEL } from '../../shared/matrix-google-tools'
@@ -24208,7 +24209,7 @@ async function start() {
         // The person's first words in the new account's chat answer the assistant's welcome, which
         // invited them to name it. The model never saw that welcome, so this one message carries a
         // note saying so, in the turn's hidden context only (first-run-naming.ts).
-        const naming = matrixFirstRunNamingContext({
+        const naming = isFirstRunGreetingSeed(input.body) ? undefined : matrixFirstRunNamingContext({
           snapshot: state,
           roomId: input.roomId,
           primary: roomAgent === productAgent(),
