@@ -145,8 +145,9 @@ def run(spec, children, channel):
     children.start([sys.executable, "-P", "-B", "-X", "utf8", "-m",
                     "hermes_cli.main", "gateway", "run"], gateway, spec["cwd"])
     env = spec["environment"]
-    if channel:
-        env = {**env, **channel, "T3_SERVICE_LAUNCHER_CONTEXT": json.dumps(spec["trial"])}
+    if spec.get("trial"):
+        env = {**env, "T3_SERVICE_LAUNCHER_CONTEXT": json.dumps(spec["trial"])}
+    env = {**env, **channel}
     passed = [int(channel["NODE_CHANNEL_FD"])] if channel else []
     token = spec.pop("connectorToken", None)
     try:
@@ -208,11 +209,11 @@ def work_provider_instances(saved, defaults, brokers):
 
 def main():
     spec = json.loads(sys.stdin.buffer.readline(262144))
-    # Electron created the Node IPC channel. Only the T3 trial inherits it.
+    # Electron created the Node IPC channel. Only the Work server inherits it.
     # Its native messages travel directly over that channel.
     channel = {name: os.environ.pop(name) for name in
                ("NODE_CHANNEL_FD", "NODE_CHANNEL_SERIALIZATION_MODE") if name in os.environ}
-    if bool(channel) != bool(spec.get("trial")):
+    if spec.get("trial") and not channel:
         raise RuntimeError("work_trial_channel_missing")
     children = Children()
     with Path(spec["lock"]).open("a") as lock:

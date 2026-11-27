@@ -11,6 +11,7 @@ import { MATRIX_DEFAULT_MODEL } from '../../../shared/matrix-models'
 import { PLAN_PROVIDER_DEFAULTS } from '../plan-providers'
 import type { TrialContext, TrialHandle } from '../session/update'
 
+import type { WorkDeliverableReply } from './deliverable-contract'
 import { loginShellPath } from './shell-environment'
 
 export const ATUM_WORK_PROVIDER = 'atum-managed'
@@ -32,6 +33,7 @@ interface WorkProcessOptions {
   gatewayEnvironment: () => Record<string, string>
   revokeCredentials: () => void
   current: () => boolean
+  deliverableMessage?(message: unknown, current: () => boolean, signal: AbortSignal): Promise<WorkDeliverableReply | undefined>
 }
 
 export interface WorkIncarnation {
@@ -140,7 +142,7 @@ async function startProcess(options: WorkProcessOptions, { continuation, trial }
     env: environment,
     cwd,
     detached: true,
-    stdio: trial ? ['pipe', 'pipe', 'ignore', 'ipc'] : ['pipe', 'pipe', 'ignore']
+    stdio: trial || options.deliverableMessage ? ['pipe', 'pipe', 'ignore', 'ipc'] : ['pipe', 'pipe', 'ignore']
   }) as Supervisor
 
   const exited = new Promise<void>(resolve => {
@@ -184,6 +186,10 @@ async function startProcess(options: WorkProcessOptions, { continuation, trial }
     environment: {
       ...environment,
       ...workThreadMcpEnvironment(WORK_THREAD_MCP_ORIGINS),
+      ...(options.deliverableMessage ? {
+        ATUM_WORK_MEMO_PYTHON: python,
+        ATUM_WORK_MEMO_SCRIPT: join(resources, 'runtime', 'work-authoring', 'memo.py')
+      } : {}),
       ...(credentials.ATUM_WORK_CONNECTOR_URL
       ? { ATUM_WORK_CONNECTOR_URL: credentials.ATUM_WORK_CONNECTOR_URL }
       : {}),
@@ -433,6 +439,29 @@ export class WorkSidecar {
 
           return url
         }
+      }
+
+      const deliverableMessage = this.options.deliverableMessage
+
+      if (deliverableMessage) {
+        const lifetime = new AbortController()
+        const current = () => !lifetime.signal.aborted && child.connected && this.live === incarnation && this.options.current()
+        const receive = (message: unknown) => {
+          if (!current()) {return}
+
+          void deliverableMessage(message, current, lifetime.signal).then(reply => {
+            if (reply && current()) {child.send(reply, () => {})}
+          }).catch(() => undefined)
+        }
+        const close = () => {
+          lifetime.abort()
+          child.off('message', receive)
+          signal.removeEventListener('abort', close)
+        }
+
+        signal.addEventListener('abort', close, { once: true })
+        child.on('message', receive)
+        void exited.then(close)
       }
 
       if (!trial) {

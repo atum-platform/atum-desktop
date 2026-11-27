@@ -35,6 +35,7 @@ import { readWorkProviders } from '../work/surface/provider-config'
 import { createOwnerRelay } from '../work/surface/relay'
 
 import type { WorkDeliverables } from './work-deliverable'
+import { WorkDeliverableHost } from './work-deliverable-host'
 import { MatrixWorkLifecycle, type WorkAccount, workAccountFor } from './work-lifecycle'
 
 /** Atum's panel radius (`--atum-r-panel`, styles.css): Work's native view is rounded to it. */
@@ -115,8 +116,6 @@ export interface MatrixWorkDeps {
 }
 
 export interface MatrixWork {
-  /** Host-side receipt receiver for authenticated native Work settlements. */
-  deliverables?: WorkDeliverables
   /** Main-owned update of the pinned Work server (snapshot, trial, commit or rollback). */
   update(target: PinRef): Promise<UpdateOutcome>
   /** The window may have become ready, or the account may have changed. Idempotent. */
@@ -256,6 +255,8 @@ export function readShippedPin(resources: string): PinRef {
 }
 
 export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
+  const deliverables = new WorkDeliverableHost(deps.deliverables, deps.eligiblePlanAgents)
+
   const modelKeys = new WorkModelKeys({
     scope: () => deps.scope(),
     closing: () => deps.closing(),
@@ -553,7 +554,10 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
     },
     // The owner view reads Work’s balance through the model proxy.
     readAccess: () => readWorkAccess(deps.model, deps.wallet),
-    openProtons: deps.openProtons
+    openProtons: deps.openProtons,
+    deliverableMessage: (owner, message, current, signal) => deliverables.message(owner, message, current, signal),
+    deliverableStatus: (owner, identity) => deliverables.status(owner, identity),
+    openDeliverable: (owner, identity, current) => deliverables.open(owner, identity, current)
   })
 
   const readNativePlanCapabilities = async (bound: WorkAccount) => {
@@ -818,7 +822,6 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
   })
 
   return {
-    deliverables: deps.deliverables,
     activate: async () => {
       // keys() drops a key whose account or generation is no longer the signed-in one, and cancels its forwards
       modelKeys.keys()

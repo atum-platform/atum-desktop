@@ -7,8 +7,11 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { afterEach, expect, it, vi } from 'vitest'
 
+import { workSessionPaths } from '../work/session/paths'
+
 import type { NativeWorkDriveTarget } from './drive-import-native'
 import { type WorkDeliverableResult, WorkDeliverables } from './work-deliverable'
+import { WorkDeliverableHost } from './work-deliverable-host'
 
 const python = process.env.WORK_DOCX_PYTHON ?? 'python3'
 const native = it.skipIf(!['darwin', 'linux'].includes(process.platform))
@@ -167,6 +170,86 @@ native('rejects malformed output, traversal and a stopped placement', async () =
   expect((await s.receiver().receive(scope, result, AbortSignal.abort())).state).toBe('cancelled')
   writeFileSync(s.source, 'not a Word archive')
   expect((await s.receiver().receive(scope, result)).state).toBe('invalid')
+  expect(readdirSync(s.folder)).toEqual([])
+})
+
+function settlementFixture() {
+  const s = setup()
+  const owner = { key: 'owner', root: path.join(s.home, 'work-account') }
+  const scratch = path.join(workSessionPaths(owner).home, 'scratch', 'weekly-memo')
+  const id = { threadId: 'thread-1', runId: 'run-1', artifactId: randomUUID() }
+  const outputRoot = path.join(scratch, `.work-output-${id.artifactId}`)
+  mkdirSync(scratch, { recursive: true })
+  mkdirSync(outputRoot, { mode: 0o700 })
+  const contents = readFileSync(s.source)
+  writeFileSync(path.join(outputRoot, result.path), contents)
+  const pin = { ...id, type: 'work-deliverable-pin', outputRoot }
+  const settle = { ...id, type: 'work-deliverable-settled', result }
+  const agents = vi.fn(async () => ['research-agent'])
+  const host = () => new WorkDeliverableHost(s.receiver(), agents)
+  const signal = new AbortController().signal
+
+  return { ...s, owner, contents, id, pin, settle, agents, host, signal }
+}
+
+native('places an authenticated Work settlement, acknowledges sync and replays without an extra file', async () => {
+  const s = settlementFixture()
+  const first = s.host()
+  const send = (message: unknown) => first.message(s.owner, message, () => true, s.signal)
+  const { artifactId } = s.id
+
+  expect(await first.status(s.owner, s.id)).toBeNull()
+  expect(await send(s.pin)).toEqual({ type: 'work-deliverable-pinned', artifactId, accepted: true })
+  expect(s.workspace).toHaveBeenCalledExactlyOnceWith('research-agent')
+
+  s.manifestFor.mockResolvedValueOnce({ root: s.root, files: new Map() })
+  expect(await send(s.settle)).toEqual({
+    type: 'work-deliverable-ack', artifactId, status: { state: 'syncing', artifactId, name: 'Memo.docx' }
+  })
+  expect(readFileSync(path.join(s.folder, 'Memo.docx'))).toEqual(s.contents)
+  s.manifestFor.mockResolvedValueOnce({ root: s.root, files: new Map() })
+  expect(await first.open(s.owner, s.id, () => true)).toBe(false)
+  expect(s.open).not.toHaveBeenCalled()
+
+  const restarted = s.host()
+  const saved = { state: 'saved', artifactId, name: 'Memo.docx' }
+  expect(await restarted.status(s.owner, s.id)).toEqual(saved)
+  expect(await restarted.open(s.owner, s.id, () => true)).toBe(true)
+  expect(s.open).toHaveBeenCalledWith('Agents/Research/deliverables/Memo.docx', expect.objectContaining({ ino: expect.any(Number) }))
+
+  const replay = (message: unknown) => restarted.message(s.owner, message, () => true, s.signal)
+  const acknowledgements = await Promise.all([replay(s.settle), replay(s.settle)])
+  expect(acknowledgements).toEqual(Array(2).fill({ type: 'work-deliverable-ack', artifactId, status: saved }))
+  expect(readdirSync(s.folder)).toEqual(['Memo.docx'])
+  expect(await restarted.status(s.owner, { ...s.id, runId: 'unrelated-run' })).toBeNull()
+  expect(await restarted.open({ ...s.owner, key: 'other' }, s.id, () => true)).toBe(false)
+})
+
+native('refuses unadmitted, out-of-Scratch, stale owner and ambiguous-assistant settlements', async () => {
+  const s = settlementFixture()
+  const host = s.host()
+  const send = (message: unknown, current = () => true) => host.message(s.owner, message, current, s.signal)
+  const { artifactId } = s.id
+  const refusal = { type: 'work-deliverable-pinned', artifactId, accepted: false }
+
+  expect(await send(s.settle)).toMatchObject({ status: { state: 'invalid' } })
+  expect(await send({ ...s.pin, outputRoot: s.output })).toEqual(refusal)
+  expect(await send(s.pin, () => false)).toEqual(refusal)
+  expect(s.agents).not.toHaveBeenCalled()
+
+  let active = true
+  s.agents.mockImplementationOnce(async () => {
+    active = false
+
+    return ['research-agent']
+  })
+  expect(await send(s.pin, () => active)).toEqual(refusal)
+  expect(s.workspace).not.toHaveBeenCalled()
+
+  s.agents.mockResolvedValueOnce(['research-agent', 'another-agent'])
+  expect(await send(s.pin)).toEqual(refusal)
+  expect(await send(s.settle)).toMatchObject({ status: { state: 'drive_unavailable' } })
+  expect(await host.open(s.owner, s.id, () => true)).toBe(false)
   expect(readdirSync(s.folder)).toEqual([])
 })
 

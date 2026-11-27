@@ -2,39 +2,42 @@
 
 ## Native settlement contract
 
-At run admission, the trusted local Work host calls
-`MatrixWork.deliverables.pin(artifactId, agentPrincipal, outputRoot)` and stores
-the returned scope with its run. The host creates the artifact UUID and the
-private output directory. The assistant principal comes from the authenticated
-thread binding. Desktop resolves the assistant's workspace through the existing
-owner workspace RPC and checks for its existing `Agents/<agent>/deliverables`
-directory under the enrolled Drive binding.
+Work sends admission and settlement over the private Node IPC channel also used
+for update trials. The Python supervisor passes that channel only to the Work
+server. Desktop accepts messages from its current, committed sidecar while the
+owning account generation remains active. The renderer can only look up a receipt
+or open a saved file.
 
-At successful settlement, with the producer stopped, the native host supplies one
-explicit result for S1. The payload is identical across providers.
-
-```json
-{
-  "path": "Weekly memo.docx",
-  "format": "docx",
-  "preview": null
+```ts
+type Identity = { threadId: string; runId: string; artifactId: string }
+type Pin = Identity & { type: 'work-deliverable-pin'; outputRoot: string }
+type Settle = Identity & {
+  type: 'work-deliverable-settled'
+  result: { path: string; format: 'docx'; preview: null }
 }
 ```
 
-`path` is a relative, normalized path within the managed run output directory.
-`preview` is required and nullable. The optional PDF shape is
-`{"path":"Weekly memo.pdf","format":"pdf"}`. S1 keeps render proofs local and
-returns `null`. Desktop checks the optional shape. A preview stays in the private
-output directory and is never copied or opened by this receiver. Formats beyond
-DOCX will need their own validators and explicit contract versions.
+The sidecar creates `.work-output-<artifact UUID>` inside its managed Scratch
+thread folder before dispatch. Desktop checks ownership, directory identity and
+containment. A standalone S1 thread uses the sole active assistant in the
+owner's roster. The workspace RPC verifies the assistant's enrolled
+`Agents/<agent>/deliverables` directory. Multiple active assistants need a
+thread-to-assistant binding before Drive can admit the run. Desktop persists
+the admission under the account before replying with
+`{ type: 'work-deliverable-pinned', artifactId, accepted }`. Failed admission
+leaves the file in Work. The server receives the bundled memo interpreter and
+helper paths via `ATUM_WORK_MEMO_PYTHON` and `ATUM_WORK_MEMO_SCRIPT`.
 
-The host calls `receive(scope, result, signal)` for placement and an explicit save
-retry. The host can call `status(scope, result, signal)` to check for sync or to
-reconcile after interruption without a placement. Reuse the original artifact ID,
-scope and result on retry. Give an edited copy a new artifact ID. Present only
-the projected state, name and artifact ID. Bind Open in Drive to that ID in the
-owning run and call `open(scope, result)` on the main-side receiver. The open
-rechecks sync and resolves a current opaque Drive row using the native opener.
+The settled `result.path` is relative to that run's output directory. It is the
+Work file reference with the path already normalized by the server. The S1 wire
+contract uses a null preview. Desktop stores the settled result before invoking
+the receiver and replies with `{ type: 'work-deliverable-ack', artifactId, status }`.
+Replay the original settlement to retry placement. A revision gets a new artifact
+ID. The embedded thread reads `window.atumWork.getDeliverable(identity)` to follow
+the current state. The existing Work result card can show **Open in Drive** when
+the state is `saved` and call `window.atumWork.openDeliverable(identity)`. The
+opener rechecks the journal and resolves a current opaque Drive row. The card
+belongs to the Work UI lane.
 
 The importer holds no-follow descriptors for the output and destination, copies
 bounded bytes into the same-volume private import area, validates the S1 DOCX
@@ -80,11 +83,11 @@ with a temporary profile and check the expected two pages with `pdftotext`.
 ../../node_modules/.bin/vitest run --project electron electron/matrix/work-deliverable.test.ts
 ```
 
-The dry run uses real local placement and synthesizes the OpenCloud journal
-response. Release acceptance still needs native Work to deliver the authenticated
-settlement, persist its scope, provision the user-facing authoring skill and
-connect the result UI. It also needs signed or verified automatic LibreOffice
-delivery, a clean signed Mac, a real Claude subscription turn, real OpenCloud
-sync and verification from a second signed-in client. Cross-volume enrollments
-currently require the import staging area to share the destination volume.
+The tests round-trip a fixture over the supervisor's private Node channel and
+exercise native placement, status acknowledgement, Open in Drive, and duplicate
+replay with a simulated OpenCloud journal. Release acceptance needs the matching Work build, a signed
+or verified automatic LibreOffice install, a clean signed Mac, a real Claude
+subscription turn, and OpenCloud sync verified from a second signed-in client.
+The import stage needs to share the destination volume. A restart before the
+first durable native placement intent leaves the original output in Work.
 XLSX, PPTX, design, and serving previews are later slices.
