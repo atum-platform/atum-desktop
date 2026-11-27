@@ -153,14 +153,19 @@ export function useWorkHistoryArrows(bridge: Pick<MatrixWorkBridge, 'runCommand'
   useEffect(() => () => setMatrixNavLocal(null), [])
 }
 
+/** The page's name in B (layout r1 B). Its mode switch is in C, beside the panel toggle. */
+export function WorkTitle({ copy }: { copy: WorkWords }) {
+  return <h1 className="truncate [font:var(--ak-t-headline)]">{copy.title}</h1>
+}
+
 /**
- * The page's name and its mode in one place (owner 2026-11-23: a "Work" title on the left and a
- * Work/Code switch on the right said the same thing twice). With a project open the name IS the
- * switch, "Work · Code", at the left of the band where a page's name sits; the mode is remembered
- * per project by the view's own project settings. With no project open there is nothing to
- * switch, so the band shows the plain name.
+ * Work · Code in the title bar's right cluster, just left of the panel toggle, as every screen with modes
+ * wears its switch (layout r1 C and the r2 `work-neutral` board; owner 2026-11-27 "I thought our mock up
+ * was to put it on the right side on the titlebar"). It supersedes the 11-23 name-is-the-switch layout.
+ * The mode is remembered per project by the view's own project settings. With no project open there is
+ * nothing to switch, so there is no switch.
  */
-export function WorkTitle({
+export function WorkModeSwitch({
   bridge,
   copy,
   ready
@@ -172,7 +177,7 @@ export function WorkTitle({
   const [snapshot, setSnapshot] = useWorkSurfaceMode(bridge, ready)
 
   if (!snapshot) {
-    return <h1 className="truncate [font:var(--ak-t-headline)]">{copy.title}</h1>
+    return null
   }
 
   const choose = (mode: 'work' | 'code') => {
@@ -187,22 +192,18 @@ export function WorkTitle({
   }
 
   return (
-    <>
-      {/* The page keeps its name for assistive tech; the switch is what the eye reads. */}
-      <h1 className="sr-only">{copy.title}</h1>
-      <div aria-label={copy.band.mode} className="ak-seg shrink-0 [-webkit-app-region:no-drag]" data-atum-work-mode-switch role="group">
-        {(['work', 'code'] as const).map(mode => (
-          <button
-            aria-pressed={snapshot.mode === mode}
-            className={snapshot.mode === mode ? 'is-selected' : undefined}
-            key={mode}
-            onClick={() => choose(mode)}
-            type="button"
-          >
-            {copy.band[mode]}
-          </button>
-        ))}
-      </div>
-    </>
+    <div aria-label={copy.band.mode} className="ak-seg shrink-0 [-webkit-app-region:no-drag]" data-atum-work-mode-switch role="group">
+      {(['work', 'code'] as const).map(mode => (
+        <button
+          aria-pressed={snapshot.mode === mode}
+          className={snapshot.mode === mode ? 'is-selected' : undefined}
+          key={mode}
+          onClick={() => choose(mode)}
+          type="button"
+        >
+          {copy.band[mode]}
+        </button>
+      ))}
+    </div>
   )
 }

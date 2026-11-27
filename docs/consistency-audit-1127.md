@@ -96,7 +96,62 @@ All under the Atum build flag (`VITE_ATUM_WORK_BUILD`), paired with this desktop
    Atum's ink, with the Atum theme set. Confirm in the installed app; if it reproduces, the palette's `accent` isn't
    reaching that button.
 
-## Desktop fixes in this branch
+## Part B: what this branch changes (desktop)
 
-See "Part B" in `docs/session-logs/2026-11-27-consistency-audit.md` for what changed, file by file, and its
-verification. Row 14 is deferred (above); rows 8–10 and 13 are atum-work's.
+Paths are under `apps/desktop/src/`.
+
+| Item | Change | Where |
+|---|---|---|
+| Row 1, owner item 3: logo and name | `AtumGlyph`, the bare mark in `currentColor` from `atum-mark.svg`'s geometry (ring + dot, no tile, no halo), and `AtumBrandLockup` (mark + "Atum", 15 px semibold). The title bar wears the lockup on every screen. **One optical change:** at title-bar size the dot melted into the ring and read as a loading spinner, so the ring stops short of the dot (a 7.4-unit gap in the mask). Everything else is the brand geometry. The dark tile `BrandMark` stays for avatars and the roster. | `components/brand-mark.tsx:43`, `:63`; `app/atum/shell-surface.tsx:104` |
+| Row 2, owner item 5: tooltip behind Work | `TipSide`, a default side for every `Tip` inside it; an explicit `side` still wins. The title bar's leading side opens tips to the right and its right cluster to the left; the workbench's tab strip opens left; ← → open outwards (Back left, Forward right). So no title-bar tip lands under a native view. | `components/ui/tooltip.tsx:151`; `app/atum/shell-surface.tsx:41`, `:53`; `app/atum/workspace-surface.tsx:237`; `matrix/nav-arrows.tsx:64` |
+| Row 3: Work · Code in C | `WorkTitle` is the plain name (B); `WorkModeSwitch` renders in the band's right cluster, before the panel toggle. It shows only while a project is open, as before. | `app/work/work-band.tsx:157`, `:168`; `app/work/work-screen.tsx:116` |
+| Row 4: Team Space's switch in C | The shell draws a mode slot (`data-atum-page-mode`) just left of the panel toggle; `CompanySpaceTabs` portals there when it exists and skips the centring measurements. Without a slot (stories, other shells) the old centred place remains. | `matrix/app.tsx:9155`; `matrix/company-space-tabs.tsx:71` |
+| Rows 5–7: one search field | `MatrixPanelSearch` + `MatrixPanelSearchRow` (Kit `ak-field--search`, 32 px, 8 px radius, quiet fill, 14 px text, 16 px magnifier, × and Escape clear it, on the panel's 8 px gutter). Chat, Store, Team Space and Drive use it. Measured after: all four are 32 px tall at x 60 with the same fill, radius and text size (`after/measure.json`). | `matrix/panel-search.tsx:24`, `:74`; `matrix/app.tsx:6835`; `matrix/store/store-sidebar.tsx:133`; `matrix/drive.tsx:276`; `matrix/company-workspace.tsx:3058` |
+| Row 11: toggle pressed while open | The open workbench's toggle carries `aria-pressed`, and `.atum-icon-btn[aria-pressed='true']` draws the pressed fill, the same on every screen. | `app/atum/workspace-surface.tsx:327`; `styles.css:2929` |
+| Row 12, owner item 1: Pause and Files | **Why they were missing:** the panel showed Pause only once the host listed at least one routine, and Files only when this chat had sent files or the cloud home listed some. A read that failed was swallowed. A cloud agent with no routine and no file yet, or a failed read, showed neither. **Now**, for a cloud Hermes agent the host serves (`runtime: 'hermes'` with the host desk route), both rows are always there and each does something real. Pause is the existing host agent-control route (native cron pause/resume, no new path): with routines it is the switch; with none it says "Nothing scheduled yet." and the switch waits; on a failed read it says "Couldn't check its schedule." with Try again. Files lists what was sent here and its computer's files: "No files yet.", or "Couldn't load its files." with Try again. An agent the host doesn't serve still shows neither, because neither could act. **Decision:** the brief's "the agent's Drive folder" has no counterpart in the product (Drive has no per-agent folder). The agent's own files live on its cloud computer, which the existing Files read already lists, so that is the Files entry. New copy in five locales. | `matrix/assistant-card/agent-controls.tsx:101`; `matrix/agent-desk.tsx:595`, `:763`, `:1053`; `shared/matrix-agent-desk-copy.ts` |
+| Owner item 2: picker blip | **Cause:** closing the picker cleared every pending pick and retired the in-flight write's result (`changeOpen(false)` bumped the selection counter, and `beginSelection().current()` required the card to be open). The chip fell back to the stored value (the old Nguyệt Thực) until the acknowledgement or the close-triggered re-read landed. **Fix:** the shared store owns a write in flight. `beginAgentPlansWrite(key, intent)` publishes it as `pending`, and every picker shows it (`agentPlansShownSelection`). A read that overlaps a write (begun before it, or settling while it is out) is dropped. The latest-started write wins, an acknowledgement settles it, and `failAgentPlansWrite` restores what the server last said. Closing the card no longer retires a pick: its result still settles the chip, and only the card's own error lines wait for the next open. | `matrix/agent-plans-store.ts:170`, `:218`, `:232`; `matrix/model-picker.tsx:398`, `:430`, `:1481`, `:1628` |
+| Playground | `?workMode=work\|code` stands in for the view's open-project report, so the title-bar switch can be captured. | `matrix/playground/work-fixtures.ts:116` |
+
+Not changed here: row 14 (deferred, above), and rows 8–10 and 13, which belong to atum-work. Until atum-work moves
+T3's pencil into a plus menu (row 9), the band keeps `WorkRosterControls`; removing it first would drop "New thread
+in a worktree" and "Add project" from one place without adding them to the other.
+
+atum-work item 5 (verify the accent) also covers, from the same capture: Work's dark surfaces drew near-black
+rather than the Atum dark panel shades. Both are worth one look in the installed app before changing the palette.
+
+The mobile export (`packages/mobile-design-exports/dist/copy-contract.json`) lists `matrix-agent-desk-copy.ts`.
+The five new keys reach atum-mobile at its next pin refresh; nothing in this repo checks it.
+
+## Verification (2026-11-27, Asia/Ho_Chi_Minh)
+
+Run in `apps/desktop`, exit codes read directly (no pipes):
+
+| check | command | result |
+|---|---|---|
+| typecheck | `npm run typecheck` | rc 0 |
+| lint | `npx eslint <every changed .ts/.tsx>` | rc 0, 0 errors (the warnings are on lines this branch didn't write) |
+| affected suites | `npx vitest run src/matrix/app.test.tsx src/matrix/drive.test.tsx src/matrix/store src/matrix/company-workspace.test.tsx src/matrix/agent-desk.test.tsx src/matrix/assistant-card src/matrix/assistant-info-panel src/matrix/model-picker src/matrix/agent-plans-store.test.ts src/matrix/team-space src/app/work src/app/atum src/components src/matrix/company-ai-ui.test.tsx src/matrix/company-marketplace.test.tsx src/matrix/playground src/matrix/start-chat src/matrix/workbench` | rc 0, 3825 passed, 1 skipped |
+| public guard | `python3 scripts/public_guard.py --base origin/main --head HEAD` (repo root) | see the commit |
+
+New behaviour tests, each confirmed to fail on the code before the fix:
+- `matrix/model-picker.test.tsx`: "never paints the previous model when the picker closes while a plan pick is in
+  flight and the close-read answers first" (acknowledged and refused; the close-read is a deferred promise
+  released before the write settles); "keeps naming an in-flight local pick after the card closes"; "goes back to
+  the running model when an in-flight local pick fails after the card closed".
+- `matrix/agent-plans-store.test.ts`: the write-in-flight block (pending shown, overlapping read dropped, a read begun
+  before the write dropped even after the acknowledgement, failure restores, a clear in flight names no plan).
+- `matrix/assistant-card/agent-controls.test.tsx`: Pause and Files stay for a hosted cloud agent (empty, failed with
+  Try again, then real), and neither shows for an agent the host doesn't serve.
+- `app/atum/titlebar-consistency.test.tsx`: the lockup (bare mark + "Atum", no tile), tips sideways in the band
+  with an explicit side winning, and the panel search (Kit recipe, Escape and × clear it).
+- `matrix/company-ai-ui.test.tsx`: Team Space's tabs sit in the mode slot before the panel toggle.
+- `app/work/work-screen.test.tsx`: the Work name stays in B; Work · Code sits in the band's right cluster.
+
+Updated tests: `model-picker.test.tsx` ("retires an in-flight local pick when the card closes" encoded the blip and
+now asserts the opposite); `roster-panel.test.tsx` (the title bar's own "Atum" is not a row's);
+`design-contract.test.ts` (Drive's search is `MatrixPanelSearch`).
+
+Screenshots: `~/.atum/operations/evidence/consistency-audit-1127/before/` and `after/`. Each has chat,
+agent-panel (plus `agent-panel-end`, a hosted agent with Pause and Files), team-space, store, drive, settings,
+work and work-standalone, in light and dark, with `measure.json`. `after/titlebar-mark-*.png` is the title bar at
+2x. Reproduce with `scripts/shoot.mjs` (playground on 5174 and a local Work 0.1.19 on 3811, as described above).

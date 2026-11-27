@@ -414,8 +414,9 @@ describe('Atum Store and Drive — R13 destination contracts', () => {
   it('keeps Drive title-bar status concise and moves file actions behind kit controls', () => {
     expect(drive).toContain('data-matrix-drive-titlebar')
     expect(drive).toContain('className="ak-seg ak-seg--sm"')
-    // Drive's search sits in its left panel (layout r2 D), a kit search field.
-    expect(drive).toContain('ak-field ak-field--search')
+    // Drive's search sits in its left panel (layout r2 D), the one search field every screen wears
+    // (matrix/panel-search.tsx; its look is asserted on the rendered field in titlebar-consistency.test.tsx).
+    expect(drive).toContain('<MatrixPanelSearch')
     expect(drive).toContain('<DropdownMenuItem disabled={busy} onSelect={() => void run(() => bridge.reveal())}>')
     expect(drive).not.toContain('data-matrix-drive-refresh')
   })

@@ -144,7 +144,7 @@ describe('WorkScreen: the owner view', () => {
 })
 
 describe('WorkScreen: the title band (spec §1.4, §8.2)', () => {
-  it('titles the page with the Work · Code switch, switches the open project, and puts the switch back when the view refuses', async () => {
+  it('keeps the page name in B and puts Work · Code in C before the panel toggle, switches the open project, and puts the switch back when the view refuses', async () => {
     const work = bridge()
     let report: ((snapshot: { projectId: string; mode: 'work' | 'code' } | null) => void) | undefined
 
@@ -158,8 +158,14 @@ describe('WorkScreen: the title band (spec §1.4, §8.2)', () => {
 
     const code = await screen.findByRole('button', { name: 'Code' })
 
-    // One place for the name and the mode: the switch is the band's visible title.
-    expect(screen.getByRole('heading', { name: 'Work' }).className).toContain('sr-only')
+    // Layout r1 B and C (owner 2026-11-27): the name stays visible at the left, the switch sits in the
+    // band's right cluster, where every screen with modes wears its switch.
+    const heading = screen.getByRole('heading', { name: 'Work' })
+    expect(heading.className).not.toContain('sr-only')
+    const header = heading.closest('[data-atum-main-header]')!
+    const right = header.lastElementChild!
+    expect(right.contains(screen.getByRole('group', { name: 'Mode' }))).toBe(true)
+    expect(heading.compareDocumentPosition(screen.getByRole('group', { name: 'Mode' })) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Work' }).getAttribute('aria-pressed')).toBe('true')
     fireEvent.click(code)
     expect(work.setSurfaceMode).toHaveBeenCalledWith('p1', 'code')
