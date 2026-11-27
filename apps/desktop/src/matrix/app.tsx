@@ -133,7 +133,6 @@ import {
   type MatrixCompanyPresentationBinding
 } from '../../shared/matrix-company-presentation'
 import { isCompanyPrivateCosClaim } from '../../shared/matrix-company-private-cos'
-import type { MatrixCompanyMessageSearchResult } from '../../shared/matrix-company-search'
 import { matrixMessageBackupAvailable, matrixMessageDecryptionReason } from '../../shared/matrix-decryption-reason'
 import { matrixDisplayMode } from '../../shared/matrix-display-preferences'
 import { type MatrixDraftTarget, matrixDraftText } from '../../shared/matrix-drafts'
@@ -145,6 +144,7 @@ import {
 } from '../../shared/matrix-notes-self'
 import type { MatrixPageId } from '../../shared/matrix-pages'
 import type { MatrixProfileTarget } from '../../shared/matrix-profile'
+import type { MatrixRosterSearchScope } from '../../shared/matrix-roster-search'
 import type { MatrixSavedMessagesSnapshot } from '../../shared/matrix-saved-messages'
 import { isMatrixVerificationPending } from '../../shared/matrix-security'
 import { matrixFoldSubscriptionFallbacks, matrixLatestAnswerFallback } from '../../shared/matrix-subscription-fallback'
@@ -428,9 +428,7 @@ import { directRoomWith } from './people'
 import { useMatrixHandleContacts } from './person-handle-contacts'
 import { PersonHandleLine } from './person-handle-line'
 import {
-  bindMatrixHandleOwner,
   bindMatrixHandleOwnerFromSnapshot,
-  rememberMatrixHandle,
   useMatrixChatPeople,
   useMatrixHandles,
   useMatrixPeople
@@ -473,8 +471,8 @@ import { MatrixRosterConversations } from './roster-conversations'
 import { useRosterCopy } from './roster-copy'
 import { matrixCanCreateAssistant, MatrixRosterCreate, type MatrixRosterCreation } from './roster-create'
 import { useRosterCreateCopy } from './roster-create-copy'
-import { matrixRosterGlobalSearchPending, useMatrixRosterGlobalSearch } from './roster-global-search'
-import { matrixPrimaryAgentName, matrixRosterAgentName, normalizeMatrixRosterQuery, projectMatrixRoster } from './roster-model'
+import { type MatrixRosterHit, MatrixRosterMessageResults, useRosterSearchCopy } from './roster-message-results'
+import { matrixPrimaryAgentName, matrixRosterAgentName, projectMatrixRoster } from './roster-model'
 import { matrixAgentConversationRoom } from './roster-preview'
 import { $matrixDeviceToShow, VerificationPrompt } from './security-panel'
 import { MatrixSendState } from './send-state'
@@ -557,6 +555,7 @@ import { MatrixTurnHandoffActions } from './turn-handoff'
 import { MatrixAgentWorking } from './typing-indicator'
 import { MatrixUndecryptableMessage } from './undecryptable-message'
 import { useMatrixCloudStop } from './use-cloud-stop'
+import { useRosterSearch } from './use-roster-search'
 import { useShellShortcuts } from './use-shell-shortcuts'
 import { useVideoConsentAsk } from './video-consent-ask'
 import { VideoConsentCard } from './video-consent-card'
@@ -4811,7 +4810,7 @@ function MatrixThreadDetail({
                   ) : undefined
                 }
                 revealMessageId={
-                  historyReveal?.owner === 'company' &&
+                  (historyReveal?.owner === 'company' || historyReveal?.owner === 'roster') &&
                   historyReveal.roomId === room.id &&
                   historyReveal.threadRootId === rootId &&
                   historyReveal.accountKey === accountKey
@@ -5224,6 +5223,7 @@ function Conversation({
   const selectedRoomId = room?.id
   const historyReveal = useStore($matrixHistoryReveal)
   const forwarding = useMatrixForwarding(snapshot)
+  const rosterSearchCopy = useRosterSearchCopy()
   const accountKey = snapshot.identity ? `${snapshot.identity.userId}:${snapshot.identity.deviceId}` : 'signed-out'
   const historyMessagesRef = useRef(snapshot.messages)
   const historyThreadsRef = useRef(snapshot.threads ?? [])
@@ -5254,11 +5254,11 @@ function Conversation({
   // renderer window. Room scrollback feeds both the channel and thread projections, so one
   // bounded path can reveal either without a second transcript.
   useEffect(() => {
-    if (historyReveal?.owner !== 'company' && historyReveal?.owner !== 'pinned') {
+    if (!historyReveal?.owner) {
       return
     }
 
-    if (historyReveal.owner === 'company' && historyReveal.accountKey !== accountKey) {
+    if (historyReveal.owner !== 'pinned' && historyReveal.accountKey !== accountKey) {
       clearExactMatrixHistoryReveal(historyReveal)
 
       return
@@ -5283,8 +5283,8 @@ function Conversation({
 
       clearExactMatrixHistoryReveal(historyReveal)
 
-      if (failed) {failRef.current(new Error(historyReveal.owner === 'company'
-        ? 'matrix_company_search_result_unavailable' : 'matrix_pinned_message_unavailable'))}
+      if (failed) {failRef.current(new Error(historyReveal.owner === 'pinned'
+        ? 'matrix_pinned_message_unavailable' : 'matrix_company_search_result_unavailable'))}
     }
 
     const reveal = () => {
@@ -5320,6 +5320,17 @@ function Conversation({
     }
 
     if (projected()) {
+      reveal()
+
+      return () => {
+        cancelled = true
+        cancelAnimationFrame(jumpFrame)
+      }
+    }
+
+    if (historyReveal.owner === 'roster') {
+      // Selection has already populated the SDK context. Give the renderer its normal
+      // projection/jump window without starting a second, text-independent history walk.
       reveal()
 
       return () => {
@@ -5856,6 +5867,12 @@ function Conversation({
             }}
           >
             <div className="relative min-h-0 flex-1" data-matrix-channel-transcript ref={followTranscriptEnd}>
+              {snapshot.historyFocused && (
+                <Button className="absolute top-2 right-4 z-10" onClick={() => void runMatrixCommand({ kind: 'select', roomId: room.id }).catch(fail)}
+                  size="sm" variant="outline">
+                  {rosterSearchCopy.latest}
+                </Button>
+              )}
               {greetingSend && (
                 <FirstRunGreetingSender
                   roomId={greetingSend}
@@ -6533,6 +6550,7 @@ function MatrixRoster({
   onEditAgent,
   onNavigate,
   onOpenSettings,
+  onSearchThread,
   onToggle,
   newMessageRef,
   openRef,
@@ -6557,6 +6575,7 @@ function MatrixRoster({
   onNavigate(): void
   /** The foot's gear (layout r2 E: Chat = Add friends + ⚙). */
   onOpenSettings?(): void
+  onSearchThread(roomId: string, threadRootId: string): void
   onToggle: () => void
   /** The roster's own way to open (or start) an assistant's chat, for ⌘N and the palette. */
   openRef?: MutableRefObject<((fresh?: boolean, agentId?: string, roomId?: string) => Promise<void>) | null>
@@ -6571,6 +6590,8 @@ function MatrixRoster({
   // MatrixAccountView is keyed by identity: presentation state never survives
   // sign-out or an account switch, and typing never writes Matrix navigation.
   const [query, setQuery] = useState('')
+  const [searchScope, setSearchScope] = useState<MatrixRosterSearchScope>('plain')
+  const searchCopy = useRosterSearchCopy()
 
   const knownHandles = useMatrixHandles(snapshot.identity?.userId)
   const [creating, setCreating] = useState<MatrixRosterCreation | null>(null)
@@ -6586,68 +6607,20 @@ function MatrixRoster({
   const localSetupRequired = snapshot.agentRoster?.state === 'ready' &&
     (!primaryAgent || matrixAgentNeedsLocalSetup(primaryAgent, cloudOnly))
 
-  const globalCompanyIds = useMemo(() => [...new Set(snapshot.rooms.flatMap(value => {
-    const companyId = value.companyChannel?.companyId ?? value.companyConversation?.companyId
+  const { activeSearch, companyNames, coverage, files, globalPeople, globalSearching, hits, matchingChats,
+    resetSearch, searchableRooms, visibleHit } = useRosterSearch(snapshot, query, searchScope)
 
-    return companyId ? [companyId] : []
-  }))], [snapshot.rooms])
+  const changeSearchScope = (scope: MatrixRosterSearchScope) => {
+    if (scope === searchScope) {return}
 
-  const globalSearchState = useMatrixRosterGlobalSearch({
-    people: window.atumMatrix.people,
-    companies: window.atumMatrix.companies
-  }, { query, ready: snapshot.state === 'ready', companyIds: globalCompanyIds })
-
-  const currentGlobalSearch = globalSearchState.query === query.trim()
-
-  useEffect(() => {
-    const owner = snapshot.identity?.userId
-
-    if (!owner) {
-      return
-    }
-
-    bindMatrixHandleOwner(owner)
-
-    if (currentGlobalSearch) {
-      for (const person of globalSearchState.people.results) {
-        if (person.handle) {
-          rememberMatrixHandle(person.userId, person.handle)
-        }
-      }
-    }
-  }, [currentGlobalSearch, globalSearchState.people.results, snapshot.identity?.userId])
-
-  const globalPeople = useMemo(() => {
-    if (!currentGlobalSearch) {
-      return []
-    }
-
-    const excluded = new Set([
-      snapshot.identity?.userId,
-      ...(snapshot.agents ?? []).map(agent => agent.userId)
-    ].filter((id): id is string => Boolean(id)))
-
-    return globalSearchState.people.results.filter(person =>
-      !excluded.has(person.userId) && !directRoomWith(snapshot, person.userId))
-  }, [currentGlobalSearch, globalSearchState.people.results, snapshot])
-
-  const globalEvents = currentGlobalSearch ? {
-    messages: globalSearchState.messages.results,
-    files: globalSearchState.files.results
-  } : { messages: [], files: [] }
-
-  const globalSearching = [...query.trim()].length >= 2 &&
-    (!currentGlobalSearch || matrixRosterGlobalSearchPending(globalSearchState))
-
-  const globalChannels = useMemo(() => {
-    const text = normalizeMatrixRosterQuery(query)
-
-    return text ? snapshot.rooms.filter(value => isTeamSpaceRoom(value) && !isCompanyPrivateCosClaim(value) &&
-      normalizeMatrixRosterQuery(value.name).includes(text)) : []
-  }, [query, snapshot.rooms])
-
-  const externalSearchResultCount =
-    globalPeople.length + globalChannels.length + globalEvents.messages.length + globalEvents.files.length
+    resetSearch(scope)
+    setSearchScope(scope)
+    setQuery('')
+  }
+  const clearQuery = () => {
+    resetSearch(searchScope)
+    setQuery('')
+  }
 
   const eligibleRooms = snapshot.rooms.filter(room =>
     isAssistantRoom(room, snapshot.identity?.userId, snapshot.assistant?.userId)
@@ -6690,21 +6663,35 @@ function MatrixRoster({
     closeDrawer()
   }
 
-  const openGlobalEvent = async (result: MatrixCompanyMessageSearchResult & { companyId: string }) => {
-    const opened = await window.atumMatrix.companies?.open?.({
-      companyId: result.companyId,
-      channelId: result.channelId,
-      roomId: result.roomId,
-      eventId: result.eventId,
-      ...(result.threadRootId ? { threadRootId: result.threadRootId } : {})
-    })
+  const openGlobalEvent = async (result: MatrixRosterHit) => {
+    const room = searchableRooms.get(result.roomId)
 
-    if (!opened?.ok) {
-      throw new Error('matrix_company_search_unavailable')
+    if (!room || !visibleHit(result) || !snapshot.identity) {
+      throw new Error('matrix_roster_search_result_unavailable')
     }
 
-    revealMatrixHistoryMessage(result.roomId, result.eventId, 'company', result.threadRootId)
-    await runMatrixCommand({ kind: 'select', roomId: result.roomId })
+    if ('companyId' in result) {
+      const opened = await window.atumMatrix.companies?.open?.({
+        companyId: result.companyId, channelId: result.channelId, roomId: result.roomId, eventId: result.eventId,
+        ...(result.threadRootId ? { threadRootId: result.threadRootId } : {})
+      })
+
+      if (!opened?.ok) {throw new Error('matrix_company_search_unavailable')}
+    }
+
+    const threadRootId = isTeamSpaceRoom(room) ? result.threadRootId : undefined
+    const isFile = 'file' in result && result.file
+
+    if (!isFile) {
+      await runMatrixCommand({ kind: 'selectSearchEvent', scope: searchScope,
+        roomId: result.roomId, eventId: result.eventId, threadRootId: result.threadRootId })
+    }
+
+    if (threadRootId) {onSearchThread(result.roomId, threadRootId)}
+
+    revealMatrixHistoryMessage(result.roomId, result.eventId, isFile ? 'company' : 'roster',
+      threadRootId, teamSpaceAccountKey(snapshot.identity))
+    clearQuery()
     onNavigate()
     closeDrawer()
   }
@@ -6882,7 +6869,7 @@ function MatrixRoster({
         <MatrixPanelSearch
           label={t.atum.roster.search}
           onValueChange={setQuery}
-          placeholder={t.atum.roster.searchPlaceholder}
+          placeholder={searchScope === 'device' ? searchCopy.privatePlaceholder : t.atum.roster.searchPlaceholder}
           value={query}
         />
         <MatrixStartChatButton
@@ -6891,6 +6878,15 @@ function MatrixRoster({
           onCreate={kind => setCreating({ kind })}
         />
       </MatrixPanelSearchRow>
+      <div aria-label={t.atum.roster.search} className="flex gap-1 px-3 pb-1.5" role="group">
+        {(['plain', 'device'] as const).map(scope => (
+          <button aria-pressed={scope === searchScope}
+            className="rounded-full px-2 py-0.5 text-xs text-(--atum-ink-muted) aria-pressed:bg-(--atum-fill-soft) aria-pressed:text-(--atum-ink)"
+            key={scope} onClick={() => changeSearchScope(scope)} type="button">
+            {searchCopy[scope]}
+          </button>
+        ))}
+      </div>
       <MatrixRosterCreate
         creating={creating}
         onConversationCreated={onConversationCreated}
@@ -6910,9 +6906,11 @@ function MatrixRoster({
         snapshot={snapshot}
       />
       <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-3">
-        {query.trim().length >= 2 && (
+        {(activeSearch || searchScope === 'device') && (
           <div className="grid gap-1 pb-2" data-matrix-global-search-results>
             {globalSearching && <p className="px-2 py-1 text-xs text-(--atum-ink-muted)" role="status">{t.atum.roster.searching}</p>}
+            <MatrixRosterMessageResults companyNames={companyNames} hits={hits}
+              onOpen={hit => void openGlobalEvent(hit).catch(fail)} query={query.trim()} rooms={searchableRooms} scope={searchScope} />
             {globalPeople.length > 0 && <section aria-label={t.atum.roster.people}>
               <h3 className="ak-section px-2 pt-2">{t.atum.roster.people}</h3>
               {globalPeople.map(person => <button aria-label={person.name}
@@ -6925,38 +6923,43 @@ function MatrixRoster({
                 </span>
               </button>)}
             </section>}
-            {globalChannels.length > 0 && <section aria-label={t.atum.roster.channels}>
+            {matchingChats.length > 0 && <section aria-label={t.atum.roster.channels}>
               <h3 className="ak-section px-2 pt-2">{t.atum.roster.channels}</h3>
-              {globalChannels.map(channel => <button className="atum-row flex min-h-10 w-full items-center gap-2.5 px-2 text-left"
+              {matchingChats.map(channel => <button className="atum-row flex min-h-10 w-full items-center gap-2.5 px-2 text-left"
                 key={channel.id} onClick={() => { void runMatrixCommand({ kind: 'select', roomId: channel.id }).then(() => {onNavigate(); closeDrawer()}, fail) }} type="button">
-                <Hash className="size-4 text-(--atum-ink-muted)" /><span className="truncate text-(--atum-ink)">{channel.name}</span>
+                <AtumAssistantAvatar className="size-5 rounded-full text-[9px]" id={channel.id} name={channel.name} />
+                <span className="truncate text-(--atum-ink)">{channel.title || channel.name}</span>
               </button>)}
             </section>}
-            {(['messages', 'files'] as const).map(kind => globalEvents[kind].length > 0 ? <section aria-label={t.atum.roster[kind]} key={kind}>
-              <h3 className="ak-section px-2 pt-2">{t.atum.roster[kind]}</h3>
-              {globalEvents[kind].map(result => <button className="atum-row flex min-h-11 w-full items-start gap-2.5 px-2 py-1.5 text-left"
-                key={`${kind}:${result.eventId}`} onClick={() => void openGlobalEvent(result).catch(fail)} type="button">
-                {kind === 'files' ? <Files className="mt-0.5 size-4 text-(--atum-ink-muted)" /> : <Messages className="mt-0.5 size-4 text-(--atum-ink-muted)" />}
+            {files.length > 0 && <section aria-label={t.atum.roster.files}>
+              <h3 className="ak-section px-2 pt-2">{t.atum.roster.files}</h3>
+              {files.map(result => <button className="atum-row flex min-h-11 w-full items-start gap-2.5 px-2 py-1.5 text-left"
+                key={result.eventId} onClick={() => void openGlobalEvent(result).catch(fail)} type="button">
+                <Files className="mt-0.5 size-4 text-(--atum-ink-muted)" />
                 <span className="min-w-0"><span className="block truncate text-xs text-(--atum-ink-muted)">{result.channelName}</span>
                   <span className="line-clamp-2 block text-sm text-(--atum-ink)">{result.file?.name ?? result.snippet}</span></span>
               </button>)}
-            </section> : null)}
+            </section>}
+            {searchScope === 'device' && activeSearch && !globalSearching && !hits.length && (
+              <EmptyState className="min-h-32 px-3 text-(--atum-ink)" description={t.atum.roster.emptySearchHint}
+                title={t.atum.roster.emptySearch} />
+            )}
           </div>
         )}
-        {localSetupRequired &&
+        {!activeSearch && localSetupRequired &&
           (!snapshot.assistant ||
             snapshot.assistantSetup === 'failed' ||
             snapshot.assistantSetup === 'action_required') &&
           snapshot.domainEnabled &&
           snapshot.state === 'ready' && <AssistantSetupCard state={snapshot.assistantSetup} />}
-        <MatrixRosterConversations
+        {(searchScope === 'plain' || !activeSearch) && <MatrixRosterConversations
           // New assistant is the last row of the Assistants (owner, 2026-11-27).
           agentActions={matrixCanCreateAssistant(snapshot) ? (
             <NewAssistantButton disabled={snapshot.state !== 'ready'} onClick={() => setCreating({ kind: 'assistant' })} />
           ) : undefined}
           assistantOpening={Boolean(assistantOpening)}
           cloudOnly={cloudOnly}
-          externalResultCount={externalSearchResultCount}
+          externalResultCount={hits.length + files.length + globalPeople.length + matchingChats.length}
           externalSearching={globalSearching}
           fail={fail}
           onAppInfo={onAppInfo}
@@ -6973,9 +6976,12 @@ function MatrixRoster({
           openAgentChat={agent => openAssistant(false, agent.userId)}
           openAssistant={(fresh, roomId) => openAssistant(fresh, undefined, roomId)}
           openingApp={openingApp}
-          query={query}
+          query={searchScope === 'plain' ? query : ''}
           snapshot={snapshot}
-        />
+        />}
+        {activeSearch && !globalSearching && <p aria-live="polite" className="px-2 py-1 text-xs text-(--atum-ink-muted)">
+          {coverage.filter(Boolean).join(' · ')}
+        </p>}
       </div>
       {/* The left panel's foot (layout r2 E, owner 2026-11-24): Add friends, then the gear. */}
       <div className="atum-panel-foot" data-atum-roster-foot>
@@ -8785,6 +8791,7 @@ function MatrixAccountView({
         setDriveActive(false)
       }}
       onOpenSettings={() => setSettingsOpen(true)}
+      onSearchThread={(roomId, rootId) => setThreadView({ roomId, rootId, filter: 'recent' })}
       onToggle={toggle}
       openRef={rosterOpen}
       snapshot={snapshot}

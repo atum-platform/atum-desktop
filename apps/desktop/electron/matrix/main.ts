@@ -235,6 +235,7 @@ import type {
   MatrixProviderOAuthSession,
   MatrixProviderWriteResult
 } from '../../shared/matrix-provider-settings'
+import { type MatrixRosterMessagePage, matrixRosterSearchRooms } from '../../shared/matrix-roster-search'
 import { matrixRuntimeConfirmationCopy } from '../../shared/matrix-runtime-copy'
 import type {
   MatrixOwnDevices,
@@ -25170,6 +25171,33 @@ async function start() {
 
         const input = parseMatrixCommand(request.command)
 
+        if (input.kind === 'rosterMessageSearch') {
+          const owner = hosts.get('human')
+          const scopedRooms = () => new Set(matrixRosterSearchRooms(companyProjection(state).rooms)
+            .filter(room => input.scope === 'device' ? room.encrypted :
+              !room.encrypted && !room.companyChannel && !room.companyConversation)
+            .map(room => room.id))
+          const allowed = scopedRooms()
+
+          if (!owner || state.state !== 'ready') {throw new Error('matrix_roster_search_unavailable')}
+
+          const page = await owner.queue.command({ ...input, roomIds: input.roomIds.filter(id => allowed.has(id)) }) as MatrixRosterMessagePage
+
+          if (hosts.get('human') !== owner || state.state !== 'ready' || anyOperation() || closing) {
+            throw new Error('matrix_roster_search_unavailable')
+          }
+
+          const current = scopedRooms()
+
+          return { ...page, results: page.results.filter(hit => current.has(hit.roomId)) }
+        }
+
+        if (input.kind === 'selectSearchEvent' &&
+          !matrixRosterSearchRooms(companyProjection(state).rooms).some(room => room.id === input.roomId &&
+            room.encrypted === (input.scope === 'device'))) {
+          throw new Error('matrix_roster_search_unavailable')
+        }
+
         if (input.kind === 'setModel') {
           const agent = requireRoomAgent(input.roomId)
           const cloudPrincipalId = cloudPrincipal(agent)
@@ -25237,7 +25265,7 @@ async function start() {
           input.kind === 'selectApp' ||
           input.kind === 'discoverApps' ||
           input.kind === 'notesSelfOpen' ||
-          (input.kind === 'select' && input.roomId !== state.roomId) ||
+          ((input.kind === 'select' || input.kind === 'selectSearchEvent') && input.roomId !== state.roomId) ||
           ((input.kind === 'leave' || input.kind === 'forget') && input.roomId === state.roomId)
         ) {
           documents.closePreviews()

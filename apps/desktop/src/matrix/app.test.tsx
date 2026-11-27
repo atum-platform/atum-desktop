@@ -5953,6 +5953,104 @@ describe('isolated Matrix composition', () => {
     })
   })
 
+  it('groups one plain query across assistant, people and company chats and hides a room after leave', async () => {
+    const assistantId = '!assistant:example.test'
+    const groupId = '!group:example.test'
+    const companyRoomId = '!company:example.test'
+    const channelId = '00000000-0000-4000-8000-676a3a34ff0f'
+    const state: MatrixSnapshot = {
+      ...signedOut,
+      state: 'ready',
+      identity: { userId: '@owner:example.test', deviceId: 'DEVICE' },
+      rooms: [
+        { ...assistantFields, id: assistantId, name: 'Assistant chat', encrypted: false, membership: 'join' },
+        { id: groupId, name: 'People group', encrypted: false, membership: 'join' },
+        { id: companyRoomId, name: 'Company channel', encrypted: false, membership: 'join',
+          roomType: MATRIX_COMPANY_CHANNEL_TYPE, companyChannel: { companyId: 'company-a', channelId } }
+      ]
+    }
+    const hit = (roomId: string, eventId: string) => ({
+      roomId, eventId, sender: '@sender:example.test', snippet: 'invoice 1042', at: 100
+    })
+    const command = vi.fn<MatrixUiBridge['command']>(async input => input.kind === 'rosterMessageSearch' ? {
+      coverage: { eligibleRooms: input.roomIds.length, searchedRooms: input.roomIds.length, truncated: false },
+      results: [hit(assistantId, '$assistant'), hit(groupId, '$group')]
+    } : null)
+    const companies = {
+      ...companyWorkspaceWithChannel(companyRoomId),
+      search: vi.fn<NonNullable<MatrixCompanyBridge['search']>>(async input => ({
+        ok: true,
+        value: {
+          schemaVersion: 1, companyId: input.companyId, query: input.query,
+          coverage: { eligibleRooms: 1, searchedRooms: 1, truncated: false },
+          results: input.tab === 'files' ? [] : [
+            { ...hit(companyRoomId, '$company'), channelId, channelName: 'Company channel' }
+          ]
+        }
+      }))
+    }
+    const { emit } = fixture(async () => state, 'en', undefined, command, undefined, companies)
+    const query = await screen.findByRole('textbox', { name: 'Search everything' })
+    const roster = within(query.closest<HTMLElement>('[data-atum-roster]')!)
+
+    fireEvent.change(query, { target: { value: 'invoice' } })
+
+    for (const name of ['Assistant chat', 'People group', 'Company channel']) {
+      const section = await roster.findByRole('region', { name })
+      expect(within(section).getByRole('button', { name: /invoice 1042/ })).toBeTruthy()
+    }
+
+    expect(await roster.findByText('Searched 3 chats')).toBeTruthy()
+    expect(within(roster.getByRole('region', { name: 'Company channel' })).getByText('Alpha')).toBeTruthy()
+    emit({ ...state, rooms: state.rooms.filter(room => room.id !== groupId) })
+    expect(roster.queryByRole('region', { name: 'People group' })).toBeNull()
+  })
+
+  it('routes a private roster query only to loaded history, then rings the exact selected message', async () => {
+    const roomId = '!private:example.test'
+    const eventId = '$device-match'
+    const term = 'device-only-canary'
+    const state: MatrixSnapshot = {
+      ...signedOut,
+      state: 'ready',
+      identity: { userId: '@owner:example.test', deviceId: 'DEVICE' },
+      roomId,
+      rooms: [{ id: roomId, name: 'Private group', encrypted: true, membership: 'join' }],
+      messages: ['$duplicate', eventId].map(id => ({ ...controlsState.messages[0]!, id, body: term }))
+    }
+    const peopleSearch = vi.fn()
+    const companySearch = vi.fn()
+    const command = vi.fn<MatrixUiBridge['command']>(async input => input.kind === 'rosterMessageSearch' ? {
+      coverage: { eligibleRooms: 1, searchedRooms: 1, loadedMessages: 2, truncated: false, source: 'loaded_history' },
+      results: [{ roomId, eventId, sender: '@sender:example.test', snippet: term, at: 100 }]
+    } : null)
+    const { view } = fixture(async () => state, 'en', undefined, command, undefined,
+      { ...companyWorkspaceWithChannel(roomId), search: companySearch }, undefined,
+      { people: { search: peopleSearch, privacy: vi.fn(), setPrivacy: vi.fn() } })
+
+    const query = (await screen.findByRole('textbox', { name: 'Search everything' })) as HTMLInputElement
+    const roster = within(query.closest<HTMLElement>('[data-atum-roster]')!)
+
+    fireEvent.change(query, { target: { value: 'scheduled plain' } })
+    fireEvent.click(roster.getByRole('button', { name: 'Private · This device' }))
+    expect(query.value).toBe('')
+    fireEvent.change(query, { target: { value: term } })
+
+    const hit = await roster.findByRole('button', { name: new RegExp(term) })
+
+    expect(hit.querySelector('mark')?.textContent).toBe(term)
+    expect(roster.getByText(/Loaded history only.*2 messages in 1 of 1 private chats/)).toBeTruthy()
+    expect(command).toHaveBeenCalledWith({ kind: 'rosterMessageSearch', scope: 'device', roomIds: [roomId], query: term })
+    expect(peopleSearch).not.toHaveBeenCalled()
+    expect(companySearch).not.toHaveBeenCalled()
+
+    fireEvent.click(hit)
+    await waitFor(() => {
+      expect(view.container.querySelector(`[data-matrix-message-id="${eventId}"]`)?.hasAttribute('data-matrix-highlight')).toBe(true)
+    })
+    expect(view.container.querySelector('[data-matrix-message-id="$duplicate"]')?.hasAttribute('data-matrix-highlight')).toBe(false)
+  })
+
   it('uses a global handle result to find and identify that person’s existing chat', async () => {
     const personId = '@user-opaque:test'
 

@@ -103,6 +103,7 @@ import type { MatrixPresenceSnapshot, MatrixStatusInput } from './matrix-presenc
 import type { MatrixProfileMetadata, MatrixProfilesBridge, MatrixProfileSdkCommand } from './matrix-profile'
 import type { MatrixProgressMarker, MatrixProgressPresentation, MatrixScheduleIdentity } from './matrix-progress-marker'
 import type { MatrixRoomSharedSection } from './matrix-room-shared'
+import type { MatrixRosterSearchCommand } from './matrix-roster-search'
 import type { MatrixSavedMessagesSnapshot } from './matrix-saved-messages'
 import type { MatrixNativeSecurityCommand, MatrixSecurity, MatrixSecurityCommand } from './matrix-security'
 import type { MatrixShelfModelId, MatrixShelfModelView } from './matrix-shelf-models'
@@ -695,6 +696,9 @@ export interface MatrixSnapshot {
   historyStart?: true
   members?: MatrixMember[]
   ignoredUsers?: string[]
+  /** Invalidates device-only search when decrypted history changes. */
+  rosterPrivateHistoryRevision?: number
+  historyFocused?: true
   canSend?: boolean
   error: string | null
   /** With no account signed in: which ways in the sign-in server takes, asked in the
@@ -1543,6 +1547,7 @@ export interface MatrixEnrollment {
 
 export type MatrixCommand =
   | MatrixSecurityCommand
+  | MatrixRosterSearchCommand
   | {
       kind: 'agentConversation'
       identity: MatrixIdentity

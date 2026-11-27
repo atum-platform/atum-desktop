@@ -24,7 +24,7 @@ function peopleBridge(): MatrixPeopleSearchBridge {
 }
 
 function Roster({ people, query }: { people: MatrixPeopleSearchBridge; query: string }) {
-  const state = useMatrixRosterGlobalSearch({ people }, { query, ready: true, companyIds: NO_COMPANIES }, 0)
+  const { state } = useMatrixRosterGlobalSearch({ people }, { query, ready: true, companyIds: NO_COMPANIES }, 0)
   const searching = state.query !== query.trim() || matrixRosterGlobalSearchPending(state)
 
   return (
@@ -62,11 +62,50 @@ describe('roster global search lifecycle', () => {
     search.update({ query: 'li', ready: true, companyIds: NO_COMPANIES })
     search.dispose()
     await new Promise(resolve => setTimeout(resolve, 5))
-    expect(search.$state.get().people.status).toBe('pending')
+    expect(search.$state.get().people.status).toBe('idle')
 
     search.resume()
     search.update({ query: 'li', ready: true, companyIds: NO_COMPANIES })
     await vi.waitFor(() => expect(search.$state.get().people.status).toBe('complete'))
     expect(search.$state.get().people.results.map(person => person.name)).toEqual(['Linh'])
+  })
+
+  it('cancels scheduled plain sources and never sends a device-only term to any remote source', async () => {
+    const people = peopleBridge()
+    const companies = { search: vi.fn() }
+
+    const messages = vi.fn(async () => ({
+      results: [], coverage: { eligibleRooms: 1, searchedRooms: 1, truncated: false }
+    }))
+
+    const controller = createMatrixRosterGlobalSearch({ people, companies, messages }, 10)
+    const input = { ready: true, companyIds: ['company'], roomIds: ['!chat:example.test'] }
+
+    controller.update({ ...input, scope: 'plain', query: 'scheduled' })
+    controller.reset('device')
+    controller.update({ ...input, scope: 'device', query: 'device-only-canary' })
+
+    await vi.waitFor(() => expect(controller.$state.get().device.status).toBe('complete'))
+    expect(people.search).not.toHaveBeenCalled()
+    expect(companies.search).not.toHaveBeenCalled()
+    expect(messages.mock.calls).toEqual([['device', input.roomIds, 'device-only-canary']])
+  })
+
+  it('drops an already in-flight remote answer after switching scope', async () => {
+    const people = peopleBridge()
+    let respond!: (value: Awaited<ReturnType<MatrixPeopleSearchBridge['search']>>) => void
+    const pending = new Promise<Awaited<ReturnType<MatrixPeopleSearchBridge['search']>>>(resolve => {respond = resolve})
+    vi.mocked(people.search).mockReturnValueOnce(pending)
+    const controller = createMatrixRosterGlobalSearch({ people }, 0)
+    const input = { ready: true, companyIds: NO_COMPANIES }
+
+    controller.update({ ...input, query: 'plain' })
+    await vi.waitFor(() => expect(people.search).toHaveBeenCalled())
+    controller.update({ ...input, scope: 'device', query: 'private' })
+    respond({ ok: true, value: { results: [{ userId: '@someone:example.test', name: 'Someone' }], limited: false } })
+    await pending
+
+    expect(controller.$state.get().scope).toBe('device')
+    expect(controller.$state.get().people.results).toEqual([])
   })
 })
