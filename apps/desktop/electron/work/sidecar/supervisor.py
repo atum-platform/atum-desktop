@@ -8,8 +8,10 @@ import resource
 import secrets
 import select
 import signal
+import socket
 import subprocess
 import sys
+import tempfile
 import time
 
 
@@ -145,11 +147,24 @@ def run(spec, children, channel):
     children.start([sys.executable, "-P", "-B", "-X", "utf8", "-m",
                     "hermes_cli.main", "gateway", "run"], gateway, spec["cwd"])
     env = spec["environment"]
-    if channel:
-        env = {**env, **channel, "T3_SERVICE_LAUNCHER_CONTEXT": json.dumps(spec["trial"])}
+    if spec.get("trial"):
+        env = {**env, "T3_SERVICE_LAUNCHER_CONTEXT": json.dumps(spec["trial"])}
+    env = {**env, **channel}
     passed = [int(channel["NODE_CHANNEL_FD"])] if channel else []
     token = spec.pop("connectorToken", None)
+    desktop = spec.pop("desktop", None)
+    args = [spec["executable"], "--mode", "web", "--no-browser", "--host", "127.0.0.1"]
     try:
+        if desktop:
+            with socket.socket() as port:
+                port.bind(('127.0.0.1', 0))
+                desktop['port'] = port.getsockname()[1]
+            with tempfile.TemporaryFile() as bootstrap:
+                bootstrap.write(json.dumps(desktop).encode('utf-8') + b'\n')
+                bootstrap.seek(0)
+                bootstrap_fd = os.dup(bootstrap.fileno())
+            passed.extend([bootstrap_fd, desktop['desktopTelemetryFd'], desktop['desktopTelemetryControlFd']])
+            args = [spec['executable'], '--bootstrap-fd', str(bootstrap_fd), '--auto-bootstrap-project-from-cwd']
         if token:
             read_fd, write_fd = os.pipe()
             passed.append(read_fd)
@@ -159,8 +174,7 @@ def run(spec, children, channel):
                 os.close(write_fd)
             env = {**env, "ATUM_WORK_CONNECTOR_FD": str(read_fd)}
         sidecar = children.start(
-            [spec["executable"], "--mode", "web", "--no-browser", "--host", "127.0.0.1"],
-            env, spec["cwd"], subprocess.PIPE, tuple(passed),
+            args, env, spec["cwd"], subprocess.PIPE, tuple(passed),
         )
     finally:
         for fd in passed:
@@ -208,11 +222,11 @@ def work_provider_instances(saved, defaults, brokers):
 
 def main():
     spec = json.loads(sys.stdin.buffer.readline(262144))
-    # Electron created the Node IPC channel. Only the T3 trial inherits it.
+    # Electron created the Node IPC channel. Only the Work server inherits it.
     # Its native messages travel directly over that channel.
     channel = {name: os.environ.pop(name) for name in
                ("NODE_CHANNEL_FD", "NODE_CHANNEL_SERIALIZATION_MODE") if name in os.environ}
-    if bool(channel) != bool(spec.get("trial")):
+    if spec.get("trial") and not channel:
         raise RuntimeError("work_trial_channel_missing")
     children = Children()
     with Path(spec["lock"]).open("a") as lock:
@@ -239,14 +253,15 @@ def main():
                 settings.get("providerInstances", {}), spec["planProviderDefaults"],
                 spec["settings"]["providerInstances"],
             )
+            continuation = spec.pop('continuation', False)
             settings.update(spec["settings"])
+            if spec.get('trial') and not continuation:
+                settings.setdefault("continueThreadsAfterServerUpdate", False)
             settings["providerInstances"] = instances
             settings["textGenerators"] = {}
             for override in settings.get("projectSettingsOverrides", {}).values():
                 override.pop("textGenerationModelSelection", None)
                 override.pop("providerInstances", None)
-                if not settings["continueThreadsAfterServerUpdate"] and "continueThreadsAfterServerUpdate" in override:
-                    override["continueThreadsAfterServerUpdate"] = False
             temp = Path(spec["settingsPath"] + ".work-next")
             temp.write_text(json.dumps(settings), encoding="utf-8")
             os.chmod(temp, 0o600)

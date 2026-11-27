@@ -1,0 +1,619 @@
+{
+  "source": "atum-platform/atum-work",
+  "pin": "a7e44d458c49125a97ce3f8cf63c8efebdd0d8a1",
+  "upstream": "14ae67a9a80f44ccf158d2fbcc957241eec57f74",
+  "dependencies": {
+    "effect": "4.1.5",
+    "@effect/platform-node": "4.1.5",
+    "electron-updater": "6.8.9",
+    "lucide-react": "0.577.0"
+  },
+  "files": [
+    {
+      "source": "apps/desktop/src/updates/updateMachine.ts",
+      "blob": "80751315657c0ca338268937ffce6e78d5571338",
+      "destination": "apps/desktop/src/updates/updateMachine.ts",
+      "sha256": "993dfa60b32610419906d9dd641b5ca3f559e3f0b0a425338a466db0b49dc3b7",
+      "overlay": "Adapter imports, Vitest entry, and product branding where applicable. Import reduceDesktopUpdateStateOnDownloadLost from the comparison pin.",
+      "changes": [
+        [
+          5,
+          6,
+          [
+            "} from \"../../../../packages/contracts/src/desktopUpdates.ts\";\n"
+          ]
+        ],
+        [
+          211,
+          211,
+          [
+            "export function reduceDesktopUpdateStateOnDownloadLost(\n",
+            "  state: DesktopUpdateState,\n",
+            "): DesktopUpdateState {\n",
+            "  if (state.downloadedVersion === null) return state;\n",
+            "  return {\n",
+            "    ...withoutTrackMismatch(state),\n",
+            "    status: \"available\",\n",
+            "    availableVersion: state.downloadedVersion,\n",
+            "    downloadedVersion: null,\n",
+            "    downloadPercent: null,\n",
+            "    message: null,\n",
+            "    errorContext: null,\n",
+            "    canRetry: false,\n",
+            "  };\n",
+            "}\n",
+            "\n"
+          ]
+        ]
+      ],
+      "portedFromUpstream": [
+        "reduceDesktopUpdateStateOnDownloadLost"
+      ]
+    },
+    {
+      "source": "apps/desktop/src/updates/releaseNotes.ts",
+      "blob": "30bfb9ace64b8cfe6c44d5fb39293d517a024d07",
+      "destination": "apps/desktop/src/updates/releaseNotes.ts",
+      "sha256": "119a2091e8155e0fb52abdead4dc35143aa15e9875d60382b39cce7c7db55d9a",
+      "overlay": "Adapter imports, Vitest entry, and product branding where applicable.",
+      "changes": [
+        [
+          0,
+          1,
+          [
+            "import type { DesktopUpdateChannel, DesktopUpdateReleaseNote } from \"../../../../packages/contracts/src/desktopUpdates.ts\";\n"
+          ]
+        ],
+        [
+          2,
+          3,
+          [
+            "import { desktopUpdateChannelOf } from \"../../../../packages/shared/src/cliRelease.ts\";\n"
+          ]
+        ],
+        [
+          195,
+          195,
+          [
+            "  releaseChannelOf = desktopUpdateChannelOf,\n"
+          ]
+        ],
+        [
+          202,
+          203,
+          [
+            "  ).filter((entry) => releaseChannelOf(entry.version) === channel);\n"
+          ]
+        ]
+      ]
+    },
+    {
+      "source": "apps/desktop/src/updates/remoteUpdateFlow.ts",
+      "blob": "1d9588315559c3bc4e649c934ab9fb1c7e025f7e",
+      "destination": "apps/desktop/src/updates/remoteUpdateFlow.ts",
+      "sha256": "8db6ec8ffea0e563bd14e01b62d3d40e5c63000419b79a91ab588f30e8982755",
+      "overlay": "Adapter imports, Vitest entry, and product branding where applicable.",
+      "changes": [
+        [
+          0,
+          1,
+          [
+            "import type { DesktopUpdateRemoteOutcome, DesktopUpdateState } from \"../../../../packages/contracts/src/desktopUpdates.ts\";\n"
+          ]
+        ]
+      ]
+    },
+    {
+      "source": "apps/desktop/src/updates/updateMachine.test.ts",
+      "blob": "03e864b93d2714c51c395847123d336bb229c26a",
+      "destination": "apps/desktop/src/updates/updateMachine.test.ts",
+      "sha256": "468892036e807585e2f07f2ca77f422b15d6bfa0d8f7445da3750fa639328584",
+      "overlay": "Adapter imports, Vitest entry, and product branding where applicable.",
+      "changes": [
+        [
+          0,
+          1,
+          [
+            "import { describe, expect, it } from \"vitest\";\n"
+          ]
+        ]
+      ]
+    },
+    {
+      "source": "apps/desktop/src/updates/releaseNotes.test.ts",
+      "blob": "a8fcc70ea355cce5b9e49704bb4f4aada9b7afdf",
+      "destination": "apps/desktop/src/updates/releaseNotes.test.ts",
+      "sha256": "a70c1921327fe5b80bfa8dda8be306a49b31d585c4acb37b2934a3c02836303d",
+      "overlay": "Adapter imports, Vitest entry, and product branding where applicable.",
+      "changes": [
+        [
+          0,
+          1,
+          [
+            "import { describe, expect, it } from \"vitest\";\n"
+          ]
+        ]
+      ]
+    },
+    {
+      "source": "apps/desktop/src/updates/remoteUpdateFlow.test.ts",
+      "blob": "5247931221f0bbba672f6a52d977e05f803abf24",
+      "destination": "apps/desktop/src/updates/remoteUpdateFlow.test.ts",
+      "sha256": "114ad7be0ff8a89763c4e44b38ff31e8f1c2231218e6c68eb284d988e2d61331",
+      "overlay": "Adapter imports, Vitest entry, and product branding where applicable.",
+      "changes": [
+        [
+          0,
+          2,
+          [
+            "import { assert, describe, it } from \"vitest\";\n",
+            "import type { DesktopUpdateState } from \"../../../../packages/contracts/src/desktopUpdates.ts\";\n"
+          ]
+        ]
+      ]
+    },
+    {
+      "source": "apps/desktop/src/updates/DesktopUpdates.ts",
+      "blob": "7976503d9e761e6faba40cb87ec2c6c5b323288f",
+      "destination": "apps/desktop/src/updates/DesktopUpdates.ts",
+      "sha256": "5fc68438891d3c75c81a6094fd6d0a5ba25a3dd8d5df193848dfdcba30710d02",
+      "overlay": "Adapter imports, Vitest entry, and product branding where applicable.",
+      "changes": [
+        [
+          10,
+          12,
+          [
+            "} from \"../../../../packages/contracts/src/desktopUpdates.ts\";\n",
+            "import { errorTag } from \"../../../../packages/shared/src/observability.ts\";\n"
+          ]
+        ],
+        [
+          29,
+          34,
+          [
+            "import { DesktopBackendManager } from \"../../../../../../electron/t3-updates/services.ts\";\n",
+            "import { DesktopBackendPool } from \"../../../../../../electron/t3-updates/services.ts\";\n",
+            "import { DesktopConfig } from \"../../../../../../electron/t3-updates/services.ts\";\n",
+            "import { DesktopEnvironment } from \"../../../../../../electron/t3-updates/services.ts\";\n",
+            "import { DesktopObservability } from \"../../../../../../electron/t3-updates/services.ts\";\n"
+          ]
+        ],
+        [
+          36,
+          40,
+          [
+            "import { ElectronWindow } from \"../../../../../../electron/t3-updates/services.ts\";\n",
+            "import { IpcChannels } from \"../../../../../../electron/t3-updates/services.ts\";\n",
+            "import { DesktopAppSettings } from \"../../../../../../electron/t3-updates/services.ts\";\n",
+            "import { DesktopSshEnvironment } from \"../../../../../../electron/t3-updates/services.ts\";\n"
+          ]
+        ],
+        [
+          45,
+          47,
+          [
+            "import { compareSemverVersions } from \"../../../../packages/shared/src/semver.ts\";\n"
+          ]
+        ],
+        [
+          53,
+          53,
+          [
+            "  reduceDesktopUpdateStateOnDownloadLost,\n"
+          ]
+        ],
+        [
+          413,
+          414,
+          [
+            "          environment.releaseChannelOf(version) === state.channel &&\n"
+          ]
+        ],
+        [
+          416,
+          417,
+          [
+            "            : environment.releaseChannelOf(environment.appVersion) === state.channel),\n"
+          ]
+        ],
+        [
+          509,
+          510,
+          [
+            "      const buildChannel = environment.releaseChannelOf(environment.appVersion);\n"
+          ]
+        ],
+        [
+          551,
+          554,
+          [
+            "  // Re-runs admission after each finished action against the resulting update state.\n",
+            "  const admitAfterActiveAction = Effect.fn(\"desktop.updates.admitAfterActiveAction\")(function* (\n",
+            "    admit: Effect.Effect<\"admitted\" | \"refused\" | \"wait-for-action\">,\n"
+          ]
+        ],
+        [
+          557,
+          558,
+          [
+            "    while (admission === \"wait-for-action\") {\n"
+          ]
+        ],
+        [
+          660,
+          661,
+          [
+            "      admitAfterActiveAction(\n"
+          ]
+        ],
+        [
+          669,
+          670,
+          [
+            "              ? (\"wait-for-action\" as const)\n"
+          ]
+        ],
+        [
+          689,
+          690,
+          [
+            "          offered.channel !== environment.releaseChannelOf(environment.appVersion),\n"
+          ]
+        ],
+        [
+          896,
+          897,
+          [
+            "        const admission = yield* admitAfterActiveAction(\n"
+          ]
+        ],
+        [
+          911,
+          913,
+          [
+            "              return activeAction.value === \"check\" || activeAction.value === \"download\"\n",
+            "                ? (\"wait-for-action\" as const)\n"
+          ]
+        ],
+        [
+          929,
+          929,
+          [
+            "        const target = (yield* Ref.get(updateStateRef)).downloadedVersion!;\n",
+            "        const deferReason = yield* pool.admit(target);\n",
+            "        if (deferReason !== null) {\n",
+            "          yield* updateState(\n",
+            "            deferReason === \"stage-lost\"\n",
+            "              ? reduceDesktopUpdateStateOnDownloadLost\n",
+            "              : (state) => reduceDesktopUpdateStateOnInstallFailure(state, deferReason),\n",
+            "          );\n",
+            "          yield* finishUpdateAction(\"install\");\n",
+            "          return { accepted: true, completed: false, failed: true };\n",
+            "        }\n"
+          ]
+        ],
+        [
+          949,
+          950,
+          [
+            "                  instance.stop({ timeout: Duration.fromInputUnsafe(DesktopBackendManager.BACKEND_QUIT_STOP_TIMEOUT) }),\n"
+          ]
+        ],
+        [
+          1017,
+          1018,
+          [
+            "        retained.channel !== environment.releaseChannelOf(environment.appVersion),\n"
+          ]
+        ],
+        [
+          1375,
+          1376,
+          [
+            "          policyMessage: policy.message ?? \"Your administrator manages Atum updates.\",\n"
+          ]
+        ],
+        [
+          1404,
+          1405,
+          [
+            "          nextChannel === environment.releaseChannelOf(environment.appVersion) &&\n"
+          ]
+        ],
+        [
+          1429,
+          1430,
+          [
+            "          nextChannel !== environment.releaseChannelOf(environment.appVersion),\n"
+          ]
+        ]
+      ]
+    },
+    {
+      "source": "apps/desktop/src/updates/updateChannels.ts",
+      "blob": "b07735ceb7a29da757a6acbc5bc36cdf9a1e0619",
+      "destination": "apps/desktop/src/updates/updateChannels.ts",
+      "sha256": "6d3892b81e5622234ab6948b138648e207b1b5a6837df726196a11697e5b3a44"
+    },
+    {
+      "source": "packages/contracts/src/ipc.ts",
+      "blob": "962cfd089dd2b6fb6ea65001603907baddef50e7",
+      "destination": "packages/contracts/src/desktopUpdates.ts",
+      "sha256": "bdf33a0cbe84434bb6a1a4f36fd499588013f19bb084a057434180ef3b111f1e",
+      "overlay": "Isolate update exports from unrelated IPC contracts.",
+      "changes": [
+        [
+          1,
+          84,
+          []
+        ],
+        [
+          100,
+          100,
+          [
+            "export type DesktopUpdateStatus = typeof DesktopUpdateStatusSchema.Type;\n"
+          ]
+        ],
+        [
+          102,
+          102,
+          [
+            "\n"
+          ]
+        ],
+        [
+          103,
+          268,
+          []
+        ],
+        [
+          343,
+          355,
+          []
+        ],
+        [
+          377,
+          1450,
+          [
+            "export type DesktopUpdateRemoteOutcome = \"failed\" | \"up-to-date\" | \"ready-to-install\" | \"disabled\" | \"busy\";\n",
+            "export interface DesktopTelemetryRequestDesktopUpdate { channel: DesktopUpdateChannel; targetVersion: string | null }\n",
+            "export { DESKTOP_UPDATE_RESTART_MARKER_FILE, DESKTOP_UPDATE_IN_PROGRESS_MARKER_FILE, DESKTOP_UPDATE_IN_PROGRESS_TTL_MS } from \"./desktopBootstrap.ts\";\n"
+          ]
+        ]
+      ]
+    },
+    {
+      "source": "packages/contracts/src/desktopBootstrap.ts",
+      "blob": "5148aa2c1c82e4547de6ceac1d0b5efecf34b119",
+      "destination": "packages/contracts/src/desktopBootstrap.ts",
+      "sha256": "a03470cd51c61814ce36428dcdcdd36a43ae16d4133fc382ab6b0208749d6f07",
+      "overlay": "Select only the update marker definitions.",
+      "changes": [
+        [
+          0,
+          37,
+          []
+        ]
+      ]
+    },
+    {
+      "source": "packages/shared/src/semver.ts",
+      "blob": "4b6166f40c40386707f6123da2d47be8b983cf8e",
+      "destination": "packages/shared/src/semver.ts",
+      "sha256": "3fa0a669e1a8c100e157aea7c7cecc40b503182349f065c4ebacd67f1368ef16"
+    },
+    {
+      "source": "packages/shared/src/observability.ts",
+      "blob": "30ee78dc02d88f95ee5f66f5eee4e42a86d35e86",
+      "destination": "packages/shared/src/observability.ts",
+      "sha256": "8b0105486f550b7901aa15778a8956d3d971189e033b56c27936bc7e2e273001",
+      "overlay": "Select the source routine and bind its Atum host input.",
+      "changes": [
+        [
+          0,
+          128,
+          []
+        ],
+        [
+          150,
+          889,
+          []
+        ]
+      ]
+    },
+    {
+      "source": "packages/shared/src/cliRelease.ts",
+      "blob": "07a0c73b179471784801612f23356c223149aecd",
+      "destination": "packages/shared/src/cliRelease.ts",
+      "sha256": "378647e13ed8523670e15af663caefe1bfa40c3a8d8d549e911212449b2707f4"
+    },
+    {
+      "source": "apps/desktop/src/electron/ElectronUpdater.ts",
+      "blob": "0cc22bb4b16337b0241909e2193a4d8e59cb9577",
+      "destination": "apps/desktop/src/electron/ElectronUpdater.ts",
+      "sha256": "4294eead23dfc84b9a4d2db660667e67edf77fb660b5fa417bf238e0ce5248b1"
+    },
+    {
+      "source": "apps/desktop/src/app/DesktopState.ts",
+      "blob": "f869fd335ab07e0748ff46f5d733a1f1cf9f659f",
+      "destination": "apps/desktop/src/app/DesktopState.ts",
+      "sha256": "3988997425be87c279ffad66409ff8f798bee6e6cfcf3c026738dc2a4b4acc41",
+      "overlay": "Resolve the startup failure type at the host boundary.",
+      "changes": [
+        [
+          6,
+          7,
+          [
+            "import type { BackendStartupFailure } from \"../../../../../../electron/t3-updates/services.ts\";\n"
+          ]
+        ]
+      ]
+    },
+    {
+      "source": "apps/desktop/src/updates/DesktopUpdatePolicy.ts",
+      "blob": "757db8316c6b31458fda60eef864d631c9213a47",
+      "destination": "apps/desktop/src/updates/DesktopUpdatePolicy.ts",
+      "sha256": "1bc5351234b71aec6f6d2b7282bbadd91bd8407a50b316f7deb96351ad0aafad",
+      "overlay": "Use the Atum administrator policy input in place of T3 policy loading.",
+      "changes": [
+        [
+          7,
+          12,
+          []
+        ],
+        [
+          13,
+          14,
+          []
+        ],
+        [
+          16,
+          18,
+          []
+        ],
+        [
+          20,
+          21,
+          [
+            "  readonly mode: \"auto\" | \"off\" | \"manual\";\n"
+          ]
+        ],
+        [
+          38,
+          87,
+          []
+        ]
+      ]
+    },
+    {
+      "source": "LICENSE",
+      "blob": "55ee675bb1de9e580b69f3dd68684df2a4dffba7",
+      "destination": "LICENSE",
+      "sha256": "935d8f2af0c703f9c39517ee57cc4930b19d02d533be930b63f0e82f93614b43"
+    },
+    {
+      "source": "patches/electron-updater%406.8.9.patch",
+      "blob": "74ada590655b97b86dfc141fe4ff8d02aed17fb6",
+      "destination": "patches/electron-updater-6.8.9.patch",
+      "sha256": "91b5648a7eed42761523ef542ebb7e548b037eda41d66533c8152ac65ac72155"
+    },
+    {
+      "source": "apps/web/src/components/sidebar/DesktopUpdateStatusIcon.tsx",
+      "destination": "apps/web/src/components/sidebar/DesktopUpdateStatusIcon.tsx",
+      "blob": "9b8b388044f55d67c1bfd6d80c77f02f666975ce",
+      "sha256": "d992d1f3714ba762f62976a3d16fa8577715f910e69ca121c5afe52869057cd6",
+      "overlay": "Resolve the refresh icon inside the vendored renderer.",
+      "changes": [
+        [
+          0,
+          1,
+          [
+            "import { RefreshIcon } from \"../ui/refresh-icon.tsx\";\n"
+          ]
+        ]
+      ]
+    },
+    {
+      "source": "apps/web/src/components/ui/refresh-icon.tsx",
+      "destination": "apps/web/src/components/ui/refresh-icon.tsx",
+      "blob": "e3b5e8e525c865df0d1583ed10701e2d79489c9a",
+      "sha256": "e39a69f62e057c96c8ff907d6e27ea55e716dd8826ae30f54cb84ebbf992ee83",
+      "overlay": "Use the shell class library and standard motion-safe animation.",
+      "changes": [
+        [
+          3,
+          5,
+          [
+            "import { clsx as cn } from \"clsx\";\n"
+          ]
+        ],
+        [
+          28,
+          29,
+          []
+        ],
+        [
+          31,
+          32,
+          [
+            "        refreshing && \"motion-safe:animate-spin\",\n"
+          ]
+        ]
+      ]
+    },
+    {
+      "source": "apps/web/src/components/desktopUpdate.logic.ts",
+      "destination": "apps/web/src/components/desktopUpdate.logic.ts",
+      "blob": "4922ee3b524b7b9fbe42a9983a3193efb2000f3a",
+      "sha256": "06f42576a1aebadbbd756a283db42a3eb792ba151a608eb64620482dd75563db",
+      "overlay": "Select the independent status-to-action routines.",
+      "changes": [
+        [
+          0,
+          11,
+          [
+            "import type { DesktopUpdateState } from \"../../../../packages/contracts/src/desktopUpdates.ts\";\n"
+          ]
+        ],
+        [
+          13,
+          52,
+          []
+        ],
+        [
+          82,
+          285,
+          []
+        ]
+      ]
+    },
+    {
+      "source": "apps/web/src/components/sidebar/useUpdateEverything.ts",
+      "destination": "apps/web/src/components/sidebar/useUpdateEverything.ts",
+      "blob": "87c3a43a598ebe30b332ee6740a6101b83d0b27a",
+      "sha256": "2fe61dbd59b5427d832f5ababa53477837f04761b4d71210e3c1ad87c7c13a18",
+      "overlay": "Select the countdown duration for the local bundled target.",
+      "changes": [
+        [
+          0,
+          275,
+          [
+            "export const UPDATE_RESTART_DELAY_MS = 5_000;\n"
+          ]
+        ]
+      ]
+    },
+    {
+      "source": "apps/desktop/src/electron/ElectronHttpExecutor.test.ts",
+      "destination": "apps/desktop/src/electron/ElectronHttpExecutor.test.ts",
+      "blob": "fb7e947019bb4d1f2b011a57f3fecbec3c91ed01",
+      "overlay": "Run the pinned behavioral tests with Vitest.",
+      "sha256": "cd683c3b2ead3ed8c76ddf9d8eb1c0141860f3038daec77e3a94b8b65797691b",
+      "changes": [
+        [
+          9,
+          10,
+          [
+            "import { afterEach, beforeEach, describe, expect, it, vi } from \"vitest\";\n"
+          ]
+        ]
+      ]
+    },
+    {
+      "source": "apps/desktop/src/updates/githubUpdateFeed.test.ts",
+      "destination": "apps/desktop/src/updates/githubUpdateFeed.test.ts",
+      "blob": "d9e928fce186b9df85c6c1d9ac7f599f12c1648d",
+      "overlay": "Run the pinned behavioral tests with Vitest.",
+      "sha256": "2f8b70303aa4ef17d838bc884a1685dea7199fdb68a46099fb8aa7a447877623",
+      "changes": [
+        [
+          3,
+          4,
+          [
+            "import { describe, expect, it } from \"vitest\";\n"
+          ]
+        ]
+      ]
+    }
+  ]
+}

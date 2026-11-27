@@ -171,6 +171,7 @@ import { matrixAgentDeskAgent, matrixAgentDeskSteers } from './agent-desk-model'
 import { useMatrixAgentHandleBackfill } from './agent-handle-backfill'
 import { agentHomeTitleIconShown, MatrixAgentHomeRow } from './agent-home-control'
 import { bindAgentPlansAccount } from './agent-plans-store'
+import { NewAssistantButton } from './agent-roster'
 import { authorizedBotApi, botApiAppForMessage, isBotApiRoom } from './app-bots/bot-api'
 import { MatrixBotApiKeyboard, MatrixBotApiText } from './app-bots/bot-api-text'
 import { MatrixBotApiPhotoView } from './app-bots/bot-photo'
@@ -215,6 +216,7 @@ import {
   useMatrixApprovalSheet,
   useMatrixAttentionSummary
 } from './attention-indicator'
+import { checkpointBrowserForUpdate } from './browser-update-checkpoint'
 import { useChatCopy } from './chat-copy'
 import {
   aboutAppBot,
@@ -470,8 +472,16 @@ import {
 import { anyAgentPrompts, assistantTarget, primaryAgent, snapshotForRoom } from './room-agent'
 import { MatrixRosterConversations } from './roster-conversations'
 import { useRosterCopy } from './roster-copy'
-import { MatrixRosterCreate, type MatrixRosterCreation } from './roster-create'
+import { matrixCanCreateAssistant, MatrixRosterCreate, type MatrixRosterCreation } from './roster-create'
 import { useRosterCreateCopy } from './roster-create-copy'
+import {
+  $matrixRosterFilterByAccount,
+  availableMatrixRosterFilters,
+  effectiveMatrixRosterFilter,
+  matrixRememberedRosterFilter,
+  rememberMatrixRosterFilter
+} from './roster-filter'
+import { MatrixRosterFilterButton } from './roster-filter-button'
 import { matrixRosterGlobalSearchPending, useMatrixRosterGlobalSearch } from './roster-global-search'
 import { matrixPrimaryAgentName, matrixRosterAgentName, normalizeMatrixRosterQuery, projectMatrixRoster } from './roster-model'
 import { matrixAgentConversationRoom } from './roster-preview'
@@ -6571,6 +6581,20 @@ function MatrixRoster({
   // sign-out or an account switch, and typing never writes Matrix navigation.
   const [query, setQuery] = useState('')
 
+  // The filter beside the search, kept per account (roster-filter.ts). One with nothing left to
+  // show reads as All, so the roster never goes blank under it.
+  const rosterFilters = useMemo(
+    () => availableMatrixRosterFilters(projectMatrixRoster(snapshot), snapshot.identity?.userId),
+    [snapshot]
+  )
+
+  const savedRosterFilters = useStore($matrixRosterFilterByAccount)
+
+  const rosterFilter = effectiveMatrixRosterFilter(
+    matrixRememberedRosterFilter(snapshot.identity?.userId, savedRosterFilters),
+    rosterFilters
+  )
+
   const knownHandles = useMatrixHandles(snapshot.identity?.userId)
   const [creating, setCreating] = useState<MatrixRosterCreation | null>(null)
   const createCopy = useRosterCreateCopy()
@@ -6884,8 +6908,16 @@ function MatrixRoster({
           placeholder={t.atum.roster.searchPlaceholder}
           value={query}
         />
+        <MatrixRosterFilterButton
+          available={rosterFilters}
+          onValueChange={filter => {
+            if (snapshot.identity?.userId) {
+              rememberMatrixRosterFilter(snapshot.identity.userId, filter)
+            }
+          }}
+          value={rosterFilter}
+        />
         <MatrixStartChatButton
-          canCreateAssistant={Boolean(snapshot.assistant && snapshot.agentCreation)}
           canFindPeople={Boolean(snapshot.domainEnabled && window.atumMatrix?.aliases)}
           disabled={snapshot.state !== 'ready'}
           onCreate={kind => setCreating({ kind })}
@@ -6950,12 +6982,16 @@ function MatrixRoster({
           snapshot.domainEnabled &&
           snapshot.state === 'ready' && <AssistantSetupCard state={snapshot.assistantSetup} />}
         <MatrixRosterConversations
-          // New assistant lives in the New chat sheet's footer, not as a row here (Atum Kit mockups).
+          // New assistant is the last row of the Assistants (owner, 2026-11-27).
+          agentActions={matrixCanCreateAssistant(snapshot) ? (
+            <NewAssistantButton disabled={snapshot.state !== 'ready'} onClick={() => setCreating({ kind: 'assistant' })} />
+          ) : undefined}
           assistantOpening={Boolean(assistantOpening)}
           cloudOnly={cloudOnly}
           externalResultCount={externalSearchResultCount}
           externalSearching={globalSearching}
           fail={fail}
+          filter={rosterFilter}
           onAppInfo={onAppInfo}
           onEditAgent={onEditAgent}
           onOpen={() => {
@@ -7292,6 +7328,7 @@ function MatrixAccountView({
     }
   }, [compact])
   const [workspaceScope, setWorkspaceScope] = useState<string | null>(null)
+  const restoreBrowserWorkspace = useCallback((scope: string) => setWorkspaceScope(scope), [])
   // What the side panel holds: the workbench, or a chat with people's conversation info.
   const [workspaceKind, setWorkspaceKind] = useState<'workbench' | 'info'>('workbench')
   const [threadView, setThreadView] = useState<MatrixThreadView | null>(null)
@@ -7650,7 +7687,10 @@ function MatrixAccountView({
     paletteVisible
 
   const signedIn = Boolean(snapshot.identity)
-  useEffect(() => window.atumMatrix.onDocumentClose?.(prepareMatrixDocumentClose), [])
+  useEffect(() => window.atumMatrix.onDocumentClose?.(async updating => {
+    await prepareMatrixDocumentClose()
+    if (updating) {checkpointBrowserForUpdate()}
+  }), [])
   useEffect(() => {
     if (paletteBlocked) {
       setPaletteOpen(false)
@@ -9682,12 +9722,7 @@ function MatrixAccountView({
               />
               <div className="atum-rail-foot" data-matrix-rail-foot>
                 <MatrixAttentionAnnouncer agentName={attentionAgentName} snapshot={snapshot} />
-                <MatrixUpdateFooter
-                  onOpenUpdates={() => {
-                    setSettingsPane('help')
-                    setSettingsOpen(true)
-                  }}
-                />
+                <MatrixUpdateFooter />
                 <MatrixRailAccount
                   attention={attentionSection}
                   attentionLabel={attentionSummary.label}
@@ -9806,6 +9841,7 @@ function MatrixAccountView({
                     }
                   : undefined
               }
+              onBrowserUpdateRestored={restoreBrowserWorkspace}
               onClose={closeWorkspace}
               onDriveRequestClose={() => setDrivePreviewRequest(undefined)}
               onExpand={setWorkspaceExpanded}

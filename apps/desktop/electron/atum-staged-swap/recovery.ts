@@ -32,6 +32,7 @@ export interface RecoveryOptions {
   /** This process's own bundle. Recovery works whichever copy is running. */
   bundle: string
   handoffDirectory: string
+  workSelected?(journal: Journal): boolean
   exit: () => void
   log: (line: string) => void
   open?: (bundle: string) => Promise<void>
@@ -120,7 +121,7 @@ export async function recoverStagedSwap(options: RecoveryOptions): Promise<boole
       self: which(self, journal),
       targetExists: await exists(journal.target),
       backupExists: await exists(journal.backup),
-      shown: markerExists(options.handoffDirectory, 'shown'),
+      shown: markerExists(options.handoffDirectory, 'shown') || options.workSelected?.(journal) === true,
       startedPid,
       startedAlive: startedPid !== null && alive(startedPid)
     })

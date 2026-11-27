@@ -69,6 +69,10 @@ supplied master and receives a one-line revision on slide two. Both original
 files stay byte-identical after saving revisions. All ten rendered pages were
 inspected locally.
 
+The settlement and replay fixtures from S1 run alongside the Office proof
+suite. The DOCX dry run uses the same isolated LibreOffice conversion helper
+as the XLSX and PPTX proofs.
+
 Installed acceptance still needs the Work authoring skill and settlement
 integration for both formats, provider-run revisions, and a clean signed Mac
 with verified LibreOffice delivery and a shipped PDF proof reader. The S1

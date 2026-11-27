@@ -18,6 +18,13 @@ import type { WorkSessionPaths } from '../session/paths'
 import type { PinHost } from '../session/update'
 
 import { recordWorkBillingUnit, type WorkBillingUnit } from './billing'
+import {
+  WORK_DELIVERABLE_OPEN_CHANNEL,
+  WORK_DELIVERABLE_STATUS_CHANNEL,
+  type WorkDeliverableReply,
+  type WorkDeliverableStatus
+} from './deliverable-contract'
+import type { WorkDesktopUpdateHandler } from './desktop-control'
 import { type WorkIncarnation, workRuntimeEnvironment, WorkSidecar, type WorkStartOptions } from './process'
 
 export const WORK_ACCESS_CHANNEL = 'atum:work:read-model-access'
@@ -38,6 +45,8 @@ interface WorkHostOptions {
   sidebarChanged?(snapshot: WorkSidebarSnapshot | null): void
   attentionChanged?(snapshot: WorkAttentionSnapshot | null): void
   ready?(): void
+  desktopUpdate?: () => WorkDesktopUpdateHandler | undefined
+  canStart?(): boolean
   prepare?(signal: AbortSignal): Promise<void>
   account(): Account | undefined
   gatewayEnvironment(): Record<string, string>
@@ -45,6 +54,9 @@ interface WorkHostOptions {
   readAccess(): Promise<WorkAccess>
   connectAssertion?(): Promise<string>
   openProtons(): Promise<void>
+  deliverableMessage(account: Account, message: unknown, current: () => boolean, signal: AbortSignal): Promise<WorkDeliverableReply | undefined>
+  deliverableStatus(account: Account, identity: unknown): Promise<WorkDeliverableStatus | null>
+  openDeliverable(account: Account, identity: unknown, current: () => boolean): Promise<boolean>
 }
 
 interface WorkBinding {
@@ -74,10 +86,14 @@ export class WorkHost {
     return this.binding?.process.current()
   }
 
+  pendingStart(): boolean {
+    return this.binding?.process.pendingStart() ?? false
+  }
+
   async start(input: WorkStartOptions): Promise<WorkIncarnation> {
     const account = this.options.account()
 
-    if (!account || existsSync(disabledMarker(account)) || this.closing || !supported()) {
+    if (!account || existsSync(disabledMarker(account)) || this.closing || this.options.canStart?.() === false || !supported()) {
       throw new Error('work_unavailable')
     }
 
@@ -100,6 +116,9 @@ export class WorkHost {
         log: this.options.log,
         prepare: this.options.prepare,
         ready: this.options.ready,
+        deliverableMessage: (message, current, signal) =>
+          this.options.deliverableMessage(account, message, () => current() && this.enabled(), signal),
+        desktopUpdate: this.options.desktopUpdate?.(),
         gatewayEnvironment: () => {
           const environment = this.options.gatewayEnvironment()
           this.backendToken = environment.ATUM_FILESYSTEM_BROKER_TOKEN
@@ -389,13 +408,31 @@ export class WorkHost {
         return false
       }
     })
+    ipcMain.handle(WORK_DELIVERABLE_STATUS_CHANNEL, async (event, value: unknown) => {
+      const view = this.ownerCaller(event)
+      const account = this.binding?.account
+
+      if (!view || !account) {return null}
+      const status = await this.options.deliverableStatus(account, value)
+
+      return this.ownerCaller(event) === view ? status : null
+    })
+    ipcMain.handle(WORK_DELIVERABLE_OPEN_CHANNEL, async (event, value: unknown) => {
+      const view = this.ownerCaller(event)
+      const account = this.binding?.account
+
+      if (!view || !account) {return false}
+
+      return this.options.openDeliverable(account, value, () => this.ownerCaller(event) === view)
+    })
   }
 
   private ownerCaller(event: IpcMainInvokeEvent) {
     const view = this.view
     const frame = event.senderFrame
 
-    if (!view || view.contents !== event.sender || this.current() !== view.incarnation ||
+    if (!view || !this.binding || !sameAccount(this.binding.account, this.options.account()) ||
+      view.contents !== event.sender || this.current() !== view.incarnation ||
       !frame || frame.detached || frame.parent !== null) {
       return undefined
     }

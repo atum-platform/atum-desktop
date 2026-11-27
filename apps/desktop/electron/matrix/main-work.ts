@@ -1,22 +1,28 @@
-import { randomBytes } from 'node:crypto'
+import { randomBytes, randomUUID } from 'node:crypto'
 import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { availableParallelism, loadavg } from 'node:os'
 import { join } from 'node:path'
 
 import type { BrowserWindow, IpcMain, IpcMainInvokeEvent, Session } from 'electron'
+import semver from 'semver'
 
 import type { WorkAttentionSnapshot, WorkSidebarSnapshot, WorkSurfaceModeSnapshot } from "../../shared/matrix-work"
 import { MATRIX_WORK_IPC, type MatrixWorkProjection } from '../../shared/matrix-work'
+import type { StagedWorkUpdate } from '../atum-staged-swap/state'
 import type { SafeStorageLike } from '../encrypted-store'
 import { admitConnector } from '../work/connector/admission'
 import { ConnectorHttp } from '../work/connector/http'
 import { matrixConnector, type OwnerSdkHost } from '../work/connector/matrix'
 import { ConnectorService } from '../work/connector/service'
 import type { ShellMcpOptions } from '../work/connector/shell-mcp'
-import { partitionFor, type PinRef, type UpdateOutcome, WorkSession, workSessionPaths } from '../work/session'
+import { partitionFor, type PinRef, WorkSession, workSessionPaths } from '../work/session'
 import { removeDurably } from '../work/session/files'
+import { workAccountRoot } from '../work/session/paths'
 import { createT3AuthCli } from '../work/session/t3-auth'
+import { verifyPinDigest, type WorkUpdateSelection } from '../work/session/update'
+import type { WorkDesktopUpdateHandler } from '../work/sidecar/desktop-control'
 import { type WorkAccess, WorkHost } from '../work/sidecar/host'
+import { workHasAttachedTerminal } from '../work/sidecar/process'
 import { createKeychainSecretStore } from '../work/sidecar/secret-store'
 import { T3McpWithdrawalError, WorkT3McpPublication } from '../work/sidecar/t3-mcp'
 import { createT3PairingCodes } from '../work/sidecar/t3-mcp-session'
@@ -35,6 +41,7 @@ import { readWorkProviders } from '../work/surface/provider-config'
 import { createOwnerRelay } from '../work/surface/relay'
 
 import type { WorkDeliverables } from './work-deliverable'
+import { WorkDeliverableHost } from './work-deliverable-host'
 import { MatrixWorkLifecycle, type WorkAccount, workAccountFor } from './work-lifecycle'
 
 /** Atum's panel radius (`--atum-r-panel`, styles.css): Work's native view is rounded to it. */
@@ -109,16 +116,17 @@ export interface MatrixWorkDeps {
   /** The owner's top-up page (what `openTopUp` opens). */
   openProtons(): Promise<void>
   publish(channel: string, payload: MatrixWorkProjection | WorkSurfaceModeSnapshot | WorkSidebarSnapshot | WorkAttentionSnapshot | null): void
+  desktopUpdate?(): WorkDesktopUpdateHandler | undefined
+  plannedUpdate?: { work: StagedWorkUpdate | null; selection?: WorkUpdateSelection }
   /** Main's `closing`: nothing starts while the app quits. */
   closing(): boolean
   log(line: string): void
 }
 
 export interface MatrixWork {
-  /** Host-side receipt receiver for authenticated native Work settlements. */
-  deliverables?: WorkDeliverables
-  /** Main-owned update of the pinned Work server (snapshot, trial, commit or rollback). */
-  update(target: PinRef): Promise<UpdateOutcome>
+  prepareUpdate(resources: string): Promise<StagedWorkUpdate | null>
+  cancelPreparedUpdate(): void
+  resumeUpdate(): Promise<void>
   /** The window may have become ready, or the account may have changed. Idempotent. */
   activate(): Promise<void>
   /** Sign-out, a session the server ended, an account switch: tear everything of this account down. */
@@ -256,6 +264,8 @@ export function readShippedPin(resources: string): PinRef {
 }
 
 export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
+  const deliverables = new WorkDeliverableHost(deps.deliverables, deps.eligiblePlanAgents)
+
   const modelKeys = new WorkModelKeys({
     scope: () => deps.scope(),
     closing: () => deps.closing(),
@@ -263,7 +273,7 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
   })
 
   const accountsDir = join(deps.userData, 'work-accounts')
-  const rootFor = (accountKey: string) => join(accountsDir, accountKey.slice(0, 32))
+  const rootFor = (accountKey: string) => workAccountRoot(deps.userData, accountKey)
 
   const removeLegacyMcpManifest = (root: string) => {
     try {
@@ -290,6 +300,8 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
   // Resolve once per signed-in generation. A late /me answer cannot bind another account's Work.
   let owner: { accountKey: string; generation: number; principal: string } | undefined
   let resolving: Promise<void> | undefined
+  let resumed = false
+  let updatePrepared = false
 
   const sameScope = (scope: { accountKey: string; generation: number } | null) =>
     Boolean(scope && owner?.accountKey === scope.accountKey && owner.generation === scope.generation)
@@ -307,8 +319,9 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
     }
   }
 
+  let startingUpdate = Boolean(deps.plannedUpdate)
   const account = (): WorkAccount | undefined =>
-    deps.closing()
+    deps.closing() || (startingUpdate && deps.scope()?.accountKey !== deps.plannedUpdate?.work?.accountKey)
       ? undefined
       : workAccountFor({
           scope: deps.scope(),
@@ -519,6 +532,8 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
   }
 
   const host = new WorkHost({
+    canStart: () => !updatePrepared,
+    desktopUpdate: deps.desktopUpdate,
     ready: () => {
       if (workStopping || deps.closing()) {return}
       mcpTimer ??= setInterval(refreshWorkPublication, 60_000).unref()
@@ -553,7 +568,10 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
     },
     // The owner view reads Work’s balance through the model proxy.
     readAccess: () => readWorkAccess(deps.model, deps.wallet),
-    openProtons: deps.openProtons
+    openProtons: deps.openProtons,
+    deliverableMessage: (owner, message, current, signal) => deliverables.message(owner, message, current, signal),
+    deliverableStatus: (owner, identity) => deliverables.status(owner, identity),
+    openDeliverable: (owner, identity, current) => deliverables.open(owner, identity, current)
   })
 
   const readNativePlanCapabilities = async (bound: WorkAccount) => {
@@ -619,6 +637,7 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
 
   const session = new WorkSession({
     account,
+    plannedUpdate: active => !resumed && active.key === deps.plannedUpdate?.work?.accountKey ? deps.plannedUpdate.selection : undefined,
     host: host.forResources(deps.resources),
     authTools: paths => host.authTools(paths),
     clearPartition: async partition => {
@@ -638,7 +657,7 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
   })
 
   const surface = new WorkSurface({
-    canPrewarm: () => loadavg()[0] < availableParallelism(),
+    canPrewarm: () => (!deps.plannedUpdate || Boolean(deps.plannedUpdate.work)) && loadavg()[0] < availableParallelism(),
     getSurfaceMode: () => host.getSurfaceMode(),
     getSidebar: () => host.sidebar(),
     getAttention: () => host.attention(),
@@ -818,7 +837,6 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
   })
 
   return {
-    deliverables: deps.deliverables,
     activate: async () => {
       // keys() drops a key whose account or generation is no longer the signed-in one, and cancels its forwards
       modelKeys.keys()
@@ -882,7 +900,43 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
         await Promise.all([reporter.withdraw(target), clearT3Mcp(bound, deviceServiceId, undefined, true)])
       }
     },
-    update: target => session.update(target),
+    async prepareUpdate(resources) {
+      const live = host.current()
+      if (host.pendingStart() || session.held()) {throw new Error('work_update_owner_busy')}
+      if (!live) {
+        updatePrepared = true
+        return null
+      }
+      const current = readShippedPin(deps.resources)
+      const target = readShippedPin(resources)
+      if (semver.lt(target.version, current.version) ||
+          (target.version === current.version && current.sha256 !== target.sha256)) {
+        throw new Error('work_update_pin_incompatible')
+      }
+      const [, terminal] = await Promise.all([verifyPinDigest(target), workHasAttachedTerminal(live.pid)])
+      if (terminal) {throw new Error('work_update_terminal_active')}
+      if (host.current() !== live || session.held()) {throw new Error('work_update_owner_changed')}
+
+      updatePrepared = true
+
+      return { id: randomUUID(), accountKey: live.accountKey, pin: target.version }
+    },
+    cancelPreparedUpdate() {updatePrepared = false},
+    async resumeUpdate() {
+      const expected = deps.plannedUpdate?.work
+      if (!expected || resumed) {
+        startingUpdate = false
+        return
+      }
+      await resolveOwner()
+      if (account()?.key !== expected.accountKey || !host.enabled() || readShippedPin(deps.resources).version !== expected.pin) {
+        throw new Error('work_update_owner_unavailable')
+      }
+      const live = host.current() ?? await session.start()
+      if (live.accountKey !== expected.accountKey) {throw new Error('work_update_owner_changed')}
+      resumed = true
+      startingUpdate = false
+    },
     modelKeys: () => modelKeys.keys(),
     modelRoute: () => account() ? 'open' : 'refused'
   }

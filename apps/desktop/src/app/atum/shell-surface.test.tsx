@@ -5,6 +5,7 @@ import { I18nProvider } from '@/i18n'
 import { DEFAULT_SURFACES, parseSurfaceSet, type SurfaceState } from '@/store/surfaces'
 
 import type { MatrixDesktopServicesStatus } from '../../../shared/matrix-desktop-services'
+import { createInitialDesktopUpdateState } from '../../../vendor/t3-updates/apps/desktop/src/updates/updateMachine'
 import { $matrixDesktopServices } from '../../matrix/desktop-services'
 import { MatrixUpdateFooter } from '../../matrix/desktop-settings'
 
@@ -86,6 +87,7 @@ describe('AtumNavSwitchSurface', () => {
       error: vi.fn(),
       setUpdateChannel: vi.fn(async () => true),
       checkUpdates: vi.fn(async () => true),
+      downloadUpdate: vi.fn(async () => true),
       restart: vi.fn(async () => true),
       onChanged: vi.fn(() => () => {})
     }
@@ -102,6 +104,9 @@ describe('AtumNavSwitchSurface', () => {
           reporting: { configured: true, diagnosticId: 'surface-test', enabled: false },
           busy: false,
           version: '0.18.3',
+          desktopUpdate: createInitialDesktopUpdateState('0.18.3', {
+            hostArch: 'arm64', appArch: 'arm64', runningUnderArm64Translation: false
+          }, 'latest'),
           update: { channel: 'latest', progress: null, notes: [], error: null, requiredBelow: null, armed: true, checkedAt: null, packaged: true, state: update, version: '0.18.4' }
         } satisfies MatrixDesktopServicesStatus)
 
@@ -116,11 +121,11 @@ describe('AtumNavSwitchSurface', () => {
               onDestinationChange={vi.fn()}
               surfaces={places}
             />
-            <MatrixUpdateFooter onOpenUpdates={() => {}} />
+            <MatrixUpdateFooter />
           </I18nProvider>
         )
 
-        expect(rendered.container.querySelectorAll('.atum-rail-update').length).toBe(['downloaded', 'restarting'].includes(update) ? 1 : 0)
+        expect(rendered.container.querySelectorAll('[data-atum-update-pill]')).toHaveLength(1)
         expect(rendered.container.querySelectorAll('[data-update-attention]').length).toBeLessThanOrEqual(1)
         rendered.unmount()
       }

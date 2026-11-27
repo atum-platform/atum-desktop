@@ -2,6 +2,8 @@ import { randomUUID } from 'node:crypto'
 import { lstatSync, realpathSync } from 'node:fs'
 import path from 'node:path'
 
+import type { WorkDeliverableStatus } from '../work/sidecar/deliverable-contract'
+
 import { validMacDeliverablePath } from './drive-deliverables-source'
 import { executeNativeDriveImport, type NativeDriveImportInput, type NativeWorkDriveTarget } from './drive-import-native'
 
@@ -35,10 +37,6 @@ interface WorkDeliverableDrive {
   } | null>
   open(relativePath: string, identity: { dev: number; ino: number }): Promise<void>
 }
-
-export type WorkDeliverableStatus =
-  | { state: 'syncing' | 'saved'; artifactId: string; name: string }
-  | { state: 'drive_unavailable' | 'changed' | 'invalid' | 'no_room' | 'retry' | 'cancelled' }
 
 function directoryIdentity(folder: string): number[] {
   const stat = lstatSync(folder)
@@ -87,18 +85,18 @@ export class WorkDeliverables {
     }
   }
 
-  async receive(scope: WorkDeliverableScope, result: WorkDeliverableResult, signal?: AbortSignal): Promise<WorkDeliverableStatus> {
-    return (await this.check(scope, result, 'work-place', signal)).status
+  async receive(scope: WorkDeliverableScope, result: WorkDeliverableResult, signal?: AbortSignal, admitted?: () => boolean): Promise<WorkDeliverableStatus> {
+    return (await this.check(scope, result, 'work-place', signal, admitted)).status
   }
 
   async status(scope: WorkDeliverableScope, result: WorkDeliverableResult, signal?: AbortSignal): Promise<WorkDeliverableStatus> {
     return (await this.check(scope, result, 'work-probe', signal)).status
   }
 
-  async open(scope: WorkDeliverableScope, result: WorkDeliverableResult): Promise<void> {
-    const checked = await this.check(scope, result, 'work-probe')
+  async open(scope: WorkDeliverableScope, result: WorkDeliverableResult, admitted?: () => boolean): Promise<void> {
+    const checked = await this.check(scope, result, 'work-probe', undefined, admitted)
 
-    if (!checked.receipt || !sameLiveTarget(this.drive.target(), checked.receipt.target)) {
+    if (!checked.receipt || admitted?.() === false || !sameLiveTarget(this.drive.target(), checked.receipt.target)) {
       throw new Error('work_deliverable_unavailable')
     }
 
@@ -106,8 +104,11 @@ export class WorkDeliverables {
   }
 
   private async check(
-    scope: WorkDeliverableScope, result: WorkDeliverableResult, mode: 'work-place' | 'work-probe', signal?: AbortSignal
+    scope: WorkDeliverableScope, result: WorkDeliverableResult, mode: 'work-place' | 'work-probe',
+    signal?: AbortSignal, admitted?: () => boolean
   ): Promise<{ status: WorkDeliverableStatus; receipt?: { relativePath: string; dev: number; ino: number; target: NativeWorkDriveTarget } }> {
+    if (signal?.aborted || admitted?.() === false) {return { status: { state: 'cancelled' } }}
+
     if (!result || result.format !== 'docx' || !validMacDeliverablePath(result.path) || !/\.docx$/iu.test(result.path) ||
         (result.preview !== null && (result.preview?.format !== 'pdf' ||
           !validMacDeliverablePath(result.preview.path) || !/\.pdf$/iu.test(result.preview.path)))) {
@@ -117,7 +118,7 @@ export class WorkDeliverables {
     const target = this.drive.target()
 
     if (!target) {return { status: { state: 'drive_unavailable' } }}
-    const current = () => sameLiveTarget(this.drive.target(), target)
+    const current = () => admitted?.() !== false && sameLiveTarget(this.drive.target(), target)
     const workRecovery = scope.mainInstance !== mainInstance
 
     if (!sameBinding(target, scope.target) || (!workRecovery && target.ownerKey !== scope.target.ownerKey)) {

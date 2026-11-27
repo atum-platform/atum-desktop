@@ -140,7 +140,7 @@ const RECOVERY_LOCK_STALE_MS = 10 * 60_000
  * Returns a release function, or null when another live recovery holds the lock. A lock that cannot be created
  * for any other reason never blocks recovery: the complete signed backup matters more than the lock.
  */
-export function acquireRecoveryLock(root: string, alive: (pid: number) => boolean, now: () => number = Date.now): (() => void) | null {
+export function acquireRecoveryLock(root: string, alive: (pid: number) => boolean, now: () => number = Date.now, strict = false): (() => void) | null {
   const file = path.join(root, RECOVERY_LOCK)
 
   for (let attempt = 0; attempt < 2; attempt++) {
@@ -151,7 +151,7 @@ export function acquireRecoveryLock(root: string, alive: (pid: number) => boolea
 
       return () => rmSync(file, { force: true })
     } catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== 'EEXIST') {return () => {}}
+      if ((error as NodeJS.ErrnoException).code !== 'EEXIST') {return strict ? null : () => {}}
 
       try {
         const holder = Number.parseInt(readFileSync(file, 'utf8'), 10)
