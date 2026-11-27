@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { randomBytes } from 'node:crypto'
-import { spawn, spawnSync } from 'node:child_process'
+import { execFileSync, spawn, spawnSync } from 'node:child_process'
 import {
   appendFileSync,
   closeSync,
@@ -186,10 +186,16 @@ async function buildNewVersion(version, options) {
   const stage = path.join(work, `stage-${version}`)
   const output = path.join(work, `release-${version}`)
   mkdirSync(stage, { recursive: true })
+  // This fixture proves the previous stock bridge. Its historical controller
+  // is fetched from the base Git object, never from the packaged graft.
+  const controller = path.join(stage, 'legacy-stock-controller.ts')
+  writeFileSync(controller, execFileSync('git', [
+    '-C', repository, 'show', '73b0ba1a83b8452b41a3fa88a9cb227c28e532a9:apps/desktop/electron/desktop-updater.ts'
+  ]))
   const source = `
     import { app, BrowserWindow, autoUpdater as nativeAutoUpdater } from 'electron'
     import { autoUpdater as appUpdater } from 'electron-updater'
-    import { spawn, spawnSync } from 'node:child_process'
+    import { execFileSync, spawn, spawnSync } from 'node:child_process'
     import { appendFileSync, existsSync, readFileSync } from 'node:fs'
     import path from 'node:path'
     import {
@@ -198,7 +204,7 @@ async function buildNewVersion(version, options) {
       retireLegacyShipItState,
       sweepLegacyShipItQuarantines
     } from ${JSON.stringify(path.join(root, 'electron/desktop-update-settings.ts'))}
-    import { createDesktopUpdater } from ${JSON.stringify(path.join(root, 'electron/desktop-updater.ts'))}
+    import { createDesktopUpdater } from ${JSON.stringify(controller)}
     import { ownedBackgroundChildren } from ${JSON.stringify(path.join(root, 'electron/owned-background-children.ts'))}
     import { createMatrixQuitHandler } from ${JSON.stringify(path.join(root, 'electron/matrix/quit.ts'))}
 

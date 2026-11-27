@@ -1,5 +1,6 @@
 import { lookup } from 'node:dns/promises'
 import path from 'node:path'
+import { setTimeout as delay } from 'node:timers/promises'
 
 import type { App, BrowserWindow, DownloadItem, IpcMain, IpcMainInvokeEvent, Session, WebContents } from 'electron'
 
@@ -16,6 +17,7 @@ import {
   assertSafeBrowserUrl,
   normalizeBrowserInput
 } from '../../shared/browser/policy'
+import { browserUpdateUrl } from '../../shared/browser/update-restore'
 import { type AppViewEgress, createConsumerBrowserEgress } from '../app-view/egress'
 import { ATUM_FILE_VIEW_PARTITION } from '../atum-file-view-constants'
 
@@ -154,6 +156,8 @@ export async function assertPublicBrowserDestination(raw: string): Promise<strin
 
 export function createConsumerBrowserController(deps: ConsumerBrowserControllerDeps): {
   dispose: () => void
+  hasActiveDownloads: () => boolean
+  canRestartForUpdate: () => Promise<boolean>
   releaseAppPartitions: () => Promise<void>
   releaseConsumerPartitions: () => Promise<void>
 } {
@@ -164,6 +168,8 @@ export function createConsumerBrowserController(deps: ConsumerBrowserControllerD
   const previewSessions = new WeakSet<Session>()
   const popupTimestamps = new Map<number, number[]>()
   const downloadsInFlight = new WeakMap<Session, number>()
+  const activeDownloadItems = new Set<DownloadItem>()
+  const browserGuests = new Set<WebContents>()
   // One pinned-address proxy per prepared browser partition. Chromium sends it hostnames and never
   // resolves them itself, so the address we vetted is the address that is dialled (no DNS rebinding).
   const egresses = new Map<string, { egress: AppViewEgress; owner: object }>()
@@ -219,11 +225,13 @@ export function createConsumerBrowserController(deps: ConsumerBrowserControllerD
     }
 
     downloadsInFlight.set(browserSession, inFlight + 1)
+    activeDownloadItems.add(item)
     // No save path is set, so Electron asks where to save: nothing lands on disk unseen.
     item.setSaveDialogOptions({
       defaultPath: path.join(deps.downloads.directory(), consumerBrowserDownloadName(item.getFilename()))
     })
     item.once('done', (_done, state) => {
+      activeDownloadItems.delete(item)
       downloadsInFlight.set(browserSession, Math.max(0, (downloadsInFlight.get(browserSession) ?? 1) - 1))
 
       if (state === 'completed') {
@@ -361,6 +369,8 @@ export function createConsumerBrowserController(deps: ConsumerBrowserControllerD
       return
     }
 
+    browserGuests.add(contents)
+    contents.once('destroyed', () => browserGuests.delete(contents))
     let permittedNavigation: string | null = null
     contents.on('will-navigate', (event, rawUrl) => {
       if (rawUrl === permittedNavigation) {
@@ -476,6 +486,31 @@ export function createConsumerBrowserController(deps: ConsumerBrowserControllerD
       deps.app.removeListener('web-contents-created', onWebContentsCreated)
       deps.ipcMain.removeHandler(CONSUMER_BROWSER_IPC.prepare)
       deps.ipcMain.removeHandler(CONSUMER_BROWSER_IPC.release)
+    },
+    hasActiveDownloads: () => activeDownloadItems.size > 0,
+    canRestartForUpdate: async () => {
+      const guests = [...browserGuests].filter(guest => !guest.isDestroyed())
+      const checks = Promise.all(guests.map(async guest => {
+        const url = guest.getURL()
+        if (url === '' || url === 'about:blank') {return !guest.isLoading()}
+        if (!browserUpdateUrl(url) || guest.isLoading()) {return false}
+        const unchanged = await guest.executeJavaScriptInIsolatedWorld(1, [{ code: `(() => {
+          if (document.querySelector('[contenteditable]:not([contenteditable="false"]), iframe')) return false;
+          return [...document.querySelectorAll('input,textarea,select')].every(field => {
+            if (field instanceof HTMLSelectElement) {
+              return [...field.options].every(option => option.selected === option.defaultSelected) ||
+                (!field.multiple && field.selectedIndex === 0 && ![...field.options].some(option => option.defaultSelected));
+            }
+            if (field instanceof HTMLInputElement && /^(checkbox|radio)$/.test(field.type)) return field.checked === field.defaultChecked;
+            return field.value === field.defaultValue;
+          });
+        })()` }]).catch(() => false)
+        return unchanged === true && !guest.isDestroyed() && !guest.isLoading() && guest.getURL() === url
+      }))
+      const results = await Promise.race([checks, delay(2_000, null, { ref: false })])
+
+      return results?.every(Boolean) === true && activeDownloadItems.size === 0 && preparing.size === 0 &&
+        [...browserGuests].every(guest => guest.isDestroyed() || guests.includes(guest))
     },
     releaseAppPartitions: async () => {
       const appPartitions = new Set(deps.knownAppIds.filter(validAppId).map(appPartition))

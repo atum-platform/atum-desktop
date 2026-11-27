@@ -112,6 +112,7 @@ const Folders = phosphorIcon('folders')
 const FolderShare = phosphorIcon('folder-simple-user')
 // The forward arrow every chat app uses.
 const Forward = phosphorIcon('share-fat')
+const Funnel = phosphorIcon('funnel-simple')
 const Gift = phosphorIcon('gift')
 const GitBranch = phosphorIcon('git-branch')
 const GitBranchIcon = phosphorIcon('git-branch')
@@ -367,6 +368,7 @@ export {
   Folders,
   FolderShare,
   Forward,
+  Funnel,
   Gift,
   GitBranch,
   GitBranchIcon,

@@ -2513,6 +2513,13 @@ describe('isolated Matrix composition', () => {
         state: 'downloaded',
         version: '1.0.1'
       },
+      desktopUpdate: {
+        enabled: true, status: 'downloaded', channel: 'latest', currentVersion: '1.0.0',
+        hostArch: 'arm64', appArch: 'arm64', runningUnderArm64Translation: false,
+        availableVersion: '1.0.1', downloadedVersion: '1.0.1', releaseNotes: [],
+        omittedReleaseCount: 0, downloadPercent: 100, checkedAt: null,
+        message: null, errorContext: null, canRetry: false
+      },
       version: '1.0.0',
       busy: false
     }
@@ -2526,6 +2533,7 @@ describe('isolated Matrix composition', () => {
       feedback: vi.fn(async () => ({ sent: true })),
       setUpdateChannel: vi.fn(async () => true),
       checkUpdates: vi.fn(async () => true),
+      downloadUpdate: vi.fn(async () => true),
       restart: vi.fn(async () => true),
       error: vi.fn()
     } satisfies MatrixDesktopServicesBridge
@@ -2547,9 +2555,17 @@ describe('isolated Matrix composition', () => {
     await screen.findByRole('button', { name: 'Account: owner' })
     expect(services.ready).toHaveBeenCalledOnce()
     expect(window.document.querySelector('[data-matrix-account-settings]')).toBeNull()
+    function railUpdate() {
+      const button = screen.getByRole('button', { name: 'Update ready — restart to install' })
+      const avatar = screen.getByRole('button', { name: 'Account: owner' })
+      const foot = button.closest('[data-matrix-rail-foot]')!
+      expect(foot.contains(avatar)).toBe(true)
+      expect(button.closest('[data-atum-update-pill]')?.nextElementSibling?.contains(avatar)).toBe(true)
+      return button
+    }
+    railUpdate()
     fireEvent.click(window.document.querySelector('[data-atum-roster] [data-atum-sidebar-toggle]')!)
-    const update = screen.getByRole('button', { name: 'Update ready — restart to install' })
-    expect(update.closest('[data-matrix-rail-foot]')).toBeTruthy()
+    const update = railUpdate()
     fireEvent.click(update)
     expect(await screen.findByText('Atum 1.0.1 is ready. Restart now?')).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: 'Restart' }))
