@@ -13323,8 +13323,11 @@ describe("Home's chat (launch night, second wave)", () => {
     )
     await waitFor(() => expect(screen.queryByRole('textbox', { name: 'Name' })).toBeNull())
     fireEvent.keyDown(screen.getByRole('button', { name: 'Conversation options' }), { key: 'Enter' })
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Mute notifications' }))
-    await waitFor(() => expect(command).toHaveBeenCalledWith({ kind: 'mute', roomId: group.id, muted: true }))
+    fireEvent.keyDown(screen.getByRole('menuitem', { name: 'Notifications' }), { key: 'ArrowRight' })
+    fireEvent.click(await screen.findByRole('menuitemradio', { name: 'Off' }))
+    await waitFor(() => expect(command).toHaveBeenCalledWith({
+      kind: 'roomNotificationMode', roomId: group.id, mode: 'nothing'
+    }))
   })
 
   // Matrix's own chat features (launch night, ).

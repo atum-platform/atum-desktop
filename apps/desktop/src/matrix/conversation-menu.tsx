@@ -18,8 +18,6 @@ import { useI18n } from '@/i18n'
 import {
   ArrowDown,
   ArrowUp,
-  Bell,
-  BellOff,
   Eye,
   Flag,
   LogOut,
@@ -39,6 +37,7 @@ import { MATRIX_CHAT_TITLE_MAX, type MatrixRoom, type MatrixSnapshot } from '../
 
 import { useChatCopy } from './chat-copy'
 import { focusDialogField, MatrixDialogHeader } from './dialog-header'
+import { MatrixRoomNotificationMenu } from './notification-level-menu'
 import { MatrixReportDialog } from './report-dialog'
 import { MATRIX_PIN_LIMIT } from './room-navigation'
 import { lowPriorityEligible, personalChatActions, personalGroupDetails, reportablePerson } from './roster-model'
@@ -338,7 +337,7 @@ interface MatrixChatMenuProps {
 /**
  * One conversation menu for every kind of chat (launch night): Reply settings (your
  * assistant's chat), Members (a group), Mark as read or unread (on a roster row), Rename,
- * Pin, Mute notifications, then Leave (a group) and Delete chat. Delete chat is Matrix's own:
+ * Pin, Notifications, then Leave (a group) and Delete chat. Delete chat is Matrix's own:
  * you leave the room and forget it, so it leaves your list on every device, while everyone
  * else in it keeps their copy. The same menu sits in the chat's header and on its row in the
  * roster (`row`: shown on hover or focus).
@@ -366,7 +365,7 @@ function MatrixChatMenuFor({
   // while it closes.
   const [renaming, setRenaming] = useState({ open: false, roomId: room.id, current: '', shared: false })
 
-  const { actions, blocked, confirm, dialogs, low, lowable, mute, ready, report, reportable, unblock } =
+  const { actions, blocked, confirm, dialogs, low, lowable, ready, report, reportable, unblock } =
     useMatrixChatActions(room, snapshot, fail)
 
   const pin = useRoomFlag(Boolean(room.favourite))
@@ -462,10 +461,7 @@ function MatrixChatMenuFor({
               {low.value ? chat.removeLowPriority : chat.lowPriority}
             </DropdownMenuItem>
           )}
-          <DropdownMenuItem disabled={!ready || mute.busy} onSelect={() => mute.toggle()}>
-            {mute.value ? <Bell aria-hidden /> : <BellOff aria-hidden />}
-            {mute.value ? chat.unmute : chat.mute}
-          </DropdownMenuItem>
+          <MatrixRoomNotificationMenu fail={fail} room={room} snapshot={snapshot} />
           {onBackground && (
             <DropdownMenuItem onSelect={onBackground}>
               <Palette aria-hidden />
