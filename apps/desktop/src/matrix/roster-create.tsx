@@ -10,6 +10,17 @@ import { MatrixNewGroup } from './new-group'
 import { projectMatrixRoster } from './roster-model'
 import { matrixRoomHasUnread } from './roster-preview'
 import { MatrixStartChat } from './start-chat'
+import { openMatrixTopUp } from './store/top-up'
+
+/**
+ * The account can make another assistant: main read a roster from a platform that makes several
+ * per person (`snapshot.agentCreation`). Not whether this Mac holds the primary's own Matrix
+ * login (`snapshot.assistant`), which a cloud-only primary never does, and never the Proton
+ * balance: a hire that is short offers a top-up in the sheet (owner, 2026-11-27).
+ */
+export function matrixCanCreateAssistant(snapshot: Pick<MatrixSnapshot, 'agentCreation' | 'identity'>): boolean {
+  return Boolean(snapshot.identity && snapshot.agentCreation)
+}
 
 /** Which of the roster's creation dialogs is open. One at a time: each hands over to the next. */
 export type MatrixRosterCreation =
@@ -34,7 +45,7 @@ export interface MatrixRosterCreateProps {
 
 /**
  * The roster's creation flows, composed in one place: the start menu behind the "+", and
- * the friend, group and assistant dialogs it (or the button under the assistants) opens.
+ * the friend, group and assistant dialogs it (or the row under the assistants) opens.
  * Matrix stays the authority: every path is an existing command or bridge call.
  */
 export function MatrixRosterCreate({
@@ -49,7 +60,7 @@ export function MatrixRosterCreate({
 }: MatrixRosterCreateProps) {
   const ready = snapshot.state === 'ready'
   const canFindPeople = Boolean(snapshot.domainEnabled && window.atumMatrix?.aliases)
-  const canCreateAssistant = Boolean(snapshot.assistant && snapshot.agentCreation)
+  const canCreateAssistant = matrixCanCreateAssistant(snapshot)
   const closeWith = (open: boolean) => !open && onCreatingChange(null)
   // The names the catalog's apps go by: not an assistant's to take.
   const appNames = useMemo(() => appCatalogNames(snapshot.apps?.apps), [snapshot.apps?.apps])
@@ -84,10 +95,8 @@ export function MatrixRosterCreate({
   return (
     <>
       <MatrixStartChat
-        canCreateAssistant={canCreateAssistant}
         canFindPeople={canFindPeople}
         onFindPerson={query => onCreatingChange({ kind: 'friend', query })}
-        onNewAssistant={() => onCreatingChange({ kind: 'assistant' })}
         onNewGroup={() => onCreatingChange({ kind: 'group' })}
         onOpenChange={closeWith}
         onPickApp={appId => {
@@ -127,6 +136,7 @@ export function MatrixRosterCreate({
           apps={appNames}
           onCreated={onConversationCreated}
           onOpenChange={closeWith}
+          onTopUp={() => void openMatrixTopUp(snapshot).catch(() => {})}
           open={creating?.kind === 'assistant'}
           ready={ready}
         />

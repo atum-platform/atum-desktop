@@ -84,9 +84,9 @@ async function chooseFromNewMenu(item: RegExp | string) {
   fireEvent.click(await screen.findByRole('menuitem', { name: item }))
 }
 
-/** New assistant is an item of the roster's "+" menu, not a roster row. */
+/** New assistant is the last row of the roster's Assistants (owner, 2026-11-27), not a "+" item. */
 async function openNewAssistant() {
-  await chooseFromNewMenu('New assistant')
+  fireEvent.click(await screen.findByRole('button', { name: 'New assistant' }))
 }
 
 /** The way into Connections: the two-column picker's rail item, or the plain menu's subscription row. */
@@ -11532,6 +11532,25 @@ describe("the person's other agents (per-agent runtime plan §2.8)", () => {
     expect(screen.queryByRole('button', { name: 'New assistant' })).toBeNull()
   })
 
+  it('ends the Assistants with New assistant, also for a cloud-only primary, and not in the "+"', async () => {
+    // A cloud-only primary: this Mac holds no Matrix login for it (snapshot.assistant).
+    await open({ ...ready, assistant: undefined })
+    await agentRow().findByRole('button', { name: 'Alfred' })
+    const roster = window.document.querySelector<HTMLElement>('[data-matrix-roster-conversations]')!
+    const row = await within(roster).findByRole('button', { name: 'New assistant' })
+    const rows = [...roster.querySelectorAll('[data-roster-row]')]
+    const firstChat = rows.findIndex(each => !each.closest('[data-matrix-agent]') && each !== row)
+    // After every assistant, before the chats.
+    expect(rows.indexOf(row)).toBe(rows.filter(each => each.closest('[data-matrix-agent]')).length)
+    expect(firstChat === -1 || firstChat > rows.indexOf(row)).toBe(true)
+    fireEvent.pointerDown(await screen.findByRole('button', { name: 'New…' }), { button: 0, ctrlKey: false, pointerType: 'mouse' })
+    await screen.findByRole('menuitem', { name: 'New group' })
+    expect(screen.queryByRole('menuitem', { name: 'New assistant' })).toBeNull()
+    fireEvent.keyDown(screen.getByRole('menu'), { key: 'Escape' })
+    fireEvent.click(row)
+    expect(await screen.findByRole('dialog', { name: 'New assistant' })).toBeTruthy()
+  })
+
   it('shows an agent content failure without disabling its healthy composer or changing row navigation', async () => {
     const { bridge } = await open({
       ...ready,
@@ -11584,7 +11603,7 @@ describe("the person's other agents (per-agent runtime plan §2.8)", () => {
     }
   )
 
-  it('creates an assistant from the "+" in one sheet, then opens its conversation and nothing else', async () => {
+  it('creates an assistant from the roster row in one sheet, then opens its conversation and nothing else', async () => {
     const { bridge, emit } = await open(ready)
     const bea = agentView('bea', '@bea:test', { name: 'Bea', deviceId: 'BEA' })
 
@@ -11595,7 +11614,7 @@ describe("the person's other agents (per-agent runtime plan §2.8)", () => {
       return { principal: 'bea', roomId: '!bea:test' }
     })
 
-    await chooseFromNewMenu('New assistant')
+    await openNewAssistant()
     const sheet = await screen.findByRole('dialog', { name: 'New assistant' })
     // One dialog at a time.
     expect(screen.getAllByRole('dialog')).toEqual([sheet])

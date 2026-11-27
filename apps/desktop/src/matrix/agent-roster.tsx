@@ -117,22 +117,31 @@ export function RetireAgent({
   )
 }
 
-/** The way to grow the assistants list: a real button under it, as in the old app (an
- * affordance, not a row, so it is never mistaken for an assistant with nobody in it). */
+/** The way to grow the assistants list: the last row of the roster's Assistants section (owner,
+ * 2026-11-27), quiet, in the rows' own language. A circle "+" sits where an avatar would, so it
+ * reads as an action, never as an assistant with nobody in it. */
 export function NewAssistantButton({ disabled, onClick }: { disabled?: boolean; onClick(): void }) {
-  const { t } = useI18n()
+  const copy = useRosterCreateCopy()
 
   return (
-    <div className="pt-0.5" data-atum-agents-foot>
+    <div className="atum-row flex h-12 items-center" data-atum-agents-foot>
       <button
-        className="atum-row mt-2 flex h-9 w-full items-center gap-2.5 bg-(--atum-sunk) px-2.5 text-left text-[0.84375rem] font-medium text-(--atum-ink-muted) hover:text-(--atum-ink) disabled:opacity-45 disabled:hover:text-(--atum-ink-muted)"
+        className="group flex min-w-0 flex-1 items-center gap-2.5 self-stretch rounded-[inherit] ps-2 pe-2 text-left text-(--atum-ink-muted) hover:text-(--atum-ink) focus-visible:text-(--atum-ink) disabled:opacity-45 disabled:hover:text-(--atum-ink-muted)"
         data-atum-create-agent
+        data-roster-row
         disabled={disabled}
         onClick={onClick}
         type="button"
       >
-        <Plus aria-hidden className="size-[1.0625rem] shrink-0" strokeWidth={1.6} />
-        <span className="min-w-0 flex-1 truncate">{t.matrixShell.newAgent}</span>
+        <span
+          aria-hidden
+          className="grid size-7 shrink-0 place-items-center rounded-full border border-dashed border-(--atum-line-strong) group-hover:border-(--atum-ink-faint) group-focus-visible:border-(--atum-ink-faint)"
+        >
+          <Plus className="size-3.5" strokeWidth={1.8} />
+        </span>
+        <span className="min-w-0 flex-1 truncate text-(length:--atum-t-ui) leading-(--atum-lh-ui) font-medium">
+          {copy.newAssistant}
+        </span>
       </button>
     </div>
   )
@@ -212,9 +221,12 @@ export function NewAssistantDialog({
   apps,
   onCreated,
   onOpenChange,
+  onTopUp = () => void window.atumMatrix.openTopUp(),
   open,
   ready
 }: {
+  /** Short of Protons for the hire: Top up opens the one top-up place (`openMatrixTopUp`). */
+  onTopUp?(): void
   /** The owner's assistants, so a second "Lan" is refused before anything is created. */
   agents?: readonly MatrixAgentView[]
   /** The names the catalog's apps go by (`appCatalogNames`), so nobody is called what an app is. */
@@ -520,11 +532,8 @@ export function NewAssistantDialog({
             return
           }
 
+          // Short of Protons is not a failure: the hire band offers Top up (owner, 2026-11-27).
           setRefused(reason)
-
-          if (reason === 'short') {
-            void window.atumMatrix.openTopUp()
-          }
 
           return
         }
@@ -834,12 +843,30 @@ export function NewAssistantDialog({
               {pending === 'photo' ? copy.photoSaving : shell.agentCreating}
             </p>
           )}
-          {(refused || nameProblem) && (
+          {((refused && refused !== 'short') || nameProblem) && (
             <NoticeBand role="alert" tone="failure">
               {nameProblem ?? (refused ? refusal[refused] : undefined)}
             </NoticeBand>
           )}
-          {hireRequired !== undefined && !pending && (
+          {refused === 'short' && !pending ? (
+            <NoticeBand data-agent-hire-short role="alert" tone="notice">
+              {hireRequired !== undefined && (
+                <>
+                  <strong>{shell.agentHireTitle}</strong> · {new Intl.NumberFormat(locale).format(hireRequired)} Protons / 30 days
+                  <br />
+                </>
+              )}
+              {shell.agentHireShort}
+              <div className="mt-2 flex gap-2">
+                <button onClick={onTopUp} type="button">{t.atum.discover.topUp}</button>
+                <button onClick={() => {
+                  setRefused(undefined)
+                  setHireRequired(undefined)
+                  setHireImporting(false)
+                }} type="button">{shell.agentHireLater}</button>
+              </div>
+            </NoticeBand>
+          ) : hireRequired !== undefined && !pending && (
             <NoticeBand role="alert" tone="notice">
               <strong>{shell.agentHireTitle}</strong> · {new Intl.NumberFormat(locale).format(hireRequired)} Protons / 30 days
               <div className="mt-2 flex gap-2">
