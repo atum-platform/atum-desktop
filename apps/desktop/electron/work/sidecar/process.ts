@@ -1,16 +1,18 @@
-import { type ChildProcessByStdio, spawn } from 'node:child_process'
-import { randomUUID } from 'node:crypto'
+import { type ChildProcessByStdio, execFile, spawn } from 'node:child_process'
+import { createHmac, randomBytes, randomUUID } from 'node:crypto'
 import { mkdir, readFile } from 'node:fs/promises'
 import { homedir, tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { createInterface } from 'node:readline'
-import type { Readable, Writable } from 'node:stream'
+import type { Duplex, Readable, Writable } from 'node:stream'
 import { setTimeout as delay } from 'node:timers/promises'
+import { promisify } from 'node:util'
 
 import { MATRIX_DEFAULT_MODEL } from '../../../shared/matrix-models'
 import { PLAN_PROVIDER_DEFAULTS } from '../plan-providers'
 import type { TrialContext, TrialHandle } from '../session/update'
 
+import { bindWorkDesktopControl, type WorkDesktopUpdateHandler } from './desktop-control'
 import { loginShellPath } from './shell-environment'
 
 export const ATUM_WORK_PROVIDER = 'atum-managed'
@@ -26,6 +28,7 @@ interface WorkAccount {
 interface WorkProcessOptions {
   log?(phase: string, ms: number): void
   ready?(): void
+  desktopUpdate?: WorkDesktopUpdateHandler
   prepare?(signal: AbortSignal): Promise<void>
   account: WorkAccount
   resources: string
@@ -135,12 +138,20 @@ async function startProcess(options: WorkProcessOptions, { continuation, trial }
   }
 
   const credentials = options.gatewayEnvironment()
+  const secret = options.desktopUpdate ? randomBytes(32).toString('base64url') : undefined
+  const desktop = secret ? {
+    mode: 'desktop', noBrowser: true, host: '127.0.0.1', t3Home: home, shellEnvironmentPrepared: true,
+    tailscaleServeEnabled: false, tailscaleServePort: 443,
+    desktopBootstrapSecret: secret, desktopBootstrapToken: desktopToken(secret),
+    desktopTelemetryFd: 4, desktopTelemetryControlFd: 5, desktopAppUpdate: false
+  } : undefined
 
   const child = spawn(python, ['-P', '-B', '-X', 'utf8', join(resources, 'work-runtime', 'supervisor.py')], {
     env: environment,
     cwd,
     detached: true,
-    stdio: trial ? ['pipe', 'pipe', 'ignore', 'ipc'] : ['pipe', 'pipe', 'ignore']
+    stdio: desktop ? ['pipe', 'pipe', 'ignore', trial ? 'ipc' : 'ignore', 'pipe', 'pipe']
+      : trial ? ['pipe', 'pipe', 'ignore', 'ipc'] : ['pipe', 'pipe', 'ignore']
   }) as Supervisor
 
   const exited = new Promise<void>(resolve => {
@@ -161,7 +172,6 @@ async function startProcess(options: WorkProcessOptions, { continuation, trial }
     settingsPath: join(home, 'userdata', 'settings.json'),
     settings: {
       ...WORK_REQUIRED_SERVER_SETTINGS,
-      continueThreadsAfterServerUpdate: continuation,
       defaultModelSelection: managedModel,
       // ACP has no text-generation runner. Keep the selection on Atum so
       // titles keep their local fallback instead of invoking a subscription.
@@ -170,6 +180,8 @@ async function startProcess(options: WorkProcessOptions, { continuation, trial }
     },
     planProviderDefaults: { ...PLAN_PROVIDER_DEFAULTS, opencode: { driver: 'opencode', enabled: true } },
     trial,
+    continuation,
+    desktop,
     profileSource,
     managedModelAlias: ATUM_WORK_DEFAULT_ALIAS,
     managedProvider: ATUM_WORK_PROVIDER,
@@ -193,7 +205,13 @@ async function startProcess(options: WorkProcessOptions, { continuation, trial }
   }) + '\n')
   void exited.then(() => signal.removeEventListener('abort', stop))
 
-  return { child, stop, exited, home }
+  return { child, stop, exited, home, secret }
+}
+
+function desktopToken(secret: string): string {
+  const window = Math.floor(Date.now() / (12 * 60 * 60 * 1000))
+
+  return createHmac('sha256', secret).update(`t3-desktop-bootstrap:${window}`).digest('hex')
 }
 
 function startupEvent<T>() {
@@ -307,21 +325,22 @@ function nativeTrial(
   }
 }
 
-async function verifyListener(home: string, pid: number, origin: string, signal: AbortSignal): Promise<void> {
+async function verifyListener(home: string, pid: number, expected: string | undefined, signal: AbortSignal): Promise<string> {
   for (let attempt = 0; attempt < 30; attempt++) {
     signal.throwIfAborted()
 
     const runtime = await readFile(join(home, 'userdata', 'server-runtime.json'), 'utf8')
       .then(value => JSON.parse(value), () => undefined)
 
-    if (runtime?.pid === pid && runtime.origin === origin) {
+    const origin = typeof runtime?.origin === 'string' && workPairingOrigin(`${runtime.origin}/pair#token=probe`)
+    if (origin && runtime.pid === pid && (!expected || expected === origin)) {
       const listener = await fetch(origin, { redirect: 'error', signal: AbortSignal.any([signal, AbortSignal.timeout(600)]) })
         .catch(() => undefined)
 
       if (listener?.ok) {
         await listener.body?.cancel()
 
-        return
+        return origin
       }
     }
 
@@ -329,6 +348,23 @@ async function verifyListener(home: string, pid: number, origin: string, signal:
   }
 
   throw new Error('work_listener_unavailable')
+}
+
+/** Node PTY gives its live local shell a controlling terminal. A detached process
+ * without a controlling terminal can reconnect through its own persistence. */
+export async function workHasAttachedTerminal(serverPid: number): Promise<boolean> {
+  const { stdout } = await promisify(execFile)('/bin/ps', ['-axo', 'pid=,ppid=,tty='], { timeout: 2_000 })
+  const rows = stdout.trim().split('\n').map(row => row.trim().split(/\s+/u))
+  const descendants = new Set([serverPid])
+  for (let prior = 0; descendants.size !== prior;) {
+    prior = descendants.size
+    for (const [pid, parent] of rows) {
+      if (descendants.has(Number(parent))) {descendants.add(Number(pid))}
+    }
+  }
+
+  return rows.some(([pid, , terminal]) => Number(pid) !== serverPid && descendants.has(Number(pid)) &&
+    typeof terminal === 'string' && !/^\?+$/u.test(terminal) && terminal !== '-')
 }
 
 export class WorkSidecar {
@@ -344,6 +380,10 @@ export class WorkSidecar {
 
   current(): WorkIncarnation | undefined {
     return this.options.current() ? this.live : undefined
+  }
+
+  pendingStart(): boolean {
+    return Boolean(this.starting && !this.live)
   }
 
   start(input: WorkStartOptions): Promise<WorkIncarnation> {
@@ -384,23 +424,32 @@ export class WorkSidecar {
     try {
       await this.options.prepare?.(signal)
       signal.throwIfAborted()
-      const { child, exited, home, stop } = await startProcess(this.options, input, signal)
+      const { child, exited, home, stop, secret } = await startProcess(this.options, input, signal)
       this.teardown = exited
       const startup = readStartup(child, exited, signal)
       let origin: string | undefined
-      let grant: string | undefined
+      let grant: (() => string) | undefined
+      const pipes: readonly (Readable | Writable | null | undefined)[] = child.stdio
+      const control = secret && this.options.desktopUpdate && bindWorkDesktopControl({
+        reports: pipes[4] as Duplex,
+        controls: pipes[5] as Duplex,
+        signal,
+        exited,
+        handler: this.options.desktopUpdate,
+        current: () => this.current() === incarnation
+      })
 
       const activate = async () => {
-        const paired = await startup.pairing
-        await verifyListener(home, incarnation.pid, paired.origin, signal)
+        const paired = control ? await control.ready.then(() => undefined) : await startup.pairing
+        const verifiedOrigin = await verifyListener(home, incarnation.pid, paired?.origin, signal)
 
         if (signal.aborted || !this.options.current()) {
           await stop()
           throw new Error('work_identity_changed')
         }
 
-        origin = paired.origin
-        grant = paired.url
+        origin = verifiedOrigin
+        grant = secret ? () => `${verifiedOrigin}/pair#token=${desktopToken(secret)}` : () => paired!.url
         this.options.log?.('ready', Date.now() - startedAt)
         this.live = incarnation
         this.readyAt = Date.now()
@@ -428,7 +477,7 @@ export class WorkSidecar {
         unexpectedExit: exited.then(() => !signal.aborted && this.options.current()),
         trial,
         takePairingUrl: () => {
-          const url = this.current() === incarnation ? grant : undefined
+          const url = this.current() === incarnation ? grant?.() : undefined
           grant = undefined
 
           return url
