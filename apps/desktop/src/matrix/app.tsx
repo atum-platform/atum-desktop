@@ -472,6 +472,14 @@ import { MatrixRosterConversations } from './roster-conversations'
 import { useRosterCopy } from './roster-copy'
 import { MatrixRosterCreate, type MatrixRosterCreation } from './roster-create'
 import { useRosterCreateCopy } from './roster-create-copy'
+import {
+  $matrixRosterFilterByAccount,
+  availableMatrixRosterFilters,
+  effectiveMatrixRosterFilter,
+  matrixRememberedRosterFilter,
+  rememberMatrixRosterFilter
+} from './roster-filter'
+import { MatrixRosterFilterButton } from './roster-filter-button'
 import { matrixRosterGlobalSearchPending, useMatrixRosterGlobalSearch } from './roster-global-search'
 import { matrixPrimaryAgentName, matrixRosterAgentName, normalizeMatrixRosterQuery, projectMatrixRoster } from './roster-model'
 import { matrixAgentConversationRoom } from './roster-preview'
@@ -6571,6 +6579,20 @@ function MatrixRoster({
   // sign-out or an account switch, and typing never writes Matrix navigation.
   const [query, setQuery] = useState('')
 
+  // The filter beside the search, kept per account (roster-filter.ts). One with nothing left to
+  // show reads as All, so the roster never goes blank under it.
+  const rosterFilters = useMemo(
+    () => availableMatrixRosterFilters(projectMatrixRoster(snapshot), snapshot.identity?.userId),
+    [snapshot]
+  )
+
+  const savedRosterFilters = useStore($matrixRosterFilterByAccount)
+
+  const rosterFilter = effectiveMatrixRosterFilter(
+    matrixRememberedRosterFilter(snapshot.identity?.userId, savedRosterFilters),
+    rosterFilters
+  )
+
   const knownHandles = useMatrixHandles(snapshot.identity?.userId)
   const [creating, setCreating] = useState<MatrixRosterCreation | null>(null)
   const createCopy = useRosterCreateCopy()
@@ -6884,6 +6906,15 @@ function MatrixRoster({
           placeholder={t.atum.roster.searchPlaceholder}
           value={query}
         />
+        <MatrixRosterFilterButton
+          available={rosterFilters}
+          onValueChange={filter => {
+            if (snapshot.identity?.userId) {
+              rememberMatrixRosterFilter(snapshot.identity.userId, filter)
+            }
+          }}
+          value={rosterFilter}
+        />
         <MatrixStartChatButton
           canCreateAssistant={Boolean(snapshot.assistant && snapshot.agentCreation)}
           canFindPeople={Boolean(snapshot.domainEnabled && window.atumMatrix?.aliases)}
@@ -6956,6 +6987,7 @@ function MatrixRoster({
           externalResultCount={externalSearchResultCount}
           externalSearching={globalSearching}
           fail={fail}
+          filter={rosterFilter}
           onAppInfo={onAppInfo}
           onEditAgent={onEditAgent}
           onOpen={() => {
