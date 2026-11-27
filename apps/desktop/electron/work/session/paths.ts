@@ -27,6 +27,8 @@ export interface WorkSessionPaths {
   snapshot: string
 }
 
+export const workAccountRoot = (userData: string, accountKey: string) => join(userData, 'work-accounts', accountKey.slice(0, 32))
+
 export function workSessionPaths(account: Pick<WorkSessionAccount, 'root'>): WorkSessionPaths {
   const work = join(account.root, 'work')
   const home = join(work, 'server')

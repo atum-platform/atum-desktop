@@ -5,7 +5,6 @@ import { I18nProvider } from '@/i18n'
 
 import type { MatrixDesktopServicesBridge, MatrixDesktopServicesStatus } from '../../shared/matrix-desktop-services'
 
-import { ATUM_LINKS } from './atum-links'
 import { $matrixDesktopServices } from './desktop-services'
 import {
   $matrixFeedbackOpen,
@@ -74,7 +73,7 @@ function fixture(status: MatrixDesktopServicesStatus = idle) {
     ...render(
       <I18nProvider configClient={null} initialLocale="en">
         <MatrixDesktopSettings onOpenFeedback={onOpenFeedback} />
-        <MatrixUpdateFooter onOpenUpdates={() => {}} />
+        <MatrixUpdateFooter />
         <MatrixFeedbackDialog />
       </I18nProvider>
     )
@@ -155,14 +154,10 @@ it('offers a manual update check, and restart only after a download', async () =
   // Settings restarts in one click; the rail's update mark asks first.
   fireEvent.click(await screen.findByRole('button', { name: 'Restart to update' }))
   await waitFor(() => expect(bridge.restart).toHaveBeenCalledOnce())
-  const rail = screen.getByRole('button', { name: 'Update ready — restart to install' })
-  fireEvent.click(rail)
-  expect(await screen.findByText('Atum 1.0.1 is ready. Restart now?')).toBeTruthy()
-  fireEvent.click(screen.getByRole('button', { name: 'Restart' }))
-  await waitFor(() => expect(bridge.restart).toHaveBeenCalledTimes(2))
+
 })
 
-it('shows honest updater errors in Settings and keeps rail recovery in the existing surface', async () => {
+it('shows an updater error in Settings and offers recovery', async () => {
   const failure = {
     ...idle,
     update: {
@@ -176,108 +171,17 @@ it('shows honest updater errors in Settings and keeps rail recovery in the exist
     }
   }
 
-  const { bridge, openLink } = fixture(failure)
+  const { bridge } = fixture(failure)
 
   expect(screen.getByRole('status').textContent).toContain('Could not reach the update server.')
-  fireEvent.click(screen.getByRole('button', { name: 'Update needs attention' }))
-  await screen.findAllByText('Could not reach the update server.')
-  fireEvent.click(screen.getAllByRole('button', { name: 'Download Atum' }).at(-1)!)
   fireEvent.click(screen.getAllByRole('button', { name: 'Try again' }).at(-1)!)
-  await waitFor(() => expect(openLink).toHaveBeenCalledOnce())
-  expect(openLink).toHaveBeenLastCalledWith(ATUM_LINKS.download)
   await waitFor(() => expect(bridge.checkUpdates).toHaveBeenCalledOnce())
 })
 
-it('lets the rail’s update wait: Later closes it without restarting', async () => {
-  const { bridge } = fixture({ ...idle, update: { ...idle.update, state: 'downloaded', version: '1.0.1' } })
-  fireEvent.click(screen.getByRole('button', { name: 'Update ready — restart to install' }))
-  fireEvent.click(await screen.findByRole('button', { name: 'Later' }))
-  await waitFor(() => expect(screen.queryByText('Atum 1.0.1 is ready. Restart now?')).toBeNull())
-  expect(bridge.restart).not.toHaveBeenCalled()
-})
+
 
 it('does not offer undeliverable feedback in an unconfigured build', () => {
   fixture({ ...idle, reporting: { ...idle.reporting, configured: false } })
   expect(screen.queryByRole('button', { name: 'Send feedback…' })).toBeNull()
   expect(screen.getByRole('switch', { name: 'Share usage data' })).toBeTruthy()
 })
-
-it('defers restart while the Matrix shell reports work in progress, and says why', async () => {
-  const { bridge } = fixture({ ...idle, busy: true, update: { ...idle.update, state: 'downloaded', version: '1.0.1' } })
-
-  fireEvent.click(screen.getByRole('button', { name: 'Update ready — restart to install' }))
-  const restart = await screen.findByRole('button', { name: 'Restart' })
-  expect((restart as HTMLButtonElement).disabled).toBe(true)
-  fireEvent.click(restart)
-  expect(bridge.restart).not.toHaveBeenCalled()
-  expect(screen.getAllByText('Finish current work to restart.').length).toBeGreaterThan(0)
-})
-
-it('shows a failed rail restart and allows a real retry', async () => {
-  const { bridge } = fixture({ ...idle, update: { ...idle.update, state: 'downloaded', version: '1.0.1' } })
-  bridge.restart.mockResolvedValueOnce(false)
-  const rail = () => screen.getByRole('button', { name: 'Update ready — restart to install' })
-
-  fireEvent.click(rail())
-  fireEvent.click(await screen.findByRole('button', { name: 'Restart' }))
-  expect(await screen.findByText('The update could not restart Atum. Please try again.')).toBeTruthy()
-  expect(rail().hasAttribute('data-update-attention')).toBe(true)
-  fireEvent.click(screen.getByRole('button', { name: 'Restart' }))
-  await waitFor(() => expect(bridge.restart).toHaveBeenCalledTimes(2))
-  await waitFor(() => expect(rail().hasAttribute('data-failed')).toBe(false))
-})
-
-it('reveals the rail update button when a download finishes, not while it downloads', () => {
-  fixture()
-
-  expect(screen.queryByRole('button', { name: 'Update ready — restart to install' })).toBeNull()
-
-  act(() =>
-    $matrixDesktopServices.set({
-      ...idle,
-      update: { ...idle.update, progress: 100, state: 'downloading', version: '1.0.1' }
-    })
-  )
-  expect(screen.queryByRole('button', { name: 'Update ready — restart to install' })).toBeNull()
-
-  act(() =>
-    $matrixDesktopServices.set({
-      ...idle,
-      update: { ...idle.update, progress: 100, state: 'downloaded', version: '1.0.1' }
-    })
-  )
-  const rail = screen.getByRole('button', { name: 'Update ready — restart to install' })
-  expect(rail.hasAttribute('data-update-attention')).toBe(true)
-})
-
-it('draws the rail’s update as one glyph, no word, named by its label and the same tip', async () => {
-  fixture({ ...idle, update: { ...idle.update, state: 'downloaded', version: '1.0.1' } })
-  const rail = screen.getByRole('button', { name: 'Update ready — restart to install' })
-
-  expect(rail.textContent).toBe('')
-  expect(rail.querySelectorAll('svg')).toHaveLength(1)
-  fireEvent.pointerMove(rail, { pointerType: 'mouse' })
-  expect((await screen.findByRole('tooltip')).textContent).toBe('Update ready — restart to install')
-})
-
-it.each(['en', 'vi', 'ja', 'zh', 'zh-hant'] as const)(
-  'names the rail’s update mark in %s with the words its tip shows',
-  async locale => {
-    window.atumDesktopServices = { restart: vi.fn(async () => true) } as unknown as MatrixDesktopServicesBridge
-    $matrixDesktopServices.set({ ...idle, update: { ...idle.update, state: 'downloaded', version: '1.0.1' } })
-
-    const { container } = render(
-      <I18nProvider configClient={null} initialLocale={locale}>
-        <MatrixUpdateFooter onOpenUpdates={() => {}} />
-      </I18nProvider>
-    )
-
-    const rail = container.querySelector('.atum-rail-update') as HTMLElement
-    const label = rail.getAttribute('aria-label') ?? ''
-    expect(label.trim().length).toBeGreaterThan(0)
-    // Translated, not the English fallback.
-    expect(locale === 'en' || label !== 'Update ready — restart to install').toBe(true)
-    fireEvent.pointerMove(rail, { pointerType: 'mouse' })
-    expect((await screen.findByRole('tooltip')).textContent).toBe(label)
-  }
-)

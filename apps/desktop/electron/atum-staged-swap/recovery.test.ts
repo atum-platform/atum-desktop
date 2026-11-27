@@ -1,8 +1,12 @@
 import { spawn } from 'node:child_process'
+import { randomUUID } from 'node:crypto'
 import fs from 'node:fs/promises'
 import path from 'node:path'
 
 import { afterEach, describe, expect, it } from 'vitest'
+
+import { writeFileDurably } from '../work/session/files'
+import { workAccountRoot, workSessionPaths } from '../work/session/paths'
 
 import { cleanStaleStages, confirmHealthyStart, retireBackup } from './cleanup'
 import { recoverAtStartup, recoverStagedSwap } from './recovery'
@@ -18,6 +22,7 @@ import {
   writeJournal
 } from './store'
 import { temporaryRoots } from './test-fixtures'
+import { selectedWorkUpdate, stagedWorkSelection, workHomesReadCurrentPin } from './work-selection'
 
 const roots = temporaryRoots()
 
@@ -121,6 +126,24 @@ describe('recovery after the two-rename gap', () => {
 })
 
 describe('recovery after the swap', () => {
+  it.each([false, true])('uses the durable Work selection for shell recovery, even before the healthy marker (%s)', async committed => {
+    const w = await world()
+    const userData = path.dirname(w.handoffDirectory)
+    const work = { id: randomUUID(), accountKey: 'a'.repeat(64), pin: '0.2.0' }
+    const original = { ...readJournal(w.home, w.root)!, work }
+    writeJournal(w.root, original)
+    const state = workSessionPaths({ root: workAccountRoot(userData, work.accountKey) }).updateState
+    const write = (id: string) => writeFileDurably(state, JSON.stringify({ version: 1, pin: work.pin, committed: [id] }))
+    write(randomUUID())
+    const selection = stagedWorkSelection({ home: w.home, root: w.root, original })
+    if (committed) {selection.select(() => write(work.id))}
+
+    expect(await w.run(w.backup, { workSelected: journal => selectedWorkUpdate(userData, journal) })).toBe(true)
+    expect(await w.text(w.target)).toBe(committed ? 'new' : 'old')
+    expect(w.calls.terminate).toEqual(committed ? [] : [w.target])
+    if (!committed) {expect(() => selection.select(() => write(work.id))).toThrow('work_update_swap_changed')}
+  })
+
   it('swaps the old app back when the backup runs and the new version never showed a window', async () => {
     const w = await world()
 
@@ -180,6 +203,29 @@ describe('recovery after the swap', () => {
 
 // The staged swap is macOS-only (ditto bundles, Apple-silicon updates); its file-moving suites run on macOS.
 describe.skipIf(process.platform !== 'darwin')('cleanup', () => {
+  it('retains the previous reader for a dormant Work home until its pin moves', async () => {
+    const w = await world()
+    const userData = path.dirname(w.handoffDirectory)
+    const paths = workSessionPaths({ root: workAccountRoot(userData, 'a'.repeat(64)) })
+    await fs.mkdir(paths.userdata, { recursive: true })
+    await fs.writeFile(paths.database, 'fixture')
+    writeFileDurably(paths.updateState, JSON.stringify({ version: 1, pin: '0.1.0', committed: [] }))
+    markShown(w.handoffDirectory)
+    const options = {
+      home: w.home, id: ID, bundle: w.target, handoffDirectory: w.handoffDirectory, log: () => {},
+      canRetire: () => workHomesReadCurrentPin(userData, '0.2.0'),
+      remove: async (...files: string[]) => {
+        await Promise.all(files.map(file => fs.rm(file, { recursive: true, force: true })))
+        return true
+      }
+    }
+    expect(await retireBackup(options)).toBe(false)
+    expect(await w.text(w.backup)).toBe('old')
+    writeFileDurably(paths.updateState, JSON.stringify({ version: 1, pin: '0.2.0', committed: [] }))
+    expect(await retireBackup(options)).toBe(true)
+    await expect(w.text(w.backup)).rejects.toThrow()
+  })
+
   it('deletes staged copies and an unrecoverable backup, but keeps what a live journal references', async () => {
     const w = await world({ journal: false })
 

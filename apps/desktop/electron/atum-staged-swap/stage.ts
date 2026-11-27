@@ -14,6 +14,7 @@ import {
   ineligible,
   isNotarizedAssessment,
   isPinnedTeam,
+  type Journal,
   parseProcesses,
   PINNED_REQUIREMENT,
   type ProcessRow,
@@ -22,12 +23,13 @@ import {
   type Snapshot,
   snapshotMatches,
   STAGED_PARENTS,
+  type StagedWorkUpdate,
   type StageState,
   swapSync,
   transition,
   undoSwapSync
 } from './state'
-import { appendProgress, clearMarkers, isStockOnly, removeJournal, stageRoot, writeJournal } from './store'
+import { appendProgress, clearMarkers, removeJournal, stageRoot, writeJournal } from './store'
 import { spawnWaiter, type WaiterOptions } from './waiter'
 
 export { stageRoot } from './store'
@@ -149,6 +151,7 @@ export interface StagedSwapOptions {
   /** The default-on `updates.stagedSwap` switch, read at download time and again at Restart. */
   enabled: () => boolean
   log: (line: string) => void
+  canRetireBackup?(journal: Journal): boolean
   tools?: Partial<StageTools>
   /** Longest wait for the old bundle's processes. The updater's 10 s exit backstop is the outer limit. */
   processWaitMs?: number
@@ -157,6 +160,7 @@ export interface StagedSwapOptions {
 export interface InstallMode {
   /** Restart reopens the app; an ordinary Quit swaps and leaves it closed. */
   relaunch: boolean
+  work?: StagedWorkUpdate | null
 }
 
 export class StagedSwap {
@@ -213,7 +217,7 @@ export class StagedSwap {
     const size = Number((await this.tools.run('/usr/bin/du', ['-sk', target])).stdout.trim().split(/\s/u)[0]) * 1024
 
     const reason = ineligible({
-      enabled: this.options.enabled() && !isStockOnly(this.root, version),
+      enabled: this.options.enabled(),
       macMajor: this.tools.macMajor(),
       gktool: await this.tools.gktoolPresent(),
       translocated: target.includes('/AppTranslocation/') || await fs.realpath(target) !== target,
@@ -244,7 +248,7 @@ export class StagedSwap {
     // A rollback copy that proved itself is retired now; a failed delete is retried and never blocks for good.
     await retireBackup({
       home: this.options.home, id: this.options.id, bundle: this.options.target,
-      handoffDirectory: this.options.handoffDirectory, log: this.options.log
+      handoffDirectory: this.options.handoffDirectory, canRetire: this.options.canRetireBackup, log: this.options.log
     }).catch(() => false)
 
     if (await fs.lstat(path.join(this.root, 'previous.app')).then(() => true, () => false)) {
@@ -358,6 +362,22 @@ export class StagedSwap {
     if (path.dirname(directory) === this.root) {await fs.rm(directory, { recursive: true, force: true }).catch(() => undefined)}
   }
 
+  async assertPrepared(expectedVersion: string): Promise<void> {
+    if (!this.options.enabled() || !this.ready || expectedVersion !== this.stagedVersion) {
+      throw new Error('The verified update is no longer available.')
+    }
+    this.recheck = null
+    this.beginRestart()
+
+    if (!await this.recheck) {throw new Error('The verified update changed before restart.')}
+  }
+
+  preparedResources(): string {
+    if (!this.bundle || !this.ready) {throw new Error('The verified update is no longer available.')}
+
+    return path.join(this.bundle, 'Contents', 'Resources')
+  }
+
   /** Start the stat-walk at the click so it overlaps the teardown instead of following it. */
   beginRestart(): void {
     if (this.bundle && this.seal && !this.recheck) {
@@ -401,7 +421,8 @@ export class StagedSwap {
     try {
       clearMarkers(handoffDirectory)
       writeJournal(this.root, {
-        v: 2, target, backup, next: bundle, fromVersion: version, toVersion: this.stagedVersion, relaunch: mode.relaunch
+        v: 2, target, backup, next: bundle, fromVersion: version, toVersion: this.stagedVersion, relaunch: mode.relaunch,
+        ...(mode.work !== undefined ? { work: mode.work } : {})
       })
       await this.tools.spawnWaiter({
         parentPid: process.pid, target, backup, relaunch: mode.relaunch,

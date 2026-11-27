@@ -1,0 +1,1 @@
+export const UPDATE_RESTART_DELAY_MS = 5_000;
