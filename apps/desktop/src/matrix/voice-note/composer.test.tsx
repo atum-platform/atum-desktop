@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, expect, it, vi } from 'vitest'
 
-import type { MatrixUiBridge } from '../../../shared/matrix'
+import type { MatrixCommand, MatrixUiBridge } from '../../../shared/matrix'
 
 import { MatrixVoiceLedge, MatrixVoiceStart, useMatrixVoiceNote } from './composer'
 import { startMatrixVoiceRecording } from './recording'
@@ -17,13 +17,14 @@ function ComposerFixture() {
 }
 
 function fixture(granted = true) {
-  const command = vi.fn(async () => '$sent')
+  const command = vi.fn<(input: MatrixCommand) => Promise<unknown>>(async () => '$sent')
   const transcribe = vi.fn()
   const microphone = vi.fn(async () => granted)
   window.atumMatrix = { voice: { microphone, transcribe }, command } as unknown as MatrixUiBridge
   const getUserMedia = vi.fn(async () => ({ getTracks: () => [] }))
   vi.stubGlobal('navigator', { mediaDevices: { getUserMedia } })
   const draft = { bytes: new Uint8Array([10, 20]), duration: 1000, waveform: [128] }
+
   let finish: (value: typeof draft | null) => void = () => {}
   const result = new Promise<typeof draft | null>(resolve => { finish = resolve })
 
@@ -70,6 +71,30 @@ it('reviews a playable note and uploads only after Send', async () => {
     kind: 'attach', roomId: '!room:test', name: 'Voice note.ogg', bytes: f.draft.bytes,
     voiceNote: { duration: f.draft.duration, waveform: f.draft.waveform }
   }))
+  expect(f.transcribe).not.toHaveBeenCalled()
+})
+
+it('asks inline on the first send, and Not now keeps the playable draft', async () => {
+  const f = fixture()
+  f.command.mockResolvedValue({ kind: 'transcriptionRequired', provider: 'groq' })
+  fireEvent.click(screen.getByRole('button', { name: 'Record voice note' }))
+  fireEvent.click(await screen.findByRole('button', { name: 'Stop recording' }))
+  fireEvent.click(await screen.findByRole('button', { name: 'Send voice note' }))
+  expect(await screen.findByText('Transcribe with Groq?')).toBeTruthy()
+  fireEvent.click(screen.getByRole('button', { name: 'Not now' }))
+  expect(screen.queryByText('Transcribe with Groq?')).toBeNull()
+  expect(screen.getByRole('button', { name: 'Play voice note' })).toBeTruthy()
+  expect(f.command).toHaveBeenCalledTimes(1)
+  expect(f.command.mock.calls[0]?.[0]).not.toHaveProperty('transcriptionProvider')
+
+  fireEvent.click(screen.getByRole('button', { name: 'Send voice note' }))
+  await screen.findByText('Transcribe with Groq?')
+  f.command.mockResolvedValue('$sent')
+  fireEvent.click(screen.getByRole('button', { name: 'OK' }))
+  await screen.findByRole('button', { name: 'Record voice note' })
+  expect(f.command.mock.lastCall?.[0]).toMatchObject({
+    kind: 'attach', transcriptionProvider: 'groq', bytes: f.draft.bytes
+  })
   expect(f.transcribe).not.toHaveBeenCalled()
 })
 

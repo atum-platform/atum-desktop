@@ -102,7 +102,7 @@ import type { MatrixPetIntentEnvelope, MatrixPetIntentProjection } from './matri
 import type { MatrixPresenceSnapshot, MatrixStatusInput } from './matrix-presence'
 import type { MatrixProfileMetadata, MatrixProfilesBridge, MatrixProfileSdkCommand } from './matrix-profile'
 import type { MatrixProgressMarker, MatrixProgressPresentation, MatrixScheduleIdentity } from './matrix-progress-marker'
-import type { MatrixPollCommand, MatrixRichMessage, MatrixVoiceNote } from './matrix-rich-content'
+import type { MatrixPollCommand, MatrixRichMessage, MatrixVoiceNote, MatrixVoiceTranscriptionProvider } from './matrix-rich-content'
 import type { MatrixRoomSharedSection } from './matrix-room-shared'
 import type { MatrixSavedMessagesSnapshot } from './matrix-saved-messages'
 import type { MatrixNativeSecurityCommand, MatrixSecurity, MatrixSecurityCommand } from './matrix-security'
@@ -1639,6 +1639,7 @@ export type MatrixCommand =
       contentType?: string
       bytes: Uint8Array
       voiceNote?: MatrixVoiceNote
+      transcriptionProvider?: MatrixVoiceTranscriptionProvider
       matrixTransactionId?: string
       threadRootId?: string
       replyTo?: string
@@ -1742,6 +1743,7 @@ export type MatrixPublishResultFields = MatrixPublishResultBase &
 export type MatrixSdkCommand =
   | MatrixAwarenessControlCommand
   | MatrixCommand
+  | (Extract<MatrixCommand, { kind: 'attach' }> & { voiceNoteAssistant: string })
   | MatrixCompanyAISdkCommand
   | MatrixCompanyChannelRoomCommand
   | MatrixCompanyPrivateCosRoomCommand

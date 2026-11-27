@@ -30,7 +30,7 @@ import {
   normalizeMatrixStatusText,
   validMatrixStatusInput
 } from '../../shared/matrix-presence'
-import { matrixGeoPoint, matrixVoiceNote } from '../../shared/matrix-rich-content'
+import { matrixGeoPoint, matrixVoiceNote, matrixVoiceTranscriptionProvider } from '../../shared/matrix-rich-content'
 import {
   MATRIX_ROOM_SHARED_MAX_ITEMS,
   MATRIX_ROOM_SHARED_SECTIONS,
@@ -864,7 +864,13 @@ export function parseMatrixCommand(value: unknown): MatrixCommand {
 
     case 'attach': {
       const voiceNote = matrixVoiceNote(row.voiceNote)
+      const transcriptionProvider = matrixVoiceTranscriptionProvider(row.transcriptionProvider)
+
       if (row.voiceNote !== undefined && (!voiceNote || row.threadRootId !== undefined)) {
+        throw new Error('matrix_command_invalid')
+      }
+
+      if (row.transcriptionProvider !== undefined && (!voiceNote || !transcriptionProvider)) {
         throw new Error('matrix_command_invalid')
       }
 
@@ -886,6 +892,7 @@ export function parseMatrixCommand(value: unknown): MatrixCommand {
             : 'application/octet-stream',
         bytes: row.bytes,
         ...(voiceNote ? { voiceNote } : {}),
+        ...(transcriptionProvider ? { transcriptionProvider } : {}),
         ...(row.threadRootId === undefined ? {} : { threadRootId: text('threadRootId', 1024, '$') }),
         ...(row.replyTo === undefined ? {} : { replyTo: text('replyTo', 1024, '$') })
       }

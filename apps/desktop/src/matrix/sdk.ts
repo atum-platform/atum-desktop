@@ -73,7 +73,7 @@ import { MATRIX_GOOGLE_PROVENANCE_KEY } from '../../shared/matrix-google-tools'
 import { MATRIX_GROUP_AGENT_LIMIT } from '../../shared/matrix-group-room'
 import { MATRIX_MODEL_ACCOUNT_DATA, matrixModelChoiceContent, parseMatrixModel } from '../../shared/matrix-models'
 import { MATRIX_NOTES_SELF_ROOM_TYPE } from '../../shared/matrix-notes-self'
-import { isMatrixOggOpus, MATRIX_VOICE_MIME, matrixGeoPoint, matrixVoiceNote } from '../../shared/matrix-rich-content'
+import { isMatrixOggOpus, MATRIX_VOICE_MIME, MATRIX_VOICE_TRANSCRIPTION_PROFILE, matrixGeoPoint, matrixVoiceNote } from '../../shared/matrix-rich-content'
 import { createMatrixSyncHealth, matrixSyncTokenRefused } from '../../shared/matrix-sync-health'
 import { MATRIX_TASK_FILES_KEY, parseMatrixTaskFilesPromise } from '../../shared/matrix-task-files'
 import type { MatrixUndecryptableObservation } from '../../shared/matrix-undecryptable'
@@ -253,6 +253,7 @@ import {
 import { matrixTimelineKeyRetry } from './timeline-key-retry'
 import { findMatrixTurn, prepareMatrixCron, publishMatrixCron, sendMatrixTurn, sendWithTransaction } from './turn'
 import { observeMatrixUndecryptable } from './undecryptable'
+import { matrixVoiceConsent } from './voice-note/consent'
 import { readWorkHistory } from './work-history'
 import { readWorkAnswer, sendWorkQuestion } from './work-question'
 
@@ -5031,12 +5032,35 @@ export async function startMatrixSdk(
           throw new Error('matrix_file_invalid')
         }
 
+        let transcriptionProvider
+
+        if (voice && 'voiceNoteAssistant' in command) {
+          const active = () => !stopped && state === 'ready'
+
+          await readAssistantRoom(client, {
+            roomId: command.roomId, ownerId: configuration.userId, agentId: command.voiceNoteAssistant, forTurn: true
+          }, active)
+
+          const consent = await matrixVoiceConsent(client, command.voiceNoteAssistant, command.transcriptionProvider)
+
+          if (consent.kind !== 'transcriptionAllowed') {
+            return consent
+          }
+
+          if (!active()) {
+            throw new Error('matrix_not_ready')
+          }
+
+          transcriptionProvider = consent.provider
+        }
+
         const info = voice
           ? { mimetype: MATRIX_VOICE_MIME, size: command.bytes.byteLength, duration: voice.duration }
           : { mimetype: 'application/octet-stream', size: command.bytes.byteLength }
         const media = voice
           ? { msgtype: MsgType.Audio as const, body: command.name, info,
-              'org.matrix.msc3245.voice': {}, 'org.matrix.msc1767.audio': voice }
+              'org.matrix.msc3245.voice': {}, 'org.matrix.msc1767.audio': voice,
+              ...(transcriptionProvider ? { [MATRIX_VOICE_TRANSCRIPTION_PROFILE]: transcriptionProvider } : {}) }
           : { msgtype: MsgType.File as const, body: command.name, info }
 
         // A room without encryption (every 0.20 chat): the bytes as they are and a plain mxc URL,

@@ -25323,9 +25323,18 @@ async function start() {
           throw new Error('matrix_command_invalid')
         }
 
-        if (input.kind === 'attach' && input.voiceNote &&
-          (teamSpaceRoom || !matrixHumanVoiceRoom(commandRoom, allAgents().map(agent => agent.userId)))) {
-          throw new Error('matrix_voice_unavailable')
+        if (input.kind === 'attach' && input.voiceNote) {
+          const voiceAgent = agentOfRoom(input.roomId)
+
+          if (!teamSpaceRoom && voiceAgent?.userId && !voiceAgent.closed &&
+            isCloudAgent(voiceAgent) && cloudAgentMacRole(voiceAgent) !== 'answering') {
+            return command({ ...input, voiceNoteAssistant: voiceAgent.userId })
+          }
+
+          if (teamSpaceRoom || input.transcriptionProvider ||
+            !matrixHumanVoiceRoom(commandRoom, allAgents().map(agent => agent.userId))) {
+            throw new Error('matrix_voice_unavailable')
+          }
         }
 
         if (input.kind === 'attach' && teamSpaceRoom) {

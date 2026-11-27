@@ -3079,9 +3079,13 @@ function MatrixComposer({
   // Notes-to-self integration seam: a former winner or changed audience remains readable but
   // cannot receive another Atum send. The SDK repeats this check at the authority boundary.
   const voiceNote = useMatrixVoiceNote(room.id, onSent)
+
   const humanVoiceRoom = matrixHumanVoiceRoom(room, [
     snapshot.assistant?.userId, ...(snapshot.agents ?? []).map(agent => agent.userId)
   ])
+
+  const voiceRoom = humanVoiceRoom || cloudAssistant
+
   const disabled = channelArchived || channelUnknown || closedForRoom ||
     (room.roomType === MATRIX_NOTES_SELF_ROOM_TYPE && !notesSelfRoom)
 
@@ -4047,7 +4051,7 @@ function MatrixComposer({
           </div>
         )}
         {voiceNote.state.kind !== 'idle' && (
-          <ComposerSurface input={<MatrixVoiceLedge disabled={Boolean(disabled || paused || !humanVoiceRoom)} voice={voiceNote} />} recipe="t3" />
+          <ComposerSurface input={<MatrixVoiceLedge disabled={Boolean(disabled || paused || !voiceRoom)} voice={voiceNote} />} recipe="t3" />
         )}
         <ComposerSurface
           actions={
@@ -4118,7 +4122,7 @@ function MatrixComposer({
                 </button>
               ) : !disabled && !paused && !sending && !attachClosed && !teamSpaceBox &&
                 !threadRootId && !recipient && !directBotId && !mode && !staged && !draftText.trim() &&
-                humanVoiceRoom && window.atumMatrix.voice ? (
+                voiceRoom && window.atumMatrix.voice ? (
                 <MatrixVoiceStart start={() => void voiceNote.start()} />
               ) : (
                 <MatrixSendButton

@@ -7,6 +7,7 @@ import {
   EventStatus,
   EventType,
   type MatrixClient,
+  MatrixError,
   MatrixEvent,
   NotificationCountType,
   Room,
@@ -36,6 +37,7 @@ import {
   MATRIX_COMPANY_CHANNEL_ROOM_VERSION,
   MATRIX_COMPANY_CHANNEL_TYPE
 } from '../../shared/matrix-company-channel-room'
+import { MATRIX_VOICE_TRANSCRIPTION_PROFILE } from '../../shared/matrix-rich-content'
 
 import { authorizedBotApi } from './app-bots/bot-api'
 import { MatrixBotApiPhotoView } from './app-bots/bot-photo'
@@ -542,6 +544,67 @@ describe('sending a file', () => {
       bytes: new Uint8Array([26, 69, 223, 163])
     })).rejects.toThrow('matrix_file_invalid')
     expect(server.upload).not.toHaveBeenCalled()
+  })
+
+  it('gates assistant upload with synced, per-provider Matrix account data', async () => {
+    const assistant = '@agent:test'
+    const roomId = '!assistant:test'
+    const type = 'io.atum.assistant'
+    const f = await sdkFor(owner, client => holdRoom(client, roomId, { type, members: { [assistant]: 'join' } }))
+    const server = homeserver(f.client)
+    vi.spyOn(f.client, 'getJoinedRooms').mockResolvedValue({ joined_rooms: [roomId] })
+    vi.spyOn(f.client, 'roomState').mockResolvedValue([
+      { type: EventType.RoomCreate, state_key: '', sender: owner, content: { type } },
+      { type: EventType.RoomHistoryVisibility, state_key: '', content: { history_visibility: 'joined' } },
+      { type: EventType.RoomMember, state_key: owner, content: { membership: 'join' } },
+      { type: EventType.RoomMember, state_key: assistant, content: { membership: 'join' } }
+    ] as never)
+    vi.spyOn(f.client, 'isVersionSupported').mockResolvedValue(true)
+    let provider = 'groq'
+    const grants = new Map<string, unknown>()
+    const requests = vi.mocked(f.client.http.authedRequest).mockImplementation(async (method, path, _, body) => {
+      if (path === '/profile/%40agent%3Atest') {
+        return { [MATRIX_VOICE_TRANSCRIPTION_PROFILE]: provider }
+      }
+      expect(path).toMatch(/^\/user\/%40owner%3Atest\/account_data\/io\.atum\.voice_transcription_consent\.[a-f0-9]{64}$/)
+      if (method === 'PUT') {
+        grants.set(path, body)
+        return {}
+      }
+      if (!grants.has(path)) {
+        throw new MatrixError({ errcode: 'M_NOT_FOUND' })
+      }
+      return grants.get(path)
+    })
+
+    const bytes = new Uint8Array(48)
+    const encoder = new TextEncoder()
+    bytes.set(encoder.encode('OggS'))
+    bytes[26] = 1
+    bytes.set(encoder.encode('OpusHead'), 28)
+    const send = (transcriptionProvider?: 'groq') => f.sdk.command({
+      kind: 'attach', roomId, name: 'Voice note.ogg', bytes,
+      voiceNote: { duration: 500, waveform: [] }, voiceNoteAssistant: assistant,
+      ...(transcriptionProvider ? { transcriptionProvider } : {})
+    })
+
+    await expect(send()).resolves.toEqual({ kind: 'transcriptionRequired', provider: 'groq' })
+    expect(server.upload).not.toHaveBeenCalled()
+    expect(grants.size).toBe(0)
+    await expect(send('groq')).resolves.toBe('$sent1')
+    expect([...grants.values()]).toEqual([{ allowed: true }])
+    expect(server.send.mock.calls[0]?.[2]).toHaveProperty(MATRIX_VOICE_TRANSCRIPTION_PROFILE, 'groq')
+    await expect(send()).resolves.toBe('$sent2')
+
+    provider = 'openai'
+    await expect(send('groq')).resolves.toEqual({ kind: 'transcriptionRequired', provider: 'openai' })
+    await expect(send()).resolves.toEqual({ kind: 'transcriptionRequired', provider: 'openai' })
+    expect(server.upload).toHaveBeenCalledTimes(2)
+    expect(requests.mock.calls.filter(([method]) => method === 'PUT')).toHaveLength(1)
+
+    provider = ''
+    await expect(send()).resolves.toEqual({ kind: 'transcriptionUnavailable' })
+    expect(server.upload).toHaveBeenCalledTimes(2)
   })
 
   it('sends a static Matrix location with a readable fallback and pinned asset type', async () => {

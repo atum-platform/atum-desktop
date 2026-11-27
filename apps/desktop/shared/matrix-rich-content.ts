@@ -5,6 +5,28 @@ export const MATRIX_VOICE_MAX_MS = 120_000
 export const MATRIX_VOICE_MIN_MS = 500
 export const MATRIX_VOICE_WAVEFORM_MAX = 100
 
+export const MATRIX_VOICE_TRANSCRIPTION_PROFILE = 'io.atum.voice_transcription_provider'
+export const MATRIX_VOICE_TRANSCRIPTION_CONSENT_PREFIX = 'io.atum.voice_transcription_consent.'
+
+export const MATRIX_VOICE_TRANSCRIPTION_NAMES = {
+  deepinfra: 'DeepInfra',
+  elevenlabs: 'ElevenLabs',
+  groq: 'Groq',
+  local: 'Hermes’s local speech model',
+  mistral: 'Mistral',
+  nous: 'Nous',
+  openai: 'OpenAI',
+  xai: 'xAI'
+} as const
+
+export type MatrixVoiceTranscriptionProvider = keyof typeof MATRIX_VOICE_TRANSCRIPTION_NAMES
+
+export function matrixVoiceTranscriptionProvider(value: unknown): MatrixVoiceTranscriptionProvider | undefined {
+  return typeof value === 'string' && Object.hasOwn(MATRIX_VOICE_TRANSCRIPTION_NAMES, value)
+    ? value as MatrixVoiceTranscriptionProvider
+    : undefined
+}
+
 export interface MatrixVoiceNote {
   duration: number
   waveform: number[]
@@ -28,8 +50,7 @@ export type MatrixRichMessage =
   | { kind: 'location'; geoUri: string }
   | { kind: 'sticker'; mimeType: string }
 
-/** The receiver can auto-route into STT in current Hermes builds. Wait for the
- * receiving consent gate before offering voice sends to recognised assistants. */
+/** People chats can send voice notes without selecting a transcription provider. */
 export function matrixHumanVoiceRoom(room: MatrixRoom | undefined, assistants: readonly (string | undefined)[]): boolean {
   return Boolean(room?.membership === 'join' && !room.assistant && !room.plainAgent && !room.appBot && !room.appGroup &&
     room.participants && !room.participants.some(participant =>

@@ -2,7 +2,12 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { ArrowUp, AudioLines, Square, Trash2 } from '@/lib/icons'
 
-import { MATRIX_VOICE_MIME } from '../../../shared/matrix-rich-content'
+import {
+  MATRIX_VOICE_MIME,
+  MATRIX_VOICE_TRANSCRIPTION_NAMES,
+  matrixVoiceTranscriptionProvider,
+  type MatrixVoiceTranscriptionProvider
+} from '../../../shared/matrix-rich-content'
 import { runMatrixCommand } from '../text-document-actions'
 
 import { MatrixVoicePlayer, voiceTime, VoiceWaveform } from './player'
@@ -13,7 +18,7 @@ type RecordingResult = NonNullable<Awaited<MatrixVoiceRecording['result']>>
 type State =
   | { kind: 'idle' | 'starting' | 'recording' | 'finishing' }
   | { kind: 'error'; message: string }
-  | { kind: 'review' | 'sending'; recording: RecordingResult; error?: string }
+  | { kind: 'review' | 'sending'; recording: RecordingResult; error?: string; provider?: MatrixVoiceTranscriptionProvider }
 
 export function useMatrixVoiceNote(roomId: string, onSent?: () => void) {
   const [state, setState] = useState<State>({ kind: 'idle' })
@@ -95,7 +100,7 @@ export function useMatrixVoiceNote(roomId: string, onSent?: () => void) {
     current.current?.stop()
   }
 
-  const send = async () => {
+  const send = async (transcriptionProvider?: MatrixVoiceTranscriptionProvider) => {
     if (state.kind !== 'review') {
       return
     }
@@ -105,15 +110,38 @@ export function useMatrixVoiceNote(roomId: string, onSent?: () => void) {
     setState({ kind: 'sending', recording: state.recording })
 
     try {
-      await runMatrixCommand({
+      const result = await runMatrixCommand({
         kind: 'attach',
         roomId,
         name: 'Voice note.ogg',
         bytes,
-        voiceNote: { duration, waveform }
+        voiceNote: { duration, waveform },
+        ...(transcriptionProvider ? { transcriptionProvider } : {})
       })
 
       if (id === generation.current) {
+        if (result && typeof result === 'object' && 'kind' in result) {
+          if (result.kind === 'transcriptionRequired' && 'provider' in result) {
+            const provider = matrixVoiceTranscriptionProvider(result.provider)
+
+            if (provider) {
+              setState({ kind: 'review', recording: state.recording, provider })
+
+              return
+            }
+          }
+
+          if (result.kind === 'transcriptionUnavailable') {
+            setState({ kind: 'review', recording: state.recording, error: 'Voice transcription is unavailable.' })
+
+            return
+          }
+        }
+
+        if (typeof result !== 'string') {
+          throw new Error('matrix_voice_send_incomplete')
+        }
+
         setState({ kind: 'idle' })
         onSent?.()
       }
@@ -126,7 +154,13 @@ export function useMatrixVoiceNote(roomId: string, onSent?: () => void) {
 
   const peaks = useCallback(() => current.current?.peaks() ?? [], [])
 
-  return { state, start, stop, cancel, send, peaks }
+  const dismissConsent = () => {
+    if (state.kind === 'review') {
+      setState({ kind: 'review', recording: state.recording })
+    }
+  }
+
+  return { state, start, stop, cancel, send, peaks, dismissConsent }
 }
 
 export function MatrixVoiceStart({ start }: { start(): void }) {
@@ -138,7 +172,7 @@ export function MatrixVoiceStart({ start }: { start(): void }) {
 }
 
 export function MatrixVoiceLedge({ voice, disabled }: { voice: ReturnType<typeof useMatrixVoiceNote>; disabled: boolean }) {
-  const { state, start, stop, cancel, send, peaks } = voice
+  const { state, start, stop, cancel, send, peaks, dismissConsent } = voice
   const [meter, setMeter] = useState<{ elapsed: number; waveform: number[] }>({ elapsed: 0, waveform: [] })
 
   useEffect(() => {
@@ -154,51 +188,65 @@ export function MatrixVoiceLedge({ voice, disabled }: { voice: ReturnType<typeof
 
   const review = state.kind === 'review' || state.kind === 'sending' ? state : undefined
   const error = state.kind === 'error' ? state.message : review?.error
+  const provider = review?.provider
 
   return (
-    <div className="flex items-center gap-2" data-matrix-voice-ledge>
-      <button
-        aria-label="Discard voice note"
-        className="atum-icon-btn grid size-8 shrink-0 place-items-center"
-        disabled={state.kind === 'sending'}
-        onClick={cancel}
-        type="button"
-      >
-        <Trash2 aria-hidden className="size-4" />
-      </button>
-      {review ? (
-        <MatrixVoicePlayer
-          duration={review.recording.duration}
-          load={async () => new Blob([review.recording.bytes], { type: MATRIX_VOICE_MIME })}
-          waveform={review.recording.waveform}
-        />
-      ) : state.kind === 'recording' ? (
-        <>
-          <span aria-hidden className="size-2 rounded-full bg-red-500" />
-          <span className="text-xs tabular-nums">{voiceTime(meter.elapsed)}</span>
-          <VoiceWaveform waveform={meter.waveform} />
-        </>
-      ) : (
-        <span className="flex-1 text-sm" role="status">{error ?? (state.kind === 'starting' ? 'Starting microphone…' : 'Preparing voice note…')}</span>
+    <div className="flex flex-col gap-2">
+      {provider && (
+        <div className="flex items-center gap-2 text-sm" data-matrix-voice-consent>
+          <AudioLines aria-hidden className="size-4 shrink-0" />
+          <span className="flex-1" role="status">Transcribe with {MATRIX_VOICE_TRANSCRIPTION_NAMES[provider]}?</span>
+          <button className="rounded-md bg-primary px-2 py-1 font-medium text-primary-foreground"
+            disabled={disabled} onClick={() => void send(provider)} type="button">
+            OK
+          </button>
+          <button className="atum-icon-btn shrink-0 px-2 py-1" onClick={dismissConsent} type="button">Not now</button>
+        </div>
       )}
-      {review && error && <span className="text-xs" role="status">{error}</span>}
-      {state.kind === 'error' && !disabled && <MatrixVoiceStart start={() => void start()} />}
-      {state.kind === 'recording' && (
-        <button aria-label="Stop recording" className="atum-composer-send" onClick={stop} type="button">
-          <Square aria-hidden className="size-4" />
-        </button>
-      )}
-      {review && (
+      <div className="flex items-center gap-2" data-matrix-voice-ledge>
         <button
-          aria-label="Send voice note"
-          className="atum-composer-send"
-          disabled={disabled || state.kind === 'sending'}
-          onClick={() => void send()}
+          aria-label="Discard voice note"
+          className="atum-icon-btn grid size-8 shrink-0 place-items-center"
+          disabled={state.kind === 'sending'}
+          onClick={cancel}
           type="button"
         >
-          <ArrowUp aria-hidden className="size-4" />
+          <Trash2 aria-hidden className="size-4" />
         </button>
-      )}
+        {review ? (
+          <MatrixVoicePlayer
+            duration={review.recording.duration}
+            load={async () => new Blob([review.recording.bytes], { type: MATRIX_VOICE_MIME })}
+            waveform={review.recording.waveform}
+          />
+        ) : state.kind === 'recording' ? (
+          <>
+            <span aria-hidden className="size-2 rounded-full bg-red-500" />
+            <span className="text-xs tabular-nums">{voiceTime(meter.elapsed)}</span>
+            <VoiceWaveform waveform={meter.waveform} />
+          </>
+        ) : (
+          <span className="flex-1 text-sm" role="status">{error ?? (state.kind === 'starting' ? 'Starting microphone…' : 'Preparing voice note…')}</span>
+        )}
+        {review && error && <span className="text-xs" role="status">{error}</span>}
+        {state.kind === 'error' && !disabled && <MatrixVoiceStart start={() => void start()} />}
+        {state.kind === 'recording' && (
+          <button aria-label="Stop recording" className="atum-composer-send" onClick={stop} type="button">
+            <Square aria-hidden className="size-4" />
+          </button>
+        )}
+        {review && (
+          <button
+            aria-label="Send voice note"
+            className="atum-composer-send"
+            disabled={disabled || state.kind === 'sending' || Boolean(provider)}
+            onClick={() => void send()}
+            type="button"
+          >
+            <ArrowUp aria-hidden className="size-4" />
+          </button>
+        )}
+      </div>
     </div>
   )
 }
