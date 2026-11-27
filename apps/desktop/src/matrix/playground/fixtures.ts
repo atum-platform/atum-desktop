@@ -1226,6 +1226,7 @@ function rosterSnapshot(): MatrixSnapshot {
       preview: said(false, 'Perfect. Can you book a table for four?', 15, { sender: 'Linh' })
     }),
     groupRoom('!design:example.invalid', 'Design team', 25, {
+      favourite: true,
       // A mention: the strong badge, with the whole count.
       unreadNotifications: 3,
       highlights: 1,
@@ -1245,6 +1246,7 @@ function rosterSnapshot(): MatrixSnapshot {
       preview: said(true, 'I’ll send the draft tomorrow morning.', 26 * 60)
     }),
     personRoom('!ngoc:example.invalid', 'Ngọc', 5 * 1440, {
+      lowPriority: true,
       preview: { own: false, sender: 'Ngọc', kind: 'deleted', at: NOW - 5 * 1440 * 60_000 }
     }),
     groupRoom('!trip:example.invalid', 'Đà Lạt trip', 6 * 1440, {
