@@ -22,7 +22,7 @@ import { matrixDisplayPreferenceChange } from '../../shared/matrix-display-prefe
 import { MATRIX_DRAFT_TEXT_MAX_BYTES } from '../../shared/matrix-drafts'
 import { parseMatrixEffort, parseMatrixModel } from '../../shared/matrix-models'
 import { MATRIX_NOTES_SELF_COMPANY_ID } from '../../shared/matrix-notes-self'
-import { matrixNotificationPolicyChange } from '../../shared/matrix-notification-policy'
+import { matrixNotificationPolicyChange, validMatrixNotificationOverride } from '../../shared/matrix-notification-policy'
 import { MATRIX_PET_OVERLAY_IPC, type MatrixPetOverlayAction } from '../../shared/matrix-pet-overlay'
 import {
   MATRIX_STATUS_EMOJI_MAX,
@@ -941,6 +941,13 @@ export function parseMatrixCommand(value: unknown): MatrixCommand {
 
     case 'discard':
       return { kind: row.kind, roomId: roomId(), eventId: text('eventId', 2048, '~') }
+
+    case 'roomNotificationMode':
+      if (!validMatrixNotificationOverride(row.mode)) {
+        throw new Error('matrix_command_invalid')
+      }
+
+      return { kind: row.kind, roomId: roomId(), mode: row.mode }
 
     case 'mute':
       if (typeof row.muted !== 'boolean') {

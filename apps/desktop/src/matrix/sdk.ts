@@ -233,6 +233,7 @@ import { publicReaders } from './read-state'
 import { readMatrixReplyQuote } from './reply-quote'
 import { matrixRichMedia } from './rich-media'
 import { roomSelection } from './room-navigation'
+import { writeRoomNotificationMode } from './room-notification-mode'
 import { matrixRoomPolicy } from './room-policy'
 import { readMatrixRoomShared, readMatrixRoomSharedThumbnail } from './room-shared'
 import { matrixSavedMessages } from './saved-messages'
@@ -854,6 +855,7 @@ export async function startMatrixSdk(
   const systemLanguage = desktopLocaleFor(globalThis.navigator?.languages) ?? DEFAULT_DESKTOP_LOCALE
   const displayPreferences = matrixDisplayPreferences(client, configuration, () => !stopped, systemLanguage)
   const notificationPolicy = matrixNotificationPolicy(client, configuration, () => !stopped && state === 'ready')
+  const changingNotificationModes = new Set<string>()
   let privateCosNotificationRoomIds = initialPrivateCosNotificationRoomIds
 
   const receipts = matrixReadReceipts(client, {
@@ -3759,16 +3761,37 @@ export async function startMatrixSdk(
         return null
       }
 
+      case 'roomNotificationMode':
       case 'mute': {
-        const room = client.getRoom(command.roomId)
+        const targetRoomId = command.roomId
 
-        if (state !== 'ready' || !room || room.getMyMembership() !== 'join') {
+        const active = () => !stopped && state === 'ready' &&
+          client.getRoom(targetRoomId)?.getMyMembership() === 'join'
+
+        if (!active() || changingNotificationModes.has(targetRoomId)) {
           throw new Error('matrix_mute_unavailable')
         }
 
-        // The SDK's own muting rule; the projection follows the synced push rules.
-        await client.setRoomMutePushRule('global', command.roomId, command.muted)
-        snapshot()
+        const mode = command.kind === 'roomNotificationMode'
+          ? command.mode
+          : command.muted ? 'nothing' : 'inherit'
+
+        changingNotificationModes.add(targetRoomId)
+
+        try {
+          await writeRoomNotificationMode(client, targetRoomId, mode, active)
+
+          if (notificationPolicy.snapshot(true).channelOverrides[targetRoomId] !== undefined) {
+            await notificationPolicy.change({
+              identity: configuration, scope: 'channel', roomId: targetRoomId, level: 'inherit'
+            })
+          }
+
+          await client.getPushRules()
+        } finally {
+          changingNotificationModes.delete(targetRoomId)
+          snapshot()
+        }
 
         return null
       }
