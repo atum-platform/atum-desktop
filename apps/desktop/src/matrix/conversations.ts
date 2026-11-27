@@ -4,7 +4,6 @@ import {
   MsgType,
   NotificationCountType,
   Preset,
-  PushRuleActionName,
   RelationType,
   type Room
 } from 'matrix-js-sdk'
@@ -39,6 +38,7 @@ import { privateCosPresentationBinding } from './company-presentation-binding'
 import { matrixMarkedUnread } from './message-commands'
 import { matrixReadableRoomName } from './person-name'
 import { plainRoomAnswer } from './plain-room'
+import { readRoomNotificationMode } from './room-notification-mode'
 import { matrixRoomDialogue, matrixRoomPreview, matrixRoomUnread } from './room-preview'
 import { teamSpaceAccountKey, teamSpaceKey } from './team-space/keys'
 import { $companyPrivateCos } from './team-space/private-cos-store'
@@ -151,22 +151,6 @@ function firstOwnLine(client: MatrixClient, room: Room): string | undefined {
   return undefined
 }
 
-/** The SDK's own room muting: a room-specific push rule that does not notify. Before the
- * first sync there are no rules yet (the SDK throws if asked): nothing is muted. */
-function roomMuted(client: MatrixClient, roomId: string): boolean {
-  if (!client.pushRules) {
-    return false
-  }
-
-  const rule = client.getRoomPushRule('global', roomId)
-
-  return Boolean(
-    rule &&
-    rule.enabled !== false &&
-    (rule.actions.length === 0 || rule.actions.includes(PushRuleActionName.DontNotify))
-  )
-}
-
 /** Matrix's room-mention push rule checks the sender's current power against
  * `m.room.power_levels.notifications.room`. This projection only decides whether the composer
  * offers `@channel`; the homeserver still decides whether recipients are highlighted. */
@@ -265,6 +249,7 @@ function directPeerAvatarMxc(
 }
 
 export function conversationRoom(client: MatrixClient, room: Room): MatrixRoom {
+  const notificationMode = readRoomNotificationMode(client, room)
   const rawChoice = room.getAccountData(MATRIX_MODEL_ACCOUNT_DATA)?.getContent()
   const choice = readMatrixModelChoice(rawChoice)
   const directAccountData = client.getAccountData(EventType.Direct)?.getContent<Record<string, unknown>>() ?? {}
@@ -385,7 +370,8 @@ export function conversationRoom(client: MatrixClient, room: Room): MatrixRoom {
     firstLine: room.getType() === MATRIX_ASSISTANT_ROOM_TYPE ? firstOwnLine(client, room) : undefined,
     ...(dialogue ? { dialogue } : {}),
     createdAt: creation?.getTs(),
-    muted: roomMuted(client, room.roomId),
+    ...(notificationMode ? { notificationMode } : {}),
+    muted: notificationMode?.mode === 'nothing',
     ...(matrixMarkedUnread(room) ? { markedUnread: true } : {})
   }
 

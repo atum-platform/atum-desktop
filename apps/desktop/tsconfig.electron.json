@@ -118,6 +118,7 @@
     "shared/matrix-undecryptable.ts",
     "shared/matrix-device-trust.ts",
     "shared/matrix-voice.ts",
+    "shared/matrix-rich-content.ts",
     "shared/matrix-voice-settings.ts",
     "shared/matrix-voice-settings-copy.ts",
     "shared/matrix-login-startup.ts",

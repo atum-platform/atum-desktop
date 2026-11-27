@@ -302,6 +302,19 @@ describe('Matrix boundary', () => {
       expect(() => parseMatrixCommand(value)).toThrow('matrix_command_invalid')
     }
   })
+  it('accepts only a room ID and a fixed notification mode', () => {
+    for (const mode of ['all', 'mentions', 'nothing', 'inherit']) {
+      const command = { kind: 'roomNotificationMode', roomId: '!r:test', mode }
+
+      expect(parseMatrixCommand({ ...command, actions: ['notify'] })).toEqual(command)
+    }
+
+    expect(() => parseMatrixCommand({ kind: 'roomNotificationMode', roomId: '!r:test', mode: 'invalid' }))
+      .toThrow('matrix_command_invalid')
+    expect(() => parseMatrixCommand({ kind: 'roomNotificationMode', roomId: '#alias:test', mode: 'all' }))
+      .toThrow('matrix_command_invalid')
+  })
+
   it('names a group and sets its topic with one bounded line each; a name is never empty', () => {
     expect(parseMatrixCommand({ kind: 'groupName', roomId: '!g:test', name: '  Weekend\n trip ', topic: 'x' })).toEqual({
       kind: 'groupName',

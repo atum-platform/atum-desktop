@@ -553,7 +553,7 @@ describe('Matrix-owned conversations', () => {
     expect([...projected.firstLine!].length).toBeLessThanOrEqual(61)
     expect(projected.createdAt).toBe(1_000)
   })
-  it('projects muting from the push rules once they have synced, and nothing before', () => {
+  it('reads the older room-kind mute as mentions-only', () => {
     const { client, room } = fixture()
     expect(conversationRoom(client, room).muted).toBe(false)
 
@@ -562,7 +562,7 @@ describe('Matrix-owned conversations', () => {
         room: [{ rule_id: room.roomId, default: false, enabled: true, actions: ['dont_notify' as never] }]
       }
     } as never
-    expect(conversationRoom(client, room).muted).toBe(true)
+    expect(conversationRoom(client, room)).toMatchObject({ muted: false, notificationMode: { mode: 'mentions' } })
     client.pushRules = {
       global: { room: [{ rule_id: room.roomId, default: false, enabled: true, actions: ['notify' as never] }] }
     } as never
