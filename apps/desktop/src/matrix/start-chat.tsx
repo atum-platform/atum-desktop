@@ -7,13 +7,12 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuShortcut,
   DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu'
 import { Tip } from '@/components/ui/tooltip'
 import { useI18n } from '@/i18n'
-import { MessageCircle, Plus, Search, Sparkles, UserPlus, Users, X } from '@/lib/icons'
+import { MessageCircle, Plus, Search, UserPlus, Users, X } from '@/lib/icons'
 
 import { appLocalizedCopy } from '../../shared/app-catalog'
 import type { MatrixAgentView, MatrixSnapshot } from '../../shared/matrix'
@@ -33,18 +32,17 @@ import { matrixRosterAgentName, projectMatrixRoster } from './roster-model'
 /**
  * New, the plus to the right of the roster's search (layout r2 §4, owner 2026-11-24): a menu of what
  * Chat can make. New chat (⌘N runs it without the menu) is the "who do you want to talk to?" sheet;
- * then a group, a friend, and an assistant where the account can make one. T3's MenuPopup recipe.
+ * then a group and a friend. A new assistant is the last row of the roster's Assistants (owner,
+ * 2026-11-27). T3's MenuPopup recipe.
  */
 export function MatrixStartChatButton({
-  canCreateAssistant,
   canFindPeople,
   disabled,
   onCreate
 }: {
-  canCreateAssistant: boolean
   canFindPeople: boolean
   disabled?: boolean
-  onCreate(kind: 'start' | 'group' | 'friend' | 'assistant'): void
+  onCreate(kind: 'start' | 'group' | 'friend'): void
 }) {
   const copy = useRosterCreateCopy()
 
@@ -78,15 +76,6 @@ export function MatrixStartChatButton({
             <UserPlus aria-hidden />
             {copy.addFriendTitle}
           </DropdownMenuItem>
-        )}
-        {canCreateAssistant && (
-          <>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onSelect={() => onCreate('assistant')}>
-              <Sparkles aria-hidden />
-              {copy.newAssistant}
-            </DropdownMenuItem>
-          </>
         )}
       </DropdownMenuContent>
     </DropdownMenu>

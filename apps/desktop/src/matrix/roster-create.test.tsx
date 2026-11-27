@@ -13,7 +13,7 @@ import { MATRIX_ASSISTANT_ROOM_TYPE } from '../../shared/matrix-assistant-room'
 import { MatrixAddMembers } from './add-members'
 import { useOpenApp } from './app-bots/use-open-app'
 import { matrixFailureSubject } from './chat-error'
-import { MatrixRosterCreate, type MatrixRosterCreation } from './roster-create'
+import { matrixCanCreateAssistant, MatrixRosterCreate, type MatrixRosterCreation } from './roster-create'
 
 const ME = '@me:test'
 
@@ -900,5 +900,23 @@ describe('an app in the start menu', () => {
     pick(/^Acme/u)
     expect(chat).toHaveBeenCalledOnce()
     finish()
+  })
+})
+
+describe('who can make a new assistant', () => {
+  it('is any signed-in account on a platform that makes several, with or without a local primary', () => {
+    const me = { userId: ME, deviceId: 'D' }
+    // A cloud-only primary: this Mac holds no Matrix login of its own for it (owner, 2026-11-27).
+    expect(matrixCanCreateAssistant({ identity: me, agentCreation: true })).toBe(true)
+    expect(matrixCanCreateAssistant({ ...SNAPSHOT, assistant: undefined })).toBe(true)
+    expect(matrixCanCreateAssistant({ identity: me, agentCreation: false })).toBe(false)
+    expect(matrixCanCreateAssistant({ identity: me })).toBe(false)
+    expect(matrixCanCreateAssistant({ identity: null, agentCreation: true })).toBe(false)
+  })
+
+  it('opens the sheet for a cloud-only primary', () => {
+    setup({ snapshot: { ...SNAPSHOT, assistant: undefined } })
+    fireEvent.click(within(dialog('Start a chat')).getByRole('button', { name: 'New assistant' }))
+    expect(dialog('New assistant')).toBeTruthy()
   })
 })

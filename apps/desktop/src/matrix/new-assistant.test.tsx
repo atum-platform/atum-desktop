@@ -750,6 +750,34 @@ describe('a new assistant', () => {
     expect(createAgent).not.toHaveBeenCalled()
   })
 
+  it('offers Top up, not a failure, when the hire is short of Protons', async () => {
+    const createAgent = vi
+      .fn<MatrixUiBridge['createAgent']>()
+      .mockResolvedValueOnce({ refused: { hire: 60000 } })
+      .mockResolvedValueOnce({ refused: 'short' })
+
+    setup({ createAgent })
+    const openTopUp = vi.fn<MatrixUiBridge['openTopUp']>().mockResolvedValue()
+    Object.assign(window.atumMatrix, { openTopUp })
+    fireEvent.click(screen.getByRole('button', { name: 'New assistant' }))
+    fireEvent.change(field('Display name'), { target: { value: 'Alfred' } })
+    fireEvent.click(createButton())
+    fireEvent.click(await within(sheet()).findByRole('button', { name: 'Hire' }))
+
+    const topUp = await within(sheet()).findByRole('button', { name: 'Top up Protons' })
+    expect(within(sheet()).getByText(/60,000 Protons \/ 30 days/u)).toBeTruthy()
+    expect(within(sheet()).getByText(/Not enough Protons/u)).toBeTruthy()
+    // Nothing failed and nothing opened on its own: the person chooses to top up.
+    expect(within(sheet()).queryByRole('button', { name: 'Hire' })).toBeNull()
+    expect(openTopUp).not.toHaveBeenCalled()
+    fireEvent.click(topUp)
+    expect(openTopUp).toHaveBeenCalledOnce()
+    // The sheet stays, answers kept, so Create can run again after the top-up.
+    expect(field('Display name').value).toBe('Alfred')
+    fireEvent.click(within(sheet()).getByRole('button', { name: 'Not now' }))
+    expect(within(sheet()).queryByRole('button', { name: 'Top up Protons' })).toBeNull()
+  })
+
   it('folds importing a prepared profile under Advanced, with one line of help', () => {
     setup()
     fireEvent.click(screen.getByRole('button', { name: 'New assistant' }))
