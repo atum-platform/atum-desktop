@@ -222,10 +222,7 @@ describe('the start menu behind the roster’s +', () => {
       'People',
       'Apps'
     ])
-    expect(within(footer).getAllByRole('button').map(button => button.textContent)).toEqual([
-      'New assistant',
-      'Invite a friend'
-    ])
+    expect(within(footer).getAllByRole('button').map(button => button.textContent)).toEqual(['Invite a friend'])
     expect(footer.querySelector('.ak-btn--primary')).toBeNull()
   })
 
@@ -327,21 +324,23 @@ describe('the start menu behind the roster’s +', () => {
     fireEvent.click(within(dialog('Start a chat')).getByRole('button', { name: 'Invite a friend' }))
     expect(dialog('Add a friend')).toBeTruthy()
     open({ kind: 'start' })
-    fireEvent.click(within(dialog('Start a chat')).getByRole('button', { name: 'New assistant' }))
+    // New assistants live only at the foot of the roster's Assistants (owner, 2026-11-27).
+    expect(within(dialog('Start a chat')).queryByRole('button', { name: 'New assistant' })).toBeNull()
+    open({ kind: 'assistant' })
     expect(dialog('New assistant')).toBeTruthy()
   })
 
   it('gives the new assistant dialog the names of the catalog’s apps, so none is taken', () => {
     const createAgent = vi.fn(async () => ({ principal: 'dan', roomId: '!dan:test' }))
 
-    setup({
+    const { open } = setup({
       snapshot: {
         ...SNAPSHOT,
         apps: { state: 'ready', apps: [botApp({ ...ACME, name: 'Demoza', slug: 'demoza' })], connections: {} }
       }
     })
     Object.assign(window.atumMatrix, { createAgent })
-    fireEvent.click(within(dialog('Start a chat')).getByRole('button', { name: 'New assistant' }))
+    open({ kind: 'assistant' })
 
     const sheet = dialog('New assistant')
 
@@ -908,15 +907,15 @@ describe('who can make a new assistant', () => {
     const me = { userId: ME, deviceId: 'D' }
     // A cloud-only primary: this Mac holds no Matrix login of its own for it (owner, 2026-11-27).
     expect(matrixCanCreateAssistant({ identity: me, agentCreation: true })).toBe(true)
-    expect(matrixCanCreateAssistant({ ...SNAPSHOT, assistant: undefined })).toBe(true)
+    expect(matrixCanCreateAssistant(SNAPSHOT)).toBe(true)
     expect(matrixCanCreateAssistant({ identity: me, agentCreation: false })).toBe(false)
     expect(matrixCanCreateAssistant({ identity: me })).toBe(false)
     expect(matrixCanCreateAssistant({ identity: null, agentCreation: true })).toBe(false)
   })
 
   it('opens the sheet for a cloud-only primary', () => {
-    setup({ snapshot: { ...SNAPSHOT, assistant: undefined } })
-    fireEvent.click(within(dialog('Start a chat')).getByRole('button', { name: 'New assistant' }))
+    const { open } = setup({ snapshot: { ...SNAPSHOT, assistant: undefined } })
+    open({ kind: 'assistant' })
     expect(dialog('New assistant')).toBeTruthy()
   })
 })

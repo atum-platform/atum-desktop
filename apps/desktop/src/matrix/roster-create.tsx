@@ -95,10 +95,8 @@ export function MatrixRosterCreate({
   return (
     <>
       <MatrixStartChat
-        canCreateAssistant={canCreateAssistant}
         canFindPeople={canFindPeople}
         onFindPerson={query => onCreatingChange({ kind: 'friend', query })}
-        onNewAssistant={() => onCreatingChange({ kind: 'assistant' })}
         onNewGroup={() => onCreatingChange({ kind: 'group' })}
         onOpenChange={closeWith}
         onPickApp={appId => {

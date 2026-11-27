@@ -86,8 +86,6 @@ export interface MatrixStartChatProps {
   open: boolean
   onOpenChange(open: boolean): void
   snapshot: MatrixSnapshot
-  /** The platform can make another assistant here (`snapshot.agentCreation`). */
-  canCreateAssistant: boolean
   /** People can be found by @name here (the alias directory is reachable). */
   canFindPeople: boolean
   /** The composer decides which of the assistant's chats opens (its one conversation). */
@@ -97,7 +95,6 @@ export interface MatrixStartChatProps {
   /** Add a friend, optionally searching for what was typed here. */
   onFindPerson(query?: string): void
   onNewGroup(): void
-  onNewAssistant(): void
 }
 
 interface StartRow {
@@ -114,14 +111,12 @@ interface StartRow {
 /**
  * The directory leads and creation is the footer (the old app's `AtumStartChatDialog`, on
  * Matrix state): your assistants, the people and groups you already talk to, and your
- * apps, one search across them; then a new group, a new assistant, or a friend. A query
+ * apps, one search across them; then a new group or a friend (new assistants live at the foot of the roster's Assistants). A query
  * that could be someone's @name offers to find them on Atum, so a search never dead-ends.
  */
 export function MatrixStartChat({
-  canCreateAssistant,
   canFindPeople,
   onFindPerson,
-  onNewAssistant,
   onNewGroup,
   onOpenChange,
   onPickApp,
@@ -378,7 +373,6 @@ export function MatrixStartChat({
           </div>
         </div>
         <div className="ak-sheet-foot justify-start" data-atum-start-chat-footer>
-          {canCreateAssistant && footerAction(copy.newAssistant, onNewAssistant, 'atum-start-chat-agent')}
           {canFindPeople && footerAction(copy.addFriend, () => onFindPerson(), 'atum-start-chat-friends')}
         </div>
       </DialogContent>
