@@ -18,7 +18,10 @@ it('ships every notification level and quiet-hours label in every desktop locale
       copy.failed,
       copy.readonly,
       ...Object.values(copy.levels),
-      ...Object.values(copy.overrides)
+      ...Object.values(copy.overrides),
+      ...Object.values(copy.roomModes),
+      ...Object.values(copy.roomModeHelp),
+      copy.encryptedMentionsHelp
     ].every(value => value.trim().length > 0)).toBe(true)
   }
 })

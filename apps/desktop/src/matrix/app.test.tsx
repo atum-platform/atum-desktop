@@ -2431,6 +2431,37 @@ describe('isolated Matrix composition', () => {
     expect(window.document.querySelector('[data-matrix-answer-menu]')).toBeNull()
   })
 
+  it('offers the voice-note send slot in an empty people composer and restores Send for a draft', async () => {
+    const { bridge, emit } = fixture()
+    await screen.findByRole('button', { name: 'Continue with Google' })
+
+    const microphone = vi.fn(async () => false)
+    bridge.voice = {
+      settings: vi.fn(),
+      microphone,
+      transcribe: vi.fn(),
+      speak: vi.fn()
+    }
+
+    const state = promotedMainSnapshot()
+    state.rooms = state.rooms.map(room => room.id === state.roomId ? {
+      ...room,
+      participants: [{ userId: '@owner:test', membership: 'join' }, { userId: '@peer:test', membership: 'join' }]
+    } : room)
+    emit(state)
+
+    const composer = await screen.findByRole('textbox', { name: COMPOSER })
+    await screen.findByRole('button', { name: 'Record voice note' })
+    fireEvent.change(composer, { target: { value: 'Draft' } })
+    expect(await screen.findByRole('button', { name: 'Send' })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Record voice note' })).toBeNull()
+    fireEvent.change(composer, { target: { value: '' } })
+    fireEvent.click(await screen.findByRole('button', { name: 'Record voice note' }))
+    await screen.findByText('Allow microphone access in System Settings, then try again.')
+    expect(microphone).toHaveBeenCalledExactlyOnceWith('!human:test', 'voiceNote')
+    expect(bridge.voice.transcribe).not.toHaveBeenCalled()
+  })
+
   it('uses the actual account language projection rather than the signed-out machine choice', async () => {
     const { emit, bridge } = fixture(undefined, 'en')
     await screen.findByRole('button', { name: 'Continue with Google' })
@@ -13323,8 +13354,11 @@ describe("Home's chat (launch night, second wave)", () => {
     )
     await waitFor(() => expect(screen.queryByRole('textbox', { name: 'Name' })).toBeNull())
     fireEvent.keyDown(screen.getByRole('button', { name: 'Conversation options' }), { key: 'Enter' })
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Mute notifications' }))
-    await waitFor(() => expect(command).toHaveBeenCalledWith({ kind: 'mute', roomId: group.id, muted: true }))
+    fireEvent.keyDown(screen.getByRole('menuitem', { name: 'Notifications' }), { key: 'ArrowRight' })
+    fireEvent.click(await screen.findByRole('menuitemradio', { name: 'Off' }))
+    await waitFor(() => expect(command).toHaveBeenCalledWith({
+      kind: 'roomNotificationMode', roomId: group.id, mode: 'nothing'
+    }))
   })
 
   // Matrix's own chat features (launch night, ).

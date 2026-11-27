@@ -145,6 +145,7 @@ import {
 } from '../../shared/matrix-notes-self'
 import type { MatrixPageId } from '../../shared/matrix-pages'
 import type { MatrixProfileTarget } from '../../shared/matrix-profile'
+import { matrixHumanVoiceRoom } from '../../shared/matrix-rich-content'
 import type { MatrixSavedMessagesSnapshot } from '../../shared/matrix-saved-messages'
 import { isMatrixVerificationPending } from '../../shared/matrix-security'
 import { matrixFoldSubscriptionFallbacks, matrixLatestAnswerFallback } from '../../shared/matrix-subscription-fallback'
@@ -462,6 +463,8 @@ import { useMatrixReadAttention } from './read-attention'
 import { matrixFirstUnreadMessageId } from './read-marker'
 import { matrixReadinessCopy, matrixSetupCooldown } from './readiness-copy'
 import { ResultRecoveryOutcome, useResultRecovery } from './result-recovery'
+import { MatrixRichContentDialog } from './rich-content-dialog'
+import { MatrixRichRow } from './rich-row'
 import {
   $matrixRightPanel,
   MATRIX_RIGHT_PANEL_MIN_WINDOW,
@@ -570,6 +573,7 @@ import { useShellShortcuts } from './use-shell-shortcuts'
 import { useVideoConsentAsk } from './video-consent-ask'
 import { VideoConsentCard } from './video-consent-card'
 import { MatrixVoiceDictation, useMatrixReadAloud } from './voice'
+import { MatrixVoiceLedge, MatrixVoiceStart, useMatrixVoiceNote } from './voice-note/composer'
 import { matrixWalletCopy } from './wallet-copy'
 import { useMatrixWalletHistory } from './wallet-ui'
 import { MatrixWebPreviewOfferCard } from './web-preview-offer'
@@ -1450,6 +1454,16 @@ function MatrixEventMessageBubble() {
                 roomId={action!.room.id}
               />
               <MatrixBotApiKeyboard keyboard={botApi.keyboard} />
+              {bubbleMeta && <div className="flex justify-end" data-matrix-meta-after>{bubbleMeta}</div>}
+            </>
+          ) : message.rich && settled && action ? (
+            <>
+              <MatrixRichRow
+                key={`${action.room.id}:${message.id}`}
+                message={message}
+                room={action.room}
+                save={message.attachment ? () => eventCommand('download') : undefined}
+              />
               {bubbleMeta && <div className="flex justify-end" data-matrix-meta-after>{bubbleMeta}</div>}
             </>
           ) : message.attachment && !message.decryptionFailed ? (
@@ -2550,7 +2564,12 @@ function MatrixComposer({
   // room without one (a company channel, a chat with people) keeps just the two attach entries.
   const composerAgentPrincipal = room.agentPrincipal ?? (room.assistant ? primaryAgent(snapshot)?.principal : undefined)
 
+  const [richDialog, setRichDialog] = useState<'poll' | 'location'>()
+  const richAvailable = !attachClosed && !teamSpaceBox && !recipient && !botApiRoom && !threadRootId &&
+    !privateCos && !room.appBot && !room.assistant && !notesSelfRoom
   const plusAvailability: ComposerPlusAvailability = {
+    poll: richAvailable,
+    location: richAvailable,
     photos: !attachClosed && !recipient,
     files: !attachClosed && !recipient,
     routines: Boolean(composerAgentPrincipal && window.atumMatrix.routines),
@@ -2569,6 +2588,11 @@ function MatrixComposer({
       case 'files':
         fileInput.current?.click()
 
+        return
+
+      case 'poll':
+      case 'location':
+        setRichDialog(kind)
         return
 
       case 'routines':
@@ -3063,6 +3087,14 @@ function MatrixComposer({
 
   // Notes-to-self integration seam: a former winner or changed audience remains readable but
   // cannot receive another Atum send. The SDK repeats this check at the authority boundary.
+  const voiceNote = useMatrixVoiceNote(room.id, onSent)
+
+  const humanVoiceRoom = matrixHumanVoiceRoom(room, [
+    snapshot.assistant?.userId, ...(snapshot.agents ?? []).map(agent => agent.userId)
+  ])
+
+  const voiceRoom = humanVoiceRoom || cloudAssistant
+
   const disabled = channelArchived || channelUnknown || closedForRoom ||
     (room.roomType === MATRIX_NOTES_SELF_ROOM_TYPE && !notesSelfRoom)
 
@@ -3952,6 +3984,9 @@ function MatrixComposer({
           {cloudStop.stopped ? matrixAgentStatusText('stopped', locale) : t.cloud.stopRefused}
         </NoticeBand>
       )}
+      {richDialog && richAvailable && !disabled && (
+        <MatrixRichContentDialog close={() => setRichDialog(undefined)} kind={richDialog} roomId={room.id} sent={onSent} />
+      )}
       <ComposerPrimitive.Root
         className="group/composer relative z-30 mx-auto w-[min(var(--composer-width),calc(100%-2rem))] max-w-full shrink-0 rounded-[1rem] pt-2 pb-[var(--composer-shell-pad-block-end)]"
         data-composer-recipe="t3"
@@ -4024,6 +4059,9 @@ function MatrixComposer({
             )}
           </div>
         )}
+        {voiceNote.state.kind !== 'idle' && (
+          <ComposerSurface input={<MatrixVoiceLedge disabled={Boolean(disabled || paused || !voiceRoom)} voice={voiceNote} />} recipe="t3" />
+        )}
         <ComposerSurface
           actions={
             <>
@@ -4091,6 +4129,10 @@ function MatrixComposer({
                 >
                   <span aria-hidden className="block size-2.5 rounded-[0.1875rem] bg-current" />
                 </button>
+              ) : !disabled && !paused && !sending && !attachClosed && !teamSpaceBox &&
+                !threadRootId && !recipient && !directBotId && !mode && !staged && !draftText.trim() &&
+                voiceRoom && window.atumMatrix.voice ? (
+                <MatrixVoiceStart start={() => void voiceNote.start()} />
               ) : (
                 <MatrixSendButton
                   disabled={disabled || paused || sending}
@@ -4102,6 +4144,7 @@ function MatrixComposer({
               )}
             </>
           }
+          className={voiceNote.state.kind !== 'idle' ? 'hidden' : undefined}
           input={
             <ComposerPrimitive.Input
               aria-describedby={fileTooLarge ? `matrix-file-too-large-${room.id}` : undefined}
@@ -6042,7 +6085,7 @@ function Conversation({
                 cloudOnly={cloudOnly}
                 draftTarget={teamSpaceRoom || notesSelfRoom ? { roomId: room.id } : undefined}
                 fail={fail}
-                key={`${snapshot.identity?.userId ?? ''}:${room.id}`}
+                key={`${snapshot.identity?.userId ?? ''}:${snapshot.identity?.deviceId ?? ''}:${room.id}`}
                 notice={
                   latestOwnId ? undefined : (
                     <MatrixStarterNotice defaultAssistantChat={defaultAssistantChat} locale={locale} snapshot={snapshot} />

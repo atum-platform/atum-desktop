@@ -6,12 +6,11 @@ import {
   matrixEffectiveDoNotDisturb,
   matrixNotificationPolicyChange,
   matrixQuietHoursActive,
-  matrixResolvedNotificationLevel,
   parseMatrixNotificationPolicy
 } from './matrix-notification-policy'
 
 describe('Matrix notification policy', () => {
-  it('resolves thread over channel over account and removes overrides back to inheritance', () => {
+  it('keeps thread and channel choices independent and removes inherited overrides', () => {
     let policy = defaultMatrixNotificationPolicy('Asia/Ho_Chi_Minh')
     policy = applyMatrixNotificationPolicyChange(policy, { scope: 'account', level: 'nothing' })
     policy = applyMatrixNotificationPolicyChange(policy, {
@@ -21,10 +20,9 @@ describe('Matrix notification policy', () => {
       scope: 'thread', roomId: '!launch:test', rootId: '$budget', level: 'mentions'
     })
 
-    expect(matrixResolvedNotificationLevel(policy, '!other:test')).toBe('nothing')
-    expect(matrixResolvedNotificationLevel(policy, '!launch:test')).toBe('all')
-    expect(matrixResolvedNotificationLevel(policy, '!launch:test', '$budget')).toBe('mentions')
-    expect(matrixResolvedNotificationLevel(policy, '!launch:test', '$other')).toBe('all')
+    expect(policy.accountLevel).toBe('nothing')
+    expect(policy.channelOverrides).toEqual({ '!launch:test': 'all' })
+    expect(policy.threadOverrides).toEqual({ '!launch:test': { $budget: 'mentions' } })
 
     policy = applyMatrixNotificationPolicyChange(policy, {
       scope: 'thread', roomId: '!launch:test', rootId: '$budget', level: 'inherit'
@@ -35,7 +33,7 @@ describe('Matrix notification policy', () => {
 
     expect(policy.threadOverrides).toEqual({})
     expect(policy.channelOverrides).toEqual({})
-    expect(matrixResolvedNotificationLevel(policy, '!launch:test', '$budget')).toBe('nothing')
+    expect(policy.accountLevel).toBe('nothing')
   })
 
   it('round-trips one bounded account-data record and refuses malformed or newer content', () => {
