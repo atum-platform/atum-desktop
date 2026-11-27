@@ -254,7 +254,7 @@ def main():
             )
             continuation = spec.pop('continuation', False)
             settings.update(spec["settings"])
-            if not continuation:
+            if spec.get('trial') and not continuation:
                 settings.setdefault("continueThreadsAfterServerUpdate", False)
             settings["providerInstances"] = instances
             settings["textGenerators"] = {}

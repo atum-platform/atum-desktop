@@ -61,7 +61,8 @@ record resolves both rollback paths. If a crash precedes selection, the previous
 signed bundle restores the existing Work snapshot. After selection, recovery
 relaunches the new shell and never rewinds Work data. A first launch with no
 previously live Work skips prewarm. Native T3 continuation honors stored project
-and account preferences. Historical false values are preserved because the
+and account preferences. New regular starts inherit T3's default. Historical
+false values are preserved because the
 previous host's forced value cannot be distinguished from an owner opt-out.
 
 The existing Matrix room and composer stores restore the selected room and draft.

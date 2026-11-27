@@ -67,13 +67,15 @@ describe.skipIf(!resources)('packaged Work sidecar', () => {
     })
 
     try {
-      const trial = await sidecar.start({ continuation: false, trial: {
+      const trial = await sidecar.start({ continuation: true, trial: {
         protocol: 4, childVersion: pin.version, update: { id: 'desktop-fixture', fromVersion: '0.0.0', targetVersion: pin.version,
           dbPath: workSessionPaths({ root }).database, status: 'pending' }
       } })
       await trial.trial!.prepared
       expect(trial.takePairingUrl()).toBeUndefined()
       await trial.trial!.commit()
+      const settings = JSON.parse(await readFile(join(workSessionPaths({ root }).userdata, 'settings.json'), 'utf8'))
+      expect(settings.continueThreadsAfterServerUpdate).not.toBe(false)
       const url = new URL(trial.takePairingUrl()!)
       expect(trial.takePairingUrl()).toBeUndefined()
       const endpoint = `${url.origin}/api/auth/websocket-ticket/rpc`
