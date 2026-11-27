@@ -21,7 +21,7 @@ import { useChatCopy } from './chat-copy'
 import { useRoomFlag } from './conversation-menu'
 import { focusDialogField, MatrixDialogHeader } from './dialog-header'
 import { MatrixMemberAvatar } from './member-avatar'
-import { MatrixNotificationLevelMenu } from './notification-level-menu'
+import { MatrixRoomNotificationMenu } from './notification-level-menu'
 import { requestTeamSpaceIntent } from './team-space/intents'
 import { teamSpaceAccountKey } from './team-space/keys'
 import { useCompanyChannelFacts } from './team-space/use-channel-facts'
@@ -254,11 +254,10 @@ function MatrixCompanyChannelMenuFor({
             <Star aria-hidden />
             {favourite.value ? team.unfavoriteChannel : team.favoriteChannel}
           </DropdownMenuItem>
-          <MatrixNotificationLevelMenu
+          <MatrixRoomNotificationMenu
             fail={fail}
-            roomId={room.id}
+            room={room}
             snapshot={snapshot}
-            value={snapshot.notificationPolicy?.channelOverrides[room.id] ?? 'inherit'}
           />
           {exits && <DropdownMenuSeparator />}
           {admission && abilities.leave && (

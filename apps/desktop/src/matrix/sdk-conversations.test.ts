@@ -1,9 +1,12 @@
 import {
   ClientEvent,
+  ConditionKind,
   createClient,
   Direction,
   EventStatus,
   EventType,
+  type IContent,
+  type IPushRules,
   type MatrixClient,
   MatrixEvent,
   MatrixEventEvent,
@@ -14,6 +17,7 @@ import {
   RoomEvent,
   RoomMemberEvent,
   RoomStateEvent,
+  RuleId,
   SyncState,
   ThreadEvent,
   TweakName
@@ -39,6 +43,10 @@ import {
 } from '../../shared/matrix-company-channel-room'
 import { MATRIX_DISPLAY_EVENTS } from '../../shared/matrix-display-preferences'
 import { MATRIX_NOTES_SELF_ACCOUNT_DATA, MATRIX_NOTES_SELF_ROOM_TYPE } from '../../shared/matrix-notes-self'
+import {
+  defaultMatrixNotificationPolicy,
+  MATRIX_NOTIFICATION_POLICY_ACCOUNT_DATA
+} from '../../shared/matrix-notification-policy'
 import { MATRIX_SYNC_GRACE_MS } from '../../shared/matrix-sync-health'
 import { DEFAULT_CONTEXT_LIMITS } from '../../shared/room-participation'
 import type { GroupRecentTarget } from '../../shared/room-participation/recent'
@@ -1074,6 +1082,162 @@ it('offers native notifications through the actual SDK session and push rules, n
   await f.sdk.stop()
   timeline(incoming('$retired'))
   expect(notify).toHaveBeenCalledOnce()
+})
+
+it('round-trips room modes through SDK push rules and retires a legacy channel override once', async () => {
+  const targetRoomId = '!attention:test'
+  const policy = defaultMatrixNotificationPolicy('UTC')
+  policy.channelOverrides[targetRoomId] = 'nothing'
+  policy.threadOverrides[targetRoomId] = { $thread: 'nothing' }
+  const accountData = new Map<string, IContent>([[MATRIX_NOTIFICATION_POLICY_ACCOUNT_DATA, policy]])
+
+  const rules: IPushRules = {
+    global: {
+      override: [{
+        rule_id: RuleId.IsUserMention,
+        default: true,
+        enabled: true,
+        actions: [PushRuleActionName.Notify, { set_tweak: TweakName.Highlight, value: true }],
+        conditions: [{ kind: ConditionKind.EventPropertyContains, key: 'content.m\\.mentions.user_ids', value: alice }]
+      }],
+      content: [{
+        rule_id: 'important', default: false, enabled: true, pattern: 'urgent',
+        actions: [PushRuleActionName.Notify]
+      }],
+      room: [],
+      underride: [{
+        rule_id: RuleId.Message, default: true, enabled: false, actions: [PushRuleActionName.Notify],
+        conditions: [{ kind: ConditionKind.EventMatch, key: 'type', pattern: EventType.RoomMessage }]
+      }]
+    }
+  }
+
+  const fetcher: typeof fetch = async (input, init) => {
+    const path = new URL(String(input)).pathname.replace('/_matrix/client/v3', '')
+    const method = init?.method
+
+    if (path === '/pushrules/' && method === 'GET') {
+      return Response.json(rules)
+    }
+
+    const data = path.match(/^\/user\/[^/]+\/account_data\/(.+)$/u)?.[1]
+
+    if (data && method === 'GET') {
+      return accountData.has(data)
+        ? Response.json(accountData.get(data))
+        : Response.json({ errcode: 'M_NOT_FOUND' }, { status: 404 })
+    }
+
+    const rule = path.match(/^\/pushrules\/global\/(room|override)\/([^/]+)$/u)
+
+    if (rule && (method === 'PUT' || method === 'DELETE')) {
+      const kind = rule[1] as 'room' | 'override'
+      const id = decodeURIComponent(rule[2]!)
+      const current = rules.global[kind]!.filter(value => value.rule_id !== id)
+      rules.global[kind] = method === 'PUT'
+        ? [{ ...JSON.parse(String(init?.body)), rule_id: id, default: false, enabled: true }, ...current]
+        : current
+
+      return Response.json({})
+    }
+
+    throw new Error(`Unexpected fixture request: ${method} ${path}`)
+  }
+
+  const notify = vi.fn()
+  const { client, sdk, latest } = await fixture(fetcher, alice, 'DEVICE', true, notify)
+  const target = plainRoomFixture(client, targetRoomId)
+  vi.spyOn(target, 'getType').mockReturnValue(MATRIX_COMPANY_CHANNEL_TYPE)
+
+  const writes = vi.mocked(client.setAccountDataRaw).mockImplementation(async (type, content) => {
+    accountData.set(type, content)
+
+    return {}
+  })
+
+  const sync = (type: string, content: IContent | undefined) => {
+    const event = new MatrixEvent({ type, content })
+    client.store.storeAccountDataEvents([event])
+
+    if (type === EventType.PushRules) {
+      client.setPushRules(content as IPushRules)
+    }
+
+    client.emit(ClientEvent.AccountData, event, undefined)
+  }
+
+  const projected = () => latest().rooms.find(value => value.id === targetRoomId)
+
+  const timeline = (eventId: string, content: Record<string, unknown> = {}) => {
+    const event = new MatrixEvent({
+      event_id: eventId, room_id: targetRoomId, type: EventType.RoomMessage, sender: bob,
+      content: { msgtype: 'm.text', body: 'hello', ...content }
+    })
+
+    client.emit(RoomEvent.Timeline, event, target, false, false, { liveEvent: true, timeline: target.getLiveTimeline() })
+  }
+
+  const mention = { 'm.mentions': { user_ids: [alice] } }
+
+  sync(MATRIX_NOTIFICATION_POLICY_ACCOUNT_DATA, policy)
+  sync(EventType.PushRules, rules)
+  client.emit(ClientEvent.Sync, SyncState.Prepared, null)
+  expect(projected()?.notificationMode).toEqual({ mode: 'inherit', defaultLevel: 'mentions' })
+  timeline('$legacy-off', mention)
+  expect(notify).not.toHaveBeenCalled()
+  expect(writes).not.toHaveBeenCalled()
+
+  await sdk.command({ kind: 'roomNotificationMode', roomId: targetRoomId, mode: 'mentions' })
+  expect(rules.global.room).toEqual([expect.objectContaining({ rule_id: targetRoomId, actions: [] })])
+  expect(projected()?.notificationMode?.mode).toBe('mentions')
+  expect(writes).toHaveBeenCalledExactlyOnceWith(expect.any(String), expect.objectContaining({
+    change: { scope: 'channel', roomId: targetRoomId, level: 'inherit' }
+  }))
+  const tombstoneType = writes.mock.calls[0]![0]
+  sync(tombstoneType, accountData.get(tombstoneType))
+  timeline('$plain')
+  timeline('$mention', mention)
+  timeline('$keyword', { body: 'urgent' })
+  expect(notify.mock.calls.map(([hint]) => hint.eventId)).toEqual(['$mention', '$keyword'])
+
+  // A native Off override created by another client is applied on the next account-data sync.
+  rules.global.room = []
+  rules.global.override!.unshift({
+    rule_id: targetRoomId, default: false, enabled: true, actions: [],
+    conditions: [{ kind: ConditionKind.EventMatch, key: 'room_id', pattern: targetRoomId }]
+  })
+  sync(EventType.PushRules, rules)
+  await vi.waitFor(() => expect(projected()).toMatchObject({ muted: true, notificationMode: { mode: 'nothing' } }))
+  timeline('$muted-mention', mention)
+  timeline('$muted-keyword', { body: 'urgent' })
+  expect(notify).toHaveBeenCalledTimes(2)
+
+  await sdk.command({ kind: 'roomNotificationMode', roomId: targetRoomId, mode: 'all' })
+  expect(projected()?.notificationMode?.mode).toBe('all')
+  timeline('$quiet-thread', { ...mention, 'm.relates_to': { rel_type: 'm.thread', event_id: '$thread' } })
+  expect(notify).toHaveBeenCalledTimes(2)
+  timeline('$all')
+  expect(notify).toHaveBeenLastCalledWith({ roomId: targetRoomId, eventId: '$all', sound: false })
+
+  // Restore Default in the other client removes the room rule. The synced tombstone
+  // keeps legacy Off retired even though the aggregate account record still has it.
+  rules.global.room = []
+  sync(EventType.PushRules, rules)
+  await vi.waitFor(() => expect(projected()?.notificationMode).toEqual({ mode: 'inherit', defaultLevel: 'mentions' }))
+  expect(latest().notificationPolicy?.channelOverrides[targetRoomId]).toBeUndefined()
+  timeline('$default-plain')
+  timeline('$default-mention', mention)
+  expect(notify.mock.calls.map(([hint]) => hint.eventId)).toEqual(['$mention', '$keyword', '$all', '$default-mention'])
+
+  await sdk.command({ kind: 'mute', roomId: targetRoomId, muted: true })
+  expect(rules.global.override?.[0]).toMatchObject({
+    rule_id: targetRoomId, actions: [], conditions: [{ kind: ConditionKind.EventMatch, key: 'room_id', pattern: targetRoomId }]
+  })
+  timeline('$quick-mute', mention)
+  expect(notify).toHaveBeenCalledTimes(4)
+  await sdk.command({ kind: 'mute', roomId: targetRoomId, muted: false })
+  expect(projected()?.notificationMode?.mode).toBe('inherit')
+  expect(writes).toHaveBeenCalledOnce()
 })
 
 it('suppresses a marker-lag room through the authenticated binding in both SDK and native main', async () => {

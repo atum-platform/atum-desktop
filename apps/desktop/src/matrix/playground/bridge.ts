@@ -856,8 +856,12 @@ export function playgroundBridge(store: PlaygroundStore): MatrixUiBridge {
         store.updateRoom(command.roomId, { look: command.look })
       }
 
-      if (command.kind === 'mute') {
-        store.updateRoom(command.roomId, { muted: command.muted })
+      if (command.kind === 'mute' || command.kind === 'roomNotificationMode') {
+        const mode = command.kind === 'roomNotificationMode'
+          ? command.mode
+          : command.muted ? 'nothing' : 'inherit'
+
+        store.updateRoom(command.roomId, { muted: mode === 'nothing', notificationMode: { mode, defaultLevel: 'all' } })
       }
 
       if (command.kind === 'favourite') {

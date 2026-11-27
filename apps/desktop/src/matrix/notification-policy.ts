@@ -65,9 +65,9 @@ function requireTeamSpaceTarget(client: MatrixClient, input: MatrixNotificationP
   }
 }
 
-/** Private Matrix account data is the portable authority. Push rules are not mutated here:
- * their `dont_notify` action also changes homeserver unread/highlight counts, while this policy
- * is required to change only banners, sounds and push presentation. */
+/** Atum account data stores desktop presentation preferences. Homeserver
+ * push rules determine delivery and unread/highlight counts. Channel entries
+ * are legacy and are retired individually when the user chooses a room mode. */
 export function matrixNotificationPolicy(
   client: MatrixClient,
   identity: MatrixIdentity,
