@@ -117,7 +117,9 @@
     "packages/device-protocol/fixtures/device-service-v1.2/fixtures/hashes.vectors.json": "6ff0c3c0c9110271bfc1ed3eacc1a7ab04950a851ea50d1bef98d042fc54d2c5",
     "scripts/public_guard.py": "ac0fb251203d8c0db19ba98b02e2069734b8bf396a552d719dc4527d00ac6c01",
     "scripts/test_public_guard.py": "b11a8041522dc9acd327ec2a4ea55fcc74f0f1c3b1fd0ffe462e67a2bcfcd88d",
-    "apps/desktop/third-party/licenses/app/cua-cursor-theme-NOTICES.txt": "179aa9ab848e27652cecb51707a05bc8e36327ba0f198a0eff322e2fdd13a447"
+    "apps/desktop/third-party/licenses/app/cua-cursor-theme-NOTICES.txt": "179aa9ab848e27652cecb51707a05bc8e36327ba0f198a0eff322e2fdd13a447",
+    "docs/plans/2026-11-27-chat-parity-audit.md": "4789b07c8308c74222c79e5e55da0e8db01374770c27e7ee5e8f13d625184839",
+    "docs/plans/2026-11-27-chat-parity-build.md": "475426bd898869ba2d88942bb7628fa11ef9cce648e10da321288d1f7d90cbfd"
   },
   "denied_regexes": [
     "(?:^|/)scripts/releases/(?!versioning\\.py$|commit_build\\.py$)"
