@@ -92,7 +92,8 @@ staged swap, and Matrix update surfaces. The fixture at
 with Chrome installed. The renderer sends no update requests to a real feed.
 The two rail images use the real footer, account button and shell frame. The
 fixture checks that every update action fits within the rail above the avatar
-with the sidebar expanded and collapsed.
+with the sidebar expanded and collapsed. The stopped-Work test exercises shell
+admission with no bound account.
 
 For a real Electron transfer using unsigned fixture bytes, run
 `node apps/desktop/scripts/updates-local-feed.mjs <Electron-executable>`.

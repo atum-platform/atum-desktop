@@ -343,10 +343,12 @@ describe('createMatrixWork', () => {
     expect(existsSync(paths.snapshot)).toBe(false)
   })
 
-  it('exposes the main-owned update door; with no account bound it is unavailable, never a silent no-op', async () => {
+  it('leaves Work stopped when the shell updates before an account is bound', async () => {
     const { work } = build({ scope: () => null }, true)
 
-    await expect(work.update({ version: '9.9.9', resources: '/nowhere' })).rejects.toThrow('work_unavailable')
+    await expect(work.prepareUpdate('/unused-staged-resources')).resolves.toBeNull()
+    expect(work.modelKeys()).toEqual([])
+    work.cancelPreparedUpdate()
   })
 
   it('offers no model key until a server has asked for one', () => {
