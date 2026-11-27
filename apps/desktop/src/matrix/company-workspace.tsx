@@ -84,6 +84,7 @@ import {
 } from './company-space-store'
 import { CompanySpaceTabs } from './company-space-tabs'
 import { CompanyWalletDrawer } from './company-wallet'
+import { MatrixPanelSearch } from './panel-search'
 import { MatrixPlusMenu, type MatrixPlusMenuItem, usePlusMenuCopy } from './plus-menu'
 import { $matrixRightPanel, setMatrixRightPanel } from './right-panel'
 import { RosterBadge } from './roster-badge'
@@ -3051,27 +3052,21 @@ export function MatrixCompanyWorkspace({ accountKey, activeRoomId, activity: syn
         }
         hidden={compact && compactPane === 'content'} label={copy.channels} resizeLabel={copy.resizeSidebar}
         scope={accountKey}>
-        <div className="grid gap-(--ak-s1) px-(--ak-s2)" data-matrix-company-sidebar-search>
+        {/* Zone D on the same gutter and in the same field as every screen (owner 2026-11-27). */}
+        <div className="grid gap-(--ak-s1)" data-matrix-company-sidebar-search>
           <div className="flex min-w-0 items-center gap-1.5">
-          <label className="ak-field ak-field--search min-w-0 flex-1">
-            <SearchIcon aria-hidden className="ak-icon ak-icon--sm" />
-            <input
-              aria-label={teamCopy.sidebarSearch(companyTitle)}
-              onChange={event => setSidebarQuery(event.currentTarget.value)}
-              onKeyDown={event => {
-                // The header box filters the sidebar as you type; Enter searches the company's messages.
-                if (event.key === 'Enter' && messageSearchReady && [...sidebarQuery.trim()].length >= 2) {
-                  event.preventDefault()
-                  openSearchPane(sidebarQuery.trim())
-                } else if (event.key === 'Escape' && sidebarQuery) {
-                  event.preventDefault()
-                  setSidebarQuery('')
-                }
-              }}
-              placeholder={teamCopy.sidebarSearch(companyTitle)}
-              value={sidebarQuery}
-            />
-          </label>
+          <MatrixPanelSearch
+            label={teamCopy.sidebarSearch(companyTitle)}
+            onKeyDown={event => {
+              // The header box filters the sidebar as you type; Enter searches the company's messages.
+              if (event.key === 'Enter' && messageSearchReady && [...sidebarQuery.trim()].length >= 2) {
+                event.preventDefault()
+                openSearchPane(sidebarQuery.trim())
+              }
+            }}
+            onValueChange={setSidebarQuery}
+            value={sidebarQuery}
+          />
           {/* New, as a plus menu (layout r2 §4): only what this person can make here. */}
           <MatrixPlusMenu
             disabled={mutationPending}

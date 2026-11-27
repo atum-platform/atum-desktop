@@ -79,9 +79,11 @@ import {
   acknowledgeAgentPlanCleared,
   acknowledgeAgentPlanSelection,
   agentPlansKey,
+  agentPlansShownSelection,
   beginAgentPlansRead,
   beginAgentPlansWrite,
   failAgentPlansRead,
+  failAgentPlansWrite,
   settleAgentPlansRead
 } from './agent-plans-store'
 import { ChatGptTrainingConfirm } from './chatgpt-training-confirm'
@@ -391,7 +393,10 @@ export function MatrixModelPicker({
   // switch acknowledged in either shows in both at once (agent-plans-store.ts).
   const plansKey = agentPrincipal ? agentPlansKey(scope, agentPrincipal) : undefined
   const sharedPlans = useStore($agentPlans)
-  const agentPlans: WorkAgentPlans | null | undefined = plansKey ? sharedPlans[plansKey]?.value : undefined
+  const agentPlansEntry = plansKey ? sharedPlans[plansKey] : undefined
+  const agentPlans: WorkAgentPlans | null | undefined = agentPlansEntry?.value
+  // A pick in flight in either picker is named at once, and stays named through the picker closing.
+  const shownPlanSelection = agentPlansShownSelection(agentPlansEntry)
 
   // Also re-read when the owner view becomes ready after the hidden Work startup.
   useEffect(() => {
@@ -413,7 +418,7 @@ export function MatrixModelPicker({
             plan,
             published: agentPlans?.published === true,
             connected: agentPlans?.plans[plan]?.state === 'connected',
-            selection: agentPlans?.selection ?? null,
+            selection: shownPlanSelection,
             limit: work?.planLimits?.find(each => each.plan === plan),
             lastTurn: lastFallback && workRelayNoticePlan(lastFallback.plan) === plan
               ? { kind: 'fallback', at: 'reply', reason: workRelayFallbackReason(lastFallback.reason) }
@@ -421,9 +426,18 @@ export function MatrixModelPicker({
           }),
           models: agentPlans?.plans[plan]?.models ?? [],
           select: async (model: string) => {
-            // Numbered before it goes, so a later Atum write acknowledged first keeps the plan cleared.
-            const write = plansKey ? beginAgentPlansWrite(plansKey) : undefined
-            const saved = await selectAgentPlan(agentPrincipal, model, plan)
+            // Numbered before it goes, so a later Atum write acknowledged first keeps the plan cleared;
+            // its intent is every picker's pick until it settles.
+            const write = plansKey ? beginAgentPlansWrite(plansKey, { kind: 'select', plan, model }) : undefined
+            let saved: Awaited<ReturnType<typeof selectAgentPlan>>
+
+            try {
+              saved = await selectAgentPlan(agentPrincipal, model, plan)
+            } catch (error) {
+              if (write) {failAgentPlansWrite(write)}
+
+              throw error
+            }
 
             // Every picker for this agent sees the acknowledged selection; reads begun before it retire.
             if (write) {acknowledgeAgentPlanSelection(write, saved)}
@@ -972,7 +986,8 @@ export function MatrixModelPicker({
   // trigger), so every picker for this agent forgets it at once instead of naming the plan until a
   // re-read. The write is numbered when it starts and acknowledged in the store whatever happens to
   // this picker meanwhile (closed, or its selection superseded): the store, not the card, owns it.
-  const planClearWrite = (applies: boolean) => (applies && plansKey ? beginAgentPlansWrite(plansKey) : undefined)
+  const planClearWrite = (applies: boolean) =>
+    applies && plansKey ? beginAgentPlansWrite(plansKey, { kind: 'clear' }) : undefined
 
   const modelsFor = (each: MatrixModelPickerRelay) => each.models ?? (each.view.plan === 'codex' ? chatgptModels : accountPickerPlans(accountConnections).flatMap(pick => pick.plan === each.view.plan && pick.kind !== 'connect' ? pick.models : []))
 
@@ -1434,7 +1449,6 @@ export function MatrixModelPicker({
       : undefined
 
   const changeOpen = (next: boolean) => {
-    selection.current += 1
     setOpenState(next)
     onOpenChange?.(next)
     shown.current = next
@@ -1465,12 +1479,9 @@ export function MatrixModelPicker({
       setFilterTouched(false)
       setProblem(undefined)
       setEffortNotice(undefined)
-      setPendingConnected(null)
-      setPendingCloudSubscription(null)
-      setPendingHome(null)
-      setPendingModel(null)
-      setPendingEffort(null)
-      setPendingPlanEffort(null)
+      // Picks in flight or saved but not yet synced stay held (each clears itself once what runs
+      // names it, or after its timeout): dropping them here painted the previous model until the
+      // re-read came back.
       setRetryPick(null)
       setQuery('')
       setFilter({ favoritesOnly: false, source: initialSource })
@@ -1615,12 +1626,10 @@ export function MatrixModelPicker({
     const roomId = room.id
     const scopeAtStart = currentScope.current
 
+    // Closing the card does not retire the pick (owner 2026-11-27: closing flashed the old model):
+    // the chip keeps naming it until its write settles. A newer pick, another room or scope does.
     return {
-      current: () =>
-        generation === selection.current &&
-        roomId === currentRoom.current &&
-        scopeAtStart === currentScope.current &&
-        shown.current
+      current: () => generation === selection.current && roomId === currentRoom.current && scopeAtStart === currentScope.current
     }
   }
 
@@ -1632,14 +1641,18 @@ export function MatrixModelPicker({
     refused?: () => void,
     failed: () => void = fail,
     /** Store-level effect of an accepted write; runs even when this picker has moved on. */
-    accepted?: () => void
+    accepted?: () => void,
+    /** Store-level effect of a refused or failed write; runs even when this picker has moved on. */
+    rejected?: () => void
   ) => {
     void window.atumMatrix
       .command({ kind: 'setModel', roomId: room.id, ...change })
       .then(result => {
         const refusedByServer = (result as { status?: unknown } | null)?.status === 'refused'
 
-        if (!refusedByServer) {
+        if (refusedByServer) {
+          rejected?.()
+        } else {
           accepted?.()
         }
 
@@ -1659,6 +1672,8 @@ export function MatrixModelPicker({
         done()
       })
       .catch(() => {
+        rejected?.()
+
         if (!current()) {
           return
         }
@@ -1710,7 +1725,8 @@ export function MatrixModelPicker({
         current,
         refused,
         refusedHere,
-        planWrite ? () => acknowledgeAgentPlanCleared(planWrite) : undefined
+        planWrite ? () => acknowledgeAgentPlanCleared(planWrite) : undefined,
+        planWrite ? () => failAgentPlansWrite(planWrite) : undefined
       )
     }
 
@@ -2064,8 +2080,10 @@ export function MatrixModelPicker({
 
       void homeBridge.model(agentPrincipal, homeOption).then(
         result => {
-          // The store hears an accepted write even when this card has moved on.
-          if (result.status === 'saved' && planWrite) {acknowledgeAgentPlanCleared(planWrite)}
+          // The store hears an accepted (or refused) write even when this card has moved on.
+          if (planWrite) {
+            if (result.status === 'saved') {acknowledgeAgentPlanCleared(planWrite)} else {failAgentPlansWrite(planWrite)}
+          }
 
           if (!context.current()) {
             return
@@ -2082,6 +2100,8 @@ export function MatrixModelPicker({
           rememberRecent(picked.route.id)
         },
         () => {
+          if (planWrite) {failAgentPlansWrite(planWrite)}
+
           if (!context.current()) {
             return
           }

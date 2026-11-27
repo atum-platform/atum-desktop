@@ -57,7 +57,6 @@ import {
 import { EmptyState } from '@/components/ui/empty-state'
 import { NoticeBand } from '@/components/ui/error-state'
 import { Loader } from '@/components/ui/loader'
-import { SearchField } from '@/components/ui/search-field'
 import { SegmentedControl } from '@/components/ui/segmented-control'
 import { Switch } from '@/components/ui/switch'
 import { Tip } from '@/components/ui/tooltip'
@@ -422,6 +421,7 @@ import {
   mergeOutgoingEchoes,
   settleOutgoingEcho
 } from './outgoing-echo'
+import { MatrixPanelSearch, MatrixPanelSearchRow } from './panel-search'
 import { MatrixPeerIdentityPanel } from './peer-identity-panel'
 import { directRoomWith } from './people'
 import { useMatrixHandleContacts } from './person-handle-contacts'
@@ -6877,12 +6877,10 @@ function MatrixRoster({
         <span className="flex-1" />
         {titleBarAction}
       </div>
-      <div className="flex shrink-0 items-center gap-1.5 px-2 pt-1 pb-2" data-atum-search-actions>
-        <SearchField
-          aria-label={t.atum.roster.search}
-          containerClassName="h-[2.125rem] min-w-0 flex-1 rounded-(--control-radius) border-none bg-(--atum-sunk) px-3 text-[0.8125rem] !opacity-100 transition-colors focus-within:bg-(--atum-hover)"
-          inputClassName="min-w-0 flex-1 text-(--atum-ink) placeholder:text-(--atum-ink-faint)"
-          onChange={setQuery}
+      <MatrixPanelSearchRow data-atum-search-actions>
+        <MatrixPanelSearch
+          label={t.atum.roster.search}
+          onValueChange={setQuery}
           placeholder={t.atum.roster.searchPlaceholder}
           value={query}
         />
@@ -6892,7 +6890,7 @@ function MatrixRoster({
           disabled={snapshot.state !== 'ready'}
           onCreate={kind => setCreating({ kind })}
         />
-      </div>
+      </MatrixPanelSearchRow>
       <MatrixRosterCreate
         creating={creating}
         onConversationCreated={onConversationCreated}
@@ -7795,6 +7793,7 @@ function MatrixAccountView({
   const teamSpaceChannelOpen = Boolean(
     workplaceActive && !settingsTrip && !teamSpaceSoon && (companyChannelBound || notesSelfBound)
   )
+
   const conversationShellVisible = (!workplaceActive && !companyChannelBound) || teamSpaceChannelOpen
 
   const roomBot = directAppBot(snapshot)
@@ -9214,6 +9213,9 @@ function MatrixAccountView({
                         threadsOpen={Boolean(currentThreadView)}
                       />
                     )}
+                    {/* C's mode switch, just left of the panel toggle (layout r1 C; Team Space's Chat ·
+                        Board portals here: company-space-tabs.tsx). */}
+                    <div className="flex items-center empty:hidden" data-atum-page-mode />
                     {neutralPanelScreen && !workspaceOpen ? (
                       // Team Space, Store and Drive: the C toggle shows or hides the screen's neutral panel,
                       // remembered per screen (layout r2 §2).

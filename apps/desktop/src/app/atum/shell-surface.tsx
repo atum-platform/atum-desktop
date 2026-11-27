@@ -1,8 +1,8 @@
 import { Fragment, type ReactNode } from 'react'
 
-import { BrandMark } from '@/components/brand-mark'
+import { AtumBrandLockup } from '@/components/brand-mark'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
-import { Tip } from '@/components/ui/tooltip'
+import { Tip, TipSide } from '@/components/ui/tooltip'
 import { ATUM_TITLEBAR_LIGHTS_CONTENT_RESERVATION } from '@/lib/atum-shell-geometry'
 import { Briefcase, Compass, Folder, Laptop, LayoutSidebar, MessageCircle } from '@/lib/icons'
 import { cn } from '@/lib/utils'
@@ -37,17 +37,20 @@ export function AtumMainHeaderSurface({
       data-atum-main-header
       {...props}
     >
-      {leadsRow && <div className="flex shrink-0 items-center">{windowControls}</div>}
-      <div className="flex min-w-0 flex-1 items-center justify-start">
-        {children}
-        {/* A page's status beside its name (Drive: "Up to date"). */}
-        <div className="ms-2 flex min-w-0 items-center empty:hidden" data-atum-page-status />
-      </div>
+      {/* Tips in the band open sideways, never down over a native view (owner 2026-11-27). */}
+      <TipSide side="right">
+        {leadsRow && <div className="flex shrink-0 items-center">{windowControls}</div>}
+        <div className="flex min-w-0 flex-1 items-center justify-start">
+          {children}
+          {/* A page's status beside its name (Drive: "Up to date"). */}
+          <div className="ms-2 flex min-w-0 items-center empty:hidden" data-atum-page-status />
+        </div>
+      </TipSide>
       <div className="flex min-w-0 items-center justify-end gap-0.5 [-webkit-app-region:no-drag]">
         {/* A page's own title-bar controls (the Store's balance) mount here (Atum Kit: the title
             bar belongs to the page). */}
         <div className="flex items-center empty:hidden" data-atum-page-actions />
-        {actions}
+        <TipSide side="left">{actions}</TipSide>
       </div>
     </div>
   )
@@ -95,9 +98,10 @@ export function AtumWindowControlsSurface({
           </button>
         </Tip>
       )}
-      {/* Every screen's title bar wears the Atum mark after the lights and the toggle, where T3 wears
-          its wordmark (owner 2026-11-25): one place on every screen, never inside a left panel. */}
-      <BrandMark aria-label="Atum" className="size-5 rounded-[0.3125rem]" data-atum-titlebar-mark role="img" />
+      {/* Every screen's title bar wears the Atum mark and name after the lights and the toggle, where T3
+          wears its wordmark (owner 2026-11-25): one place on every screen, never inside a left panel.
+          The bare mark and the word, no tile (owner 2026-11-27). */}
+      <AtumBrandLockup data-atum-titlebar-mark />
     </div>
   )
 }

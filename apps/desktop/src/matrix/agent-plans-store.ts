@@ -1,7 +1,7 @@
 import { atom } from 'nanostores'
 
 import type { WorkAgentPlans } from '../../shared/matrix-work'
-import type { WorkRelaySelection } from '../../shared/matrix-work-relay'
+import type { WorkRelayPlan, WorkRelaySelection } from '../../shared/matrix-work-relay'
 
 /**
  * A cloud agent's Mac-plan view (`work.readAgentPlans`), shared by every picker mounted for it.
@@ -23,9 +23,19 @@ import type { WorkRelaySelection } from '../../shared/matrix-work-relay'
  *   and any read or write begun in an earlier session is ignored when it settles.
  *
  * Acknowledgements are store-level: they never depend on the picker that started them staying open.
+ *
+ * In flight (owner 2026-11-27: closing the picker flashed the old model before the new one): a write
+ * that names its intent is shown as `pending` from the moment it starts until it is acknowledged or
+ * fails, so every picker names the pick at once, and a read that overlaps it (begun before it
+ * started, or settling while it is still out) is dropped: such a read can only carry the server's
+ * state from before the write. The latest-started write in flight is the one shown.
  */
+export type AgentPlansIntent = { kind: 'select'; plan: WorkRelayPlan; model: string } | { kind: 'clear' }
+
 export interface AgentPlansEntry {
   value: WorkAgentPlans | null
+  /** The latest-started write still in flight, shown in place of `value.selection`. */
+  pending?: AgentPlansIntent
 }
 
 interface KeyState {
@@ -39,6 +49,10 @@ interface KeyState {
   tombstone?: number
   /** The highest plan revision this session has seen for the agent. */
   highestRevision: number
+  /** The start number of the latest write that named its intent. */
+  lastWriteStart: number
+  /** Writes in flight that named their intent, by start number. */
+  inflight: Map<number, AgentPlansIntent>
 }
 
 export const $agentPlans = atom<Readonly<Record<string, AgentPlansEntry>>>({})
@@ -52,7 +66,7 @@ function state(key: string): KeyState {
   let found = keys.get(key)
 
   if (!found) {
-    found = { acknowledged: 0, appliedWrite: 0, settledRead: 0, highestRevision: 0 }
+    found = { acknowledged: 0, appliedWrite: 0, settledRead: 0, highestRevision: 0, lastWriteStart: 0, inflight: new Map() }
     keys.set(key, found)
   }
 
@@ -100,7 +114,12 @@ function readCurrent(read: AgentPlansRead): boolean {
 
   const known = state(read.key)
 
-  return known.acknowledged === read.acknowledged && known.settledRead < read.read
+  return (
+    known.acknowledged === read.acknowledged &&
+    known.settledRead < read.read &&
+    known.lastWriteStart < read.read &&
+    known.inflight.size === 0
+  )
 }
 
 function seen(key: string, selection: WorkRelaySelection | null): void {
@@ -117,8 +136,49 @@ function alive(key: string, selection: WorkRelaySelection | null): WorkRelaySele
   return selection && (tombstone === undefined || selection.revision > tombstone) ? selection : null
 }
 
+/** The latest-started write still in flight, if any. */
+function latestPending(key: string): AgentPlansIntent | undefined {
+  let latest: [number, AgentPlansIntent] | undefined
+
+  for (const each of state(key).inflight) {
+    if (!latest || each[0] > latest[0]) {
+      latest = each
+    }
+  }
+
+  return latest?.[1]
+}
+
 function put(key: string, value: WorkAgentPlans | null): void {
-  $agentPlans.set({ ...$agentPlans.get(), [key]: { value } })
+  const pending = latestPending(key)
+  $agentPlans.set({ ...$agentPlans.get(), [key]: pending ? { value, pending } : { value } })
+}
+
+/** Re-publishes the entry after its writes in flight changed; nothing to show before the first read. */
+function republish(key: string): void {
+  const entry = $agentPlans.get()[key]
+
+  if (entry) {
+    put(key, entry.value)
+  }
+}
+
+/**
+ * The selection a picker names: the pick in flight first (a clear names none), then what the
+ * server last said. A pending pick has no server revision yet; it is shown one above the known one.
+ */
+export function agentPlansShownSelection(entry: AgentPlansEntry | undefined): WorkRelaySelection | null {
+  const pending = entry?.pending
+
+  if (pending?.kind === 'clear') {
+    return null
+  }
+
+  if (pending?.kind === 'select') {
+    return { provider: 'atum-work', plan: pending.plan, model: pending.model, revision: (entry?.value?.selection?.revision ?? 0) + 1 }
+  }
+
+  return entry?.value?.selection ?? null
 }
 
 /** A read's answer: kept unless a write was acknowledged, or a newer read settled, since it began. */
@@ -151,11 +211,30 @@ export interface AgentPlansWrite {
   write: number
 }
 
-/** Numbers a write when it starts: a plan pick, or an Atum model write that clears the plan. */
-export function beginAgentPlansWrite(key: string): AgentPlansWrite {
+/**
+ * Numbers a write when it starts: a plan pick, or an Atum model write that clears the plan. With its
+ * intent, every picker shows it at once and reads overlapping it are dropped until it settles.
+ */
+export function beginAgentPlansWrite(key: string, intent?: AgentPlansIntent): AgentPlansWrite {
   sequence += 1
 
+  if (intent) {
+    const known = state(key)
+    known.lastWriteStart = sequence
+    known.inflight.set(sequence, intent)
+    republish(key)
+  }
+
   return { key, generation, write: sequence }
+}
+
+/** The write failed or was refused: it is no longer shown, and what the server last said is. */
+export function failAgentPlansWrite(write: AgentPlansWrite): void {
+  if (write.generation !== generation || !state(write.key).inflight.delete(write.write)) {
+    return
+  }
+
+  republish(write.key)
 }
 
 /** Whether this acknowledgement may apply, and if so records it. */
@@ -165,10 +244,23 @@ function acknowledge(write: AgentPlansWrite): boolean {
   }
 
   const known = state(write.key)
+  // Settled either way: it, and anything started before it, is no longer in flight.
+  const hadInflight = known.inflight.size > 0
+  known.inflight.delete(write.write)
 
   // A later-started write already acknowledged is the newer intent.
   if (write.write < known.appliedWrite) {
+    if (hadInflight) {
+      republish(write.key)
+    }
+
     return false
+  }
+
+  for (const started of [...known.inflight.keys()]) {
+    if (started < write.write) {
+      known.inflight.delete(started)
+    }
   }
 
   known.appliedWrite = write.write
@@ -189,6 +281,8 @@ export function acknowledgeAgentPlanSelection(write: AgentPlansWrite, saved: Wor
 
   if (entry?.value && selection && selection.revision >= (entry.value.selection?.revision ?? 0)) {
     put(write.key, { ...entry.value, selection })
+  } else {
+    republish(write.key)
   }
 }
 
@@ -207,6 +301,8 @@ export function acknowledgeAgentPlanCleared(write: AgentPlansWrite): void {
 
   if (entry?.value?.selection) {
     put(write.key, { ...entry.value, selection: null })
+  } else {
+    republish(write.key)
   }
 }
 

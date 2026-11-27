@@ -2,12 +2,12 @@ import { useStore } from '@nanostores/react'
 import { type ReactNode, useEffect, useRef, useState } from 'react'
 
 import { ProtonMark } from '@/components/brand/proton-mark'
-import { Input } from '@/components/ui/input'
 import { Tip } from '@/components/ui/tooltip'
 import { useI18n } from '@/i18n'
-import { CheckCircle2, Compass, Monitor, PawPrint, SearchIcon, Settings, Sparkles, UserCircle } from '@/lib/icons'
+import { CheckCircle2, Compass, Monitor, PawPrint, Settings, Sparkles, UserCircle } from '@/lib/icons'
 import { cn } from '@/lib/utils'
 
+import { MatrixPanelSearch, MatrixPanelSearchRow } from '../panel-search'
 import { plusMenuCopy } from '../plus-menu'
 
 import { matrixStoreCopy } from './store-copy'
@@ -129,19 +129,10 @@ export function MatrixStoreSidebar({
         <span className="flex-1" />
         {titleBarAction}
       </div>
-      <div className="flex items-center gap-1.5 px-2 pt-1 pb-2">
-        <Input
-          aria-label={copy.search}
-          className="min-w-0 flex-1 text-(--ak-ink) placeholder:text-(--ak-ink-3)"
-          containerClassName="ak-field ak-field--search h-8 min-w-0 flex-1 px-3"
-          onChange={event => onQueryChange(event.target.value)}
-          placeholder={copy.search}
-          prefix={<SearchIcon aria-hidden className="ak-icon ak-icon--sm" />}
-          type="search"
-          value={query}
-        />
+      <MatrixPanelSearchRow>
+        <MatrixPanelSearch label={copy.search} onValueChange={onQueryChange} type="search" value={query} />
         {/* No plus here: you create nothing in the Store (layout r2 §5, owner 2026-11-24). */}
-      </div>
+      </MatrixPanelSearchRow>
       {/* Atum Kit Store board: the shelves sit on the roster panel itself, a hairline between rows,
           never inside a card of their own. */}
       <nav aria-label={copy.title} className="mx-2 flex flex-col" data-matrix-store-shelves>

@@ -139,11 +139,26 @@ interface TipProps extends Omit<React.ComponentProps<typeof TooltipPrimitive.Con
   delayDuration?: number
 }
 
+type TipSideValue = React.ComponentProps<typeof TooltipPrimitive.Content>['side']
+
+const TipSideContext = React.createContext<TipSideValue>(undefined)
+
+/**
+ * The side every Tip inside opens on unless it names its own. The title bar uses it (owner
+ * 2026-11-27): a tip under a title-bar button lands where a native view (Work, a document) paints over
+ * every DOM node, so tips in the band open sideways and stay in it.
+ */
+function TipSide({ side, children }: { side: TipSideValue; children: React.ReactNode }) {
+  return <TipSideContext.Provider value={side}>{children}</TipSideContext.Provider>
+}
+
 // Drop-in replacement for native `title=`: wrap any single element. Instant,
 // position-aware, themed. Self-contained (carries its own Provider) so it works
 // anywhere without a provider ancestor. Renders the child untouched when label
 // is falsy. Open state is trigger-hover only — never sticky, never click-blocking.
-function Tip({ label, children, delayDuration = 0, ...props }: TipProps) {
+function Tip({ label, children, delayDuration = 0, side, ...props }: TipProps) {
+  const contextSide = React.useContext(TipSideContext)
+
   if (!label) {
     return <>{children}</>
   }
@@ -152,7 +167,9 @@ function Tip({ label, children, delayDuration = 0, ...props }: TipProps) {
     <TooltipProvider delayDuration={delayDuration} disableHoverableContent>
       <Tooltip disableHoverableContent>
         <TooltipTrigger asChild>{children}</TooltipTrigger>
-        <TooltipContent {...props}>{label}</TooltipContent>
+        <TooltipContent side={side ?? contextSide} {...props}>
+          {label}
+        </TooltipContent>
       </Tooltip>
     </TooltipProvider>
   )
@@ -198,4 +215,4 @@ function TipKeybindLabel({ actionId, text }: TipKeybindLabelProps) {
   return <TipHintLabel hint={hint ?? undefined} text={label} />
 }
 
-export { Tip, TipHintLabel, TipKeybindLabel, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger }
+export { Tip, TipHintLabel, TipKeybindLabel, TipSide, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger }

@@ -131,7 +131,12 @@ export function playgroundWork(params: URLSearchParams): { work?: MatrixWorkBrid
 
   return {
     work: {
-      getSurfaceMode: async () => null,
+      // `workMode=work|code` stands in for the view's report that a project is open, so the title bar's
+      // Work · Code switch shows.
+      getSurfaceMode: async () =>
+        params.get('workMode') === 'work' || params.get('workMode') === 'code'
+          ? { projectId: 'playground', mode: params.get('workMode') as 'work' | 'code' }
+          : null,
       // `workSidebar=<px>` stands in for the view's thread-list report (its right edge), so the band's
       // bell can be judged against a `workShot`; `runCommand` lets the band show its buttons.
       getSidebar: async () => (sidebarEdge > 0 ? { open: true, edge: sidebarEdge, ...(rightPanel ? { rightPanel } : {}) } : null),

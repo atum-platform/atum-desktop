@@ -1108,7 +1108,8 @@ describe('AtumRosterPanel — honest specialists states', () => {
 
     expect(screen.getByText('No other conversations yet')).toBeTruthy()
     // The row title only: the ownership chip no longer repeats "Atum".
-    expect(screen.getAllByText('Atum')).toHaveLength(1)
+    // (The title bar's own "Atum" name is the app's, not a row's.)
+    expect(screen.getAllByText('Atum').filter(each => !each.closest('[data-atum-titlebar-mark]'))).toHaveLength(1)
     expect(screen.getByRole('button', { name: /^Moon, Atum app/ })).toBeTruthy()
     expect(screen.queryByRole('button', { name: /^Andy, Atum app/ })).toBeNull()
     expect(screen.queryByRole('button', { name: /^Taylor, Atum app/ })).toBeNull()

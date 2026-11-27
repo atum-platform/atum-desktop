@@ -44,6 +44,9 @@ export function CompanySpaceTabs({ placement = 'auto', scope }: CompanySpaceTabs
   const compact = useMediaQuery('(max-width: 780px)')
   const refs = useRef<Array<HTMLButtonElement | null>>([])
   const [host, setHost] = useState<HTMLElement | null>(null)
+  // The title bar's mode slot (C, just left of the panel toggle: layout r1 delta 5, owner 2026-11-27),
+  // when the shell draws one; without it the tabs keep the older centred place (stories, other shells).
+  const [slot, setSlot] = useState<HTMLElement | null>(null)
 
   const labels: Record<CompanySpaceTab, string> = {
     chat: copy.chat,
@@ -58,17 +61,20 @@ export function CompanySpaceTabs({ placement = 'auto', scope }: CompanySpaceTabs
   useLayoutEffect(() => {
     if (placement === 'inline' || typeof document === 'undefined') {
       setHost(null)
+      setSlot(null)
 
       return
     }
 
-    setHost(document.querySelector<HTMLElement>('[data-atum-main-header]'))
+    const header = document.querySelector<HTMLElement>('[data-atum-main-header]')
+    setHost(header)
+    setSlot(header?.querySelector<HTMLElement>('[data-atum-page-mode]') ?? null)
   }, [placement])
 
   // The header owns the drag region; an absolutely positioned child needs a
   // positioned ancestor. Restore whatever the shell had when the tabs go.
   useLayoutEffect(() => {
-    if (!host) {
+    if (!host || slot) {
       return
     }
 
@@ -94,7 +100,7 @@ export function CompanySpaceTabs({ placement = 'auto', scope }: CompanySpaceTabs
         identity.style.flex = previousFlex ?? ''
       }
     }
-  }, [compact, host])
+  }, [compact, host, slot])
 
   // The tabs sit at the title bar's centre, over nothing: the channel's name and topic stop
   // short of them instead of running underneath (measured, since both sides vary).
@@ -103,7 +109,7 @@ export function CompanySpaceTabs({ placement = 'auto', scope }: CompanySpaceTabs
   useLayoutEffect(() => {
     const box = centre.current
 
-    if (!host || !box) {
+    if (!host || !box || slot) {
       return
     }
 
@@ -134,7 +140,7 @@ export function CompanySpaceTabs({ placement = 'auto', scope }: CompanySpaceTabs
         title.style.maxWidth = ''
       }
     }
-  }, [host, compact])
+  }, [host, compact, slot])
 
   const tabs = compact ? (
     <label className="flex h-(--atum-l-header) items-center" data-company-tabs-compact>
@@ -195,6 +201,10 @@ export function CompanySpaceTabs({ placement = 'auto', scope }: CompanySpaceTabs
 
   if (!host) {
     return tabs
+  }
+
+  if (slot) {
+    return createPortal(tabs, slot)
   }
 
   const actionHost = compact

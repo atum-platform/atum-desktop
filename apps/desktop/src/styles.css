@@ -2924,6 +2924,13 @@ article.company-board-card:hover {
   color: var(--atum-ink);
 }
 
+/* A toggle that is on (the right-panel toggle while its panel is open, layout r1 C) reads pressed,
+   the same on every screen. */
+.atum-icon-btn[aria-pressed='true'] {
+  background: var(--atum-hover);
+  color: var(--atum-ink);
+}
+
 .atum-icon-btn:disabled,
 .atum-icon-btn[aria-disabled='true'] {
   color: var(--atum-ink-ghost);
@@ -8457,4 +8464,11 @@ body:has(.atum-shell) [data-slot='notification-region'] [data-slot='alert'][data
   border: thin solid var(--atum-panel-line);
   border-radius: var(--control-radius);
   background: var(--atum-main-bg);
+}
+
+/* Zone D's one search field (matrix/panel-search.tsx): its own × clears it, so no native cancel glyph. */
+[data-atum-panel-search] input::-webkit-search-cancel-button,
+[data-atum-panel-search] input::-webkit-search-decoration {
+  -webkit-appearance: none;
+  display: none;
 }
