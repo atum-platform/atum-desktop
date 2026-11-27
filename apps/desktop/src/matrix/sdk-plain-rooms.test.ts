@@ -1,4 +1,5 @@
-import { Attachment, initAsync } from '@matrix-org/matrix-sdk-crypto-wasm'
+import opus from '@audio/encode-opus'
+import { Attachment, EncryptedAttachment, initAsync } from '@matrix-org/matrix-sdk-crypto-wasm'
 import { cleanup, render, screen } from '@testing-library/react'
 import {
   ClientEvent,
@@ -488,6 +489,71 @@ describe('sending a file', () => {
     await expect(f.sdk.command({ kind: 'download', roomId: '!room:test', eventId: eventId as string })).resolves.toEqual({
       name: 'notes.txt',
       bytes
+    })
+  })
+
+  it.each([false, true])('sends native voice metadata and protects media in an encrypted room (%s)', async encrypted => {
+    const f = await sdkFor(owner, client => holdRoom(client, '!room:test', { encrypted }))
+    const server = homeserver(f.client)
+    const encoder = await opus({ sampleRate: 48_000 })
+    const pcm = Float32Array.from({ length: 24_000 }, (_, i) => Math.sin(i / 10) / 4)
+    const pages = [encoder.encode([pcm]), encoder.flush()]
+    encoder.free()
+    const voiceBytes = new Uint8Array(pages[0]!.length + pages[1]!.length)
+    voiceBytes.set(pages[0]!)
+    voiceBytes.set(pages[1]!, pages[0]!.length)
+    const voiceNote = { duration: 500, waveform: [20, 240, 35] }
+
+    const eventId = await f.sdk.command({
+      kind: 'attach', roomId: '!room:test', voiceNote, name: 'Voice note.ogg', bytes: voiceBytes
+    }) as string
+    const content = server.send.mock.calls[0]![2]
+    expect(content).toMatchObject({
+      msgtype: 'm.audio',
+      body: 'Voice note.ogg',
+      info: { mimetype: 'audio/ogg', duration: 500, size: voiceBytes.length },
+      'org.matrix.msc3245.voice': {},
+      'org.matrix.msc1767.audio': voiceNote
+    })
+    const uploaded = server.media.get('mxc://test/media1')!
+    if (!encrypted) {
+      expect(uploaded).toEqual(voiceBytes)
+      await expect(f.sdk.command({ kind: 'download', roomId: '!room:test', eventId, inline: true })).resolves.toEqual({
+        name: 'Voice note.ogg', bytes: voiceBytes
+      })
+      return
+    }
+
+    expect(content).not.toHaveProperty('url')
+    expect(uploaded).not.toEqual(voiceBytes)
+    const file = new EncryptedAttachment(uploaded, JSON.stringify((content as unknown as { file: unknown }).file))
+    try {
+      expect(Attachment.decrypt(file)).toEqual(voiceBytes)
+    } finally {
+      file.free()
+    }
+  })
+
+  it('rejects WebM bytes pretending to be an Ogg voice note before upload', async () => {
+    const f = await sdkFor(owner, client => holdRoom(client, '!room:test'))
+    const server = homeserver(f.client)
+    await expect(f.sdk.command({
+      kind: 'attach', roomId: '!room:test', name: 'Voice note.ogg', voiceNote: { duration: 800, waveform: [] },
+      bytes: new Uint8Array([26, 69, 223, 163])
+    })).rejects.toThrow('matrix_file_invalid')
+    expect(server.upload).not.toHaveBeenCalled()
+  })
+
+  it('sends a static Matrix location with a readable fallback and pinned asset type', async () => {
+    const f = await sdkFor(owner, client => holdRoom(client, '!room:test'))
+    const server = homeserver(f.client)
+    await f.sdk.command({ kind: 'locationSend', roomId: '!room:test', geoUri: 'geo:10.5,106.4' })
+    expect(server.send.mock.calls[0]![2]).toMatchObject({
+      msgtype: 'm.location',
+      body: 'Location: 10.5,106.4',
+      geo_uri: 'geo:10.5,106.4',
+      'org.matrix.msc3488.location': { uri: 'geo:10.5,106.4' },
+      'org.matrix.msc3488.asset': { type: 'm.pin' }
     })
   })
 

@@ -102,6 +102,7 @@ import type { MatrixPetIntentEnvelope, MatrixPetIntentProjection } from './matri
 import type { MatrixPresenceSnapshot, MatrixStatusInput } from './matrix-presence'
 import type { MatrixProfileMetadata, MatrixProfilesBridge, MatrixProfileSdkCommand } from './matrix-profile'
 import type { MatrixProgressMarker, MatrixProgressPresentation, MatrixScheduleIdentity } from './matrix-progress-marker'
+import type { MatrixPollCommand, MatrixRichMessage, MatrixVoiceNote } from './matrix-rich-content'
 import type { MatrixRoomSharedSection } from './matrix-room-shared'
 import type { MatrixSavedMessagesSnapshot } from './matrix-saved-messages'
 import type { MatrixNativeSecurityCommand, MatrixSecurity, MatrixSecurityCommand } from './matrix-security'
@@ -393,6 +394,7 @@ export interface MatrixMessage {
    * "Sent". Display only; never a delivery or read claim. */
   sent?: true
   attachment: boolean
+  rich?: MatrixRichMessage
   /** Strict company-Drive reference; display/routing hint only, native re-reads the event. */
   companyFile?: true
   /** The file's size from its own event, when it says (display only). */
@@ -1636,11 +1638,14 @@ export type MatrixCommand =
       name: string
       contentType?: string
       bytes: Uint8Array
+      voiceNote?: MatrixVoiceNote
       matrixTransactionId?: string
       threadRootId?: string
       replyTo?: string
     }
-  | { kind: 'download'; roomId: string; eventId: string; companyFile?: true }
+  | { kind: 'download'; roomId: string; eventId: string; companyFile?: true; inline?: true }
+  | { kind: 'locationSend'; roomId: string; geoUri: string }
+  | MatrixPollCommand
   /** One bounded read of what a chat has shared (shared/matrix-room-shared.ts): a few `/messages`
    * pages, filtered by the server where the room has no encryption, decrypted on this device where
    * it has. `from` continues where the previous read stopped. Answers `MatrixRoomSharedPage`. */

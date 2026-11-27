@@ -1,11 +1,13 @@
 import { Attachment } from '@matrix-org/matrix-sdk-crypto-wasm'
 import {
   ClientEvent,
+  ContentHelpers,
   createClient,
   Direction,
   EventStatus,
   EventType,
   IndexedDBStore,
+  LocationAssetType,
   type MatrixClient,
   MatrixEvent,
   MatrixEventEvent,
@@ -71,6 +73,7 @@ import { MATRIX_GOOGLE_PROVENANCE_KEY } from '../../shared/matrix-google-tools'
 import { MATRIX_GROUP_AGENT_LIMIT } from '../../shared/matrix-group-room'
 import { MATRIX_MODEL_ACCOUNT_DATA, matrixModelChoiceContent, parseMatrixModel } from '../../shared/matrix-models'
 import { MATRIX_NOTES_SELF_ROOM_TYPE } from '../../shared/matrix-notes-self'
+import { isMatrixOggOpus, MATRIX_VOICE_MIME, matrixGeoPoint, matrixVoiceNote } from '../../shared/matrix-rich-content'
 import { createMatrixSyncHealth, matrixSyncTokenRefused } from '../../shared/matrix-sync-health'
 import { MATRIX_TASK_FILES_KEY, parseMatrixTaskFilesPromise } from '../../shared/matrix-task-files'
 import type { MatrixUndecryptableObservation } from '../../shared/matrix-undecryptable'
@@ -219,6 +222,7 @@ import { readPeoplePrivacy, searchMatrixPeople, writePeoplePrivacy } from './peo
 import { createPetLiveEvents } from './pet/live-events'
 import { changeMatrixMessagePin, matrixPinnedMessages } from './pinned-events'
 import { confirmedPlainRoom, plainRoomAnswer, withJoinedWireType } from './plain-room'
+import { matrixPollCommand } from './poll/model'
 import { matrixPresence } from './presence'
 import { matrixProfile } from './profile'
 import { prepareMatrixResult, publishMatrixGroupNotice, publishMatrixNotice, publishMatrixResult } from './publish-result'
@@ -227,6 +231,7 @@ import { matrixReadReceipts } from './read-receipts'
 import { readMatrixResult } from './read-result'
 import { publicReaders } from './read-state'
 import { readMatrixReplyQuote } from './reply-quote'
+import { matrixRichMedia } from './rich-media'
 import { roomSelection } from './room-navigation'
 import { matrixRoomPolicy } from './room-policy'
 import { readMatrixRoomShared, readMatrixRoomSharedThumbnail } from './room-shared'
@@ -4972,6 +4977,35 @@ export async function startMatrixSdk(
         )
       }
 
+      case 'pollRead':
+        return matrixPollCommand(client, joinedRoom(command.roomId), configuration.userId, command, changed)
+
+      case 'pollCreate':
+      case 'pollVote':
+      case 'pollEnd':
+      case 'locationSend': {
+        const room = joinedRoom(command.roomId)
+        if (room.getType() === MATRIX_NOTES_SELF_ROOM_TYPE) {
+          notesSelfAssertSend(command.roomId)
+        }
+        await requireMatrixRoomPeerTrust(client, command.roomId, configuration.deviceIsolation, () => !stopped && state === 'ready')
+        await founderChat.beforeSend(command.roomId)
+
+        if (command.kind !== 'locationSend') {
+          return matrixPollCommand(client, room, configuration.userId, command, changed)
+        }
+
+        const geoUri = matrixGeoPoint(command.geoUri)
+        if (!geoUri) {
+          throw new Error('matrix_command_invalid')
+        }
+        const content = ContentHelpers.makeLocationContent(
+          `Location: ${geoUri.slice(4)}`, geoUri, undefined, undefined, LocationAssetType.Pin
+        )
+
+        return client.sendEvent(command.roomId, EventType.RoomMessage, { ...content, msgtype: MsgType.Location, info: {} })
+      }
+
       case 'attach': {
         if (client.getRoom(command.roomId)?.getType() === MATRIX_NOTES_SELF_ROOM_TYPE) {
           notesSelfAssertSend(command.roomId)
@@ -4991,7 +5025,19 @@ export async function startMatrixSdk(
           throw new Error('matrix_command_invalid')
         }
 
-        const info = { mimetype: 'application/octet-stream', size: command.bytes.byteLength }
+        const voice = matrixVoiceNote(command.voiceNote)
+
+        if (command.voiceNote !== undefined && (!voice || !isMatrixOggOpus(command.bytes))) {
+          throw new Error('matrix_file_invalid')
+        }
+
+        const info = voice
+          ? { mimetype: MATRIX_VOICE_MIME, size: command.bytes.byteLength, duration: voice.duration }
+          : { mimetype: 'application/octet-stream', size: command.bytes.byteLength }
+        const media = voice
+          ? { msgtype: MsgType.Audio as const, body: command.name, info,
+              'org.matrix.msc3245.voice': {}, 'org.matrix.msc1767.audio': voice }
+          : { msgtype: MsgType.File as const, body: command.name, info }
 
         // A room without encryption (every 0.20 chat): the bytes as they are and a plain mxc URL,
         // the form phones and Element X send and show there. A room with encryption keeps the
@@ -5007,7 +5053,7 @@ export async function startMatrixSdk(
           return client.sendEvent(
             command.roomId,
             EventType.RoomMessage,
-            { msgtype: MsgType.File, body: command.name, filename: command.name, url: upload.content_uri, info },
+            { ...media, filename: command.name, url: upload.content_uri },
             command.matrixTransactionId
           )
         }
@@ -5031,10 +5077,8 @@ export async function startMatrixSdk(
               command.roomId,
               EventType.RoomMessage,
               {
-                msgtype: MsgType.File,
-                body: command.name,
-                file: { ...JSON.parse(encrypted.mediaEncryptionInfo!), url: upload.content_uri },
-                info
+                ...media,
+                file: { ...JSON.parse(encrypted.mediaEncryptionInfo!), url: upload.content_uri }
               },
               command.matrixTransactionId
             )
@@ -5064,7 +5108,17 @@ export async function startMatrixSdk(
           throw new Error('matrix_file_unavailable')
         }
 
-        return downloadMatrixAttachment(client, event.getContent(), { plain })
+        const content = event.getContent()
+        const media = matrixRichMedia(event.getType(), content)
+
+        if (command.inline && (Object.hasOwn(content, MATRIX_COMPANY_FILE) ||
+          (media?.kind !== 'voice' && media?.kind !== 'sticker'))) {
+          throw new Error('matrix_file_unavailable')
+        }
+
+        return downloadMatrixAttachment(client, media?.kind === 'sticker'
+          ? { ...content, msgtype: MsgType.Image }
+          : content, { plain })
       }
 
       case 'roomShared': {

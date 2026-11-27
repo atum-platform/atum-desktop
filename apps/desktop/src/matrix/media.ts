@@ -4,6 +4,8 @@ import { type IContent, type MatrixClient, Method } from 'matrix-js-sdk'
 import { MATRIX_MAX_FILE_BYTES, MATRIX_MEDIA_TIMEOUT_MS, matrixAttachmentMsgtype } from '../../shared/matrix'
 import { MATRIX_ROOM_SHARED_THUMBNAIL_MAX_BYTES } from '../../shared/matrix-room-shared'
 
+import { matrixRichMedia } from './rich-media'
+
 /**
  * One download/decrypt path for Save and the trusted invocation reader. An encrypted file
  * (`file`) is decrypted. A plain one (`url`) is taken as downloaded, and only when the caller
@@ -18,7 +20,8 @@ export async function downloadMatrixAttachment(
   const file = content.file
   const url: unknown = file ? file.url : options.plain ? content.url : undefined
 
-  if (!matrixAttachmentMsgtype(content.msgtype) || typeof url !== 'string') {
+  if ((!matrixAttachmentMsgtype(content.msgtype) && matrixRichMedia('m.room.message', content)?.kind !== 'voice') ||
+    typeof url !== 'string') {
     throw new Error('matrix_file_unavailable')
   }
 
