@@ -157,6 +157,7 @@ export interface StagedSwapOptions {
 export interface InstallMode {
   /** Restart reopens the app; an ordinary Quit swaps and leaves it closed. */
   relaunch: boolean
+  work?: import('./state').StagedWorkUpdate | null
 }
 
 export class StagedSwap {
@@ -368,6 +369,12 @@ export class StagedSwap {
     if (!await this.recheck) {throw new Error('The verified update changed before restart.')}
   }
 
+  preparedResources(): string {
+    if (!this.bundle || !this.ready) {throw new Error('The verified update is no longer available.')}
+
+    return path.join(this.bundle, 'Contents', 'Resources')
+  }
+
   /** Start the stat-walk at the click so it overlaps the teardown instead of following it. */
   beginRestart(): void {
     if (this.bundle && this.seal && !this.recheck) {
@@ -411,7 +418,8 @@ export class StagedSwap {
     try {
       clearMarkers(handoffDirectory)
       writeJournal(this.root, {
-        v: 2, target, backup, next: bundle, fromVersion: version, toVersion: this.stagedVersion, relaunch: mode.relaunch
+        v: 2, target, backup, next: bundle, fromVersion: version, toVersion: this.stagedVersion, relaunch: mode.relaunch,
+        ...(mode.work !== undefined ? { work: mode.work } : {})
       })
       await this.tools.spawnWaiter({
         parentPid: process.pid, target, backup, relaunch: mode.relaunch,

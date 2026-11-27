@@ -19,11 +19,13 @@ import {
 } from '../desktop-update-settings'
 import { createAtumUpdates } from '../t3-updates/service'
 import type { DesktopUpdateSettings } from '../t3-updates/settings-contract'
+import { workDesktopUpdateHandler } from '../t3-updates/work-handoff'
 
 /** One instance owned by the Matrix main process, never by a room or SDK host. */
 export class MatrixDesktopServices {
   private readonly reporting: AtumObservability
   private readonly updater: ReturnType<typeof createAtumUpdates>
+  readonly workUpdate: ReturnType<typeof workDesktopUpdateHandler>
   private readonly started = Date.now()
   private shellReady = false
   private syncReady = false
@@ -132,6 +134,7 @@ export class MatrixDesktopServices {
       log: options.log,
       settings
     })
+    this.workUpdate = workDesktopUpdateHandler(this.updater)
   }
 
   start(): Promise<boolean> { return this.updater.start() }
@@ -241,6 +244,9 @@ export class MatrixDesktopServices {
         duration_ms: Math.min(86_400_000, Date.now() - this.started)
       }
     })
+  }
+  workUpdatesAvailable() {
+    return this.updater.state().enabled
   }
   setUpdateChannel(channel: unknown) {
     return this.updater.setChannel(channel)

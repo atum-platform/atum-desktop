@@ -17,6 +17,8 @@ import { writeFileDurably } from '../session/files'
 import type { WorkSessionPaths } from '../session/paths'
 import type { PinHost } from '../session/update'
 
+import type { WorkDesktopUpdateHandler } from './desktop-control'
+
 import { recordWorkBillingUnit, type WorkBillingUnit } from './billing'
 import { type WorkIncarnation, workRuntimeEnvironment, WorkSidecar, type WorkStartOptions } from './process'
 
@@ -38,6 +40,7 @@ interface WorkHostOptions {
   sidebarChanged?(snapshot: WorkSidebarSnapshot | null): void
   attentionChanged?(snapshot: WorkAttentionSnapshot | null): void
   ready?(): void
+  desktopUpdate?: () => WorkDesktopUpdateHandler | undefined
   prepare?(signal: AbortSignal): Promise<void>
   account(): Account | undefined
   gatewayEnvironment(): Record<string, string>
@@ -100,6 +103,7 @@ export class WorkHost {
         log: this.options.log,
         prepare: this.options.prepare,
         ready: this.options.ready,
+        desktopUpdate: this.options.desktopUpdate?.(),
         gatewayEnvironment: () => {
           const environment = this.options.gatewayEnvironment()
           this.backendToken = environment.ATUM_FILESYSTEM_BROKER_TOKEN

@@ -125,6 +125,11 @@ export async function verifyPinDigest(pin: PinRef): Promise<void> {
   }
 }
 
+export interface WorkUpdateSelection {
+  id: string
+  select(write: () => void): void
+}
+
 export class UpdateDriver {
   private running = false
 
@@ -181,7 +186,7 @@ export class UpdateDriver {
     return undefined
   }
 
-  async update(target: PinRef): Promise<UpdateOutcome> {
+  async update(target: PinRef, planned?: WorkUpdateSelection): Promise<UpdateOutcome> {
     const { deps } = this
 
     // Taken before the first await: a second call during the checks is refused as in progress.
@@ -207,7 +212,7 @@ export class UpdateDriver {
       const committed = this.readState()?.pin ?? running.version
       const previous = running.version === committed ? running : undefined
 
-      return await deps.coordinator.exclusive(() => this.run({ fromVersion: committed, previous }, target))
+      return await deps.coordinator.exclusive(() => this.run({ fromVersion: committed, previous }, target, planned))
     } finally {
       this.running = false
     }
@@ -255,7 +260,7 @@ export class UpdateDriver {
     })
   }
 
-  private async run(current: { fromVersion: string; previous: PinRef | undefined }, target: PinRef): Promise<UpdateOutcome> {
+  private async run(current: { fromVersion: string; previous: PinRef | undefined }, target: PinRef, planned?: WorkUpdateSelection): Promise<UpdateOutcome> {
     const { deps } = this
     const { coordinator, paths } = deps
     const log = (event: string) => deps.log?.(redactPairingSecrets(event))
@@ -268,7 +273,7 @@ export class UpdateDriver {
 
     // 2. Snapshot the stopped home. The manifest is written last; the marker
     //    moves to `pending` only once the snapshot is durable.
-    const snapshotId = randomUUID()
+    const snapshotId = planned?.id ?? randomUUID()
     this.takeSnapshot(snapshotId, current.fromVersion, target.version)
     coordinator.markers.advance('pending', snapshotId)
     log('update_snapshot_taken')
@@ -282,7 +287,7 @@ export class UpdateDriver {
 
     try {
       incarnation = await host.start({
-        continuation: false,
+        continuation: Boolean(planned),
         resources: target.resources,
         trial: {
           protocol: 4,
@@ -297,6 +302,7 @@ export class UpdateDriver {
         }
       })
 
+      if (planned && !incarnation.trial) {throw new WorkSessionError('work_trial_required')}
       if (incarnation.trial) {
         const { trial } = incarnation
         await withDeadline(trial.prepared, deps.prepareWithinMs ?? 20_000)
@@ -304,8 +310,11 @@ export class UpdateDriver {
       }
 
       const state = this.readState()
-      this.writeState({ version: 1, pin: target.version, committed: [...(state?.committed ?? []), snapshotId] })
-      selected = true
+      const select = () => {
+        this.writeState({ version: 1, pin: target.version, committed: [...(state?.committed ?? []), snapshotId] })
+        selected = true
+      }
+      if (planned) {planned.select(select)} else {select()}
 
       if (incarnation.trial) {
         await withDeadline(incarnation.trial.commit(), deps.commitWithinMs ?? 25_000)

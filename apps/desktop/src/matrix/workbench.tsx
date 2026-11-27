@@ -31,6 +31,8 @@ import { $matrixDrivePdfLease } from './drive-finder'
 import { matrixAgentTyping } from './local-turns'
 import { matrixRosterAgentName } from './roster-model'
 import { MatrixTerminalPane, useMatrixTerminalRead } from './terminal'
+import { browserUpdateUrl } from '../../shared/browser/update-restore'
+import { registerBrowserUpdateCheckpoint, saveBrowserUpdate, takeBrowserUpdate } from './browser-update-checkpoint'
 import { registerMatrixDocumentDetach, runMatrixDocumentAction } from './text-document-actions'
 import { matrixTextDocumentLease } from './text-document-lease'
 import { MatrixTextDocumentPane } from './text-document-pane'
@@ -147,6 +149,7 @@ export function MatrixWorkbench({
   onTabCountChange,
   appRouteRequest,
   onAppRouteRequestConsumed,
+  onBrowserUpdateRestored,
   documentRequest,
   deskRequest,
   browserRequest,
@@ -170,6 +173,7 @@ export function MatrixWorkbench({
   /** The shell consumes this for its collapsed plus/count affordance. */
   onTabCountChange?(count: number): void
   appRouteRequest?: AppBotRouteRequest
+  onBrowserUpdateRestored?(scope: string): void
   onAppRouteRequestConsumed?(serial: number): void
   /** Parent increments this from an explicit “show linked document” action. */
   documentRequest?: number
@@ -311,6 +315,31 @@ export function MatrixWorkbench({
   const tabOpen = scopedTabState.documentOpen && Boolean(link)
   const browserTabs = scopedTabState.browsers
   const recents = recentState.scopeKey === recentScopeKey ? recentState.entries : []
+  const scopeReady = Boolean(snapshot.identity && snapshot.roomId)
+
+  useEffect(() => {
+    if (!scopeReady) {return}
+    return registerBrowserUpdateCheckpoint(() => {
+      const tabs = browserTabs.filter(tab => tab.url !== 'about:blank' && tab.status !== 'start')
+      const urls = tabs.map(tab => browserUpdateUrl(tab.url))
+      if (tabs.some((tab, index) => tab.status !== 'ready' || urls[index] === null)) {
+        throw new Error('browser_update_tab_unavailable')
+      }
+      saveBrowserUpdate(window.localStorage, scope, {
+        urls: urls as string[], selected: tabs.findIndex(tab => scopedTabState.selected === `browser:${tab.id}`), open: !hidden
+      })
+    })
+  }, [scopeReady, scope, browserTabs, scopedTabState.selected, hidden])
+
+  useEffect(() => {
+    if (!scopeReady || tabState.scope !== scope) {return}
+    const saved = takeBrowserUpdate(window.localStorage, scope)
+    if (!saved) {return}
+    const browsers = saved.urls.map(url => createConsumerBrowserTab(url))
+    const active = browsers[saved.selected]
+    setTabState(current => ({ ...current, browsers, selected: active ? `browser:${active.id}` : current.selected }))
+    if (saved.open) {onBrowserUpdateRestored?.(scope)}
+  }, [scope, scopeReady, tabState.scope, onBrowserUpdateRestored])
 
   // An editable preview has its own opaque, room-scoped lease. While Matrix
   // reconnects we retain that pane and its local buffer, but mark its I/O

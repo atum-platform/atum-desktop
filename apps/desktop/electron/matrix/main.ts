@@ -269,7 +269,9 @@ import { confirmHealthyStart } from '../atum-staged-swap/cleanup'
 import { recoverAtStartup } from '../atum-staged-swap/recovery'
 import { StagedSwap } from '../atum-staged-swap/stage'
 import { ATUM_BUNDLE_ID as STAGED_APP_ID } from '../atum-staged-swap/state'
-import { markStarted, stagedSwapEnabled } from '../atum-staged-swap/store'
+import { type StagedWorkUpdate } from '../atum-staged-swap/state'
+import { markStarted, readJournal, stagedSwapEnabled, stageRoot } from '../atum-staged-swap/store'
+import { selectedWorkUpdate, stagedWorkSelection } from '../atum-staged-swap/work-selection'
 import { readGoogleClient } from '../atum-utilities'
 import { createConsumerBrowserController } from '../consumer-browser/controller'
 import { EncryptedStore } from '../encrypted-store'
@@ -2061,17 +2063,17 @@ let outcomeStore: EncryptedStore
 let pendingMatrixDrafts: PendingMatrixDrafts | undefined
 let documents: MatrixRoomDocuments
 const documentClose = new MatrixDocumentClose()
-let pendingUpdateSwap: { currentOwner: () => boolean; run: () => Promise<void>; refused: () => void } | null = null
+let pendingUpdateSwap: { currentOwner: () => boolean; prepare: () => Promise<void>; run: () => Promise<void>; refused: () => void } | null = null
 
-async function prepareDocumentClose(): Promise<void> {
+async function prepareDocumentClose(updating = false): Promise<void> {
   const window = ui
 
-  if (!window || window.isDestroyed() || !documents?.hasTextPreview()) {
+  if (!window || window.isDestroyed() || (!updating && !documents?.hasTextPreview())) {
     return
   }
 
   await documentClose.prepare(
-    id => window.webContents.send(MATRIX_WINDOW_CHANNELS.prepareDocumentClose, id),
+    id => window.webContents.send(MATRIX_WINDOW_CHANNELS.prepareDocumentClose, id, updating),
     () => ui === window && !window.isDestroyed() && !closing && state.state === 'ready'
   )
 }
@@ -17646,6 +17648,10 @@ async function start() {
     log: line => console.warn(line)
   })
 
+  const updateJournal = app.isPackaged ? readJournal(app.getPath('home'), stage.root) : null
+  const plannedWork = updateJournal?.target === path.resolve(process.resourcesPath, '..', '..') &&
+    updateJournal.toVersion === app.getVersion() && updateJournal.work !== undefined ? updateJournal : undefined
+
   let admittedUpdateOwner: (() => boolean) | undefined
   desktopServices = new MatrixDesktopServices({
     configPath: path.join(process.resourcesPath, 'atum-desktop-services.json'),
@@ -17700,15 +17706,22 @@ async function start() {
           return
         }
         updateShutdownSafe = false
+        let workUpdate: StagedWorkUpdate | null = null
         pendingUpdateSwap = {
           currentOwner,
+          async prepare() {
+            if (state.terminals?.some(terminal => terminal.open) || !await matrixConsumerBrowser.canRestartForUpdate()) {
+              throw new Error('Close active terminal or browser work before restarting.')
+            }
+            workUpdate = await work?.prepareUpdate(stage.preparedResources()) ?? null
+          },
           async run() {
             try {
               if (!updateShutdownSafe) {throw new Error('Local services did not finish shutting down.')}
               if (ui && !ui.isDestroyed() && !ui.isFullScreen()) {
                 saveUpdateBounds(handoffDirectory, ui.getNormalBounds())
               }
-              await stage.install({ relaunch: true })
+              await stage.install({ relaunch: true, work: workUpdate })
               resolve()
               app.exit(0)
             } catch (error) {
@@ -20627,6 +20640,11 @@ async function start() {
       home: app.getPath('home'),
       resources: process.resourcesPath,
       workPreload: path.join(assets, 'matrix-work-preload.js'),
+      desktopUpdate: () => desktopServices?.workUpdatesAvailable() ? desktopServices.workUpdate : undefined,
+      plannedUpdate: plannedWork && {
+        work: plannedWork.work ?? null,
+        selection: plannedWork.work ? stagedWorkSelection({ home: app.getPath('home'), root: stage.root, original: plannedWork }) : undefined
+      },
       safeStorage,
       ui: () => ui,
       ipcMain,
@@ -26195,6 +26213,8 @@ async function start() {
       void reconcileOrphanedEnrollments()
     }
 
+    if (plannedWork?.work && !work) {throw new Error('work_update_owner_unavailable')}
+    await work?.resumeUpdate()
     if (app.isPackaged && process.platform === 'darwin') {
       confirmHealthyStart({
         hidden: deviceLaunch === 'login_hidden',
@@ -26208,6 +26228,7 @@ async function start() {
   } catch {
     startupState = undefined
     publish({ ...state, state: 'error', error: 'matrix_vault_unavailable' })
+    if (plannedWork?.work && !selectedWorkUpdate(app.getPath('userData'), plannedWork)) {app.quit()}
   }
 }
 
@@ -26219,6 +26240,7 @@ const stagedRecovery = app.isPackaged && process.platform === 'darwin'
       id: STAGED_APP_ID,
       bundle: path.resolve(process.resourcesPath, '..', '..'),
       handoffDirectory: path.join(app.getPath('userData'), 'update-handoff'),
+      workSelected: journal => selectedWorkUpdate(app.getPath('userData'), journal),
       exit: () => app.exit(0),
       log: line => console.warn(line)
     })
@@ -26273,6 +26295,13 @@ if (stagedRecovery === 'exiting') {
         // or processes. A rejected turn is contained by the drain helper and its normal settlement.
         const drainStarted = performance.now()
 
+        const updateAgents = pendingUpdateSwap ? allAgents() : []
+        // Stop claiming before the runtime drain. The existing Mac job lifecycle and outbox own recovery.
+        const jobs = updateAgents.map(agent => {
+          const lifecycle = macJobs.get(agent)?.lifecycle
+          lifecycle?.stop()
+          return lifecycle?.drained()
+        })
         const drained = await drainMatrixRuntimes(allAgents(), {
           holdOperations: true,
           reason: 'cancelled',
@@ -26328,7 +26357,7 @@ if (stagedRecovery === 'exiting') {
         // Credential/SDK shutdown starts beside lease release, never behind it.
         try {
           const results = await Promise.allSettled([
-            release, clearNativeApps, brainStop, driveStop, deviceStop, workStop,
+            release, clearNativeApps, brainStop, driveStop, deviceStop, workStop, ...jobs,
             timedStop('sdk', () => account ? account.close(stopSdk) : stopSdk()),
             matrixConsumerBrowser.releaseConsumerPartitions()
           ])
@@ -26359,7 +26388,8 @@ if (stagedRecovery === 'exiting') {
       },
       {
         prepare: async () => {
-          await prepareDocumentClose()
+          await prepareDocumentClose(Boolean(pendingUpdateSwap))
+          await pendingUpdateSwap?.prepare()
           if (pendingUpdateSwap && (!pendingUpdateSwap.currentOwner() || isolationBusy() || matrixConsumerBrowser.hasActiveDownloads())) {
             throw new Error('Local work started during restart preparation.')
           }

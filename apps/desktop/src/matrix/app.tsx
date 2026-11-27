@@ -543,6 +543,7 @@ import { teamSpaceRevampCopy } from './team-space/revamp-copy'
 import { useSavedMessagesCopy } from './team-space/saved-messages-copy'
 import { useCompanyChannelFacts } from './team-space/use-channel-facts'
 import { MatrixTerminalOffers } from './terminal'
+import { checkpointBrowserForUpdate } from './browser-update-checkpoint'
 import { prepareMatrixDocumentClose, runMatrixCommand } from './text-document-actions'
 import { matrixThreadCopy } from './thread-copy'
 import { loadTimelineHistoryPage, MATRIX_TIMELINE_SEARCH_PAGES, waitForTimelineProjection } from './timeline-history'
@@ -7601,7 +7602,10 @@ function MatrixAccountView({
     paletteVisible
 
   const signedIn = Boolean(snapshot.identity)
-  useEffect(() => window.atumMatrix.onDocumentClose?.(prepareMatrixDocumentClose), [])
+  useEffect(() => window.atumMatrix.onDocumentClose?.(async updating => {
+    await prepareMatrixDocumentClose()
+    if (updating) {checkpointBrowserForUpdate()}
+  }), [])
   useEffect(() => {
     if (paletteBlocked) {
       setPaletteOpen(false)
@@ -9722,6 +9726,7 @@ function MatrixAccountView({
               hidden={!workspaceOpen || infoShown}
               motion={motion}
               obstructed={drawerOpen || overlaid || anyAgentPrompts(snapshot)}
+              onBrowserUpdateRestored={scope => setWorkspaceScope(scope)}
               onAppRouteRequestConsumed={serial =>
                 setAppRouteRequest(current => (current?.serial === serial ? undefined : current))
               }

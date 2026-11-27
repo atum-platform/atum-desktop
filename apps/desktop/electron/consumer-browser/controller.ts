@@ -16,6 +16,7 @@ import {
   assertSafeBrowserUrl,
   normalizeBrowserInput
 } from '../../shared/browser/policy'
+import { browserUpdateUrl } from '../../shared/browser/update-restore'
 import { type AppViewEgress, createConsumerBrowserEgress } from '../app-view/egress'
 import { ATUM_FILE_VIEW_PARTITION } from '../atum-file-view-constants'
 
@@ -155,6 +156,7 @@ export async function assertPublicBrowserDestination(raw: string): Promise<strin
 export function createConsumerBrowserController(deps: ConsumerBrowserControllerDeps): {
   dispose: () => void
   hasActiveDownloads: () => boolean
+  canRestartForUpdate: () => Promise<boolean>
   releaseAppPartitions: () => Promise<void>
   releaseConsumerPartitions: () => Promise<void>
 } {
@@ -166,6 +168,7 @@ export function createConsumerBrowserController(deps: ConsumerBrowserControllerD
   const popupTimestamps = new Map<number, number[]>()
   const downloadsInFlight = new WeakMap<Session, number>()
   const activeDownloadItems = new Set<DownloadItem>()
+  const browserGuests = new Set<WebContents>()
   // One pinned-address proxy per prepared browser partition. Chromium sends it hostnames and never
   // resolves them itself, so the address we vetted is the address that is dialled (no DNS rebinding).
   const egresses = new Map<string, { egress: AppViewEgress; owner: object }>()
@@ -365,6 +368,8 @@ export function createConsumerBrowserController(deps: ConsumerBrowserControllerD
       return
     }
 
+    browserGuests.add(contents)
+    contents.once('destroyed', () => browserGuests.delete(contents))
     let permittedNavigation: string | null = null
     contents.on('will-navigate', (event, rawUrl) => {
       if (rawUrl === permittedNavigation) {
@@ -482,6 +487,32 @@ export function createConsumerBrowserController(deps: ConsumerBrowserControllerD
       deps.ipcMain.removeHandler(CONSUMER_BROWSER_IPC.release)
     },
     hasActiveDownloads: () => activeDownloadItems.size > 0,
+    canRestartForUpdate: async () => {
+      const guests = [...browserGuests].filter(guest => !guest.isDestroyed())
+      const results = await Promise.all(guests.map(async guest => {
+        const url = guest.getURL()
+        if (url === '' || url === 'about:blank') {return !guest.isLoading()}
+        if (!browserUpdateUrl(url) || guest.isLoading()) {return false}
+        const unchanged = await guest.executeJavaScriptInIsolatedWorld(1, [{ code: `(() => {
+          if (document.querySelector('[contenteditable]:not([contenteditable="false"]), iframe')) return false;
+          return [...document.querySelectorAll('input,textarea,select')].every(field => {
+            if (field instanceof HTMLSelectElement) {
+              return [...field.options].every(option => option.selected === option.defaultSelected) ||
+                (!field.multiple && field.selectedIndex === 0 && ![...field.options].some(option => option.defaultSelected));
+            }
+            if (field instanceof HTMLInputElement && /^(checkbox|radio)$/.test(field.type)) return field.checked === field.defaultChecked;
+            return field.value === field.defaultValue;
+          });
+        })()` }]).catch(() => false)
+        return unchanged === true && !guest.isDestroyed() && !guest.isLoading() && guest.getURL() === url
+      }))
+      return results.every(Boolean) && downloadsUnchanged()
+
+      function downloadsUnchanged() {
+        return activeDownloadItems.size === 0 && preparing.size === 0 &&
+          [...browserGuests].every(guest => guest.isDestroyed() || guests.includes(guest))
+      }
+    },
     releaseAppPartitions: async () => {
       const appPartitions = new Set(deps.knownAppIds.filter(validAppId).map(appPartition))
 

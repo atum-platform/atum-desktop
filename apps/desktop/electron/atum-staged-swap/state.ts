@@ -125,6 +125,12 @@ export function safeArchivePaths(listing: string): boolean {
 
 export const STAGED_PARENTS = (home: string) => ['/Applications', path.join(home, 'Applications')]
 
+export interface StagedWorkUpdate {
+  id: string
+  accountKey: string
+  pin: string
+}
+
 export interface Journal {
   v: 2
   target: string
@@ -134,6 +140,7 @@ export interface Journal {
   toVersion: string
   /** false for an ordinary Quit: the swap happens, but nothing reopens the app. */
   relaunch: boolean
+  work?: StagedWorkUpdate | null
 }
 
 const UPDATE_DIRECTORY = /^update-[a-zA-Z0-9]{6}$/u
@@ -157,7 +164,13 @@ export function parseJournal(raw: unknown, home: string, root: string): Journal 
     return null
   }
 
-  return { v: 2, target, backup, next, fromVersion, toVersion, relaunch }
+  const work = value.work as Partial<StagedWorkUpdate> | null | undefined
+  if (work != null && (typeof work !== 'object' || typeof work.id !== 'string' || !/^[0-9a-f-]{36}$/u.test(work.id) ||
+      typeof work.accountKey !== 'string' || !/^[a-f0-9]{32,64}$/u.test(work.accountKey) ||
+      typeof work.pin !== 'string' || !/^\d+\.\d+\.\d+$/u.test(work.pin))) {return null}
+
+  return { v: 2, target, backup, next, fromVersion, toVersion, relaunch,
+    ...(work !== undefined ? { work: work as StagedWorkUpdate | null } : {}) }
 }
 
 export type LaunchDecision = 'none' | 'restore-missing-target' | 'restore-failed-update' | 'leave-healthy-backup' | 'drop-stale-journal'

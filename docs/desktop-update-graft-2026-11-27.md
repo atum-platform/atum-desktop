@@ -42,11 +42,43 @@ trial so a historical fixture version cannot reject the current binary.
 The old packaged controller, AppUpdater subclass, stock-only fallback,
 restart helper window/script, rail presentation and Matrix install-on-Quit
 callbacks were removed. Settings and the independent legacy renderer still
-use the existing compatibility status/copy. The full Work data and shell
-commit transaction, authenticated prepare/commit FDs, planned thread
-continuation, remote provider/server registry and owner-specific admission and
-workspace receipts remain outstanding. Remote desktop updates stay disabled.
-Those areas require their own real pairing and workspace tests before shipping.
+use the existing compatibility status/copy. The Python supervisor adapts the pinned Work desktop bootstrap instead of
+changing its binary or the vendored T3 files. Electron derives the native
+rotating pairing credential and exposes it once through the existing owner
+view flow, after matching the server-ready frame and loopback PID. The inherited
+control sockets carry maintain-scoped prepare and commit requests. Tokens expire
+after five minutes and bind the running Work incarnation, the selected channel,
+and the exact staged Atum release. The Work view exposes neither a desktop
+bridge nor the shell update capability. Its scoped embed style suppresses the
+pinned Work Update Everything control, including provider-only runs, and keeps
+the dedicated provider pill. Authorized native handoffs call the same signed
+Atum updater as the rail. They never download a standalone Work runtime.
+
+Restart records the previously live Work account and its target pin in the shell
+journal. A changed pin uses the journal ID for T3's native trial and writes the
+pin under the shell recovery lock before acknowledging activation. The same
+record resolves both rollback paths. If a crash precedes selection, the previous
+signed bundle restores the existing Work snapshot. After selection, recovery
+relaunches the new shell and never rewinds Work data. A first launch with no
+previously live Work skips prewarm. Native T3 continuation honors stored project
+and account preferences. Historical false values are preserved because the
+previous host's forced value cannot be distinguished from an owner opt-out.
+
+The existing Matrix room and composer stores restore the selected room and draft.
+The update checkpoint also saves safe browser GET destinations, order, selection
+and visibility for the same account, device and room. Fresh tabs get new isolated
+partitions. Active downloads, unsafe URLs, modified or unverifiable browser
+forms, and an open Matrix terminal defer the restart. Matrix and Hermes retain
+their existing execution and delivery receipts. The Mac job lifecycle stops its
+local claims before draining, and the existing outbox owns reconciliation. Work
+UI actions target the Atum release only. No cloud update or replay is issued.
+
+The remaining release evidence is a second signed Work pin, crash testing across
+the actual bundle swap, active Work PTYs, cloud-to-Mac delivery replay coverage,
+and compatibility proof before retiring a reader still needed by a dormant
+home. The bundled Work capability is hidden from discovery to keep its settings
+and rail controls out of the embed. A paired maintain client can still use the
+native two-call handoff.
 
 ## Local checks
 
