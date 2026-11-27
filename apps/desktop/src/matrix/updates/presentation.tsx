@@ -1,11 +1,8 @@
 import { useRef, useState } from 'react'
 
 import { Button } from '@/components/ui/button'
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Switch } from '@/components/ui/switch'
-import { Tip } from '@/components/ui/tooltip'
 import type { Locale } from '@/i18n'
-import { CircleArrowDownFilled } from '@/lib/icons'
 
 import type { AtumUpdateChannel, AtumUpdateStatus } from '../../../shared/atum-update-flow'
 import { SettingsRow } from '../settings-row'
@@ -24,36 +21,6 @@ export interface SoftwareUpdateProps {
   restart: UpdateAction
   setChannel: SetUpdateChannel
   status: AtumUpdateStatus
-}
-
-export interface UpdateAffordanceProps {
-  busy: boolean
-  checkNow: UpdateAction
-  locale: Locale
-  openDownload: UpdateAction
-  openUpdates(): void
-  restart: UpdateAction
-  status: AtumUpdateStatus
-}
-
-/** Plain text only, with a UI-level cap even if an older native bridge is malformed. */
-export function updateNotes(notes: readonly string[]): readonly string[] {
-  return notes
-    .filter((note): note is string => typeof note === 'string')
-    .map(note => {
-      const plainText = Array.from(note, character => {
-        const code = character.codePointAt(0) ?? 0
-
-        return code < 32 || code === 127 ? ' ' : character
-      })
-        .join('')
-        .replace(/\s+/g, ' ')
-        .trim()
-
-      return Array.from(plainText).slice(0, 140).join('')
-    })
-    .filter(Boolean)
-    .slice(0, 3)
 }
 
 function updateFailureMessage(status: AtumUpdateStatus, text: ReturnType<typeof updateCopy>): string {
@@ -223,126 +190,3 @@ export function SoftwareUpdate({
 }
 
 /** The rail stays quiet until a downloaded update needs a deliberate restart. */
-export function UpdateAffordance({
-  busy,
-  checkNow,
-  locale,
-  openDownload,
-  openUpdates,
-  restart,
-  status
-}: UpdateAffordanceProps) {
-  const text = updateCopy(locale)
-  const [open, setOpen] = useState(false)
-  const [restartFailed, setRestartFailed] = useState(false)
-  const restartRef = useRef(false)
-  const ready = status.state === 'downloaded' || status.state === 'restarting'
-  const warning = status.state === 'error' && ['download', 'install'].includes(status.error?.stage ?? 'check')
-  const manualRecovery = status.state === 'error' && status.error?.recovery === 'manual_download'
-
-  const runRestart = async () => {
-    if (busy || restartRef.current || status.state !== 'downloaded') {
-      return
-    }
-
-    restartRef.current = true
-    setRestartFailed(false)
-    setRestartFailed(!(await usable(restart)))
-    restartRef.current = false
-  }
-
-  if (!ready) {
-    if (warning) {
-      return (
-        <Popover onOpenChange={setOpen} open={open}>
-          <Tip label={text.updateProblem} side="right" sideOffset={8}>
-            <PopoverTrigger asChild>
-              <button
-                aria-label={text.updateProblem}
-                className="grid size-9 place-items-center"
-                data-update-warning
-                type="button"
-              >
-                <span aria-hidden className="size-1.5 rounded-full bg-(--atum-ink-muted)" />
-              </button>
-            </PopoverTrigger>
-          </Tip>
-          <PopoverContent align="end" className="atum-update-popover w-64 p-3" side="right">
-            <p className="text-(length:--atum-t-control) font-medium text-(--atum-ink)" role="status">
-              {updateFailureMessage(status, text)}
-            </p>
-            <div className="mt-3 flex flex-wrap justify-end gap-2">
-              <Button
-                onClick={() => {
-                  setOpen(false)
-                  openUpdates()
-                }}
-                size="sm"
-                variant="text"
-              >
-                {text.openSettings}
-              </Button>
-              <Button onClick={() => void usable(openDownload)} size="sm" variant="text">
-                {text.downloadAtum}
-              </Button>
-              {!manualRecovery && (
-                <Button disabled={busy} onClick={() => void usable(checkNow)} size="sm" variant="secondary">
-                  {text.retry}
-                </Button>
-              )}
-            </div>
-          </PopoverContent>
-        </Popover>
-      )
-    }
-
-    return null
-  }
-
-  const notes = updateNotes(status.notes)
-  const restartDisabled = busy || status.state === 'restarting'
-
-  return (
-    <Popover onOpenChange={setOpen} open={open}>
-      <Tip label={text.readyLabel} side="right" sideOffset={8}>
-        <PopoverTrigger asChild>
-          <button
-            aria-label={text.readyLabel}
-            className="atum-rail-update"
-            data-state={open ? 'open' : 'closed'}
-            data-update-attention
-            type="button"
-          >
-            <CircleArrowDownFilled aria-hidden className="size-5" />
-          </button>
-        </PopoverTrigger>
-      </Tip>
-      <PopoverContent align="end" className="atum-update-popover w-64 p-3" side="right">
-        <p className="text-(length:--atum-t-control) font-medium text-(--atum-ink)" role="status">
-          {restartFailed ? text.restartFailed : status.state === 'restarting' ? text.restarting : text.ready(status.version)}
-        </p>
-        {notes.length > 0 && (
-          <div className="mt-3" data-update-notes>
-            <p className="text-(length:--atum-t-caption) font-medium text-(--atum-ink-soft)">{text.whatsNew}</p>
-            <ul className="mt-1 list-disc space-y-1 pl-4 text-(length:--atum-t-caption) text-(--atum-ink-muted)">
-              {notes.map((note, index) => (
-                <li key={`${index}:${note}`}>{note}</li>
-              ))}
-            </ul>
-          </div>
-        )}
-        {restartDisabled && status.state !== 'restarting' && (
-          <p className="mt-1 text-(length:--atum-t-caption) text-(--atum-ink-muted)">{text.restartBusy}</p>
-        )}
-        <div className="mt-3 flex justify-end gap-2">
-          <Button onClick={() => setOpen(false)} size="sm" variant="text">
-            {text.later}
-          </Button>
-          <Button disabled={restartDisabled} onClick={() => void runRestart()} size="sm">
-            {text.restart}
-          </Button>
-        </div>
-      </PopoverContent>
-    </Popover>
-  )
-}

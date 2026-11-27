@@ -50,6 +50,7 @@ import { RosterBadge } from './roster-badge'
 import { MatrixComingSoonRow } from './roster-coming-soon'
 import { RosterAgentMenu, RosterAppMenu, RosterMenuHost, RosterRoomMenu } from './roster-context-menu'
 import { useRosterCopy } from './roster-copy'
+import { filterMatrixRosterByKind, type MatrixRosterFilter } from './roster-filter'
 import {
   filterMatrixRoster,
   isAppBotRoom,
@@ -77,6 +78,8 @@ interface MatrixRosterConversationsProps {
   cloudOnly?: boolean
   /** Names only; the account-scoped shell owns this window's query. */
   query?: string
+  /** The filter beside the search (roster-filter.ts); `all` when absent. */
+  filter?: MatrixRosterFilter
   /** Results rendered by the account shell above this local roster (people, company rooms/messages). */
   externalResultCount?: number
   /** Suppresses the final empty state while those external sources are still answering. */
@@ -886,6 +889,7 @@ export function MatrixRosterConversations({
   externalResultCount = 0,
   externalSearching = false,
   fail,
+  filter = 'all',
   onAppInfo,
   onEditAgent,
   onOpen,
@@ -924,8 +928,10 @@ export function MatrixRosterConversations({
     projectionAll.groups.some(({ agent }) => agent.answering === 'cloud' && agent.macRole !== 'answering')
   )
 
+  const filtered = filter !== 'all'
+
   const projection = filterMatrixRoster(
-    projectionAll,
+    filterMatrixRosterByKind(projectionAll, filter, snapshot.identity?.userId),
     query,
     t.matrixShell.assistantName,
     [founderCopy.name, founderCopy.subtitle, ...(founderHandle ? [founderHandle] : [])],
@@ -1221,11 +1227,11 @@ export function MatrixRosterConversations({
             </section>
           )
         })}
-        {!searching && agentActions}
+        {!searching && !filtered && agentActions}
         {(founder ||
           projection.founderDraft ||
           chatEntries.length > 0 ||
-          (!searching && children)) && (
+          (!searching && !filtered && children)) && (
           <h2 className="px-2 pt-3 pb-1 text-(length:--atum-t-label) font-medium tracking-wide text-(--atum-ink-muted)">
             {t.atum.roster.specialists}
           </h2>
@@ -1319,7 +1325,7 @@ export function MatrixRosterConversations({
             />
           )
         })}
-        {!searching && children}
+        {!searching && !filtered && children}
       </RosterMenuHost>
     </nav>
   )

@@ -20,7 +20,7 @@ const electronNative: TestProjectConfiguration = {
   test: {
     name: 'electron',
     environment: 'node',
-    include: ['electron/**/*.test.ts', 'shared/**/*.test.ts', 'scripts/**.test.{ts,mjs}'],
+    include: ['electron/**/*.test.ts', 'shared/**/*.test.ts', 'scripts/**.test.{ts,mjs}', 'vendor/t3-updates/apps/desktop/src/**/*.test.ts'],
     exclude: ["scripts/atum-branding.test.mjs"],
     // Same budget as the UI project: the crypto-heavy browser-import suites hit the 5 s
     // default on a busy CI runner (PRs #731, #732) while passing comfortably alone.
