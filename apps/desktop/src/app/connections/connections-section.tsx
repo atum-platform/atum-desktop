@@ -1,7 +1,8 @@
 import { useStore } from '@nanostores/react'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 
 import { setWorkActive } from '@/app/work/store'
+import { Switch } from '@/components/ui/switch'
 import { useI18n } from '@/i18n'
 import { Home, Messages } from '@/lib/icons'
 import { ProviderMark } from '@/matrix/model-picker-provider-mark'
@@ -13,8 +14,19 @@ import {
   useMatrixSubscriptions
 } from '@/matrix/subscriptions'
 
+import type { MatrixWorkBridge } from '../../../shared/matrix-work'
+import type { WorkRelayPlan } from '../../../shared/matrix-work-relay'
+
 import { AccountPlanMark } from './connect-sheet'
 import { ACCOUNT_PLAN_NAMES, connectionsCopy, type ConnectionsWords } from './copy'
+import { firstRunConnectionsCopy } from './first-run-copy'
+import {
+  $firstRunAutoEnabled,
+  $firstRunLabels,
+  loadFirstRunLabels,
+  requestFirstRunRepick,
+  setFirstRunAutoEnabled
+} from './first-run-store'
 import { $accountConnections, type ConnectionsBridge, loadAccountConnections, openAccountConnect } from './store'
 import {
   accountPlanMacNames,
@@ -39,6 +51,33 @@ export function accountPlanLine(row: AccountPlanRow, copy: ConnectionsWords): st
     default:
       return copy.notConnected
   }
+}
+
+/** Which plans the owner's assistants may use now (the account consent), re-read on focus and after Stop using. */
+function usePlansInUse(bridge: Partial<Pick<ConnectionsBridge, 'readPlanConsent'>> | undefined) {
+  const [inUse, setInUse] = useState<ReadonlySet<WorkRelayPlan>>(new Set())
+
+  const refresh = useCallback(() => {
+    if (!bridge?.readPlanConsent) {
+      return
+    }
+
+    const read = bridge.readPlanConsent
+    const plans: WorkRelayPlan[] = ['codex', 'claude', 'antigravity']
+
+    void Promise.all(plans.map(plan => Promise.resolve().then(() => read(plan)).then(consent => (consent?.state === 'on' ? plan : null), () => null))).then(on =>
+      setInUse(new Set(on.filter((plan): plan is WorkRelayPlan => plan !== null)))
+    )
+  }, [bridge])
+
+  useEffect(() => {
+    refresh()
+    window.addEventListener('focus', refresh)
+
+    return () => window.removeEventListener('focus', refresh)
+  }, [refresh])
+
+  return { inUse, refresh }
 }
 
 function useAccountConnections() {
@@ -66,7 +105,8 @@ export function AccountSubscriptionsSection({
   onLeave,
   scopeKey
 }: {
-  bridge?: Pick<ConnectionsBridge, 'openPlanConnect'>
+  bridge?: Pick<ConnectionsBridge, 'openPlanConnect'> &
+    Partial<Pick<MatrixWorkBridge, 'readPlanConsent' | 'revokePlanConsent' | 'readPlanLabels'>>
   /** Closes Settings so the owner lands on Work. */
   onLeave?: () => void
   scopeKey?: string
@@ -78,6 +118,25 @@ export function AccountSubscriptionsSection({
   const opencode = useMatrixSubscriptions(scopeKey)
   const opencodeConnected = subscriptionProviderStatus(opencode.status, 'opencode-go')?.connected === true
   const [keyDialog, setKeyDialog] = useState<'connect' | 'manage' | null>(null)
+  const firstRun = firstRunConnectionsCopy(locale)
+  const labels = useStore($firstRunLabels)
+  const automatic = useStore($firstRunAutoEnabled)
+  const { inUse, refresh: refreshInUse } = usePlansInUse(bridge)
+
+  useEffect(() => {
+    void loadFirstRunLabels(bridge)
+  }, [bridge])
+
+  // Stop using: the account consent for this plan is revoked on every Mac (it stays off; the automatic pick never re-grants a
+  // revoked plan) and the assistants move to the next best plan, or Atum's model.
+  const stopUsing = (plan: WorkRelayPlan) => {
+    void bridge?.revokePlanConsent?.(plan)
+      .catch(() => undefined)
+      .then(() => {
+        refreshInUse()
+        requestFirstRunRepick()
+      })
+  }
 
   const manage = (row: AccountPlanRow) => {
     onLeave?.()
@@ -90,7 +149,16 @@ export function AccountSubscriptionsSection({
       {rows.map(row => (
         <SettingsRow
           control={
-            row.state === 'not_connected' || row.state === 'needs_attention' ? (
+            row.state === 'connected' && inUse.has(row.plan) && bridge?.revokePlanConsent ? (
+              <button
+                className="ak-btn ak-btn--sm"
+                data-atum-connection-action="stop-using"
+                onClick={() => stopUsing(row.plan)}
+                type="button"
+              >
+                {firstRun.stopUsing}
+              </button>
+            ) : row.state === 'not_connected' || row.state === 'needs_attention' ? (
               <button
                 className="ak-btn ak-btn--sm"
                 data-atum-connection-action="connect"
@@ -107,7 +175,11 @@ export function AccountSubscriptionsSection({
           }
           data-atum-connection={row.plan}
           data-atum-connection-state={row.state}
-          help={accountPlanLine(row, copy)}
+          help={
+            row.state === 'connected' && inUse.has(row.plan)
+              ? firstRun.inUse(labels?.[row.plan]?.label ?? ACCOUNT_PLAN_NAMES[row.plan])
+              : accountPlanLine(row, copy)
+          }
           key={row.plan}
           lead={<AccountPlanMark plan={row.plan} size="sm" />}
           title={ACCOUNT_PLAN_NAMES[row.plan]}
@@ -130,6 +202,25 @@ export function AccountSubscriptionsSection({
         help={opencodeConnected ? copy.inCloud : copy.notConnected}
         lead={<ProviderMark provider={{ id: 'opencode-go', label: 'OpenCode Go' }} size="sm" />}
         title="OpenCode Go"
+      />
+      <SettingsRow
+        control={
+          <Switch
+            aria-label={firstRun.autoTitle}
+            checked={automatic}
+            data-atum-first-run-auto
+            onCheckedChange={on => {
+              setFirstRunAutoEnabled(on)
+
+              if (on) {
+                requestFirstRunRepick()
+              }
+            }}
+          />
+        }
+        data-atum-connection-preference="automatic"
+        help={firstRun.autoLine}
+        title={firstRun.autoTitle}
       />
       {keyDialog === 'connect' && (
         <SubscriptionConnectDialog

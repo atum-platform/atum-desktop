@@ -1,6 +1,7 @@
-import { openAccountConnect } from '@/app/connections/store'
+import { $accountConnectProgress, openAccountConnect } from '@/app/connections/store'
 import { $workActive } from '@/app/work/store'
 
+import type { FirstRunLabels } from '../../../shared/first-run-labels'
 import type {
   MatrixWorkBridge,
   MatrixWorkPlanConsent,
@@ -14,6 +15,15 @@ const STATES: Record<string, Partial<MatrixWorkProjection>> = {
   unavailable: { view: 'unavailable' },
   off: { view: 'off' },
   protons: { protons: 'empty' }
+}
+
+/** The first chat's Connections rows (`?firstRun=one|several|none|free`, `?signing=codex|claude|antigravity`). */
+const FIRST_RUN_LABELS: Record<string, FirstRunLabels> = {
+  one: { claude: { state: 'ready', label: 'Claude Pro' }, codex: { state: 'signed_out' } },
+  several: { claude: { state: 'ready', label: 'Claude Pro' }, codex: { state: 'ready', label: 'ChatGPT Plus' } },
+  none: {},
+  free: { codex: { state: 'ready', label: 'ChatGPT Free' } },
+  connected: { codex: { state: 'ready', label: 'ChatGPT Plus' } }
 }
 
 const READY: MatrixWorkProjection = { view: 'ready', protons: 'ok' }
@@ -111,6 +121,14 @@ export function playgroundWork(params: URLSearchParams): { work?: MatrixWorkBrid
     openAccountConnect('codex')
   }
 
+  const signing = params.get('signing')
+
+  if (signing === 'codex' || signing === 'claude' || signing === 'antigravity') {
+    $accountConnectProgress.set({ plan: signing, phase: 'signing_in' })
+  }
+
+  const firstRunLabels = FIRST_RUN_LABELS[params.get('firstRun') ?? ''] ?? FIRST_RUN_LABELS.none!
+
   return {
     work: {
       getSurfaceMode: async () => null,
@@ -127,6 +145,7 @@ export function playgroundWork(params: URLSearchParams): { work?: MatrixWorkBrid
       retry: async () => emit({ view: 'ready' }),
       setWork: async on => emit({ view: on ? 'ready' : 'off' }),
       openPlanConnect: async () => emit({ view: 'ready' }),
+      readPlanLabels: async () => firstRunLabels,
       readPlanConsent: async () => consent,
       setPlanConsent: async input => {
         consent = {

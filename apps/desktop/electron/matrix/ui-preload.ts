@@ -134,6 +134,7 @@ const bridge: MatrixUiBridge = {
     setWork: on => ipcRenderer.invoke(MATRIX_WORK_IPC.request, { kind: 'setWork', on }),
     openPlanConnect: plan => ipcRenderer.invoke(MATRIX_WORK_IPC.request, plan ? { kind: 'openPlanConnect', plan } : { kind: 'openPlanConnect' }),
     readConnections: () => ipcRenderer.invoke(MATRIX_WORK_IPC.request, { kind: 'readConnections' }),
+    readPlanLabels: () => ipcRenderer.invoke(MATRIX_WORK_IPC.request, { kind: 'readPlanLabels' }),
     readAgentPlans: principal => ipcRenderer.invoke(MATRIX_WORK_IPC.request, { kind: 'readAgentPlans', principal }),
     selectRelay: (principal, model, plan) => ipcRenderer.invoke(MATRIX_WORK_IPC.request, { kind: 'selectRelay', principal, model, ...(plan ? { plan } : {}) }),
     readPlanConsent: plan => ipcRenderer.invoke(MATRIX_WORK_IPC.request, { kind: 'readPlanConsent', ...(plan ? { plan } : {}) }),

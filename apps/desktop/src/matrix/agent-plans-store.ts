@@ -210,6 +210,26 @@ export function acknowledgeAgentPlanCleared(write: AgentPlansWrite): void {
   }
 }
 
+/**
+ * A plan selection written outside a picker (the first-run automatic pick): every entry already held for this agent, in any
+ * scope, takes it under the same ordering rules as a picker's own write, so the chip moves without waiting for a re-read.
+ */
+export function acknowledgeAgentPlanSelectionForAgent(agentPrincipal: string, saved: WorkRelaySelection): void {
+  for (const key of Object.keys($agentPlans.get())) {
+    let principal: unknown
+
+    try {
+      principal = (JSON.parse(key) as unknown[])[1]
+    } catch {
+      continue
+    }
+
+    if (principal === agentPrincipal) {
+      acknowledgeAgentPlanSelection(beginAgentPlansWrite(key), saved)
+    }
+  }
+}
+
 /** Tests only: a fresh store with no session. */
 export function resetAgentPlansForTests(): void {
   generation += 1

@@ -633,6 +633,7 @@ describe('registerMatrixWorkIpc', () => {
       setWork: vi.fn(async () => {}),
       openPlanConnect: vi.fn(async () => {}),
       readConnections: vi.fn(async () => null),
+      readPlanLabels: vi.fn(async () => ({ claude: { state: 'ready' as const, label: 'Claude Pro' } })),
       readPlanConsent: vi.fn(async () => ({ state: 'off' as const, agents: [], eligible: [], macs: [], alsoWhenScheduled: false })),
       setPlanConsent: vi.fn(async () => ({ state: 'on' as const, agents: [], eligible: [], macs: [], alsoWhenScheduled: false })),
       revokePlanConsent: vi.fn(async () => ({ state: 'off' as const, agents: [], eligible: [], macs: [], alsoWhenScheduled: false }))
