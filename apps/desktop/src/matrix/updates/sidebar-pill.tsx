@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog'
 import { Tip } from '@/components/ui/tooltip'
 import type { Locale } from '@/i18n'
+import { FileText, X } from '@/lib/icons'
 import { cn } from '@/lib/utils'
 
 import type { MatrixDesktopServicesBridge } from '../../../shared/matrix-desktop-services'
@@ -37,11 +38,12 @@ interface Props {
   state: DesktopUpdateState
   locale: Locale
   busy: boolean
+  rail?: boolean
   bridge: Required<Pick<MatrixDesktopServicesBridge, 'checkUpdates' | 'downloadUpdate' | 'restart'>>
   openReleaseHistory: () => void
 }
 
-export function SidebarUpdatePill({ state, locale, busy, bridge, openReleaseHistory }: Props) {
+export function SidebarUpdatePill({ state, locale, busy, bridge, openReleaseHistory, rail = false }: Props) {
   const copy = updateCopy(locale)
   const action = resolveDesktopUpdateButtonAction(state)
   const [confirmation, setConfirmation] = useState<'restart' | 'everything' | null>(null)
@@ -86,8 +88,9 @@ export function SidebarUpdatePill({ state, locale, busy, bridge, openReleaseHist
   const disabled = !state.enabled || state.status === 'checking' || state.status === 'downloading' ||
     pending || activeCountdown || (busy && action === 'install')
 
+  const seconds = activeCountdown ? Math.max(0, Math.ceil((deadline - now) / 1000)) : 0
   const label = activeCountdown
-    ? restartCountdown[locale](Math.max(0, Math.ceil((deadline - now) / 1000)))
+    ? restartCountdown[locale](seconds)
     : !state.enabled ? copy.unavailable
       : state.status === 'checking' ? copy.checking
         : state.status === 'downloading' ? copy.downloading(state.downloadPercent)
@@ -137,7 +140,7 @@ export function SidebarUpdatePill({ state, locale, busy, bridge, openReleaseHist
   }
 
   return (
-    <div className="relative ml-auto flex max-w-full items-center gap-1" data-atum-update-pill={state.status}>
+    <div className={cn('relative flex max-w-full items-center gap-1', rail ? 'flex-col' : 'ml-auto')} data-atum-update-pill={state.status}>
       <Tip label={label}>
         <button
           aria-disabled={disabled || undefined}
@@ -163,8 +166,12 @@ export function SidebarUpdatePill({ state, locale, busy, bridge, openReleaseHist
       </Tip>
       {activeCountdown ? (
         <>
-          <span className="truncate text-xs" role="status">{label}</span>
-          <Button onClick={() => setDeadline(null)} size="sm">{copy.later}</Button>
+          <span className="truncate text-xs" role="status">
+            {rail ? <><span aria-hidden>{seconds}</span><span className="sr-only">{label}</span></> : label}
+          </span>
+          <Button aria-label={copy.later} onClick={() => setDeadline(null)} size={rail ? 'icon-sm' : 'sm'}>
+            {rail ? <X aria-hidden /> : copy.later}
+          </Button>
         </>
       ) : action === 'install' && (
         <Tip label={everythingLabel[locale]}>
@@ -183,12 +190,13 @@ export function SidebarUpdatePill({ state, locale, busy, bridge, openReleaseHist
         </Tip>
       )}
       {!activeCountdown && state.releaseNotes.length > 0 && (
-        <Button aria-expanded={notesOpen} onClick={() => setNotesOpen(!notesOpen)} size="sm" variant="ghost">
-          {copy.whatsNew}
+        <Button aria-expanded={notesOpen} aria-label={copy.whatsNew} onClick={() => setNotesOpen(!notesOpen)} size={rail ? 'icon-sm' : 'sm'} variant="ghost">
+          {rail ? <FileText aria-hidden /> : copy.whatsNew}
         </Button>
       )}
       {notesOpen && state.releaseNotes.length > 0 && (
-        <div className="absolute bottom-full right-0 z-30 mb-2 max-h-72 w-56 overflow-auto rounded-xl border bg-background p-3 shadow-md">
+        <div className={cn('absolute z-30 max-h-72 w-56 overflow-auto rounded-xl border bg-background p-3 shadow-md',
+          rail ? 'bottom-0 left-full ml-2' : 'bottom-full right-0 mb-2')}>
           {state.releaseNotes.map(note => (
             <section className="mb-2 text-xs" key={note.version}>
               <h3 className="font-medium">{copy.currentVersion(note.version)}</h3>
@@ -199,7 +207,7 @@ export function SidebarUpdatePill({ state, locale, busy, bridge, openReleaseHist
         </div>
       )}
       {(failure || state.notAppliedVersion || state.errorContext === 'install' || (busy && action === 'install')) && (
-        <span className="max-w-32 truncate text-xs text-(--atum-ink-muted)" role="status">{failure ?? state.message ?? (busy ? copy.restartBusy : copy.installFailed)}</span>
+        <span className={cn('truncate text-xs text-(--atum-ink-muted)', rail ? 'sr-only' : 'max-w-32')} role="status">{failure ?? state.message ?? (busy ? copy.restartBusy : copy.installFailed)}</span>
       )}
       <Dialog onOpenChange={open => {if (!open) {setConfirmation(null)}}} open={confirmation !== null}>
         <DialogContent className="max-w-sm">

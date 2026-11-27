@@ -269,9 +269,9 @@ import { confirmHealthyStart } from '../atum-staged-swap/cleanup'
 import { recoverAtStartup } from '../atum-staged-swap/recovery'
 import { StagedSwap } from '../atum-staged-swap/stage'
 import { ATUM_BUNDLE_ID as STAGED_APP_ID } from '../atum-staged-swap/state'
-import { type StagedWorkUpdate } from '../atum-staged-swap/state'
-import { markStarted, readJournal, stagedSwapEnabled, stageRoot } from '../atum-staged-swap/store'
-import { selectedWorkUpdate, stagedWorkSelection } from '../atum-staged-swap/work-selection'
+import type { Journal, StagedWorkUpdate } from '../atum-staged-swap/state'
+import { markerExists, markStarted, readJournal, stagedSwapEnabled } from '../atum-staged-swap/store'
+import { selectedWorkUpdate, stagedWorkSelection, workHomesReadCurrentPin } from '../atum-staged-swap/work-selection'
 import { readGoogleClient } from '../atum-utilities'
 import { createConsumerBrowserController } from '../consumer-browser/controller'
 import { EncryptedStore } from '../encrypted-store'
@@ -797,7 +797,7 @@ import {
   registerMatrixMemberAvatarIpc,
   registerMatrixProfilesIpc
 } from './main-profiles'
-import { createMatrixWork, MATRIX_WORK_MODEL_ROLE, type MatrixWork } from './main-work'
+import { createMatrixWork, MATRIX_WORK_MODEL_ROLE, type MatrixWork, readShippedPin } from './main-work'
 import { matrixManagedAgentPrincipal, MatrixManagedModel } from './managed-model'
 import { dispatchMatrixCommand } from './message-dispatch'
 import { MatrixMessageLinkBroker } from './message-link-broker'
@@ -2055,6 +2055,7 @@ let desktopServices: MatrixDesktopServices | undefined
 let stagedRecoveryFailed = false
 let previousUpdateBounds: UpdateHandoffBounds | null = null
 let updateShutdownSafe = false
+let updateDraining = false
 let matrixApps: ReturnType<typeof createMatrixApps> | undefined
 /** Self-work slice A: the Work page, its server and the assistants' route, for the signed-in account (main-work.ts). */
 let work: MatrixWork | undefined
@@ -13674,7 +13675,7 @@ function reconcileMacJobs(agent: MatrixAgentRuntime, force = false): void {
   const principal = cloudPrincipal(agent)
   const facts = principal ? agentHome?.controller.ctx.runtime.leaseFacts(principal) : null
 
-  const authority = !closing && !agent.closed && !isMovingAgent(agent) && facts
+  const authority = !closing && !updateDraining && !agent.closed && !isMovingAgent(agent) && facts
     ? `${facts.leaseId}:${facts.executorTerm}` : ''
 
   if (!force && entry.authority === authority) {return}
@@ -13706,7 +13707,7 @@ async function prepareMacJobs(agent: MatrixAgentRuntime, signal: AbortSignal, se
   await previous?.drained()
   signal.throwIfAborted()
 
-  if (macJobPreparations.get(agent) !== preparation) {throw new Error('mac_job_start_superseded')}
+  if (updateDraining || macJobPreparations.get(agent) !== preparation) {throw new Error('mac_job_start_superseded')}
   macJobs.delete(agent)
   const context = agentHome?.controller.ctx
   const principal = cloudPrincipal(agent)
@@ -17638,6 +17639,12 @@ async function start() {
   previousUpdateBounds = app.isPackaged ? readUpdateBounds(handoffDirectory) : null
 
   const signedStageEnabled = () => stagedSwapEnabled(path.join(app.getPath('userData'), 'updates.json'))
+  const canRetireBackup = (journal: Journal) => {
+    const previous = readShippedPin(path.join(journal.backup, 'Contents', 'Resources'))
+    const current = readShippedPin(process.resourcesPath)
+
+    return previous.version === current.version || workHomesReadCurrentPin(app.getPath('userData'), current.version)
+  }
   const stage = new StagedSwap({
     home: app.getPath('home'),
     id: STAGED_APP_ID,
@@ -17645,12 +17652,14 @@ async function start() {
     version: app.getVersion(),
     handoffDirectory: path.join(app.getPath('userData'), 'update-handoff'),
     enabled: signedStageEnabled,
+    canRetireBackup,
     log: line => console.warn(line)
   })
 
   const updateJournal = app.isPackaged ? readJournal(app.getPath('home'), stage.root) : null
   const plannedWork = updateJournal?.target === path.resolve(process.resourcesPath, '..', '..') &&
-    updateJournal.toVersion === app.getVersion() && updateJournal.work !== undefined ? updateJournal : undefined
+    updateJournal.toVersion === app.getVersion() && updateJournal.work !== undefined &&
+    !markerExists(handoffDirectory, 'shown') ? updateJournal : undefined
 
   let admittedUpdateOwner: (() => boolean) | undefined
   desktopServices = new MatrixDesktopServices({
@@ -17732,7 +17741,10 @@ async function start() {
               app.exit(0)
             }
           },
-          refused: () => reject(new Error('Restart postponed because the workspace could not be saved.'))
+          refused: () => {
+            work?.cancelPreparedUpdate()
+            reject(new Error('Restart postponed because the workspace could not be saved.'))
+          }
         }
         app.quit()
       })
@@ -26218,6 +26230,7 @@ async function start() {
     if (app.isPackaged && process.platform === 'darwin') {
       confirmHealthyStart({
         hidden: deviceLaunch === 'login_hidden',
+        canRetire: canRetireBackup,
         home: app.getPath('home'),
         id: STAGED_APP_ID,
         bundle: path.resolve(process.resourcesPath, '..', '..'),
@@ -26295,7 +26308,8 @@ if (stagedRecovery === 'exiting') {
         // or processes. A rejected turn is contained by the drain helper and its normal settlement.
         const drainStarted = performance.now()
 
-        const updateAgents = pendingUpdateSwap ? allAgents() : []
+        updateDraining = Boolean(pendingUpdateSwap)
+        const updateAgents = updateDraining ? allAgents() : []
         // Stop claiming before the runtime drain. The existing Mac job lifecycle and outbox own recovery.
         const jobs = updateAgents.map(agent => {
           const lifecycle = macJobs.get(agent)?.lifecycle

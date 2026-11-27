@@ -7,13 +7,26 @@ import { describe, expect, it, vi } from 'vitest'
 
 import { createInitialDesktopUpdateState } from '../../../vendor/t3-updates/apps/desktop/src/updates/updateMachine'
 import { workDesktopUpdateHandler } from '../../t3-updates/work-handoff'
-
 import { workSessionPaths } from '../session/paths'
 
 import { ATUM_WORK_MODEL, ATUM_WORK_PROVIDER, workRuntimeEnvironment, WorkSidecar } from './process'
 
 const resources = process.env.ATUM_WORK_TEST_RESOURCES
 const exec = promisify(execFile)
+
+async function overlayResources(root: string) {
+  const overlay = join(root, 'resources')
+  const runtime = join(overlay, 'work-runtime')
+  const installed = join(resources!, 'work-runtime')
+  await mkdir(runtime, { recursive: true })
+  await symlink(join(resources!, 'runtime'), join(overlay, 'runtime'))
+  for (const name of ['t3', 'pin.json', 'atum.json', 'client', 'node_modules']) {
+    await symlink(join(installed, name), join(runtime, name))
+  }
+  await copyFile(new URL('./supervisor.py', import.meta.url), join(runtime, 'supervisor.py'))
+
+  return overlay
+}
 
 async function workRpc(origin: string, cookie: string, tag: string, payload: object) {
   const response = await fetch(`${origin}/api/auth/websocket-ticket/rpc`, { method: 'POST', headers: { cookie } })
@@ -39,10 +52,8 @@ async function workRpc(origin: string, cookie: string, tag: string, payload: obj
 describe.skipIf(!resources)('packaged Work sidecar', () => {
   it('authenticates the owner and performs prepare and commit over the real desktop descriptors after trial activation', async () => {
     const root = await mkdtemp('/tmp/atum-wctl-')
-    const overlay = join(root, 'resources')
-    const runtime = join(overlay, 'work-runtime')
-    const installed = join(resources!, 'work-runtime')
-    const pin = JSON.parse(await readFile(join(installed, 'pin.json'), 'utf8'))
+    const overlay = await overlayResources(root)
+    const pin = JSON.parse(await readFile(join(overlay, 'work-runtime', 'pin.json'), 'utf8'))
     const restart = vi.fn(async () => false)
     const state = {
       ...createInitialDesktopUpdateState('1.0.0', { appArch: 'arm64', hostArch: 'arm64', runningUnderArm64Translation: false }, 'latest'),
@@ -56,10 +67,6 @@ describe.skipIf(!resources)('packaged Work sidecar', () => {
     })
 
     try {
-      await mkdir(runtime, { recursive: true })
-      await symlink(join(resources!, 'runtime'), join(overlay, 'runtime'))
-      for (const name of ['t3', 'client', 'node_modules']) {await symlink(join(installed, name), join(runtime, name))}
-      await copyFile(new URL('./supervisor.py', import.meta.url), join(runtime, 'supervisor.py'))
       const trial = await sidecar.start({ continuation: false, trial: {
         protocol: 4, childVersion: pin.version, update: { id: 'desktop-fixture', fromVersion: '0.0.0', targetVersion: pin.version,
           dbPath: workSessionPaths({ root }).database, status: 'pending' }
@@ -96,10 +103,11 @@ describe.skipIf(!resources)('packaged Work sidecar', () => {
 
   it('waits for native commit before serving the owner and installs the theme once', async () => {
     const root = await mkdtemp('/tmp/atum-ws2-')
+    const overlay = await overlayResources(root)
     const paths = workSessionPaths({ root })
 
     const sidecar = new WorkSidecar({
-      resources: resources!,
+      resources: overlay,
       account: { key: 'fixture', generation: 1, root },
       current: () => true,
       gatewayEnvironment: () => ({
@@ -111,7 +119,7 @@ describe.skipIf(!resources)('packaged Work sidecar', () => {
     })
 
     try {
-      const pin = JSON.parse(await readFile(join(resources!, 'work-runtime', 'pin.json'), 'utf8'))
+      const pin = JSON.parse(await readFile(join(overlay, 'work-runtime', 'pin.json'), 'utf8'))
       const targetVersion = pin.version
       expect(targetVersion).toMatch(/^\d+\.\d+\.\d+$/u)
 
@@ -145,8 +153,8 @@ describe.skipIf(!resources)('packaged Work sidecar', () => {
       expect(sidecar.current()).toBeUndefined()
       await expect(fetch(trial.origin, { signal: AbortSignal.timeout(1_000) })).rejects.toThrow()
 
-      await exec(join(resources!, 'work-runtime', 't3'), ['theme', 'clear'], {
-        env: workRuntimeEnvironment(paths.work, resources!)
+      await exec(join(overlay, 'work-runtime', 't3'), ['theme', 'clear'], {
+        env: workRuntimeEnvironment(paths.work, overlay)
       })
       const restarted = await sidecar.start({ continuation: false })
       expect(restarted.id).not.toBe(trial.id)

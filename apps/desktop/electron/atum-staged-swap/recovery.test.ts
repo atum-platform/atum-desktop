@@ -22,7 +22,7 @@ import {
   writeJournal
 } from './store'
 import { temporaryRoots } from './test-fixtures'
-import { selectedWorkUpdate, stagedWorkSelection } from './work-selection'
+import { selectedWorkUpdate, stagedWorkSelection, workHomesReadCurrentPin } from './work-selection'
 
 const roots = temporaryRoots()
 
@@ -203,6 +203,29 @@ describe('recovery after the swap', () => {
 
 // The staged swap is macOS-only (ditto bundles, Apple-silicon updates); its file-moving suites run on macOS.
 describe.skipIf(process.platform !== 'darwin')('cleanup', () => {
+  it('retains the previous reader for a dormant Work home until its pin moves', async () => {
+    const w = await world()
+    const userData = path.dirname(w.handoffDirectory)
+    const paths = workSessionPaths({ root: workAccountRoot(userData, 'a'.repeat(64)) })
+    await fs.mkdir(paths.userdata, { recursive: true })
+    await fs.writeFile(paths.database, 'fixture')
+    writeFileDurably(paths.updateState, JSON.stringify({ version: 1, pin: '0.1.0', committed: [] }))
+    markShown(w.handoffDirectory)
+    const options = {
+      home: w.home, id: ID, bundle: w.target, handoffDirectory: w.handoffDirectory, log: () => {},
+      canRetire: () => workHomesReadCurrentPin(userData, '0.2.0'),
+      remove: async (...files: string[]) => {
+        await Promise.all(files.map(file => fs.rm(file, { recursive: true, force: true })))
+        return true
+      }
+    }
+    expect(await retireBackup(options)).toBe(false)
+    expect(await w.text(w.backup)).toBe('old')
+    writeFileDurably(paths.updateState, JSON.stringify({ version: 1, pin: '0.2.0', committed: [] }))
+    expect(await retireBackup(options)).toBe(true)
+    await expect(w.text(w.backup)).rejects.toThrow()
+  })
+
   it('deletes staged copies and an unrecoverable backup, but keeps what a live journal references', async () => {
     const w = await world({ journal: false })
 

@@ -1,4 +1,5 @@
-import { existsSync } from 'node:fs'
+import { existsSync, readdirSync } from 'node:fs'
+import { join } from 'node:path'
 
 import { readJson } from '../work/session/files'
 import { workAccountRoot, workSessionPaths } from '../work/session/paths'
@@ -6,6 +7,21 @@ import type { WorkUpdateSelection } from '../work/session/update'
 
 import type { Journal } from './state'
 import { acquireRecoveryLock, readJournal } from './store'
+
+export function workHomesReadCurrentPin(userData: string, currentPin: string): boolean {
+  const accounts = join(userData, 'work-accounts')
+  try {
+    return readdirSync(accounts, { withFileTypes: true }).every(entry => {
+      if (!entry.isDirectory() || !/^[a-f0-9]{32}$/u.test(entry.name)) {return true}
+      const paths = workSessionPaths({ root: join(accounts, entry.name) })
+      if (!existsSync(paths.database)) {return true}
+      const state = readJson(paths.updateState) as { pin?: string } | undefined
+      return state?.pin === currentPin
+    })
+  } catch (error) {
+    return (error as NodeJS.ErrnoException).code === 'ENOENT' && !existsSync(accounts)
+  }
+}
 
 export function selectedWorkUpdate(userData: string, { work }: Journal): boolean {
   if (!work) {return false}

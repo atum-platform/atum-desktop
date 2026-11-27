@@ -4,11 +4,10 @@ import { availableParallelism, loadavg } from 'node:os'
 import { join } from 'node:path'
 
 import type { BrowserWindow, IpcMain, IpcMainInvokeEvent, Session } from 'electron'
+import semver from 'semver'
 
 import type { WorkAttentionSnapshot, WorkSidebarSnapshot, WorkSurfaceModeSnapshot } from "../../shared/matrix-work"
 import { MATRIX_WORK_IPC, type MatrixWorkProjection } from '../../shared/matrix-work'
-import semver from 'semver'
-
 import type { StagedWorkUpdate } from '../atum-staged-swap/state'
 import type { SafeStorageLike } from '../encrypted-store'
 import { admitConnector } from '../work/connector/admission'
@@ -19,10 +18,11 @@ import type { ShellMcpOptions } from '../work/connector/shell-mcp'
 import { partitionFor, type PinRef, WorkSession, workSessionPaths } from '../work/session'
 import { removeDurably } from '../work/session/files'
 import { workAccountRoot } from '../work/session/paths'
-import { type WorkUpdateSelection, verifyPinDigest } from '../work/session/update'
 import { createT3AuthCli } from '../work/session/t3-auth'
+import { verifyPinDigest, type WorkUpdateSelection } from '../work/session/update'
 import type { WorkDesktopUpdateHandler } from '../work/sidecar/desktop-control'
 import { type WorkAccess, WorkHost } from '../work/sidecar/host'
+import { workHasAttachedTerminal } from '../work/sidecar/process'
 import { createKeychainSecretStore } from '../work/sidecar/secret-store'
 import { T3McpWithdrawalError, WorkT3McpPublication } from '../work/sidecar/t3-mcp'
 import { createT3PairingCodes } from '../work/sidecar/t3-mcp-session'
@@ -122,6 +122,7 @@ export interface MatrixWorkDeps {
 
 export interface MatrixWork {
   prepareUpdate(resources: string): Promise<StagedWorkUpdate | null>
+  cancelPreparedUpdate(): void
   resumeUpdate(): Promise<void>
   /** The window may have become ready, or the account may have changed. Idempotent. */
   activate(): Promise<void>
@@ -295,6 +296,7 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
   let owner: { accountKey: string; generation: number; principal: string } | undefined
   let resolving: Promise<void> | undefined
   let resumed = false
+  let updatePrepared = false
 
   const sameScope = (scope: { accountKey: string; generation: number } | null) =>
     Boolean(scope && owner?.accountKey === scope.accountKey && owner.generation === scope.generation)
@@ -525,6 +527,7 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
   }
 
   const host = new WorkHost({
+    canStart: () => !updatePrepared,
     desktopUpdate: deps.desktopUpdate,
     ready: () => {
       if (workStopping || deps.closing()) {return}
@@ -879,18 +882,26 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
     },
     async prepareUpdate(resources) {
       const live = host.current()
-      if (!live) {return null}
+      if (host.pendingStart() || session.held()) {throw new Error('work_update_owner_busy')}
+      if (!live) {
+        updatePrepared = true
+        return null
+      }
       const current = readShippedPin(deps.resources)
       const target = readShippedPin(resources)
       if (semver.lt(target.version, current.version) ||
           (target.version === current.version && current.sha256 !== target.sha256)) {
         throw new Error('work_update_pin_incompatible')
       }
-      await verifyPinDigest(target)
+      const [, terminal] = await Promise.all([verifyPinDigest(target), workHasAttachedTerminal(live.pid)])
+      if (terminal) {throw new Error('work_update_terminal_active')}
       if (host.current() !== live || session.held()) {throw new Error('work_update_owner_changed')}
+
+      updatePrepared = true
 
       return { id: randomUUID(), accountKey: live.accountKey, pin: target.version }
     },
+    cancelPreparedUpdate() {updatePrepared = false},
     async resumeUpdate() {
       const expected = deps.plannedUpdate?.work
       if (!expected || resumed) {

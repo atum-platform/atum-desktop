@@ -68,15 +68,17 @@ The existing Matrix room and composer stores restore the selected room and draft
 The update checkpoint also saves safe browser GET destinations, order, selection
 and visibility for the same account, device and room. Fresh tabs get new isolated
 partitions. Active downloads, unsafe URLs, modified or unverifiable browser
-forms, and an open Matrix terminal defer the restart. Matrix and Hermes retain
+forms, an open Matrix terminal, and a controlling terminal under the Work
+server defer the restart. Matrix and Hermes retain
 their existing execution and delivery receipts. The Mac job lifecycle stops its
 local claims before draining, and the existing outbox owns reconciliation. Work
 UI actions target the Atum release only. No cloud update or replay is issued.
 
-The remaining release evidence is a second signed Work pin, crash testing across
-the actual bundle swap, active Work PTYs, cloud-to-Mac delivery replay coverage,
-and compatibility proof before retiring a reader still needed by a dormant
-home. The bundled Work capability is hidden from discovery to keep its settings
+A dormant Work home keeps the previous signed reader if its committed pin
+differs from the running bundle. The stage refuses to evict that reader to make
+room for a subsequent update. The remaining release evidence is a second signed
+Work pin, crash testing across the actual bundle swap, native Work PTY admission,
+and cloud-to-Mac delivery replay coverage. The bundled Work capability is hidden from discovery to keep its settings
 and rail controls out of the embed. A paired maintain client can still use the
 native two-call handoff.
 
@@ -88,6 +90,9 @@ staged swap, and Matrix update surfaces. The fixture at
 `apps/desktop/updates-graft-fixture.html` shows all eight states. From
 `apps/desktop`, run `node updates-graft-render.mjs <empty-build-dir> <evidence-dir>`
 with Chrome installed. The renderer sends no update requests to a real feed.
+The two rail images use the real footer, account button and shell frame. The
+fixture checks that every update action fits within the rail above the avatar
+with the sidebar expanded and collapsed.
 
 For a real Electron transfer using unsigned fixture bytes, run
 `node apps/desktop/scripts/updates-local-feed.mjs <Electron-executable>`.

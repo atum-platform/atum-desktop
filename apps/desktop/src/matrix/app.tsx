@@ -213,6 +213,7 @@ import {
   useMatrixApprovalSheet,
   useMatrixAttentionSummary
 } from './attention-indicator'
+import { checkpointBrowserForUpdate } from './browser-update-checkpoint'
 import { useChatCopy } from './chat-copy'
 import {
   aboutAppBot,
@@ -543,7 +544,6 @@ import { teamSpaceRevampCopy } from './team-space/revamp-copy'
 import { useSavedMessagesCopy } from './team-space/saved-messages-copy'
 import { useCompanyChannelFacts } from './team-space/use-channel-facts'
 import { MatrixTerminalOffers } from './terminal'
-import { checkpointBrowserForUpdate } from './browser-update-checkpoint'
 import { prepareMatrixDocumentClose, runMatrixCommand } from './text-document-actions'
 import { matrixThreadCopy } from './thread-copy'
 import { loadTimelineHistoryPage, MATRIX_TIMELINE_SEARCH_PAGES, waitForTimelineProjection } from './timeline-history'
@@ -7246,6 +7246,7 @@ function MatrixAccountView({
     }
   }, [compact])
   const [workspaceScope, setWorkspaceScope] = useState<string | null>(null)
+  const restoreBrowserWorkspace = useCallback((scope: string) => setWorkspaceScope(scope), [])
   // What the side panel holds: the workbench, or a chat with people's conversation info.
   const [workspaceKind, setWorkspaceKind] = useState<'workbench' | 'info'>('workbench')
   const [threadView, setThreadView] = useState<MatrixThreadView | null>(null)
@@ -9726,7 +9727,6 @@ function MatrixAccountView({
               hidden={!workspaceOpen || infoShown}
               motion={motion}
               obstructed={drawerOpen || overlaid || anyAgentPrompts(snapshot)}
-              onBrowserUpdateRestored={scope => setWorkspaceScope(scope)}
               onAppRouteRequestConsumed={serial =>
                 setAppRouteRequest(current => (current?.serial === serial ? undefined : current))
               }
@@ -9743,6 +9743,7 @@ function MatrixAccountView({
                     }
                   : undefined
               }
+              onBrowserUpdateRestored={restoreBrowserWorkspace}
               onClose={closeWorkspace}
               onDriveRequestClose={() => setDrivePreviewRequest(undefined)}
               onExpand={setWorkspaceExpanded}

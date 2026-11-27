@@ -1,4 +1,4 @@
-import { type ChildProcessByStdio, spawn } from 'node:child_process'
+import { type ChildProcessByStdio, execFile, spawn } from 'node:child_process'
 import { createHmac, randomBytes, randomUUID } from 'node:crypto'
 import { mkdir, readFile } from 'node:fs/promises'
 import { homedir, tmpdir } from 'node:os'
@@ -6,12 +6,13 @@ import { join } from 'node:path'
 import { createInterface } from 'node:readline'
 import type { Duplex, Readable, Writable } from 'node:stream'
 import { setTimeout as delay } from 'node:timers/promises'
+import { promisify } from 'node:util'
 
 import { MATRIX_DEFAULT_MODEL } from '../../../shared/matrix-models'
 import { PLAN_PROVIDER_DEFAULTS } from '../plan-providers'
 import type { TrialContext, TrialHandle } from '../session/update'
 
-import { type WorkDesktopUpdateHandler, bindWorkDesktopControl } from './desktop-control'
+import { bindWorkDesktopControl, type WorkDesktopUpdateHandler } from './desktop-control'
 import { loginShellPath } from './shell-environment'
 
 export const ATUM_WORK_PROVIDER = 'atum-managed'
@@ -349,6 +350,23 @@ async function verifyListener(home: string, pid: number, expected: string | unde
   throw new Error('work_listener_unavailable')
 }
 
+/** Node PTY gives its live local shell a controlling terminal. A detached process
+ * without a controlling terminal can reconnect through its own persistence. */
+export async function workHasAttachedTerminal(serverPid: number): Promise<boolean> {
+  const { stdout } = await promisify(execFile)('/bin/ps', ['-axo', 'pid=,ppid=,tty='], { timeout: 2_000 })
+  const rows = stdout.trim().split('\n').map(row => row.trim().split(/\s+/u))
+  const descendants = new Set([serverPid])
+  for (let prior = 0; descendants.size !== prior;) {
+    prior = descendants.size
+    for (const [pid, parent] of rows) {
+      if (descendants.has(Number(parent))) {descendants.add(Number(pid))}
+    }
+  }
+
+  return rows.some(([pid, , terminal]) => Number(pid) !== serverPid && descendants.has(Number(pid)) &&
+    typeof terminal === 'string' && !/^\?+$/u.test(terminal) && terminal !== '-')
+}
+
 export class WorkSidecar {
   private controller?: AbortController
   private starting?: Promise<WorkIncarnation>
@@ -362,6 +380,10 @@ export class WorkSidecar {
 
   current(): WorkIncarnation | undefined {
     return this.options.current() ? this.live : undefined
+  }
+
+  pendingStart(): boolean {
+    return Boolean(this.starting && !this.live)
   }
 
   start(input: WorkStartOptions): Promise<WorkIncarnation> {

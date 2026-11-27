@@ -14,6 +14,7 @@ import {
   ineligible,
   isNotarizedAssessment,
   isPinnedTeam,
+  type Journal,
   parseProcesses,
   PINNED_REQUIREMENT,
   type ProcessRow,
@@ -22,6 +23,7 @@ import {
   type Snapshot,
   snapshotMatches,
   STAGED_PARENTS,
+  type StagedWorkUpdate,
   type StageState,
   swapSync,
   transition,
@@ -149,6 +151,7 @@ export interface StagedSwapOptions {
   /** The default-on `updates.stagedSwap` switch, read at download time and again at Restart. */
   enabled: () => boolean
   log: (line: string) => void
+  canRetireBackup?(journal: Journal): boolean
   tools?: Partial<StageTools>
   /** Longest wait for the old bundle's processes. The updater's 10 s exit backstop is the outer limit. */
   processWaitMs?: number
@@ -157,7 +160,7 @@ export interface StagedSwapOptions {
 export interface InstallMode {
   /** Restart reopens the app; an ordinary Quit swaps and leaves it closed. */
   relaunch: boolean
-  work?: import('./state').StagedWorkUpdate | null
+  work?: StagedWorkUpdate | null
 }
 
 export class StagedSwap {
@@ -245,7 +248,7 @@ export class StagedSwap {
     // A rollback copy that proved itself is retired now; a failed delete is retried and never blocks for good.
     await retireBackup({
       home: this.options.home, id: this.options.id, bundle: this.options.target,
-      handoffDirectory: this.options.handoffDirectory, log: this.options.log
+      handoffDirectory: this.options.handoffDirectory, canRetire: this.options.canRetireBackup, log: this.options.log
     }).catch(() => false)
 
     if (await fs.lstat(path.join(this.root, 'previous.app')).then(() => true, () => false)) {

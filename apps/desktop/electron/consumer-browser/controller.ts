@@ -1,5 +1,6 @@
 import { lookup } from 'node:dns/promises'
 import path from 'node:path'
+import { setTimeout as delay } from 'node:timers/promises'
 
 import type { App, BrowserWindow, DownloadItem, IpcMain, IpcMainInvokeEvent, Session, WebContents } from 'electron'
 
@@ -489,7 +490,7 @@ export function createConsumerBrowserController(deps: ConsumerBrowserControllerD
     hasActiveDownloads: () => activeDownloadItems.size > 0,
     canRestartForUpdate: async () => {
       const guests = [...browserGuests].filter(guest => !guest.isDestroyed())
-      const results = await Promise.all(guests.map(async guest => {
+      const checks = Promise.all(guests.map(async guest => {
         const url = guest.getURL()
         if (url === '' || url === 'about:blank') {return !guest.isLoading()}
         if (!browserUpdateUrl(url) || guest.isLoading()) {return false}
@@ -506,12 +507,10 @@ export function createConsumerBrowserController(deps: ConsumerBrowserControllerD
         })()` }]).catch(() => false)
         return unchanged === true && !guest.isDestroyed() && !guest.isLoading() && guest.getURL() === url
       }))
-      return results.every(Boolean) && downloadsUnchanged()
+      const results = await Promise.race([checks, delay(2_000, null, { ref: false })])
 
-      function downloadsUnchanged() {
-        return activeDownloadItems.size === 0 && preparing.size === 0 &&
-          [...browserGuests].every(guest => guest.isDestroyed() || guests.includes(guest))
-      }
+      return results?.every(Boolean) === true && activeDownloadItems.size === 0 && preparing.size === 0 &&
+        [...browserGuests].every(guest => guest.isDestroyed() || guests.includes(guest))
     },
     releaseAppPartitions: async () => {
       const appPartitions = new Set(deps.knownAppIds.filter(validAppId).map(appPartition))

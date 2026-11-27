@@ -32,7 +32,7 @@ if (rail) {
   } as Parameters<typeof $matrixDesktopServices.set>[0])
   root.render(
     <I18nProvider initialLocale="en"><TooltipProvider>
-      <AtumShellFrame compact={false} main={<div />} navigation={
+      <AtumShellFrame compact={false} main={() => <div />} navigation={
         <div className="atum-rail-foot" data-matrix-rail-foot>
           <MatrixUpdateFooter />
           <MatrixRailAccount open={false} snapshot={snapshot} fail={() => {}} onOpenChange={() => {}} onOpenSettings={() => {}} />

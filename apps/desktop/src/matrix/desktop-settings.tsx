@@ -312,6 +312,7 @@ export function MatrixUpdateFooter() {
       busy={status.busy}
       locale={locale}
       openReleaseHistory={() => void window.atumMatrix.openLink(UPDATE_RELEASE_HISTORY)}
+      rail
       state={status.desktopUpdate}
     />
   )

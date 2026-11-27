@@ -25,7 +25,7 @@ export function saveBrowserUpdate(storage: Storage, scope: string, record: Brows
     storage.removeItem(key(scope))
     return
   }
-  storage.setItem(key(scope), JSON.stringify({ ...record, at: Date.now() }))
+  storage.setItem(key(scope), JSON.stringify({ version: 1, ...record, at: Date.now() }))
 }
 
 export function takeBrowserUpdate(storage: Storage, scope: string): BrowserCheckpoint | undefined {
@@ -36,7 +36,7 @@ export function takeBrowserUpdate(storage: Storage, scope: string): BrowserCheck
     storage.removeItem(storageKey)
     const record = JSON.parse(raw)
     const age = Date.now() - record.at
-    if (!Number.isFinite(age) || age < 0 || age > maxAge || !Array.isArray(record.urls) || record.urls.length > 32) {return}
+    if (record.version !== 1 || !Number.isFinite(age) || age < 0 || age > maxAge || !Array.isArray(record.urls) || record.urls.length > 32) {return}
     const urls = record.urls.flatMap((value: unknown) => typeof value === 'string' ? browserUpdateUrl(value) ?? [] : [])
     if (urls.length && urls.length === record.urls.length) {
       return { urls, selected: Number.isInteger(record.selected) ? record.selected : -1, open: record.open === true }

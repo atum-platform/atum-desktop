@@ -15,6 +15,7 @@ import { ChevronLeft, Code, FileText, RefreshCw, Spinner, World } from '@/lib/ic
 import { shikiLanguageForFilename } from '@/lib/markdown-code'
 
 import { isBotApiRoomForApp } from '../../shared/bot-api-room'
+import { browserUpdateUrl } from '../../shared/browser/update-restore'
 import type { MatrixDocumentPreview, MatrixSnapshot } from '../../shared/matrix'
 import type { MatrixDrivePreview, MatrixDriveRow } from '../../shared/matrix-drive'
 
@@ -23,6 +24,7 @@ import { matrixAgentDeskAgent } from './agent-desk-model'
 import { directAppBot } from './app-bots/direct-app'
 import { AppBotPanel } from './app-bots/panel'
 import type { AppBotRouteRequest } from './app-bots/route-request'
+import { registerBrowserUpdateCheckpoint, saveBrowserUpdate, takeBrowserUpdate } from './browser-update-checkpoint'
 import { useMatrixCopy } from './copy'
 import { MatrixDocumentStatus, useDocumentCopy } from './document-link'
 import { formatDriveSize } from './drive'
@@ -31,8 +33,6 @@ import { $matrixDrivePdfLease } from './drive-finder'
 import { matrixAgentTyping } from './local-turns'
 import { matrixRosterAgentName } from './roster-model'
 import { MatrixTerminalPane, useMatrixTerminalRead } from './terminal'
-import { browserUpdateUrl } from '../../shared/browser/update-restore'
-import { registerBrowserUpdateCheckpoint, saveBrowserUpdate, takeBrowserUpdate } from './browser-update-checkpoint'
 import { registerMatrixDocumentDetach, runMatrixDocumentAction } from './text-document-actions'
 import { matrixTextDocumentLease } from './text-document-lease'
 import { MatrixTextDocumentPane } from './text-document-pane'
@@ -321,12 +321,12 @@ export function MatrixWorkbench({
     if (!scopeReady) {return}
     return registerBrowserUpdateCheckpoint(() => {
       const tabs = browserTabs.filter(tab => tab.url !== 'about:blank' && tab.status !== 'start')
-      const urls = tabs.map(tab => browserUpdateUrl(tab.url))
-      if (tabs.some((tab, index) => tab.status !== 'ready' || urls[index] === null)) {
+      const urls = tabs.flatMap(tab => tab.status === 'ready' ? browserUpdateUrl(tab.url) ?? [] : [])
+      if (urls.length !== tabs.length) {
         throw new Error('browser_update_tab_unavailable')
       }
       saveBrowserUpdate(window.localStorage, scope, {
-        urls: urls as string[], selected: tabs.findIndex(tab => scopedTabState.selected === `browser:${tab.id}`), open: !hidden
+        urls, selected: tabs.findIndex(tab => scopedTabState.selected === `browser:${tab.id}`), open: !hidden
       })
     })
   }, [scopeReady, scope, browserTabs, scopedTabState.selected, hidden])

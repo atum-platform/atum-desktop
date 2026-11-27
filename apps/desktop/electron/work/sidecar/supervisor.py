@@ -163,7 +163,7 @@ def run(spec, children, channel):
                 bootstrap.seek(0)
                 bootstrap_fd = os.dup(bootstrap.fileno())
             passed.extend([bootstrap_fd, desktop['desktopTelemetryFd'], desktop['desktopTelemetryControlFd']])
-            args = [spec['executable'], '--bootstrap-fd', str(bootstrap_fd)]
+            args = [spec['executable'], '--bootstrap-fd', str(bootstrap_fd), '--auto-bootstrap-project-from-cwd']
         if token:
             read_fd, write_fd = os.pipe()
             passed.append(read_fd)

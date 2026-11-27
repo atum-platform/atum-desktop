@@ -30,7 +30,15 @@ try {
     const avatar = foot.locator('[data-matrix-rail-account]')
     await avatar.waitFor({ timeout: 8_000 })
     const updateBounds = await capsule.boundingBox()
+    const footBounds = await foot.boundingBox()
     const avatarBounds = await avatar.boundingBox()
+    const actions = await capsule.getByRole('button').all()
+    for (const action of actions) {
+      const bounds = await action.boundingBox()
+      if (!bounds || !footBounds || bounds.x < footBounds.x || bounds.x + bounds.width > footBounds.x + footBounds.width) {
+        throw new Error('An update action overflows the rail')
+      }
+    }
     if (!updateBounds || !avatarBounds || updateBounds.y + updateBounds.height > avatarBounds.y) {
       throw new Error('The update capsule must sit above the account avatar')
     }
