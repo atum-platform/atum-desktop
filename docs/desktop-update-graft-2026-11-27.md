@@ -135,3 +135,7 @@ signed ZIPs and checksums. Do not publish the test feed to production.
 5. Record separate background preparation and restart-to-interactive timings.
    Compare p50 and p95 against the r1 baseline on the same Mac. Confirm only a
    single verified rollback generation remains during unresolved recovery.
+
+## CI fix (2026-11-27)
+
+Hosted CI runs on Linux, where T3's updater disables itself without an AppImage, so `service.start()` returned false. The service now takes an optional `platform` (default `process.platform`); the test fixture pins `darwin`, the only platform Atum ships the updater on. Reproduced: linux fixture 4/4 fail, darwin 4/4 pass.

@@ -36,6 +36,8 @@ interface Options {
   admit: (expectedVersion: string) => Promise<string | null>
   changed: () => void
   log: (line: string) => void
+  /** The OS the updater targets; Atum ships its updater on macOS. Defaults to this process's. */
+  platform?: NodeJS.Platform
 }
 
 export function createAtumUpdates(options: Options) {
@@ -101,7 +103,7 @@ export function createAtumUpdates(options: Options) {
             appImagePath: Option.none(), disableAutoUpdate: false, mockUpdates: false, mockUpdateServerPort: 0
           }),
           Layer.succeed(environment, {
-            platform: process.platform, runtimeInfo, appVersion: options.version, resourcesPath: options.resources,
+            platform: options.platform ?? process.platform, runtimeInfo, appVersion: options.version, resourcesPath: options.resources,
             appUpdateYmlPath: path.join(options.resources, 'app-update.yml'),
             baseDir: path.join(options.userData, 'desktop-update'), path,
             defaultDesktopSettings: { updateChannel: wireChannel(channel) },

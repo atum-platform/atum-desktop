@@ -38,7 +38,7 @@ async function fixture(prepare: () => Promise<void>, admit = vi.fn(async () => n
       setChannel: async value => {channel = value}
     },
     native: { stage: { prepare }, install },
-    admit, changed: () => {}, log: () => {}
+    admit, changed: () => {}, log: () => {}, platform: 'darwin'
   })
   const dispose = async () => {
     await service.stop()
