@@ -499,13 +499,13 @@ const bridge: MatrixUiBridge = {
   },
   windowFacts: () => ipcRenderer.invoke(MATRIX_WINDOW_CHANNELS.facts),
   onDocumentClose: prepare => {
-    const receive = (_event: Electron.IpcRendererEvent, id: unknown) => {
+    const receive = (_event: Electron.IpcRendererEvent, id: unknown, updating: unknown) => {
       if (typeof id !== 'string') {
         return
       }
 
       void Promise.resolve()
-        .then(prepare)
+        .then(() => prepare(updating === true))
         .then(
           () => ipcRenderer.send(MATRIX_WINDOW_CHANNELS.documentCloseReady, id, true),
           () => ipcRenderer.send(MATRIX_WINDOW_CHANNELS.documentCloseReady, id, false)

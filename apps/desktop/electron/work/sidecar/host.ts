@@ -24,6 +24,7 @@ import {
   type WorkDeliverableReply,
   type WorkDeliverableStatus
 } from './deliverable-contract'
+import type { WorkDesktopUpdateHandler } from './desktop-control'
 import { type WorkIncarnation, workRuntimeEnvironment, WorkSidecar, type WorkStartOptions } from './process'
 
 export const WORK_ACCESS_CHANNEL = 'atum:work:read-model-access'
@@ -44,6 +45,8 @@ interface WorkHostOptions {
   sidebarChanged?(snapshot: WorkSidebarSnapshot | null): void
   attentionChanged?(snapshot: WorkAttentionSnapshot | null): void
   ready?(): void
+  desktopUpdate?: () => WorkDesktopUpdateHandler | undefined
+  canStart?(): boolean
   prepare?(signal: AbortSignal): Promise<void>
   account(): Account | undefined
   gatewayEnvironment(): Record<string, string>
@@ -83,10 +86,14 @@ export class WorkHost {
     return this.binding?.process.current()
   }
 
+  pendingStart(): boolean {
+    return this.binding?.process.pendingStart() ?? false
+  }
+
   async start(input: WorkStartOptions): Promise<WorkIncarnation> {
     const account = this.options.account()
 
-    if (!account || existsSync(disabledMarker(account)) || this.closing || !supported()) {
+    if (!account || existsSync(disabledMarker(account)) || this.closing || this.options.canStart?.() === false || !supported()) {
       throw new Error('work_unavailable')
     }
 
@@ -111,6 +118,7 @@ export class WorkHost {
         ready: this.options.ready,
         deliverableMessage: (message, current, signal) =>
           this.options.deliverableMessage(account, message, () => current() && this.enabled(), signal),
+        desktopUpdate: this.options.desktopUpdate?.(),
         gatewayEnvironment: () => {
           const environment = this.options.gatewayEnvironment()
           this.backendToken = environment.ATUM_FILESYSTEM_BROKER_TOKEN

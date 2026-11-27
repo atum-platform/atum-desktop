@@ -8,6 +8,11 @@ server. Desktop accepts messages from its current, committed sidecar while the
 owning account generation remains active. The renderer can only look up a receipt
 or open a saved file.
 
+When Desktop starts Work in desktop mode, the same supervisor connection carries
+Node IPC on descriptor 3 and the updater's report and control streams on
+descriptors 4 and 5. Work can settle a deliverable after desktop-mode readiness
+without interrupting updater commands.
+
 ```ts
 type Identity = { threadId: string; runId: string; artifactId: string }
 type Pin = Identity & { type: 'work-deliverable-pin'; outputRoot: string }

@@ -35,23 +35,33 @@ afterEach(async () => {
   if (root) {await rm(root, { recursive: true, force: true })}
 })
 
-async function lab(deliverableMessage?: ConstructorParameters<typeof WorkSidecar>[0]['deliverableMessage']) {
+async function lab(
+  deliverableMessage?: ConstructorParameters<typeof WorkSidecar>[0]['deliverableMessage'],
+  desktopUpdate?: ConstructorParameters<typeof WorkSidecar>[0]['desktopUpdate']
+) {
   root = await mkdtemp(join(tmpdir(), 'work-recovery-'))
   vi.useFakeTimers()
   vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true })))
   const specs: Array<{ environment: Record<string, string>; gateway: Record<string, string> }> = []
   spawn.mockImplementation(() => {
+    const controls = new PassThrough()
     const child = Object.assign(new EventEmitter(), {
       stdout: new PassThrough(),
       stdin: new Writable({ write(chunk, _encoding, done) { specs.push(JSON.parse(String(chunk))); done() } }),
+      stdio: [null, null, null, null, new PassThrough(), controls],
       connected: true,
       send: vi.fn()
     })
 
     child.stdin.on('finish', () => child.emit('close', 0))
     children.push(child)
-    setTimeout(() => child.stdout.write(JSON.stringify({ kind: 'spawned', pid: 42 }) + '\n' +
-      JSON.stringify({ kind: 'pairing', url: 'http://127.0.0.1:1234/pair#token=fixture' }) + '\n'), 10)
+    setTimeout(() => {
+      child.stdout.write(JSON.stringify({ kind: 'spawned', pid: 42 }) + '\n' +
+        JSON.stringify({ kind: 'pairing', url: 'http://127.0.0.1:1234/pair#token=fixture' }) + '\n')
+      if (desktopUpdate) {
+        controls.write(JSON.stringify({ version: 1, type: 'serverReady' }) + '\n')
+      }
+    }, 10)
 
     return child
   })
@@ -59,7 +69,7 @@ async function lab(deliverableMessage?: ConstructorParameters<typeof WorkSidecar
   const prepare = vi.fn(async () => {})
   sidecar = new WorkSidecar({
     resources: '/fixture', account: { key: 'fixture', generation: 1, root },
-    current: () => current, gatewayEnvironment: () => ({}), revokeCredentials: vi.fn(), prepare, deliverableMessage
+    current: () => current, gatewayEnvironment: () => ({}), revokeCredentials: vi.fn(), prepare, deliverableMessage, desktopUpdate
   })
 
   return { prepare, specs, changeAccount: () => { current = false } }
@@ -74,13 +84,16 @@ async function start() {
 }
 
 describe('Work sidecar recovery', () => {
-  it('reuses the native IPC for ordinary sidecars and discards stale deliverable acknowledgements', async () => {
+  it.each([false, true])('reuses the native IPC and discards stale acknowledgements (desktop mode: %s)', async desktop => {
     const reply: WorkDeliverableReply = { type: 'work-deliverable-pinned', artifactId: 'fixture', accepted: true }
     const deliverableMessage = vi.fn<NonNullable<ConstructorParameters<typeof WorkSidecar>[0]['deliverableMessage']>>()
       .mockResolvedValue(reply)
-    const { specs, changeAccount } = await lab(deliverableMessage)
+    const desktopUpdate = vi.fn()
+    const { specs, changeAccount } = await lab(deliverableMessage, desktop ? desktopUpdate : undefined)
     await start()
-    expect(spawn.mock.calls[0][2].stdio).toEqual(['pipe', 'pipe', 'ignore', 'ipc'])
+    expect(spawn.mock.calls[0][2].stdio).toEqual(desktop
+      ? ['pipe', 'pipe', 'ignore', 'ipc', 'pipe', 'pipe']
+      : ['pipe', 'pipe', 'ignore', 'ipc'])
     expect(specs[0].environment).toMatchObject({
       ATUM_WORK_MEMO_PYTHON: '/fixture/runtime/python/bin/python3.14',
       ATUM_WORK_MEMO_SCRIPT: '/fixture/runtime/work-authoring/memo.py'
@@ -93,6 +106,14 @@ describe('Work sidecar recovery', () => {
     await vi.advanceTimersByTimeAsync(0)
     expect(deliverableMessage).toHaveBeenCalledExactlyOnceWith(report, expect.any(Function), expect.any(AbortSignal))
     expect(children[0].send).toHaveBeenCalledExactlyOnceWith(reply, expect.any(Function))
+
+    if (desktop) {
+      const request = { type: 'cancelDesktopUpdate', requestId: 'fixture' }
+      children[0].stdio[5].write(JSON.stringify({ version: 1, ...request }) + '\n')
+      expect(desktopUpdate).toHaveBeenCalledExactlyOnceWith(request, expect.objectContaining({
+        current: expect.any(Function), report: expect.any(Function), signal: expect.any(AbortSignal)
+      }))
+    }
 
     let finish!: (value: WorkDeliverableReply) => void
     deliverableMessage.mockImplementationOnce(() => new Promise(resolve => { finish = resolve }))
