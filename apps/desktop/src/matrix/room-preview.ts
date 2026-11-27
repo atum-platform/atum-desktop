@@ -1,4 +1,4 @@
-import { EventType, type MatrixEvent, MsgType, RelationType, type Room } from 'matrix-js-sdk'
+import { EventType, M_POLL_START, type MatrixEvent, MsgType, RelationType, type Room } from 'matrix-js-sdk'
 
 import { MATRIX_ROOM_PREVIEW_MAX, type MatrixRoomPreview } from '../../shared/matrix'
 import { matrixCompanyPresentationClaimed } from '../../shared/matrix-company-presentation'
@@ -6,6 +6,7 @@ import { matrixProgressMarker } from '../../shared/matrix-progress-marker'
 
 import { companyPresentationOf, removedWorkingLine, shownContent } from './message'
 import { isOpaqueMatrixId, matrixPersonName } from './person-name'
+import { matrixPollStart } from './poll/model'
 import { matrixRoomTimelineEvents } from './threads'
 
 /**
@@ -92,7 +93,7 @@ function senderName(room: Room, userId: string): string | undefined {
 function messageLike(event: MatrixEvent): boolean {
   const type = event.getType()
 
-  return type === EventType.RoomMessage || type === EventType.Sticker || type === EventType.RoomMessageEncrypted
+  return type === EventType.RoomMessage || type === EventType.Sticker || type === EventType.RoomMessageEncrypted || M_POLL_START.matches(type)
 }
 
 function previewOf(
@@ -127,6 +128,11 @@ function previewOf(
 
   if (event.getType() === EventType.Sticker) {
     return { ...base, kind: 'sticker' }
+  }
+
+  if (M_POLL_START.matches(event.getType())) {
+    const text = matrixPollStart(event)?.question.text
+    return text ? { ...base, kind: 'text', text: matrixPreviewLine(text) } : null
   }
 
   const original = event.getOriginalContent()

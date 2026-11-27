@@ -30,6 +30,7 @@ import {
   normalizeMatrixStatusText,
   validMatrixStatusInput
 } from '../../shared/matrix-presence'
+import { matrixGeoPoint, matrixVoiceNote, matrixVoiceTranscriptionProvider } from '../../shared/matrix-rich-content'
 import {
   MATRIX_ROOM_SHARED_MAX_ITEMS,
   MATRIX_ROOM_SHARED_SECTIONS,
@@ -177,6 +178,16 @@ export function matrixAtumMail(value: unknown): string {
 
 /** What the window's `openLink` opens: a plain web link or one bounded message email. */
 export function matrixOpenLink(value: unknown): string {
+  if (typeof value === 'string' && value.startsWith('geo:')) {
+    const point = matrixGeoPoint(value)?.slice(4)
+    if (!point) {
+      throw new Error('matrix_link_invalid')
+    }
+    if (process.platform === 'darwin') {
+      return `maps://?ll=${point}&q=${point}`
+    }
+    return `https://www.openstreetmap.org/?mlat=${point.split(',')[0]}&mlon=${point.split(',')[1]}`
+  }
   return typeof value === 'string' && /^mailto:/i.test(value) ? matrixMessageMail(value) : matrixExternalLink(value)
 }
 
@@ -815,7 +826,54 @@ export function parseMatrixCommand(value: unknown): MatrixCommand {
         toRoomId: text('toRoomId', 1024, '!'),
         dialogNonce: text('dialogNonce', 128)
       }
+    case 'locationSend': {
+      const geoUri = matrixGeoPoint(row.geoUri)
+      if (!geoUri) {
+        throw new Error('matrix_command_invalid')
+      }
+      return { kind: row.kind, roomId: roomId(), geoUri }
+    }
+
+    case 'pollRead':
+    case 'pollEnd':
+      return { kind: row.kind, roomId: roomId(), eventId: text('eventId', 1024, '$') }
+
+    case 'pollVote': {
+      const answers: unknown[] = Array.isArray(row.answers) ? row.answers : []
+      if (!Array.isArray(row.answers) || answers.length > 20 ||
+        !answers.every(answer => typeof answer === 'string' && answer.length > 0 && answer.length <= 255) ||
+        new Set(answers).size !== answers.length) {
+        throw new Error('matrix_command_invalid')
+      }
+      return { kind: row.kind, roomId: roomId(), eventId: text('eventId', 1024, '$'), answers: answers as string[] }
+    }
+
+    case 'pollCreate': {
+      const options: unknown[] = Array.isArray(row.options) ? row.options : []
+      if (typeof row.undisclosed !== 'boolean' || options.length < 2 || options.length > 20 ||
+        !options.every(option => typeof option === 'string' && option.trim().length > 0 && option.trim().length <= 240)) {
+        throw new Error('matrix_command_invalid')
+      }
+      const question = text('question', 500).trim()
+      const normalized = (options as string[]).map(option => option.trim())
+      if (!question || new Set(normalized).size !== normalized.length) {
+        throw new Error('matrix_command_invalid')
+      }
+      return { kind: row.kind, roomId: roomId(), question, options: normalized, undisclosed: row.undisclosed }
+    }
+
     case 'attach': {
+      const voiceNote = matrixVoiceNote(row.voiceNote)
+      const transcriptionProvider = matrixVoiceTranscriptionProvider(row.transcriptionProvider)
+
+      if (row.voiceNote !== undefined && (!voiceNote || row.threadRootId !== undefined)) {
+        throw new Error('matrix_command_invalid')
+      }
+
+      if (row.transcriptionProvider !== undefined && (!voiceNote || !transcriptionProvider)) {
+        throw new Error('matrix_command_invalid')
+      }
+
       if (!(row.bytes instanceof Uint8Array) || row.bytes.byteLength > MATRIX_MAX_FILE_BYTES) {
         throw new Error('matrix_file_invalid')
       }
@@ -833,20 +891,24 @@ export function parseMatrixCommand(value: unknown): MatrixCommand {
             ? row.contentType
             : 'application/octet-stream',
         bytes: row.bytes,
+        ...(voiceNote ? { voiceNote } : {}),
+        ...(transcriptionProvider ? { transcriptionProvider } : {}),
         ...(row.threadRootId === undefined ? {} : { threadRootId: text('threadRootId', 1024, '$') }),
         ...(row.replyTo === undefined ? {} : { replyTo: text('replyTo', 1024, '$') })
       }
     }
 
     case 'download':
-      if (row.companyFile !== undefined && row.companyFile !== true) {
+      if ((row.companyFile !== undefined && row.companyFile !== true) ||
+        (row.inline !== undefined && (row.inline !== true || row.companyFile))) {
         throw new Error('matrix_command_invalid')
       }
       return {
         kind: row.kind,
         roomId: roomId(),
         eventId: text('eventId', 1024, '$'),
-        ...(row.companyFile === true ? { companyFile: true as const } : {})
+        ...(row.companyFile === true ? { companyFile: true as const } : {}),
+        ...(row.inline === true ? { inline: true as const } : {})
       }
 
     // What a chat has shared, for its info panel: a bounded read; the SDK re-reads the room.

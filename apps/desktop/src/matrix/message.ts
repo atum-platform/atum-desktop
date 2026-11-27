@@ -1,4 +1,4 @@
-import { EventStatus, EventType, type MatrixEvent, RelationType, type Room } from 'matrix-js-sdk'
+import { EventStatus, EventType, M_POLL_START, type MatrixEvent, RelationType, type Room } from 'matrix-js-sdk'
 
 import { validStopEvent } from '../../../../packages/device-protocol/stop-target'
 import {
@@ -38,7 +38,9 @@ import { MATRIX_CRON_KEY, matrixTurnMarker } from '../../shared/matrix-turn'
 import { parseBotApiMessage } from './app-bots/bot-api'
 import { MATRIX_FORWARDED_KEY } from './forward-content'
 import { matrixMentionProjection } from './matrix-mentions'
+import { matrixPollView } from './poll/model'
 import { matrixReplyRoot } from './reply-relation'
+import { matrixRichMedia } from './rich-media'
 import { parseCompanyBoardLink } from './team-space/board-link-target'
 
 /** People named on one reaction's tip, at most. */
@@ -412,7 +414,8 @@ export function matrixMessage(
     // A deleted message keeps its place as one quiet line. Once deleted, an encrypted event
     // no longer says what it was, but reactions and redactions are never encrypted: an
     // encrypted event that was deleted was a message.
-    if (event.getType() !== EventType.RoomMessage && event.getWireType() !== EventType.RoomMessageEncrypted) {
+    if (event.getType() !== EventType.RoomMessage && event.getType() !== EventType.Sticker &&
+      !M_POLL_START.matches(event.getType()) && event.getWireType() !== EventType.RoomMessageEncrypted) {
       return null
     }
 
@@ -434,7 +437,8 @@ export function matrixMessage(
 
   const failed = event.isDecryptionFailure()
 
-  if (event.getType() !== EventType.RoomMessage && !failed) {
+  const eventType = event.getType()
+  if (eventType !== EventType.RoomMessage && eventType !== EventType.Sticker && !M_POLL_START.matches(eventType) && !failed) {
     return null
   }
 
@@ -494,11 +498,16 @@ export function matrixMessage(
   // An encrypted descriptor (`file`), or a plain mxc URL only for a plain event in a room without
   // encryption (0.20 chats; what phones and Element X send there), by its synced state and its
   // crypto store both. Plain media in an encrypted room is never shown as a file (no downgrade).
+  const poll = failed ? undefined : matrixPollView(event, ownUserId, room)
+  if (eventType && M_POLL_START.matches(eventType) && !poll) {
+    return null
+  }
+  const rich = failed || !eventType ? undefined : matrixRichMedia(eventType, original)
   const file =
     protectedFile !== undefined
       ? Boolean(protectedFile)
       : !failed &&
-        matrixAttachmentMsgtype(original.msgtype) &&
+        (matrixAttachmentMsgtype(original.msgtype) || rich?.kind === 'voice' || rich?.kind === 'sticker') &&
         (Boolean(original.file) ||
           (room !== undefined &&
             plainRoom(room) &&
@@ -564,7 +573,7 @@ export function matrixMessage(
   return {
     id,
     sender: event.getSender() ?? '',
-    body: typeof content.body === 'string' && !failed ? content.body : '',
+    body: poll?.question ?? (typeof content.body === 'string' && !failed ? content.body : ''),
     timestamp: event.getTs(),
     own,
     encrypted: event.isEncrypted(),
@@ -577,6 +586,8 @@ export function matrixMessage(
     // Keep the ordinary file projection too. The renderer prefers an authenticated bot-api
     // photo, but can fall back to this card when catalog/device authorization is unavailable.
     attachment: file,
+    ...(rich && (rich.kind === 'location' || file && !protectedFile) ? { rich } : {}),
+    ...(poll ? { rich: { kind: 'poll' as const, poll } } : {}),
     ...(protectedFile ? { companyFile: true as const } : {}),
     ...(size !== undefined ? { attachmentSize: size } : {}),
     ...(!failed && replyTo ? { replyTo } : {}),
