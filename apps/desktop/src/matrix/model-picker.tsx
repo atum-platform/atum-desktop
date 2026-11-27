@@ -3,6 +3,7 @@ import { type ReactNode, useEffect, useRef, useState } from 'react'
 
 import { AccountPlanConnectState } from '@/app/connections/connect-sheet'
 import { ACCOUNT_PLAN_NAMES, connectionsCopy } from '@/app/connections/copy'
+import { noteManualModelPick } from '@/app/connections/first-run-store'
 import { $accountConnections, loadAccountConnections, openAccountConnect } from '@/app/connections/store'
 import { ACCOUNT_PLAN_PICKER_PROVIDER, accountPickerPlans, accountPlanOfPickerProvider } from '@/app/connections/view'
 import { workRelayServedByName } from '@/app/work/relay-chrome'
@@ -1821,6 +1822,9 @@ export function MatrixModelPicker({
     if (picked.disabled || isCurrent(picked.route) || switching || pendingEffort) {
       return
     }
+
+    // A hand pick is this assistant's own: the first-run automatic pick never changes it afterwards.
+    noteManualModelPick(agentPrincipal)
 
     if (picked.relayPlan) {
       writeRelaySelection(picked)

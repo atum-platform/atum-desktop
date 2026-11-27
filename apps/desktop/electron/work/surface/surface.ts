@@ -1,4 +1,5 @@
 import type { AccountConnectionsView, AccountPlan } from '../../../shared/account-connections'
+import type { FirstRunLabels } from '../../../shared/first-run-labels'
 import type {
   MatrixWorkPlanConsent,
   MatrixWorkPlanConsentInput,
@@ -44,6 +45,8 @@ export interface WorkSurfaceParts {
   prepareChatGptConnect?(): Promise<void>
   /** `atum.account-connections/1`, or this Mac's own plan facts when the registry cannot be read. */
   readConnections?(): Promise<AccountConnectionsView | null>
+  /** This Mac's four first-run connections and T3's plan names (local only). */
+  readPlanLabels?(): Promise<FirstRunLabels>
   /** The owner's consent client (gate 4b-2), and this Mac's device-service id so the page can name "This Mac". */
   consent?: Pick<WorkConsentClient, 'read' | 'revoke' | 'set'>
   deviceServiceId?(): string | undefined
@@ -254,6 +257,14 @@ export class WorkSurface {
   /** The account's connections. Null while no account's Work is attached here (nothing to read with). */
   async readConnections(): Promise<AccountConnectionsView | null> {
     return (await this.parts?.readConnections?.()) ?? null
+  }
+
+  /** First run: this Mac's four connections. Empty while no account's Work is attached or T3 has not answered. */
+  async readPlanLabels(): Promise<FirstRunLabels> {
+    const generation = this.generation
+    const labels = await this.parts?.readPlanLabels?.()
+
+    return generation === this.generation ? labels ?? {} : {}
   }
 
   /** Project the owner’s account consent and the eligible assistants. */

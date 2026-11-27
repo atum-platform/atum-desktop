@@ -28,6 +28,7 @@ import { matrixActionCopy } from '../../shared/matrix-action-copy'
 import { type MatrixAgentStatusCode, matrixAgentStatusText, matrixCheckingLine } from '../../shared/matrix-agent-status-copy'
 import { matrixAnswerParts, matrixAnswerPartTransaction } from '../../shared/matrix-answer-parts'
 import { matrixLocalDay } from '../../shared/matrix-device-trust'
+import { isFirstRunGreetingSeed } from '../../shared/matrix-first-run-greeting'
 import type { MatrixGroupMode } from '../../shared/matrix-group-room'
 import { type MatrixPetIntentEnvelope, matrixPetIntentEnvelope } from '../../shared/matrix-pet-intent'
 import type { MatrixSeenProof } from '../../shared/matrix-presentation-signals'
@@ -2161,7 +2162,8 @@ async function invokeMatrixParticipant(
     // The person's first words in a new account's chat answer a welcome the model never saw: the
     // note that says so follows them, in this turn's prompt only (first-run-naming.ts).
     const firstRunNote =
-      !app && !group && !replyTo && deps.firstRunNote
+      // The hidden first-run greeting intent is never the person's answer to the welcome.
+      !app && !group && !replyTo && deps.firstRunNote && !isFirstRunGreetingSeed(message.content.body)
         ? await deps.firstRunNote({ roomId: target.roomId, eventId: target.eventId, signal }).catch(() => undefined)
         : undefined
 

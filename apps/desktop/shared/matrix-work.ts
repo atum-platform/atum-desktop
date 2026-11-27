@@ -1,4 +1,5 @@
 import { type AccountConnectionsView } from './account-connections'
+import type { FirstRunLabels } from './first-run-labels'
 import { WORK_RELAY_PLANS, type WorkRelayPlan } from './matrix-work-relay'
 import type { WorkRelayLimit, WorkRelaySelection } from './matrix-work-relay'
 
@@ -159,6 +160,8 @@ export type MatrixWorkRequest =
   | { kind: 'setPlanConsent'; consent: MatrixWorkPlanConsentInput; plan?: WorkRelayPlan }
   | { kind: 'revokePlanConsent'; plan?: WorkRelayPlan }
   | { kind: 'readConnections' }
+  /** First run: this Mac's four connections and their plan names, as T3 reports them (local only). */
+  | { kind: 'readPlanLabels' }
   /** Settings: Work itself on or off for this account on this Mac (§8.5). */
   | { kind: 'setWork'; on: boolean }
 
@@ -189,6 +192,8 @@ export interface MatrixWorkBridge {
   readPlanConsent(plan?: WorkRelayPlan): Promise<MatrixWorkPlanConsent>
   setPlanConsent(consent: MatrixWorkPlanConsentInput, plan?: WorkRelayPlan): Promise<MatrixWorkPlanConsent>
   readConnections?(): Promise<AccountConnectionsView | null>
+  /** First run: this Mac's four connections (ChatGPT, Claude, Antigravity, OpenCode) and T3's plan names. */
+  readPlanLabels?(): Promise<FirstRunLabels>
   /** One tap, every Mac: revoke the platform's account-wide consent record. */
   revokePlanConsent(plan?: WorkRelayPlan): Promise<MatrixWorkPlanConsent>
   /** Turn Work on or off on this Mac. Off stops what runs and refuses to start it; on lets it start again. */
@@ -275,6 +280,8 @@ export function parseMatrixWorkRequest(value: unknown): MatrixWorkRequest | null
     case 'retry':
 
     case 'readConnections':
+
+    case 'readPlanLabels':
       return keys.length === 1 ? { kind: row.kind } : null
 
     case 'readPlanConsent':

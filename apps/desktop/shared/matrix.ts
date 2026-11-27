@@ -675,6 +675,11 @@ export interface MatrixSnapshot {
   rooms: MatrixRoom[]
   roomId: string | null
   messages: MatrixMessage[]
+  /**
+   * Window-only, derived (src/matrix/first-run-greeting.ts): the assistant's answer to the hidden first-run greeting intent,
+   * which the first chat shows with the Connections block under it. Main never sets it.
+   */
+  firstRunGreetingReplyId?: string
   /** The room's `m.fully_read` event captured before this visit advances receipts. */
   readMarkerEventId?: string
   /** Shared pins for the selected Team Space room. Absent in personal chats. */
