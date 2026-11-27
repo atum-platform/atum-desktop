@@ -35,6 +35,10 @@ export type MatrixAliasRequest =
   | { action: 'contacts'; matrixUsers: string[]; schemaVersion?: 2 }
   | ({ action: 'claim' } & MatrixAliasIntent)
   | ({ action: 'rename' } & MatrixAliasRenameIntent)
+  /** Invite an address with no Atum account to sign up (spec/public-handles/v1.2, 0550). */
+  | { action: 'invite'; email: string; locale: 'vi' | 'en'; requestId: string }
+  /** Accept a contact invitation's `/j#<token>` bearer, once signed in. */
+  | { action: 'accept'; token: string }
 export type MatrixAliasView =
   | { kind: 'current'; alias: MatrixAliasAssignment | null }
   | ({ kind: 'check' } & MatrixAliasCheck)
@@ -44,6 +48,12 @@ export type MatrixAliasView =
   | { kind: 'contacts'; contacts: MatrixAliasContact[]; schemaVersion?: 2; revision?: number }
   | ({ kind: 'claim' } & MatrixAliasClaim)
   | ({ kind: 'rename' } & MatrixAliasRename)
+  | ({ kind: 'invite' } & MatrixContactInvite)
+  | ({ kind: 'accept' } & MatrixContactAccept)
+/** A contact invitation was queued, or the address/inviter budget says wait. */
+export type MatrixContactInvite = { state: 'invited'; expiresAt: number } | { state: 'limited'; retryAfterSeconds: number }
+/** Accepting a contact invitation: the inviter to message, or a closed reason. */
+export type MatrixContactAccept = { state: 'accepted'; inviterMatrixUser: string } | { state: 'self' | 'unavailable' }
 /** `closed`: handles are not open yet (the naming policy awaits the owner's approval).
  * `limit` with `retryAfterSeconds`: a check budget, or, after a rename, the 30-day wait. */
 export type MatrixAliasErrorCode = 'authentication' | 'denied' | 'closed' | 'missing' | 'conflict' | 'limit' | 'invalid' | 'unavailable' | 'cancelled'

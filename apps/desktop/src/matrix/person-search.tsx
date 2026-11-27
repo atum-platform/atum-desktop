@@ -15,6 +15,7 @@ import {
   directRoomWith,
   knownPeople,
   lookupPerson,
+  lookupPersonByEmail,
   type MatrixPersonHolder,
   type MatrixPersonLookup,
   notPeople,
@@ -48,9 +49,14 @@ export type PersonOffer =
   | { label: string; onSelect(): void; disabled?: boolean; tone?: PersonActionTone }
   | { note: string }
 
+/** What inviting an address to Atum came to: sent, wait (the address or the inviter's budget), or failed. */
+export type PersonInviteOutcome = 'invited' | 'limited' | 'failed'
+
 /** An answer belongs to the query it was asked for; it is never shown against other text. */
 type SearchState =
   | { state: 'idle' }
+  /** An email with no one on Atum behind it: the row offers an invitation. */
+  | { state: 'invite'; query: string; email: string }
   | { state: 'searching'; query: string }
   | { state: 'nameOnly'; query: string }
   | { state: 'done'; query: string; result: MatrixPersonLookup }
@@ -132,6 +138,7 @@ export function PersonSearch({
   bridge = window.atumMatrix?.aliases,
   children,
   disabled,
+  invite,
   label,
   offer,
   onQueryChange,
@@ -146,6 +153,8 @@ export function PersonSearch({
   /** Rows for people already known, filtered by the same query, shown under the answer. */
   children?: ReactNode
   disabled?: boolean
+  /** Invite an email with no account to Atum; without it an unknown address is just not found. */
+  invite?(email: string): Promise<PersonInviteOutcome>
   label: string
   offer(person: FoundPerson): PersonOffer
   onQueryChange(value: string): void
@@ -161,6 +170,9 @@ export function PersonSearch({
   const [directory, setDirectory] = useState<readonly FoundPerson[]>([])
   useMatrixHandleContacts(snapshot.identity?.userId,directory.map(person=>person.userId),Boolean(snapshot.domainEnabled))
   const generation = useRef(0)
+  // The name search's own counter: a snapshot update re-runs it, and must never drop Find's answer.
+  const directoryGeneration = useRef(0)
+  const findRef = useRef<() => void>(() => {})
   const mounted = useRef(false)
   const seeded = useRef<number | undefined>(undefined)
   const parsed = parsePersonQuery(query)
@@ -177,8 +189,8 @@ export function PersonSearch({
   useEffect(() => {
     const text = query.trim()
     const bridge = typeof window === 'undefined' ? undefined : window.atumMatrix?.people
-    const mine = ++generation.current
-    if (disabled || !bridge || [...text].length < 2) {
+    const mine = ++directoryGeneration.current
+    if (disabled || !bridge || [...text].length < 2 || parsePersonQuery(query).kind === 'email') {
       setDirectory([])
       return
     }
@@ -186,7 +198,7 @@ export function PersonSearch({
     const timer = setTimeout(() => {
       setSearch({ state: 'searching', query })
       void searchPeopleDirectory(bridge, text).then(results => {
-        if (!mounted.current || generation.current !== mine) {
+        if (!mounted.current || directoryGeneration.current !== mine) {
           return
         }
         const excluded = notPeople(snapshot)
@@ -199,7 +211,7 @@ export function PersonSearch({
         })))
         setSearch({ state: 'idle' })
       }, () => {
-        if (mounted.current && generation.current === mine) {
+        if (mounted.current && directoryGeneration.current === mine) {
           setDirectory([])
           setSearch({ state: 'idle' })
         }
@@ -207,6 +219,15 @@ export function PersonSearch({
     }, 250)
     return () => clearTimeout(timer)
   }, [disabled, query, snapshot])
+
+  // An email is looked up by itself once typing settles: someone on Atum, or an invitation.
+  useEffect(() => {
+    if (disabled || parsePersonQuery(query).kind !== 'email') {
+      return
+    }
+    const timer = setTimeout(() => findRef.current(), 400)
+    return () => clearTimeout(timer)
+  }, [disabled, query])
 
   const find = () => {
     // Only the newest search may answer; an older one still in flight is dropped.
@@ -216,6 +237,15 @@ export function PersonSearch({
       setSearch({ state: 'idle' })
     } else if (parsed.kind === 'text') {
       setSearch({ state: 'nameOnly', query })
+    } else if (parsed.kind === 'email') {
+      setSearch({ state: 'searching', query })
+      void lookupPersonByEmail(bridge, parsed.email, window.atumMatrix?.people).then(result => {
+        if (mounted.current && generation.current === mine) {
+          setSearch(result.state === 'missing' && invite
+            ? { state: 'invite', query, email: parsed.email }
+            : { state: 'done', query, result })
+        }
+      })
     } else if (parsed.kind === 'matrixId') {
       // Someone who typed a whole address knows who they mean: no directory round trip.
       setSearch({
@@ -232,6 +262,8 @@ export function PersonSearch({
       })
     }
   }
+
+  findRef.current = find
 
   useEffect(() => {
     if (seed !== undefined && seeded.current !== seed) {
@@ -272,7 +304,11 @@ export function PersonSearch({
           {copy.find}
         </Button>
       </form>
-      <PersonSearchAnswer offer={offer} search={current} snapshot={snapshot} />
+      {current.state === 'invite' && invite ? (
+        <PersonInviteRow email={current.email} invite={invite} key={current.email} />
+      ) : (
+        <PersonSearchAnswer offer={offer} search={current} snapshot={snapshot} />
+      )}
       {directory.length > 0 && (
         <div aria-live="polite" className="grid gap-1" data-matrix-person-directory role="status">
           {directory.map(person => {
@@ -314,7 +350,7 @@ function PersonSearchAnswer({
   const copy = useRosterCreateCopy()
   const { t } = useI18n()
 
-  if (search.state === 'idle') {
+  if (search.state === 'idle' || search.state === 'invite') {
     return null
   }
 
@@ -423,6 +459,58 @@ function PersonSearchAnswer({
         id={result.userId ?? name}
         name={name}
       />
+    </div>
+  )
+}
+
+/** An address with no one on Atum behind it: one row, one action; then what became of it. */
+export function PersonInviteRow({ email, invite }: { email: string; invite(email: string): Promise<PersonInviteOutcome> }) {
+  const copy = useRosterCreateCopy()
+  const [state, setState] = useState<'ready' | 'inviting' | PersonInviteOutcome>('ready')
+  const mounted = useRef(true)
+
+  useEffect(() => {
+    mounted.current = true
+
+    return () => {
+      mounted.current = false
+    }
+  }, [])
+
+  const send = () => {
+    setState('inviting')
+    void invite(email).then(
+      outcome => mounted.current && setState(outcome),
+      () => mounted.current && setState('failed')
+    )
+  }
+
+  const caption =
+    state === 'invited' ? copy.invitedHint : state === 'limited' ? copy.inviteLimited : copy.notOnAtum
+
+  return (
+    <div aria-live="polite" className="grid gap-2" data-matrix-person-invite role="status">
+      <PersonRow
+        action={
+          state === 'invited' ? (
+            <PersonAction disabled tone="done">
+              {copy.invited}
+            </PersonAction>
+          ) : state === 'limited' ? undefined : (
+            <PersonAction disabled={state === 'inviting'} onClick={send} tone="primary">
+              {state === 'inviting' ? copy.inviting : copy.inviteToAtum}
+            </PersonAction>
+          )
+        }
+        caption={caption}
+        id={email}
+        name={email}
+      />
+      {state === 'failed' && (
+        <NoticeBand role="alert" tone="failure">
+          {copy.inviteFailed}
+        </NoticeBand>
+      )}
     </div>
   )
 }

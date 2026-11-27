@@ -1,4 +1,5 @@
 import { MATRIX_ALIAS_CONTACTS_MAX, type MatrixAliasContact, type MatrixAliasErrorCode, type MatrixAliasRequest, type MatrixAliasView } from '../../shared/matrix-aliases'
+import { MATRIX_INVITE_LINK_TOKEN_PATTERN } from '../../shared/matrix-invite-link'
 
 import type { NativeGrant } from './authorization'
 import { readDomainJson } from './domain'
@@ -41,7 +42,9 @@ const REQUIRED: Record<MatrixAliasRequest['action'], string[]> = {
   search: ['action', 'email'],
   contacts: ['action', 'matrixUsers'],
   claim: ['action', 'handle', 'requestId'],
-  rename: ['action', 'handle', 'from', 'requestId']
+  rename: ['action', 'handle', 'from', 'requestId'],
+  invite: ['action', 'email', 'locale', 'requestId'],
+  accept: ['action', 'token']
 }
 
 /** The longest wait a rename refusal names: the platform's 30 days, and a day's margin. */
@@ -55,15 +58,17 @@ export function parseMatrixAliasRequest(value: unknown): MatrixAliasRequest {
   const action = value.action as MatrixAliasRequest['action']
 
   // Finding someone has no assistant selector: the directory answers the same for everyone.
-  const finding = action === 'lookup' || action === 'search' || action === 'contacts'
+  const finding = action === 'lookup' || action === 'search' || action === 'contacts' || action === 'invite' || action === 'accept'
 
   if (!keys(value, REQUIRED[action], action === 'contacts' ? ['schemaVersion'] : finding ? [] : ['assistantId']) ||
-    (action !== 'current' && action !== 'search' && action !== 'contacts' && !handleInput(value.handle)) ||
+    (action !== 'current' && action !== 'search' && action !== 'contacts' && action !== 'invite' && action !== 'accept' && !handleInput(value.handle)) ||
     (action === 'contacts' && (value.schemaVersion !== undefined && value.schemaVersion !== 2 || !Array.isArray(value.matrixUsers) || value.matrixUsers.length < 1 ||
       value.matrixUsers.length > MATRIX_ALIAS_CONTACTS_MAX || !value.matrixUsers.every(contactUser) ||
       new Set(value.matrixUsers).size !== value.matrixUsers.length)) ||
-    (action === 'search' && (typeof value.email !== 'string' || value.email !== value.email.trim() ||
+    ((action === 'search' || action === 'invite') && (typeof value.email !== 'string' || value.email !== value.email.trim() ||
       value.email !== value.email.toLowerCase() || value.email.length > 254 || !EMAIL.test(value.email))) ||
+    (action === 'invite' && (!uuid(value.requestId) || (value.locale !== 'vi' && value.locale !== 'en'))) ||
+    (action === 'accept' && (typeof value.token !== 'string' || !MATRIX_INVITE_LINK_TOKEN_PATTERN.test(value.token))) ||
     (action === 'rename' && !handleInput(value.from)) ||
     ((action === 'claim' || action === 'rename') && !uuid(value.requestId))) { throw new MatrixAliasError('invalid') }
 
@@ -76,6 +81,12 @@ export function parseMatrixAliasRequest(value: unknown): MatrixAliasRequest {
   if (action === 'lookup') { return { action: 'lookup', handle: value.handle as string } }
 
   if (action === 'search') { return { action: 'search', email: value.email as string } }
+
+  if (action === 'invite') {
+    return { action: 'invite', email: value.email as string, locale: value.locale as 'vi' | 'en', requestId: value.requestId as string }
+  }
+
+  if (action === 'accept') { return { action: 'accept', token: value.token as string } }
 
   if (action === 'contacts') { return { action: 'contacts', matrixUsers: [...(value.matrixUsers as string[])], ...(value.schemaVersion === 2 ? {schemaVersion:2 as const} : {}) } }
 
@@ -142,6 +153,27 @@ export function parseMatrixAliasResponse(value: unknown, input: MatrixAliasReque
     return { kind: 'search', matrixUser: value.matrixUser as string | null }
   }
 
+  if (input.action === 'invite') {
+    if (value.state === 'invited' && keys(value, ['state', 'expiresAt']) && Number.isSafeInteger(value.expiresAt)) {
+      return { kind: 'invite', state: 'invited', expiresAt: value.expiresAt as number }
+    }
+    if (value.state === 'limited' && keys(value, ['state', 'retryAfterSeconds']) && Number.isSafeInteger(value.retryAfterSeconds) &&
+      Number(value.retryAfterSeconds) >= 1 && Number(value.retryAfterSeconds) <= 86400) {
+      return { kind: 'invite', state: 'limited', retryAfterSeconds: value.retryAfterSeconds as number }
+    }
+    invalid()
+  }
+
+  if (input.action === 'accept') {
+    if (value.state === 'accepted' && keys(value, ['state', 'inviterMatrixUser']) && matrixUser(value.inviterMatrixUser)) {
+      return { kind: 'accept', state: 'accepted', inviterMatrixUser: value.inviterMatrixUser as string }
+    }
+    if ((value.state === 'self' || value.state === 'unavailable') && keys(value, ['state'])) {
+      return { kind: 'accept', state: value.state }
+    }
+    invalid()
+  }
+
   if (input.action === 'contacts') {
     const contacts = value.contacts
     const v2 = input.schemaVersion === 2
@@ -197,10 +229,15 @@ export async function requestMatrixAlias(resource: string, grant: NativeGrant, v
   }
 
   if ('assistantId' in input && input.assistantId) { query.set('assistantId', input.assistantId) }
-  const read = input.action !== 'claim' && input.action !== 'rename' && input.action !== 'search' && input.action !== 'contacts'
+  const read = input.action !== 'claim' && input.action !== 'rename' && input.action !== 'search' && input.action !== 'contacts' &&
+    input.action !== 'invite' && input.action !== 'accept'
 
   const body = input.action === 'search'
     ? JSON.stringify({ email: input.email })
+    : input.action === 'invite'
+    ? JSON.stringify({ email: input.email, locale: input.locale, requestId: input.requestId })
+    : input.action === 'accept'
+    ? JSON.stringify({ token: input.token })
     : input.action === 'contacts'
     ? JSON.stringify({ matrixUsers: input.matrixUsers, ...(input.schemaVersion===2 ? {schemaVersion:2} : {}) })
     : input.action === 'claim' || input.action === 'rename'

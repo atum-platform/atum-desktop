@@ -224,7 +224,7 @@ describe('the start menu behind the roster’s +', () => {
     ])
     expect(within(footer).getAllByRole('button').map(button => button.textContent)).toEqual([
       'New assistant',
-      'Invite a friend'
+      'Add contacts'
     ])
     expect(footer.querySelector('.ak-btn--primary')).toBeNull()
   })
@@ -313,7 +313,7 @@ describe('the start menu behind the roster’s +', () => {
     })
     fireEvent.click(within(start).getByRole('button', { name: 'Find @lan on Atum' }))
     await waitFor(() => expect(within(found()).getByText('@lan')).toBeTruthy())
-    expect(dialog('Add a friend')).toBeTruthy()
+    expect(dialog('Add contacts')).toBeTruthy()
     // One lookup for the @name; the sheet's own contacts read (handles of people it lists) aside.
     const lookups = vi.mocked(aliases!.request).mock.calls.filter(([input]) => input.action !== 'contacts')
     expect(lookups).toEqual([[{ action: 'lookup', handle: 'lan' }]])
@@ -324,8 +324,8 @@ describe('the start menu behind the roster’s +', () => {
     fireEvent.click(within(dialog('Start a chat')).getByRole('button', { name: 'New group' }))
     expect(dialog('New group')).toBeTruthy()
     open({ kind: 'start' })
-    fireEvent.click(within(dialog('Start a chat')).getByRole('button', { name: 'Invite a friend' }))
-    expect(dialog('Add a friend')).toBeTruthy()
+    fireEvent.click(within(dialog('Start a chat')).getByRole('button', { name: 'Add contacts' }))
+    expect(dialog('Add contacts')).toBeTruthy()
     open({ kind: 'start' })
     fireEvent.click(within(dialog('Start a chat')).getByRole('button', { name: 'New assistant' }))
     expect(dialog('New assistant')).toBeTruthy()
@@ -358,7 +358,7 @@ describe('the start menu behind the roster’s +', () => {
     setup({ aliases: null, snapshot: { ...SNAPSHOT, agentCreation: false } })
     const start = dialog('Start a chat')
     expect(within(start).queryByRole('button', { name: 'New assistant' })).toBeNull()
-    expect(within(start).queryByRole('button', { name: 'Invite a friend' })).toBeNull()
+    expect(within(start).queryByRole('button', { name: 'Add contacts' })).toBeNull()
     fireEvent.change(within(start).getByRole('textbox', { name: 'Search people, assistants and apps' }), {
       target: { value: 'lan' }
     })
@@ -369,10 +369,10 @@ describe('the start menu behind the roster’s +', () => {
 
 describe('adding a friend by their @name', () => {
   const findFriend = (query: string) => {
-    fireEvent.change(within(dialog('Add a friend')).getByRole('textbox', { name: 'Their @name' }), {
+    fireEvent.change(within(dialog('Add contacts')).getByRole('textbox', { name: '@name or email' }), {
       target: { value: query }
     })
-    fireEvent.click(within(dialog('Add a friend')).getByRole('button', { name: 'Find' }))
+    fireEvent.click(within(dialog('Add contacts')).getByRole('button', { name: 'Find' }))
   }
 
   it('starts a direct conversation with someone new', async () => {
@@ -492,8 +492,8 @@ describe('adding a friend by their @name', () => {
       })
 
       findFriend(handle)
-      await waitFor(() => expect(within(dialog('Add a friend')).getByText(text, { exact: false })).toBeTruthy())
-      expect(within(dialog('Add a friend')).queryByRole('button', { name: 'Message' })).toBeNull()
+      await waitFor(() => expect(within(dialog('Add contacts')).getByText(text, { exact: false })).toBeTruthy())
+      expect(within(dialog('Add contacts')).queryByRole('button', { name: 'Message' })).toBeNull()
       expect(command).not.toHaveBeenCalled()
     }
   )
@@ -501,7 +501,7 @@ describe('adding a friend by their @name', () => {
   it('asks for an exact @name instead of searching for a name', () => {
     const { aliases } = setup({ initial: { kind: 'friend' } })
     findFriend('Lan Nguyen')
-    expect(within(dialog('Add a friend')).getByText('To find someone new, enter their exact @name.')).toBeTruthy()
+    expect(within(dialog('Add contacts')).getByText('To find someone new, enter their exact @name.')).toBeTruthy()
     expect(aliases!.request).not.toHaveBeenCalled()
   })
 
@@ -528,8 +528,8 @@ describe('adding a friend by their @name', () => {
 
     setup({ aliases, initial: { kind: 'friend' } })
     findFriend('lan')
-    expect(within(dialog('Add a friend')).getByText('Searching…')).toBeTruthy()
-    fireEvent.change(within(dialog('Add a friend')).getByRole('textbox', { name: 'Their @name' }), {
+    expect(within(dialog('Add contacts')).getByText('Searching…')).toBeTruthy()
+    fireEvent.change(within(dialog('Add contacts')).getByRole('textbox', { name: '@name or email' }), {
       target: { value: 'linh' }
     })
     await act(async () => answer(person('lan', '@lan:test')))
@@ -549,13 +549,13 @@ describe('adding a friend by their @name', () => {
     findFriend('lan')
     await waitFor(() => expect(within(found()).getByRole('button', { name: 'Message' })).toBeTruthy())
     fireEvent.click(within(found()).getByRole('button', { name: 'Message' }))
-    fireEvent.keyDown(dialog('Add a friend'), { key: 'Escape' })
+    fireEvent.keyDown(dialog('Add contacts'), { key: 'Escape' })
     open({ kind: 'friend' })
     findFriend('lan')
     await waitFor(() =>
       expect((within(found()).getByRole('button', { name: 'Message' }) as HTMLButtonElement).disabled).toBe(true)
     )
-    fireEvent.keyDown(dialog('Add a friend'), { key: 'Escape' })
+    fireEvent.keyDown(dialog('Add contacts'), { key: 'Escape' })
     await act(async () => finish('!dm:test'))
     expect(command).toHaveBeenCalledOnce()
     expect(onConversationCreated).not.toHaveBeenCalled()
@@ -567,8 +567,8 @@ describe('adding a friend by their @name', () => {
     findFriend('lan')
     await waitFor(() => expect(within(found()).getByRole('button', { name: 'Message' })).toBeTruthy())
     fireEvent.click(within(found()).getByRole('button', { name: 'Message' }))
-    expect(await within(dialog('Add a friend')).findByRole('alert')).toBeTruthy()
-    expect(within(dialog('Add a friend')).getByRole('alert').textContent).toContain("Couldn't start the chat.")
+    expect(await within(dialog('Add contacts')).findByRole('alert')).toBeTruthy()
+    expect(within(dialog('Add contacts')).getByRole('alert').textContent).toContain("Couldn't start the chat.")
   })
 })
 
@@ -900,5 +900,78 @@ describe('an app in the start menu', () => {
     pick(/^Acme/u)
     expect(chat).toHaveBeenCalledOnce()
     finish()
+  })
+})
+
+describe('adding a contact by email (owner 2026-11-25)', () => {
+  /** The alias bridge for email: who the address belongs to, and what an invitation answers. */
+  function byEmail(owner: string | null, invite: MatrixAliasResult = { ok: true, value: { kind: 'invite', state: 'invited', expiresAt: 1 } }) {
+    const request = vi.fn(async (input: MatrixAliasRequest): Promise<MatrixAliasResult> =>
+      input.action === 'search'
+        ? { ok: true, value: { kind: 'search', matrixUser: owner } }
+        : input.action === 'invite'
+          ? invite
+          : { ok: true, value: { kind: 'lookup', handle: '', state: 'available' } as never })
+
+    return { pending: vi.fn(), request } satisfies MatrixAliasBridge
+  }
+
+  const typeEmail = (value: string) => {
+    fireEvent.change(within(dialog('Add contacts')).getByRole('textbox', { name: '@name or email' }), { target: { value } })
+    fireEvent.click(within(dialog('Add contacts')).getByRole('button', { name: 'Find' }))
+  }
+
+  const inviteRow = () => window.document.querySelector<HTMLElement>('[data-matrix-person-invite]')
+
+  it('finds someone already on Atum by their exact email and messages them as today', async () => {
+    const aliases = byEmail('@lan:test')
+    const { command } = setup({ aliases, initial: { kind: 'friend' } })
+
+    typeEmail('Support@Example.com')
+    await waitFor(() => expect(within(found()).getByRole('button', { name: 'Message' })).toBeTruthy())
+    expect(aliases.request).toHaveBeenCalledWith({ action: 'search', email: 'support@example.com' })
+    expect(inviteRow()).toBeNull()
+    fireEvent.click(within(found()).getByRole('button', { name: 'Message' }))
+    expect(command).toHaveBeenCalledWith({ kind: 'create', name: '', invite: ['@lan:test'], direct: true })
+  })
+
+  it('invites an email with no account to Atum: one action, then what became of it', async () => {
+    const aliases = byEmail(null)
+    setup({ aliases, initial: { kind: 'friend' } })
+
+    typeEmail('hello@example.com')
+    await waitFor(() => expect(inviteRow()).toBeTruthy())
+    expect(within(inviteRow()!).getByText('hello@example.com')).toBeTruthy()
+    expect(within(inviteRow()!).getByText('Not on Atum yet')).toBeTruthy()
+    expect(within(inviteRow()!).getAllByRole('button')).toHaveLength(1)
+    fireEvent.click(within(inviteRow()!).getByRole('button', { name: 'Invite to Atum' }))
+    await waitFor(() => expect(within(inviteRow()!).getByText('We emailed them a link to join.')).toBeTruthy())
+    expect(within(inviteRow()!).getByRole('button', { name: 'Invited' })).toHaveProperty('disabled', true)
+    const sent = aliases.request.mock.calls.map(([input]) => input).find(input => input.action === 'invite')
+    expect(sent).toMatchObject({ action: 'invite', email: 'hello@example.com', locale: 'en' })
+    expect((sent as { requestId: string }).requestId).toMatch(/^[0-9a-f-]{36}$/u)
+  })
+
+  it('says to wait when the address was invited recently, with no button to press again', async () => {
+    setup({
+      aliases: byEmail(null, { ok: true, value: { kind: 'invite', state: 'limited', retryAfterSeconds: 600 } }),
+      initial: { kind: 'friend' }
+    })
+
+    typeEmail('help@example.com')
+    await waitFor(() => expect(inviteRow()).toBeTruthy())
+    fireEvent.click(within(inviteRow()!).getByRole('button', { name: 'Invite to Atum' }))
+    await waitFor(() => expect(within(inviteRow()!).getByText('Invited recently. Try again later.')).toBeTruthy())
+    expect(within(inviteRow()!).queryByRole('button')).toBeNull()
+  })
+
+  it('a failed invitation says so and can be tried again', async () => {
+    setup({ aliases: byEmail(null, { ok: false, error: 'unavailable' }), initial: { kind: 'friend' } })
+
+    typeEmail('info@example.com')
+    await waitFor(() => expect(inviteRow()).toBeTruthy())
+    fireEvent.click(within(inviteRow()!).getByRole('button', { name: 'Invite to Atum' }))
+    await waitFor(() => expect(within(inviteRow()!).getByRole('alert').textContent).toContain("Couldn't send the invite."))
+    expect(within(inviteRow()!).getByRole('button', { name: 'Invite to Atum' })).toBeTruthy()
   })
 })

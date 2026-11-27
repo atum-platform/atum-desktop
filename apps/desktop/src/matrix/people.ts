@@ -30,6 +30,8 @@ export interface MatrixPerson {
 const HANDLE = /^[a-z][a-z0-9_]{2,31}$/
 // The shape a conversation's invite accepts (`parseMatrixCommand`).
 const MATRIX_ID = /^@[^:\s]+:[^\s]+$/
+// The address shape main accepts for an exact-email search (`main-people-search.ts`).
+const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/u
 
 /** Matrix allows at most this many invitations in one new conversation (`parseMatrixCommand`). */
 export const MATRIX_GROUP_INVITE_LIMIT = 20
@@ -42,6 +44,8 @@ export type MatrixPersonQuery =
   | { kind: 'matrixId'; userId: string }
   /** A name: it filters people already known, and cannot find anyone new. */
   | { kind: 'text'; text: string }
+  /** An email address: someone on Atum by their exact address, or someone to invite. */
+  | { kind: 'email'; email: string }
 
 export function parsePersonQuery(raw: string): MatrixPersonQuery {
   const text = raw.trim()
@@ -52,6 +56,10 @@ export function parsePersonQuery(raw: string): MatrixPersonQuery {
 
   if (text.length <= 1024 && MATRIX_ID.test(text)) {
     return { kind: 'matrixId', userId: text }
+  }
+
+  if (text.length <= 254 && EMAIL.test(text)) {
+    return { kind: 'email', email: text.toLowerCase() }
   }
 
   const handle = text.replace(/^@/, '').toLowerCase()
@@ -236,6 +244,64 @@ const HOLDERS = { human: 'person', agent: 'assistant', app: 'app', organization:
 
 /** Finds who holds a public @name. The directory never lists people, so this is an exact
  * lookup, made only on request; its refusals come back as plain states. */
+/** Someone on Atum by their exact email, or `missing` (no account, or one not found by email). */
+export async function lookupPersonByEmail(
+  bridge: MatrixAliasBridge | undefined,
+  email: string,
+  people?: MatrixPeopleSearchBridge
+): Promise<MatrixPersonLookup> {
+  // The people search resolves the exact address the same way and also carries their @name.
+  if (people) {
+    try {
+      const found = await people.search({ query: email, limit: 1 })
+
+      if (found.ok) {
+        const person = found.value.results[0]
+
+        if (person?.handle) {
+          rememberMatrixHandle(person.userId, person.handle)
+        }
+
+        return person
+          ? { state: 'found', handle: person.handle ?? '', holder: 'person', userId: person.userId }
+          : { state: 'missing', handle: email }
+      }
+
+      if (found.error === 'limit') {
+        return { state: 'failed', reason: 'limit', retryAfterSeconds: found.retryAfterSeconds }
+      }
+    } catch {
+      // Fall back to the alias directory's own exact-email search.
+    }
+  }
+
+  if (!bridge) {
+    return { state: 'failed', reason: 'unavailable' }
+  }
+
+  try {
+    const result = await bridge.request({ action: 'search', email })
+
+    if (!result.ok) {
+      if (result.error === 'limit') {
+        return { state: 'failed', reason: 'limit', retryAfterSeconds: result.retryAfterSeconds }
+      }
+
+      return { state: 'failed', reason: result.error === 'authentication' ? 'signedOut' : 'unavailable' }
+    }
+
+    if (result.value.kind !== 'search') {
+      return { state: 'failed', reason: 'unavailable' }
+    }
+
+    return result.value.matrixUser
+      ? { state: 'found', handle: '', holder: 'person', userId: result.value.matrixUser }
+      : { state: 'missing', handle: email }
+  } catch {
+    return { state: 'failed', reason: 'unavailable' }
+  }
+}
+
 export async function lookupPerson(bridge: MatrixAliasBridge | undefined, handle: string): Promise<MatrixPersonLookup> {
   if (!bridge) {
     return { state: 'failed', reason: 'unavailable' }

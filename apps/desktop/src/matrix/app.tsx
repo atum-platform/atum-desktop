@@ -287,6 +287,7 @@ import {
   ComposerPlusMenu
 } from './composer-plus'
 import { $matrixConnectionsRequests } from './connections-request'
+import { useContactInviteAccept } from './contact-invites'
 import { ConversationMembership, MatrixMembers, MatrixMembersButton } from './conversation-controls'
 import { useConversationCopy } from './conversation-copy'
 import { conversationMainInstead, resolveProjectedConversation } from './conversation-marker'
@@ -513,6 +514,7 @@ import {
 } from './team-space/invite-inbox'
 import {
   $matrixInviteJoinRequest,
+  clearMatrixInviteJoinRequest,
   useMatrixInviteLinkBridge
 } from './team-space/invite-join'
 import { teamSpaceAccountKey, teamSpaceKey } from './team-space/keys'
@@ -7351,8 +7353,27 @@ function MatrixAccountView({
   const messageLinkRequest = useStore($matrixMessageLinkRequest)
   const inviteJoinRequest = useStore($matrixInviteJoinRequest)
   const pendingCompanyInvites = usePendingCompanyInvites(snapshot)
+  const readyAccountKey = snapshot.state === 'ready' && snapshot.identity ? teamSpaceAccountKey(snapshot.identity) : undefined
+  // An opened join link may be a person's "join Atum" invitation (contact-invites.ts): it is
+  // offered there first, and opens the chat with whoever invited this person. Team Space waits.
+  const contactInvite = useContactInviteAccept({
+    bridge: window.atumMatrix?.aliases,
+    onAccepted: (inviter, roomId) => {
+      const request = $matrixInviteJoinRequest.get()
+      if (request) {clearMatrixInviteJoinRequest(request)}
+      setSettingsOpen(false)
+      setDriveActive(false)
+      setWorkplaceActive(false)
+      void runMatrixCommand(roomId ? { kind: 'select', roomId } : { kind: 'create', name: '', invite: [inviter], direct: true })
+        .catch(fail)
+    },
+    ready: Boolean(readyAccountKey),
+    request: inviteJoinRequest,
+    snapshot
+  })
+  const teamInviteJoinRequest = contactInvite === 'settled' ? inviteJoinRequest : null
   useEffect(() => {
-    if (!messageLinkRequest && !inviteJoinRequest) {return}
+    if (!messageLinkRequest && !teamInviteJoinRequest) {return}
 
     setSettingsOpen(false)
     setAccountMenuOpen(false)
@@ -7361,13 +7382,12 @@ function MatrixAccountView({
     setSettingsTrip(undefined)
     setWorkplacePage(undefined)
     setWorkplaceActive(true)
-  }, [inviteJoinRequest, messageLinkRequest])
+  }, [teamInviteJoinRequest, messageLinkRequest])
 
   // A link opened while signed out waits in memory (`invite-join.ts`), never in storage. Once an account is ready the
   // join preview needs Team space on screen: bring it forward then, for that account. A request already previewed
   // by another account still opens, and its dialog refuses to join it under this one (`wrong_account`).
-  const readyAccountKey = snapshot.state === 'ready' && snapshot.identity ? teamSpaceAccountKey(snapshot.identity) : undefined
-  const inviteJoinSerial = inviteJoinRequest?.serial
+  const inviteJoinSerial = teamInviteJoinRequest?.serial
 
   useEffect(() => {
     if (!readyAccountKey || inviteJoinSerial === undefined) {return}

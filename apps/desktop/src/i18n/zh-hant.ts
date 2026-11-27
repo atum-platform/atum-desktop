@@ -488,7 +488,7 @@ export const zhHant = defineLocale({
     },
     roster: {
       createMenu: '新增',
-      addFriends: '新增好友',
+      addFriends: '新增聯絡人',
       pinLimit: '最多釘選5個聊天',
       title: '對話',
       search: '搜尋所有內容',

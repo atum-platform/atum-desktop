@@ -550,7 +550,7 @@ describe('Matrix device controls', () => {
 
     // Someone else is found by their @name (a whole address is accepted quietly), never typed as an ID.
     fireEvent.click(screen.getByRole('button', { name: 'Verify someone else’s device…' }))
-    fireEvent.change(screen.getByLabelText('Their @name'), { target: { value: '@bob:test' } })
+    fireEvent.change(screen.getByLabelText('@name or email'), { target: { value: '@bob:test' } })
     fireEvent.click(screen.getByRole('button', { name: 'Find' }))
     fireEvent.click(await screen.findByRole('button', { name: 'Show devices' }))
     await waitFor(() => expect(screen.getAllByRole('list')).toHaveLength(2))
@@ -679,10 +679,10 @@ describe('Matrix device controls', () => {
       </I18nProvider>
     )
     fireEvent.click(await screen.findByRole('button', { name: 'Verify someone else’s device…' }))
-    fireEvent.change(screen.getByLabelText('Their @name'), { target: { value: '@bob:test' } })
+    fireEvent.change(screen.getByLabelText('@name or email'), { target: { value: '@bob:test' } })
     fireEvent.click(screen.getByRole('button', { name: 'Find' }))
     fireEvent.click(await screen.findByRole('button', { name: 'Show devices' }))
-    fireEvent.change(screen.getByLabelText('Their @name'), { target: { value: '@carol:test' } })
+    fireEvent.change(screen.getByLabelText('@name or email'), { target: { value: '@carol:test' } })
 
     await act(async () => answer([{ userId: '@bob:test', deviceId: 'BOBPHONE', verified: false }]))
     expect(screen.queryByText('Another device')).toBeNull()

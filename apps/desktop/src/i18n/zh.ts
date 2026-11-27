@@ -744,7 +744,7 @@ export const zh = defineLocale({
     },
     roster: {
       createMenu: '新建',
-      addFriends: '添加好友',
+      addFriends: '添加联系人',
       pinLimit: '最多置顶5个聊天',
       title: '对话',
       search: '搜索全部内容',

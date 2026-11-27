@@ -472,6 +472,21 @@ export async function playgroundAlias(input: MatrixAliasRequest): Promise<Matrix
     }
   }
 
+  // Add contacts by email (0550): support@example.com is on Atum; any other address is invited.
+  if (input.action === 'search') {
+    await new Promise(resolve => setTimeout(resolve, 350))
+
+    return { ok: true, value: { kind: 'search', matrixUser: input.email === 'support@example.com' ? PLAYGROUND_LAN : null } }
+  }
+
+  if (input.action === 'invite') {
+    await new Promise(resolve => setTimeout(resolve, 500))
+
+    return input.email.startsWith('help')
+      ? { ok: true, value: { kind: 'invite', state: 'limited', retryAfterSeconds: 3600 } }
+      : { ok: true, value: { kind: 'invite', state: 'invited', expiresAt: Math.floor(Date.now() / 1000) + 14 * 86_400 } }
+  }
+
   if (input.action !== 'lookup') {
     return { ok: false, error: 'unavailable' }
   }
