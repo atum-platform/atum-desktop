@@ -15,11 +15,13 @@ The Drive helper validates the no-follow, same-volume copy before publishing
 either file. The source must be UTF-8 and at most 512 KiB. HTML uses static,
 XML-compatible markup with an explicit UTF-8 declaration, head and body,
 inline CSS, and a single
-1200 × 1600 page. The HTML preview rejects overflowing pages. Static SVG
-uses integer width and height, at most 2048 px each. The allowlist rejects
+1200 × 1600 page. The HTML preview rejects overflowing pages and accepts
+HTML named entities. Static SVG uses integer width and height or a viewBox
+when both dimensions are omitted. Each raster side is at most 2048 px. The allowlist rejects
 scripts, event attributes, external references and embedded documents.
-Inline styles and local SVG fragment references support editable design
-without fetched assets. The generated PNG must be nonempty, at most 8 MiB,
+Inline styles and local SVG fragment references support filters, patterns and
+masks without fetched assets. CSS comments and strings are scanned together so
+quoted text cannot hide an external reference from the gate. The generated PNG must be nonempty, at most 8 MiB,
 and match the expected dimensions.
 
 HTML uses Electron's offscreen BrowserWindow and capturePage. If the
@@ -30,7 +32,8 @@ document as a main-frame request.
 It has sandboxing, no preload, no Node integration and JavaScript disabled.
 SVG uses the upstream resvg 0.50.0 CLI with system fonts. Runtime staging
 verifies the archive and executable hashes for both Mac architectures and
-includes the MIT and Apache-2.0 notices. See
+includes the MIT and Apache-2.0 notices. The signed-app verifier checks resvg
+for the app's team ID, Developer ID and hardened runtime. See
 [`resvg-lock.json`](../apps/desktop/scripts/work-design/resvg-lock.json) and
 the [upstream release](https://github.com/linebender/resvg/releases/tag/v0.50.0).
 The bundled `work-design` skill adapts the MIT-licensed Hermes Agent
@@ -57,14 +60,24 @@ fixture exercises the private protocol with a simulated enrolled Drive journal.
 
 ```sh
 cd apps/desktop
-WORK_DESIGN_ELECTRON=/path/to/Electron WORK_DESIGN_RESVG=/path/to/resvg \
+WORK_DESIGN_RESVG=/path/to/resvg \
   ../../node_modules/.bin/vitest run --project electron \
   electron/matrix/work-design-formats.test.ts electron/matrix/work-deliverable.test.ts
 ```
 
-Use the repository's pinned Electron and the matching resvg pin above. The
+The renderer test uses the repository's pinned Electron on macOS by default.
+Set `WORK_DESIGN_ELECTRON` to override it and use the matching resvg pin above
+for the full settlement test. The renderer fixture captures the flyer at
+390 px wide to exercise the responsive viewport. Saved HTML gets one
+1200 × 1600 PNG. The direct renderer fixture also checks refusal of absolute
+and relative file requests and HTTPS requests. The
 tests check malformed, active, external and oversized input, real HTML and
 SVG raster output, quota interruption, partial sync, replay, and a
 same-thread title-size revision that preserves the original. The standalone
 Electron test process has a separate startup allowance from the renderer's
 production deadline and keeps its profile in the fixture directory.
+
+The round-three fixtures passed locally with the pinned Electron and resvg,
+including Work-to-Desktop IPC for the initial HTML, revised HTML and SVG
+pairs. The signature-verifier unit test checks the resvg path. Packaged
+Developer ID signing still requires the signed release artifact.
