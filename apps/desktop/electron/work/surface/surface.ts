@@ -365,15 +365,19 @@ export class WorkSurface {
     try {
       outcome = await parts.session.openOwnerView(async incarnation => {
         if (signal.aborted || !parts.enabled()) {throw new Error('work_open_cancelled')}
+
         const view = await this.options.createView(incarnation, signal, guest => {
           this.guest = guest
           this.publish()
         })
+
         if (signal.aborted || !parts.enabled()) {
           view.close()
           throw new Error('work_open_cancelled')
         }
+
         this.view = view
+
         return view
       }, signal)
     } catch (error) {

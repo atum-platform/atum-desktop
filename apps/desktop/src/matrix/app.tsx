@@ -9238,8 +9238,8 @@ function MatrixAccountView({
               data-atum-look-colors={conversationLook?.hasIdentityColors ? true : undefined}
               data-atum-look-tokens={conversationLook?.tokens ? true : undefined}
               data-atum-look-tone={conversationLook?.tone}
-              key="conversation"
               inert={workspaceOverFrame || undefined}
+              key="conversation"
               style={conversationLook?.style}
             >
               <AtumMainHeaderSurface
