@@ -2542,8 +2542,8 @@ describe('isolated Matrix composition', () => {
     $matrixDesktopServices.set(status)
     const { emit } = fixture()
     await screen.findByRole('button', { name: 'Continue with Google' })
-    // Before sign-in: only the approved ways in, legal copy and language. Reporting,
-    // updates and feedback wait in Settings › Help.
+    // Before sign-in: only the approved ways in, legal copy and language. Updates wait in
+    // Settings › General; reporting and feedback in Settings › Help.
     const auth = window.document.querySelector<HTMLElement>('[data-atum-auth]')!
     expect(auth.querySelector('details')).toBeNull()
     expect(within(auth).queryByRole('button', { name: 'Check for updates' })).toBeNull()
@@ -2573,14 +2573,18 @@ describe('isolated Matrix composition', () => {
     fireEvent.keyDown(window.document.activeElement ?? window.document.body, { key: 'Escape' })
 
     openAccountSettings()
-    showSettingsPane('help')
-    const general = screen.getByRole('dialog', { name: 'Help' })
-    fireEvent.click(within(general).getByRole('switch', { name: 'Share usage data' }))
-    await waitFor(() => expect(services.setEnabled).toHaveBeenCalledWith(false))
+    // The version and its update live in General (owner 2026-11-28), and Help no longer repeats them.
+    showSettingsPane('general')
+    const general = screen.getByRole('dialog', { name: 'General' })
     expect(within(general).getByRole('button', { name: 'Restart to update' })).toBeTruthy()
+    showSettingsPane('help')
+    const help = screen.getByRole('dialog', { name: 'Help' })
+    expect(within(help).queryByRole('button', { name: 'Restart to update' })).toBeNull()
+    fireEvent.click(within(help).getByRole('switch', { name: 'Share usage data' }))
+    await waitFor(() => expect(services.setEnabled).toHaveBeenCalledWith(false))
 
     // Feedback has a sheet of its own: Settings steps aside, and a closed draft is gone.
-    fireEvent.click(within(general).getByRole('button', { name: 'Send feedback…' }))
+    fireEvent.click(within(help).getByRole('button', { name: 'Send feedback…' }))
     const sheet = await screen.findByRole('dialog', { name: 'Send feedback' })
     expect(screen.queryByRole('dialog', { name: 'Help' })).toBeNull()
     fireEvent.change(within(sheet).getByRole('textbox', { name: 'Send feedback' }), {
