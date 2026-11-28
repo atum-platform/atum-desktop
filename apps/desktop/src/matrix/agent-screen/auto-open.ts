@@ -1,11 +1,3 @@
-/**
- * When the Screen opens by itself: on the run's first browser or computer-use step (plan S4).
- *
- * The tool names are Hermes's own (`browser_navigate`, `browser_click`, ..., `computer_use`), the
- * same names `matrixHermesProgressEvent` passes on as `{ kind: 'tool', name }` and the activity
- * projection carries per invocation. One open per run: a person who closes the tab mid-run is not
- * pulled back by the next click; the next run may open it again.
- */
 import type { MatrixHermesActivitySnapshot } from '../../../shared/matrix-hermes-activity'
 
 /** A tool that drives the agent's screen: its browser, or its whole desktop. */
@@ -13,23 +5,19 @@ export function agentScreenTool(name: string): boolean {
   return /^browser_[a-z0-9_]+$/u.test(name) || /^computer_use(?:_[a-z0-9_]+)?$/u.test(name)
 }
 
-/**
- * Should this activity open the Screen now? `opened` remembers the runs (invocation ids) that
- * already opened it; the caller keeps it for the life of the window.
- */
-export function agentScreenAutoOpen(
-  activity: Pick<MatrixHermesActivitySnapshot, 'invocationId' | 'state' | 'tools'> | undefined,
-  opened: Set<string>
+export function agentScreenNativeRunning(
+  activity: Pick<MatrixHermesActivitySnapshot, 'state' | 'tools'> | undefined
 ): boolean {
-  if (!activity || activity.state !== 'running' || opened.has(activity.invocationId)) {
-    return false
-  }
+  return activity?.state === 'running' && activity.tools.some(tool => agentScreenTool(tool.name))
+}
 
-  if (!activity.tools.some(tool => agentScreenTool(tool.name))) {
-    return false
-  }
-
-  opened.add(activity.invocationId)
-
-  return true
+/** A local tool start or cloud display.status can open the panel once per observed run. */
+export function agentScreenAutoOpen(input: {
+  run: string | undefined
+  lastOpened: string | undefined
+  available: boolean
+  compact: boolean
+  running: boolean
+}): boolean {
+  return Boolean(input.run && input.run !== input.lastOpened && input.available && !input.compact && input.running)
 }

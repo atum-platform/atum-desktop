@@ -1,179 +1,146 @@
-/**
- * The Screen's one transport seam: how the side panel reaches the agent's cloud screen. Every call
- * the viewer makes goes through `AgentScreenTransport`; nothing else in the pane knows where the
- * screen lives. Workstream B (atum-platform `feat/agent-browser-contract`, plan step S2) owns the
- * wire contract and S3 the controller/hub route. Until they land, the shapes below follow the
- * plan's S2 description and the native Hermes lease they map onto:
- *
- * - `observe` = `display.observe`: mints this window's viewer id and a single-use, short-lived
- *   stream grant (≤30 s), bound by the server to the owner, the agent and this device. Watching is
- *   read-only; input reaches the screen only from the lease holder (the native RFB filter).
- * - `acquire` = `display.lease.acquire` (`mode: control`): the owner takes control. The lease
- *   epoch is the contract's control revision.
- * - `release` = `display.lease.release`: the owner hands back. `released` is true only for the call
- *   that actually ended this owner's control, so a retry, a second window or a second device never
- *   gets `true` twice: that is what makes the "carry on" message once-only (owner D2).
- * - `status` = `display.status`: running and the lease, polled while the panel is open.
- *
- * Swapping in the real transport is one change: give the preload bridge an `agentScreen` that
- * implements this interface. Without one the Screen stays hidden (no dead buttons).
- */
+import type { RfbChannel as AgentScreenChannel } from '@novnc/novnc'
 
-/** Who drives the screen. `agent` is also the resting state (nobody is watching). */
-export type AgentScreenHolder = 'agent' | 'human'
+import type { MatrixUiBridge } from '../../../shared/matrix'
+import type {
+  AgentScreenHandback,
+  AgentScreenOpen,
+  AgentScreenRelease,
+  AgentScreenReply,
+  AgentScreenRequest,
+  AgentScreenStatus,
+  MatrixAgentScreenBridge
+} from '../../../shared/matrix-agent-screen'
 
-export interface AgentScreenLease {
-  holder: AgentScreenHolder
-  /** The native lease epoch; the contract's control revision. Advances on takeover and release. */
-  epoch: number
-  /** First 12 hex of sha256(viewer id) of the human holder. The raw id never travels. */
-  viewerHash: string | null
-}
+export type { AgentScreenChannel }
+export type { AgentScreenStatus } from '../../../shared/matrix-agent-screen'
 
-export interface AgentScreenStatus {
-  running: boolean
-  lease: AgentScreenLease
-}
-
-/** One watch attach: the minted viewer and the stream it may dial once. */
-export interface AgentScreenGrant {
-  viewerId: string
-  /** The hub's stream URL carrying the single-use ticket. Never logged. */
-  streamUrl: string
-  expiresAt: number
-  status: AgentScreenStatus
-}
-
-/** Who the screen belongs to: the agent and its owner's chat with it. The server checks the caller
- * against the agent's authoritative owner binding (owner D3); the client only names the agent. */
 export interface AgentScreenBinding {
   agentPrincipal: string
   roomId: string
 }
 
-export type AgentScreenRefusal =
-  | 'not_owner'
-  | 'ticket_reused'
-  | 'ticket_expired'
-  | 'stale_revision'
-  | 'not_holder'
-  | 'unavailable'
+export interface AgentScreenControl {
+  sessionId: string
+  expectedControlRevision: number
+}
 
 export class AgentScreenError extends Error {
-  constructor(readonly reason: AgentScreenRefusal) {
+  constructor(readonly reason: Extract<AgentScreenReply, { error: string }>['error']) {
     super(`agent_screen_${reason}`)
   }
 }
 
 export interface AgentScreenTransport {
-  status(binding: AgentScreenBinding): Promise<AgentScreenStatus>
-  /** `viewerId`: re-present this window's id so a reconnect keeps its control. */
-  observe(binding: AgentScreenBinding, input: { viewerId?: string }): Promise<AgentScreenGrant>
-  acquire(
-    binding: AgentScreenBinding,
-    input: { viewerId: string; expectedEpoch: number }
-  ): Promise<{ lease: AgentScreenLease }>
-  release(
-    binding: AgentScreenBinding,
-    input: { viewerId: string } | { force: true }
-  ): Promise<{ lease: AgentScreenLease; released: boolean }>
+  status(binding: AgentScreenBinding, sessionId?: string): Promise<AgentScreenStatus>
+  observe(binding: AgentScreenBinding, sessionId?: string): Promise<AgentScreenOpen>
+  acquire(binding: AgentScreenBinding, input: AgentScreenControl): Promise<AgentScreenOpen>
+  release(binding: AgentScreenBinding, input: AgentScreenControl): Promise<AgentScreenRelease>
+  handback(binding: AgentScreenBinding, input: AgentScreenControl & { askEventId: string }): Promise<AgentScreenHandback>
+  forceRelease(binding: AgentScreenBinding, expectedControlRevision: number): Promise<AgentScreenRelease>
+  connect(ticket: string): AgentScreenChannel | null
 }
 
-/** The bridge's transport, when this build has one. */
-export function agentScreenTransport(): AgentScreenTransport | null {
-  const bridge = (globalThis as { atumMatrix?: { agentScreen?: AgentScreenTransport } }).atumMatrix
+export function createAgentScreenTransport(bridge: MatrixAgentScreenBridge): AgentScreenTransport {
+  const request = async <T>(roomId: string, value: AgentScreenRequest['request']): Promise<T> => {
+    const result = await bridge.request({ roomId, request: value })
 
-  return bridge?.agentScreen ?? null
-}
-
-/** `viewer_hash` as the lease names its holder: first 12 hex of sha256(viewer id). */
-export async function agentScreenViewerHash(viewerId: string): Promise<string> {
-  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(viewerId))
-
-  return Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, '0'))
-    .join('')
-    .slice(0, 12)
-}
-
-/**
- * An in-memory screen that behaves like the native lease, for the playground, screenshots and
- * tests until workstream B lands. `streamUrl` is empty: the pane paints no frames from it.
- */
-export function mockAgentScreenTransport(
-  options: { running?: boolean; owner?: boolean; now?: () => number } = {}
-): AgentScreenTransport & { lease(): AgentScreenLease; setRunning(running: boolean): void } {
-  const now = options.now ?? Date.now
-  let running = options.running ?? true
-  let lease: AgentScreenLease = { holder: 'agent', epoch: 0, viewerHash: null }
-  let minted = 0
-  const viewers = new Set<string>()
-
-  const guard = () => {
-    if (options.owner === false) {
-      throw new AgentScreenError('not_owner')
+    if ('error' in result) {
+      throw new AgentScreenError(result.error)
     }
+
+    // Main validates each reply against the schema for the request's operation.
+    return result as T
   }
 
   return {
-    lease: () => lease,
-    setRunning: value => {
-      running = value
+    status: ({ agentPrincipal, roomId }, sessionId) => request(roomId, { op: 'status', agentPrincipal, sessionId }),
+    observe: ({ agentPrincipal, roomId }, sessionId) => request(roomId, { op: 'open', mode: 'watch', agentPrincipal, sessionId }),
+    acquire: ({ agentPrincipal, roomId }, input) => request(roomId, { op: 'open', mode: 'control', agentPrincipal, ...input }),
+    release: ({ agentPrincipal, roomId }, input) => request(roomId, { op: 'release', agentPrincipal, ...input }),
+    handback: ({ agentPrincipal, roomId }, input) => request(roomId, { op: 'handback', agentPrincipal, ...input }),
+    forceRelease: ({ agentPrincipal, roomId }, expectedControlRevision) =>
+      request(roomId, { op: 'force_release', agentPrincipal, expectedControlRevision }),
+    connect: ticket => openAgentScreenChannel(bridge, ticket)
+  }
+}
+
+const transports = new WeakMap<MatrixAgentScreenBridge, AgentScreenTransport>()
+
+let playgroundTransport: AgentScreenTransport | null = null
+
+/** Installed only by the standalone playground entry. Electron supplies the preload instead. */
+export function installPlaygroundAgentScreen(transport: AgentScreenTransport): void {
+  playgroundTransport = transport
+}
+
+export function agentScreenTransport(): AgentScreenTransport | null {
+  const bridge = (globalThis as { atumMatrix?: MatrixUiBridge }).atumMatrix?.agentScreen
+  if (!bridge) {return playgroundTransport}
+
+  const existing = transports.get(bridge)
+  if (existing) {return existing}
+
+  const transport = createAgentScreenTransport(bridge)
+  transports.set(bridge, transport)
+  return transport
+}
+
+/** noVNC accepts a raw channel with the WebSocket surface below. Main dials and authenticates. */
+function openAgentScreenChannel(bridge: MatrixAgentScreenBridge, ticket: string): AgentScreenChannel {
+  const id = crypto.randomUUID()
+  const channel: AgentScreenChannel = {
+    binaryType: 'arraybuffer',
+    protocol: '',
+    readyState: 0,
+    onerror: null,
+    onmessage: null,
+    onopen: null,
+    onclose: null,
+    close(clean = false) {
+      if (channel.readyState === 3) {return}
+      channel.readyState = 3
+      unsubscribe()
+      bridge.disconnect(id, clean)
     },
-    async status() {
-      guard()
-
-      return { running, lease }
-    },
-    async observe(_binding, input) {
-      guard()
-
-      const viewerId = input.viewerId && viewers.has(input.viewerId) ? input.viewerId : `viewer-${++minted}`
-      viewers.add(viewerId)
-
-      return { viewerId, streamUrl: '', expiresAt: now() + 30_000, status: { running, lease } }
-    },
-    async acquire(_binding, input) {
-      guard()
-
-      if (!viewers.has(input.viewerId)) {
-        throw new AgentScreenError('not_holder')
-      }
-
-      if (input.expectedEpoch !== lease.epoch) {
-        throw new AgentScreenError('stale_revision')
-      }
-
-      const viewerHash = await agentScreenViewerHash(input.viewerId)
-
-      // The holder taking over again is idempotent, like the native lease.
-      if (lease.holder !== 'human' || lease.viewerHash !== viewerHash) {
-        lease = { holder: 'human', epoch: lease.epoch + 1, viewerHash }
-      }
-
-      return { lease }
-    },
-    async release(_binding, input) {
-      guard()
-
-      // Forced recovery clears whoever holds control, and never counts as this owner's hand back:
-      // it must not author a "carry on" (Astra D2).
-      if ('force' in input) {
-        if (lease.holder === 'human') {
-          lease = { holder: 'agent', epoch: lease.epoch + 1, viewerHash: null }
-        }
-
-        return { lease, released: false }
-      }
-
-      const viewerHash = await agentScreenViewerHash(input.viewerId)
-
-      if (lease.holder !== 'human' || lease.viewerHash !== viewerHash) {
-        return { lease, released: false }
-      }
-
-      lease = { holder: 'agent', epoch: lease.epoch + 1, viewerHash: null }
-
-      return { lease, released: true }
+    send(bytes) {
+      if (channel.readyState === 1) {bridge.send(id, new Uint8Array(bytes).buffer)}
     }
   }
+
+  const closed = (code: number, wasClean: boolean) => {
+    if (channel.readyState === 3) {return}
+    channel.readyState = 3
+    unsubscribe()
+    channel.onclose?.({ code, wasClean })
+  }
+  const unsubscribe = bridge.subscribe(id, event => {
+    switch (event.kind) {
+      case 'open':
+        channel.readyState = 1
+        channel.onopen?.()
+        break
+      case 'frame':
+        try {
+          channel.onmessage?.({ data: event.bytes })
+        } finally {
+          bridge.acknowledge(id, event.sequence)
+        }
+        break
+      case 'close':
+        closed(event.code, event.clean)
+        break
+    }
+  })
+
+  // Subscribe first and give noVNC time to attach its handlers before dialing.
+  queueMicrotask(() => {
+    if (channel.readyState === 3) {return}
+    void bridge.connect(ticket, id).then(accepted => {
+      if (!accepted) {closed(4401, false)}
+      // Close may have raced the initial invoke. Its stream ID remains unique.
+      if (accepted && channel.readyState === 3) {bridge.disconnect(id, false)}
+    }, () => closed(1006, false))
+  })
+
+  return channel
 }

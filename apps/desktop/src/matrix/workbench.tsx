@@ -23,9 +23,9 @@ import type { MatrixDrivePreview, MatrixDriveRow } from '../../shared/matrix-dri
 
 import { MatrixAgentDesk, MatrixAgentDeskFace } from './agent-desk'
 import { matrixAgentDeskAgent } from './agent-desk-model'
-import { requestMatrixScreenContinue } from './agent-screen/continue'
 import { MatrixAgentScreenPane } from './agent-screen/pane'
-import { agentScreenTransport } from './agent-screen/transport'
+import type { AgentScreenTransport } from './agent-screen/transport'
+import { agentScreenAskEvent } from './agent-screen/use-status'
 import { directAppBot } from './app-bots/direct-app'
 import { AppBotPanel } from './app-bots/panel'
 import type { AppBotRouteRequest } from './app-bots/route-request'
@@ -169,6 +169,7 @@ export function MatrixWorkbench({
   documentRequest,
   deskRequest,
   screenRequest,
+  screenTransport,
   browserRequest,
   terminalRequest,
   driveRequest,
@@ -198,6 +199,7 @@ export function MatrixWorkbench({
   deskRequest?: number
   /** Bumped by Watch and by the run's first browser step: open the agent's Screen tab. */
   screenRequest?: number
+  screenTransport?: AgentScreenTransport
   browserRequest?: { id: string; url: string; scope: string }
   terminalRequest?: { id: string; scope: string; serial: number }
   driveRequest?: MatrixDrivePreviewRequest
@@ -242,7 +244,6 @@ export function MatrixWorkbench({
   const deskName = deskAgent ? matrixRosterAgentName(deskAgent, t.matrixShell.assistantName) : ''
   // The agent's cloud screen, in cloud and relay mode alike (owner D4): only where this build can
   // reach it, so there is never a tab that cannot show anything.
-  const screenTransport = useMemo(() => agentScreenTransport(), [])
   const screenShown = Boolean(deskAgent && room && screenTransport)
   const screenCopy = matrixAgentScreenText(locale)
 
@@ -837,10 +838,10 @@ export function MatrixWorkbench({
           <div className={selected === 'screen' ? 'flex h-full min-h-0 flex-col' : 'hidden'} data-matrix-agent-screen-tab>
             <MatrixAgentScreenPane
               active={selected === 'screen' && !hidden}
+              askEventId={agentScreenAskEvent(snapshot.messages, deskAgent.userId)}
               binding={{ agentPrincipal: deskAgent.principal, roomId: room.id }}
               key={`${scope}:${deskAgent.principal}`}
               name={deskName}
-              onContinue={text => requestMatrixScreenContinue(room.id, text)}
               transport={screenTransport}
             />
           </div>

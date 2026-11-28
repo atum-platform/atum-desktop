@@ -12,40 +12,23 @@
  * all copies or substantial portions of the Software. THE SOFTWARE IS PROVIDED "AS IS", WITHOUT
  * WARRANTY OF ANY KIND, EXPRESS OR IMPLIED. See LICENSES/Hermes-Agent-MIT.txt.
  *
- * Upstream keeps this state in component refs; here it is one reducer so the rules are tested:
- *
- * - watch → control → hand back: control only after the server granted the lease to this window's
- *   viewer; "handing back" until the server confirms the release.
- * - An evicted viewer (bridge close 4000, `control-taken`) goes back to watching on a fresh ticket.
- *   A bridge that evicts every fresh attach is bounded (three rapid evictions), then an error.
- * - A dropped stream keeps the lease and the viewer: reconnecting re-presents the same viewer id,
- *   so the owner is still in control. Only an explicit hand back (or closing the tab) releases it.
+ * Control comes from the controller's session-scoped status and a connected control stream.
  */
-import type { AgentScreenLease, AgentScreenStatus } from './transport'
+import type { AgentScreenStatus } from './transport'
 
-/** Bridge close code when another viewer took the lease (the native display bridge). */
-export const AGENT_SCREEN_CLOSE_CONTROL_TAKEN = 4000
-/** Evictions this soon after dialing count toward the loop budget; slower ones reset it. */
-export const AGENT_SCREEN_EVICTION_WINDOW_MS = 10_000
-export const AGENT_SCREEN_MAX_RAPID_EVICTIONS = 3
+const CLOSE_CONTROL_TAKEN = 4000
+const EVICTION_WINDOW_MS = 10_000
+const MAX_RAPID_EVICTIONS = 3
 
-export type AgentScreenConn = 'idle' | 'attaching' | 'live' | 'error'
 export type AgentScreenProblem = 'stream_lost' | 'control_moved' | 'unavailable' | 'owner_only'
 
-export interface AgentScreenViewer {
-  id: string
-  hash: string
-}
-
 export interface AgentScreenState {
-  conn: AgentScreenConn
+  conn: 'idle' | 'attaching' | 'live' | 'error'
   status: AgentScreenStatus | null
-  viewer: AgentScreenViewer | null
-  /** A release is on its way; the chip says "Handing back…" until the server answers. */
+  sessionId: string | undefined
+  mode: 'watch' | 'control'
   handingBack: boolean
-  /** A take over is on its way. */
   taking: boolean
-  /** Went back to watching after another window took control (cleared when frames arrive). */
   evicted: boolean
   rapidEvictions: number
   dialedAt: number
@@ -55,7 +38,8 @@ export interface AgentScreenState {
 export const AGENT_SCREEN_INITIAL: AgentScreenState = {
   conn: 'idle',
   status: null,
-  viewer: null,
+  sessionId: undefined,
+  mode: 'watch',
   handingBack: false,
   taking: false,
   evicted: false,
@@ -66,62 +50,42 @@ export const AGENT_SCREEN_INITIAL: AgentScreenState = {
 
 export type AgentScreenEvent =
   | { type: 'status'; status: AgentScreenStatus }
+  | { type: 'session_expired'; status: AgentScreenStatus }
   | { type: 'attach'; manual: boolean }
-  | { type: 'minted'; viewer: AgentScreenViewer; status: AgentScreenStatus; at: number }
+  | { type: 'minted'; sessionId: string; mode: 'watch' | 'control'; status: AgentScreenStatus; at: number }
   | { type: 'connected' }
-  | { type: 'disconnected'; code: number; clean: boolean; reason?: string; at: number }
+  | { type: 'disconnected'; code: number; clean: boolean; at: number }
   | { type: 'take' }
-  | { type: 'lease'; lease: AgentScreenLease }
   | { type: 'hand_back' }
-  | { type: 'handed_back'; lease: AgentScreenLease }
+  | { type: 'handed_back'; status: AgentScreenStatus }
   | { type: 'failed'; problem: AgentScreenProblem }
 
-/** Does this window's viewer hold the lease? The server names the holder by hash only. */
-export function agentScreenHeldBy(lease: AgentScreenLease | null | undefined, viewer: AgentScreenViewer | null): boolean {
-  return Boolean(lease && viewer && lease.holder === 'human' && lease.viewerHash === viewer.hash)
+export function agentScreenInputEnabled(state: AgentScreenState): boolean {
+  return state.conn === 'live' && state.mode === 'control' && state.status?.viewerHasControl === true &&
+    state.status.running && !state.handingBack
 }
 
-/** What the chip says. `other`: a human lease this window does not hold (stale or another window). */
-export type AgentScreenPhase = 'watch' | 'control' | 'handing_back' | 'other'
+export function agentScreenPhase(state: AgentScreenState): 'watch' | 'control' | 'handing_back' | 'other' {
+  if (state.handingBack) {return 'handing_back'}
+  if (state.status?.viewerHasControl) {return 'control'}
 
-export function agentScreenPhase(state: AgentScreenState): AgentScreenPhase {
-  const lease = state.status?.lease
-
-  if (state.handingBack) {
-    return 'handing_back'
-  }
-
-  if (agentScreenHeldBy(lease, state.viewer)) {
-    return 'control'
-  }
-
-  return lease?.holder === 'human' ? 'other' : 'watch'
-}
-
-function withLease(state: AgentScreenState, lease: AgentScreenLease): AgentScreenState {
-  const current = state.status?.lease
-
-  // A reply that an already-applied newer epoch overtook never repaints an older lease.
-  if (current && lease.epoch < current.epoch) {
-    return state
-  }
-
-  return { ...state, status: { running: state.status?.running ?? true, lease } }
+  return state.status?.holder === 'human' ? 'other' : 'watch'
 }
 
 export function agentScreenReduce(state: AgentScreenState, event: AgentScreenEvent): AgentScreenState {
   switch (event.type) {
     case 'status': {
-      const next = withLease(state, event.status.lease)
-      // The server answered: a screen that was unavailable (or refused) is reachable again.
+      if (state.status && event.status.controlRevision < state.status.controlRevision) {return state}
       const recovered = state.problem === 'unavailable' || state.problem === 'owner_only'
 
       return {
-        ...next,
-        ...(recovered ? { conn: 'idle' as const, problem: null } : {}),
-        status: { running: event.status.running, lease: next.status!.lease }
+        ...state,
+        ...(recovered || !event.status.running ? { conn: 'idle' as const, problem: null } : {}),
+        status: event.status
       }
     }
+    case 'session_expired':
+      return { ...AGENT_SCREEN_INITIAL, status: event.status }
 
     case 'attach':
       return {
@@ -130,48 +94,29 @@ export function agentScreenReduce(state: AgentScreenState, event: AgentScreenEve
         problem: null,
         rapidEvictions: event.manual ? 0 : state.rapidEvictions
       }
-
     case 'minted':
-      return { ...withLease(state, event.status.lease), viewer: event.viewer, dialedAt: event.at }
-
+      return { ...state, status: event.status, sessionId: event.sessionId, mode: event.mode, taking: false, dialedAt: event.at }
     case 'connected':
       return state.conn === 'attaching' ? { ...state, conn: 'live', evicted: false } : state
     case 'disconnected': {
-      if (event.code === AGENT_SCREEN_CLOSE_CONTROL_TAKEN || event.reason?.includes('control-taken')) {
-        const rapidEvictions =
-          event.at - state.dialedAt < AGENT_SCREEN_EVICTION_WINDOW_MS ? state.rapidEvictions + 1 : 1
+      if (event.code === CLOSE_CONTROL_TAKEN) {
+        const rapidEvictions = event.at - state.dialedAt < EVICTION_WINDOW_MS ? state.rapidEvictions + 1 : 1
+        const status = state.status && { ...state.status, holder: 'human' as const, viewerHasControl: false }
 
-        // Idle re-attaches in watch mode on a fresh ticket; a bridge that evicts every attach stops.
-        return rapidEvictions > AGENT_SCREEN_MAX_RAPID_EVICTIONS
-          ? { ...state, conn: 'error', evicted: false, rapidEvictions, problem: 'control_moved' }
-          : { ...state, conn: 'idle', evicted: true, rapidEvictions }
+        return rapidEvictions > MAX_RAPID_EVICTIONS
+          ? { ...state, status, conn: 'error', evicted: false, rapidEvictions, problem: 'control_moved' }
+          : { ...state, status, conn: 'idle', evicted: true, rapidEvictions }
       }
 
-      // The lease and the viewer stay: a dropped link is not a hand back.
       return event.clean ? { ...state, conn: 'idle' } : { ...state, conn: 'error', problem: 'stream_lost' }
     }
-
     case 'take':
       return { ...state, taking: true, problem: null }
-
-    case 'lease':
-      return { ...withLease(state, event.lease), taking: false }
-
     case 'hand_back':
       return { ...state, handingBack: true, problem: null }
-
     case 'handed_back':
-      return { ...withLease(state, event.lease), handingBack: false }
-
+      return { ...state, status: event.status, conn: 'idle', handingBack: false, problem: null }
     case 'failed':
-      return {
-        ...state,
-        taking: false,
-        handingBack: false,
-        conn: event.problem === 'stream_lost' || event.problem === 'owner_only' || event.problem === 'unavailable'
-          ? 'error'
-          : state.conn,
-        problem: event.problem
-      }
+      return { ...state, taking: false, handingBack: false, conn: 'error', problem: event.problem }
   }
 }

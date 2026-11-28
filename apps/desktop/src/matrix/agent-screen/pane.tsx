@@ -7,7 +7,7 @@
  * screen-pane.tsx`, NousResearch/hermes-agent at 266360dd, Copyright (c) 2026 Nous Research, MIT;
  * the full notice is in connection.ts and third-party/licenses/app/hermes-desktop-bot-screen-
  * LICENSE.txt). Kept from upstream: the server owns the lease and this pane paints a cache of it;
- * the stream is its own WebSocket handed to noVNC (MPL-2.0, unmodified dependency); `viewOnly` is
+ * the RFB stream uses a raw channel handed to noVNC (MPL-2.0, unmodified dependency); `viewOnly` is
  * presentation only, because the server drops input from anyone but the lease holder; the noVNC
  * client loads before dialing; a 4000 eviction re-attaches in watch mode; closing the tab hands
  * back with a clean close; paste goes through only while in control. Changed for Atum: Atum Kit,
@@ -17,7 +17,8 @@
  */
 import './pane.css'
 
-import { useCallback, useEffect, useReducer, useRef } from 'react'
+import type RFB from '@novnc/novnc'
+import { useCallback, useEffect, useReducer, useRef, useState } from 'react'
 
 import { Tip } from '@/components/ui/tooltip'
 import { useI18n } from '@/i18n'
@@ -27,51 +28,30 @@ import { matrixAgentScreenText } from '../../../shared/matrix-agent-screen-copy'
 
 import {
   AGENT_SCREEN_INITIAL,
-  agentScreenHeldBy,
+  agentScreenInputEnabled,
   agentScreenPhase,
   type AgentScreenProblem,
   agentScreenReduce
 } from './connection'
 import {
   type AgentScreenBinding,
+  type AgentScreenChannel,
+  type AgentScreenControl,
   AgentScreenError,
-  type AgentScreenTransport,
-  agentScreenViewerHash
+  type AgentScreenTransport
 } from './transport'
 
 const ReconnectIcon = phosphorIcon('arrows-clockwise')
 const MonitorIcon = phosphorIcon('monitor')
-
-/** The noVNC surface the pane uses. */
-interface RfbLike {
-  viewOnly: boolean
-  scaleViewport: boolean
-  resizeSession: boolean
-  focusOnClick: boolean
-  background: string
-  qualityLevel: number
-  addEventListener(type: string, handler: (event: { detail?: { clean?: boolean; reason?: string } }) => void): void
-  disconnect(): void
-  focus(): void
-  clipboardPasteFrom(text: string): void
-}
-
-type RfbConstructor = new (target: HTMLElement, socket: WebSocket, options?: Record<string, unknown>) => RfbLike
 
 /** The native RFB filter closes the socket on a ClientCutText over this; never send one. */
 const MAX_PASTE_CUT_TEXT = 256 * 1024
 /** The plan's lease status poll while the panel is open (S3). */
 export const AGENT_SCREEN_STATUS_POLL_MS = 2_000
 
-async function loadRfb(): Promise<RfbConstructor> {
-  const mod = (await import('@novnc/novnc')) as unknown as { default: RfbConstructor }
-
-  return mod.default
-}
-
 function problemOf(error: unknown): AgentScreenProblem {
   if (error instanceof AgentScreenError) {
-    return error.reason === 'not_owner' ? 'owner_only' : error.reason === 'unavailable' ? 'unavailable' : 'stream_lost'
+    return error.reason === 'forbidden' ? 'owner_only' : error.reason === 'unavailable' ? 'unavailable' : 'stream_lost'
   }
 
   return 'stream_lost'
@@ -84,238 +64,206 @@ export interface MatrixAgentScreenPaneProps {
   transport: AgentScreenTransport
   /** The tab is on screen (polling runs only then; the stream stays attached while hidden). */
   active: boolean
-  /** Sends the owner's visible "carry on" message to the agent's chat. Called at most once per
-   * confirmed release. */
-  onContinue(text: string): void
+  /** The current agent ask in this private room, when one can be identified. */
+  askEventId?: string
 }
 
-export function MatrixAgentScreenPane({ active, binding, name, onContinue, transport }: MatrixAgentScreenPaneProps) {
+export function MatrixAgentScreenPane({ active, askEventId, binding, name, transport }: MatrixAgentScreenPaneProps) {
   const { locale } = useI18n()
   const copy = matrixAgentScreenText(locale)
   const [state, dispatch] = useReducer(agentScreenReduce, AGENT_SCREEN_INITIAL)
+  const [refusedAsk, setRefusedAsk] = useState<string>()
+  const [handbackRetry, setHandbackRetry] = useState<(AgentScreenControl & { askEventId: string }) | null>(null)
   const stateRef = useRef(state)
   stateRef.current = state
   const phase = agentScreenPhase(state)
-  const lease = state.status?.lease
+  const currentAsk = askEventId !== refusedAsk ? askEventId : undefined
   const canvasHost = useRef<HTMLDivElement | null>(null)
-  const rfb = useRef<RfbLike | null>(null)
-  const socket = useRef<WebSocket | null>(null)
+  const rfb = useRef<RFB | null>(null)
+  const socket = useRef<AgentScreenChannel | null>(null)
   const pasteCleanup = useRef<(() => void) | null>(null)
   const generation = useRef(0)
-  const continued = useRef(new Set<number>())
+  const polling = useRef<Promise<void> | null>(null)
+  const operating = useRef(false)
   const { agentPrincipal, roomId } = binding
-
-  const refresh = useCallback(async () => {
-    try {
-      dispatch({ type: 'status', status: await transport.status({ agentPrincipal, roomId }) })
-    } catch (error) {
-      dispatch({ type: 'failed', problem: problemOf(error) })
-    }
-  }, [agentPrincipal, roomId, transport])
 
   const detach = useCallback((handBack = false) => {
     generation.current += 1
-
-    // noVNC closes without a status. Closing the tab sends 1000 first, which the native bridge
-    // takes as a hand back; a reconnect's teardown keeps the lease.
-    if (handBack) {
-      socket.current?.close(1000)
-    }
-
+    socket.current?.close(handBack)
     rfb.current?.disconnect()
     rfb.current = null
-    socket.current?.close()
     socket.current = null
     pasteCleanup.current?.()
     pasteCleanup.current = null
   }, [])
 
-  const attach = useCallback(
-    async (manual: boolean) => {
-      detach()
+  const refresh = useCallback(() => {
+    if (operating.current || polling.current) {return}
+    const current = generation.current
+    const sessionId = stateRef.current.sessionId
+    const target = { agentPrincipal, roomId }
 
-      // The viewer hash needs crypto.subtle and noVNC a secure context.
-      if (!globalThis.crypto?.subtle) {
-        dispatch({ type: 'failed', problem: 'unavailable' })
+    const poll = async () => {
+      try {
+        let status
+        try {
+          status = await transport.status(target, sessionId)
+        } catch (error) {
+          if (current !== generation.current) {return}
+          if (!sessionId || problemOf(error) !== 'owner_only') {throw error}
+
+          // A controller restart can retire the session while the owner still has access.
+          status = await transport.status(target)
+          if (current === generation.current && !operating.current) {
+            detach()
+            dispatch({ type: 'session_expired', status })
+          }
+
+          return
+        }
+
+        if (current === generation.current) {dispatch({ type: 'status', status })}
+      } catch (error) {
+        if (current !== generation.current) {return}
+        // A concurrent caller can temporarily occupy the controller. Keep the last good screen.
+        if (!stateRef.current.status || problemOf(error) === 'owner_only') {
+          dispatch({ type: 'failed', problem: problemOf(error) })
+        }
+      }
+    }
+
+    polling.current = poll().finally(() => {polling.current = null})
+  }, [agentPrincipal, detach, roomId, transport])
+
+  const attach = useCallback(async (manual: boolean, take = false) => {
+    if (operating.current) {return}
+    operating.current = true
+    detach()
+    const current = generation.current
+    dispatch({ type: 'attach', manual })
+    if (take) {dispatch({ type: 'take' })}
+
+    try {
+      await polling.current
+      if (current !== generation.current) {return}
+      const { sessionId, status, evicted } = stateRef.current
+      const target = { agentPrincipal, roomId }
+      const grant = sessionId && status && (take || (status.viewerHasControl && !evicted))
+        ? await transport.acquire(target, { sessionId, expectedControlRevision: status.controlRevision })
+        : await transport.observe(target, sessionId)
+
+      if (current !== generation.current) {return}
+
+      dispatch({ type: 'minted', sessionId: grant.viewer.sessionId, mode: grant.viewer.mode, status: grant.status, at: Date.now() })
+      const { default: Rfb } = await import('@novnc/novnc')
+      if (current !== generation.current || !canvasHost.current) {return}
+
+      const channel = transport.connect(grant.viewer.ticket)
+      if (!channel) {
+        dispatch({ type: 'connected' })
 
         return
       }
 
-      const current = generation.current
-      dispatch({ type: 'attach', manual })
+      socket.current = channel
+      const client = new Rfb(canvasHost.current, channel, { shared: true })
+      client.scaleViewport = true
+      client.resizeSession = false
+      client.focusOnClick = true
+      client.background = 'transparent'
+      client.qualityLevel = 7
+      client.viewOnly = true
+      client.addEventListener('connect', () => {
+        if (current === generation.current) {dispatch({ type: 'connected' })}
+      })
 
-      try {
-        const priorViewer = stateRef.current.viewer?.id
-        const grant = await transport.observe({ agentPrincipal, roomId }, priorViewer ? { viewerId: priorViewer } : {})
-        const viewer = { id: grant.viewerId, hash: await agentScreenViewerHash(grant.viewerId) }
+      // noVNC only exposes clean/unclean. The tunnel's raw close code identifies eviction.
+      const rfbClose = channel.onclose
+      channel.onclose = event => {
+        rfbClose?.(event)
+        if (current !== generation.current) {return}
+        rfb.current = null
+        dispatch({ type: 'disconnected', code: event.code, clean: event.wasClean, at: Date.now() })
+        refresh()
+      }
+      rfb.current = client
 
-        if (current !== generation.current) {
-          return
-        }
-
-        dispatch({ type: 'minted', viewer, status: grant.status, at: Date.now() })
-
-        // A transport without a stream (the mock) has nothing to dial: the screen is "live" blank.
-        if (!grant.streamUrl || !canvasHost.current) {
-          dispatch({ type: 'connected' })
-
-          return
-        }
-
-        // Load the client before dialing: noVNC installs its own `onopen`.
-        const Rfb = await loadRfb()
-
-        if (current !== generation.current || !canvasHost.current) {
-          return
-        }
-
-        const ws = new WebSocket(grant.streamUrl)
-        ws.binaryType = 'arraybuffer'
-        socket.current = ws
-        // noVNC's `disconnect` carries only {clean}; the bridge's verdict is the raw close code.
-        let closeCode = 0
-        ws.addEventListener('close', event => {
-          closeCode = event.code
-        })
-        const client = new Rfb(canvasHost.current, ws, { shared: true })
-        client.scaleViewport = true
-        client.resizeSession = false
-        client.focusOnClick = true
-        client.background = 'transparent'
-        client.qualityLevel = 7
-        client.viewOnly = !agentScreenHeldBy(grant.status.lease, viewer)
-        client.addEventListener('connect', () => {
-          if (current === generation.current) {
-            dispatch({ type: 'connected' })
-          }
-        })
-        client.addEventListener('disconnect', event => {
-          if (rfb.current === client) {
-            rfb.current = null
-          }
-
-          if (current !== generation.current) {
-            return
-          }
-
-          dispatch({
-            type: 'disconnected',
-            code: closeCode,
-            clean: Boolean(event.detail?.clean),
-            reason: event.detail?.reason,
-            at: Date.now()
-          })
-          void refresh()
-        })
-        rfb.current = client
-
-        // Explicit paste only, while in control (viewOnly is read live).
-        const target = canvasHost.current
-
-        const paste = (event: ClipboardEvent) => {
-          const text = event.clipboardData?.getData('text')
-
-          if (!client.viewOnly && text && text.length <= MAX_PASTE_CUT_TEXT) {
-            event.preventDefault()
-            client.clipboardPasteFrom(text)
-          }
-        }
-
-        target.addEventListener('paste', paste)
-        pasteCleanup.current = () => target.removeEventListener('paste', paste)
-      } catch (error) {
-        if (current === generation.current) {
-          dispatch({ type: 'failed', problem: problemOf(error) })
+      const targetNode = canvasHost.current
+      const paste = (event: ClipboardEvent) => {
+        const text = event.clipboardData?.getData('text')
+        if (!client.viewOnly && text && new TextEncoder().encode(text).byteLength <= MAX_PASTE_CUT_TEXT) {
+          event.preventDefault()
+          client.clipboardPasteFrom(text)
         }
       }
-    },
-    [agentPrincipal, detach, refresh, roomId, transport]
-  )
+      targetNode.addEventListener('paste', paste)
+      pasteCleanup.current = () => targetNode.removeEventListener('paste', paste)
+    } catch (error) {
+      if (current === generation.current) {dispatch({ type: 'failed', problem: problemOf(error) })}
+    } finally {
+      operating.current = false
+    }
+  }, [agentPrincipal, detach, refresh, roomId, transport])
 
-  // Visibility is not lifecycle: only unmount (closing the tab) tears down, and hands back.
+  // Unmount closes the stream cleanly. Only the explicit handback operation can send a message.
   useEffect(() => () => detach(true), [detach])
 
   useEffect(() => {
-    if (!active) {
-      return
-    }
+    if (!active) {return}
 
-    void refresh()
-    const timer = window.setInterval(() => void refresh(), AGENT_SCREEN_STATUS_POLL_MS)
+    refresh()
+    const timer = window.setInterval(refresh, AGENT_SCREEN_STATUS_POLL_MS)
 
     return () => window.clearInterval(timer)
   }, [active, refresh])
 
   useEffect(() => {
-    if (state.status?.running && state.conn === 'idle') {
-      void attach(false)
-    }
-  }, [attach, state.conn, state.status?.running])
+    if (state.status?.running === false) {detach()}
+    if (active && state.status?.running && state.conn === 'idle') {void attach(false)}
+  }, [active, attach, detach, state.conn, state.status?.running])
 
-  const inControl = phase === 'control'
-
+  const inControl = agentScreenInputEnabled(state)
   useEffect(() => {
     if (rfb.current) {
       rfb.current.viewOnly = !inControl
-
-      if (inControl) {
-        rfb.current.focus()
-      }
+      if (inControl) {rfb.current.focus()}
     }
   }, [inControl])
 
-  const takeOver = async () => {
-    const { viewer, status } = stateRef.current
-
-    if (!viewer || !status) {
-      return
-    }
-
-    dispatch({ type: 'take' })
-
-    try {
-      const result = await transport.acquire({ agentPrincipal, roomId }, { viewerId: viewer.id, expectedEpoch: status.lease.epoch })
-      dispatch({ type: 'lease', lease: result.lease })
-
-      if (stateRef.current.conn !== 'live') {
-        void attach(true)
-      }
-    } catch (error) {
-      dispatch({ type: 'failed', problem: problemOf(error) })
-      void refresh()
-    }
-  }
-
-  // One explicit action (D2): release, and only when the server says this call ended this owner's
-  // control does the agent get one "carry on". Force, close, eviction and reconnect never write.
   const handBack = async (force: boolean) => {
-    const viewer = stateRef.current.viewer
-
-    if (!force && !viewer) {
-      return
-    }
-
+    const { sessionId, status } = stateRef.current
+    if (!status || (!sessionId && !force && !handbackRetry) || operating.current) {return}
+    const target = { agentPrincipal, roomId }
+    const control = { sessionId: sessionId ?? '', expectedControlRevision: status.controlRevision }
+    const continuation = force ? null : handbackRetry ?? (currentAsk ? { ...control, askEventId: currentAsk } : null)
+    operating.current = true
     dispatch({ type: 'hand_back' })
+    if (rfb.current) {rfb.current.viewOnly = true}
+    if (continuation) {setHandbackRetry(continuation)}
 
     try {
-      const result = await transport.release(
-        { agentPrincipal, roomId },
-        force ? { force: true } : { viewerId: viewer!.id }
-      )
-
-      dispatch({ type: 'handed_back', lease: result.lease })
-
-      if (!force && result.released && !continued.current.has(result.lease.epoch)) {
-        continued.current.add(result.lease.epoch)
-        onContinue(copy.continueMessage)
+      await polling.current
+      const result = force ? await transport.forceRelease(target, status.controlRevision) :
+        continuation ? await transport.handback(target, continuation) : await transport.release(target, control)
+      if (result.released) {
+        setHandbackRetry(null)
+        detach()
+        dispatch({ type: 'handed_back', status: result.status })
       }
     } catch (error) {
-      dispatch({ type: 'failed', problem: problemOf(error) })
-      void refresh()
+      // A lost handback response or failed Matrix send can be retried with the same journal key.
+      if (continuation && error instanceof AgentScreenError && error.reason !== 'unavailable') {
+        setHandbackRetry(null)
+        if (error.reason === 'forbidden') {setRefusedAsk(continuation.askEventId)}
+      }
+      dispatch({ type: 'failed', problem: continuation ? 'stream_lost' : problemOf(error) })
+    } finally {
+      operating.current = false
+      refresh()
     }
   }
 
-  if (state.problem === 'owner_only' || state.problem === 'unavailable') {
+  if (!handbackRetry && (state.problem === 'owner_only' || state.problem === 'unavailable')) {
     return (
       <div className="atum-screen atum-screen--state" data-agent-screen="problem">
         <div className="ak-state" role="status">
@@ -328,7 +276,7 @@ export function MatrixAgentScreenPane({ active, binding, name, onContinue, trans
     )
   }
 
-  if (state.status && !state.status.running) {
+  if (!handbackRetry && state.status && !state.status.running) {
     return (
       <div className="atum-screen atum-screen--state" data-agent-screen="idle">
         <div className="ak-state" role="status">
@@ -369,7 +317,7 @@ export function MatrixAgentScreenPane({ active, binding, name, onContinue, trans
           {chip}
         </span>
         <span className="flex-1" />
-        {phase === 'control' || phase === 'handing_back' ? (
+        {phase === 'control' || phase === 'handing_back' || handbackRetry ? (
           <button
             className="ak-btn ak-btn--sm ak-btn--primary"
             data-agent-screen-hand-back
@@ -377,7 +325,7 @@ export function MatrixAgentScreenPane({ active, binding, name, onContinue, trans
             onClick={() => void handBack(false)}
             type="button"
           >
-            {copy.handBackContinue}
+            {handbackRetry || currentAsk ? copy.handBackContinue : copy.handBack}
           </button>
         ) : (
           <>
@@ -397,8 +345,8 @@ export function MatrixAgentScreenPane({ active, binding, name, onContinue, trans
             <button
               className="ak-btn ak-btn--sm ak-btn--primary"
               data-agent-screen-take-over
-              disabled={busy || attaching || !state.viewer}
-              onClick={() => void takeOver()}
+              disabled={busy || attaching || !state.sessionId}
+              onClick={() => void attach(true, true)}
               type="button"
             >
               {copy.takeOver}
@@ -439,7 +387,7 @@ export function MatrixAgentScreenPane({ active, binding, name, onContinue, trans
           </div>
         )}
       </div>
-      {lease && <p className="atum-screen-line">{line}</p>}
+      {state.status && <p className="atum-screen-line">{line}</p>}
     </div>
   )
 }

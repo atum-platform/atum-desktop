@@ -25,6 +25,7 @@ import {
   type MatrixSnapshot,
   type MatrixUiBridge
 } from '../../shared/matrix'
+import { type AgentScreenStreamEvent, MATRIX_AGENT_SCREEN_IPC } from '../../shared/matrix-agent-screen'
 import { MATRIX_AGENT_SOURCES_IPC } from '../../shared/matrix-agent-sources'
 import { MATRIX_CLIPBOARD_IPC } from '../../shared/matrix-clipboard'
 import type { MatrixCompanyDesktopRequest } from '../../shared/matrix-company-desktop'
@@ -61,6 +62,21 @@ import { MATRIX_WORK_IPC, type MatrixWorkProjection, type WorkAttentionSnapshot 
 const invoke = (kind: string) => ipcRenderer.invoke(channel.ui, { kind })
 
 const bridge: MatrixUiBridge = {
+  agentScreen: {
+    request: input => ipcRenderer.invoke(MATRIX_AGENT_SCREEN_IPC.request, input),
+    connect: (ticket, id) => ipcRenderer.invoke(MATRIX_AGENT_SCREEN_IPC.stream, ticket, id),
+    send: (id, bytes) => ipcRenderer.send(MATRIX_AGENT_SCREEN_IPC.data, id, 'send', bytes),
+    acknowledge: (id, sequence) => ipcRenderer.send(MATRIX_AGENT_SCREEN_IPC.data, id, 'ack', sequence),
+    disconnect: (id, clean) => ipcRenderer.send(MATRIX_AGENT_SCREEN_IPC.data, id, 'close', clean),
+    subscribe: (id, receive) => {
+      const listener = (_event: Electron.IpcRendererEvent, streamId: string, value: AgentScreenStreamEvent) => {
+        if (streamId === id) {receive(value)}
+      }
+
+      ipcRenderer.on(MATRIX_AGENT_SCREEN_IPC.data, listener)
+      return () => ipcRenderer.removeListener(MATRIX_AGENT_SCREEN_IPC.data, listener)
+    }
+  },
   // Fire and forget: main validates the three closed fields before writing main.log.
   windowFailureDiagnostic: value => {
     void Promise.resolve(ipcRenderer.invoke(channel.ui, { kind: 'windowFailureDiagnostic', value })).catch(() => {})

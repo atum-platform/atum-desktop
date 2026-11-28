@@ -7,8 +7,8 @@ import type { MatrixAgentView, MatrixRoom, MatrixSnapshot } from '../../../share
 import { matrixAgentScreenText } from '../../../shared/matrix-agent-screen-copy'
 import { MatrixWorkbench } from '../workbench'
 
-import { $matrixScreenContinue } from './continue'
-import { mockAgentScreenTransport } from './transport'
+import { mockAgentScreenTransport } from './mock-transport'
+import type { AgentScreenTransport } from './transport'
 
 const copy = matrixAgentScreenText('en')
 const ROOM = '!luna:test'
@@ -62,7 +62,6 @@ beforeEach(() => {
       openLink: vi.fn(async () => {})
     }
   })
-  $matrixScreenContinue.set(null)
 })
 
 afterEach(() => {
@@ -71,7 +70,7 @@ afterEach(() => {
   Reflect.deleteProperty(window, 'atumMatrix')
 })
 
-function panel(screenRequest?: number) {
+function panel(screenRequest?: number, screenTransport?: AgentScreenTransport) {
   return (
     <I18nProvider configClient={null} initialLocale="en">
       <MatrixWorkbench
@@ -85,6 +84,7 @@ function panel(screenRequest?: number) {
         onPercentChange={() => {}}
         percent={50}
         screenRequest={screenRequest}
+        screenTransport={screenTransport}
         snapshot={snapshot}
         windowControls={null}
       />
@@ -102,42 +102,35 @@ describe('the Screen tab', () => {
     expect(screenTab()).toBeUndefined()
   })
 
-  it('opens beside the agent’s tab on request and hands back the carry-on to its chat', async () => {
+  it('opens beside the agent’s tab on request', async () => {
     const transport = mockAgentScreenTransport()
-    Object.assign(window.atumMatrix, { agentScreen: transport })
 
-    const view = render(panel())
+    const view = render(panel(undefined, transport))
     expect(screenTab()).toBeUndefined()
 
-    view.rerender(panel(1))
+    view.rerender(panel(1, transport))
     await waitFor(() => expect(screenTab()?.getAttribute('aria-selected')).toBe('true'))
 
     const tabs = screen.getAllByRole('tab')
     expect(tabs[0]?.textContent).toContain('Luna')
     expect(tabs[1]).toBe(screenTab())
 
-    const takeOver = await screen.findByRole('button', { name: copy.takeOver })
-    await waitFor(() => expect((takeOver as HTMLButtonElement).disabled).toBe(false))
-    fireEvent.click(takeOver)
-    fireEvent.click(await screen.findByRole('button', { name: copy.handBackContinue }))
-
-    await waitFor(() => expect($matrixScreenContinue.get()).toMatchObject({ roomId: ROOM, text: copy.continueMessage }))
   })
 
   it('closing the tab (which hands back on the stream) never writes a message', async () => {
     const transport = mockAgentScreenTransport()
-    Object.assign(window.atumMatrix, { agentScreen: transport })
-    const view = render(panel())
-    view.rerender(panel(1))
+    const handback = vi.spyOn(transport, 'handback')
+    const view = render(panel(undefined, transport))
+    view.rerender(panel(1, transport))
 
     const takeOver = await screen.findByRole('button', { name: copy.takeOver })
     await waitFor(() => expect((takeOver as HTMLButtonElement).disabled).toBe(false))
     fireEvent.click(takeOver)
-    await screen.findByRole('button', { name: copy.handBackContinue })
+    await screen.findByRole('button', { name: copy.handBack })
 
     fireEvent.click(within(screenTab()!.parentElement!).getByRole('button', { name: /close/i }))
 
     await waitFor(() => expect(screenTab()).toBeUndefined())
-    expect($matrixScreenContinue.get()).toBeNull()
+    expect(handback).not.toHaveBeenCalled()
   })
 })

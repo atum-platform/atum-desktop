@@ -1,0 +1,21 @@
+{
+  "viewer": {
+    "ticket": "TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT",
+    "sessionId": "44444444-1111-4111-8111-abcdef123456",
+    "mode": "watch",
+    "binding": {
+      "ownerUserId": "@owner:example.test",
+      "agentPrincipal": "22222222-1111-4111-8111-abcdef123456",
+      "computerId": "33333333-1111-4111-8111-abcdef123456"
+    },
+    "viewerDeviceId": "PHONE1",
+    "issuedAt": 10000,
+    "expiresAt": 40000
+  },
+  "status": {
+    "running": true,
+    "holder": "agent",
+    "controlRevision": 0,
+    "viewerHasControl": false
+  }
+}

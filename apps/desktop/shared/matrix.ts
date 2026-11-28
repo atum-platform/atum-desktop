@@ -1886,6 +1886,7 @@ export type MatrixSdkCommand =
    * `forgotten`, or `kept` for a room that is not only theirs. */
   | { kind: 'forgetAgentRoom'; roomId: string; ownerId: string; agentId: string }
   | { kind: 'readAppRoom'; roomId: string; ownerId: string; agentId: string; allowInvite?: boolean }
+  | { kind: 'sendAgentScreenContinuation'; roomId: string; body: string; transactionId: string }
   | { kind: 'sendWorkQuestion'; roomId: string; agentId: string; question: string; requestId: string; threadId: string; transactionId: string }
   | { kind: 'readWorkAnswer'; roomId: string; agentId: string; eventId: string; requestId: string }
   | { kind: 'sendAppMessage'; roomId: string; body: string; userId: string }
@@ -2158,6 +2159,7 @@ export interface MatrixSubscriptionsBridge {
 }
 
 export interface MatrixUiBridge {
+  agentScreen?: import('./matrix-agent-screen').MatrixAgentScreenBridge
   /** Closed renderer failure diagnostics written by main to main.log; never message text or ids. */
   windowFailureDiagnostic?(value: MatrixWindowFailureDiagnostic): void
   awareness?: MatrixAwarenessBridge

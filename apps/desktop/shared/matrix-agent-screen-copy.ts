@@ -20,6 +20,7 @@ export interface MatrixAgentScreenCopy {
   elsewhere: string
   takeOver: string
   /** One explicit action (owner D2): release, then one "carry on" message once it is confirmed. */
+  handBack: string
   handBackContinue: string
   /** Clears control left open by another window or an earlier session. */
   handBackForce: string
@@ -49,6 +50,7 @@ const copy: Record<DesktopLocale, MatrixAgentScreenCopy> = {
     handingBack: 'Handing back…',
     elsewhere: 'In control in another window',
     takeOver: 'Take over',
+    handBack: 'Hand back',
     handBackContinue: 'Hand back and continue',
     handBackForce: 'Hand back (force)',
     handBackForceHint: 'Ends control that was left open',
@@ -70,6 +72,7 @@ const copy: Record<DesktopLocale, MatrixAgentScreenCopy> = {
     handingBack: 'Đang trả lại…',
     elsewhere: 'Đang điều khiển ở cửa sổ khác',
     takeOver: 'Điều khiển',
+    handBack: 'Trả lại',
     handBackContinue: 'Trả lại và tiếp tục',
     handBackForce: 'Trả lại (buộc)',
     handBackForceHint: 'Kết thúc phiên điều khiển còn bỏ ngỏ',
@@ -91,6 +94,7 @@ const copy: Record<DesktopLocale, MatrixAgentScreenCopy> = {
     handingBack: '戻しています…',
     elsewhere: '別のウィンドウで操作中',
     takeOver: '操作する',
+    handBack: '戻す',
     handBackContinue: '戻して続ける',
     handBackForce: '戻す（強制）',
     handBackForceHint: '開いたままの操作を終わらせます',
@@ -112,6 +116,7 @@ const copy: Record<DesktopLocale, MatrixAgentScreenCopy> = {
     handingBack: '正在交还…',
     elsewhere: '正在另一个窗口中操作',
     takeOver: '接管',
+    handBack: '交还',
     handBackContinue: '交还并继续',
     handBackForce: '交还（强制）',
     handBackForceHint: '结束之前未关闭的操作',
@@ -133,6 +138,7 @@ const copy: Record<DesktopLocale, MatrixAgentScreenCopy> = {
     handingBack: '正在交還…',
     elsewhere: '正在另一個視窗中操作',
     takeOver: '接管',
+    handBack: '交還',
     handBackContinue: '交還並繼續',
     handBackForce: '交還（強制）',
     handBackForceHint: '結束之前未關閉的操作',
