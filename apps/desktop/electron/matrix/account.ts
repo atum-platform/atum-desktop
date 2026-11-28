@@ -2707,15 +2707,16 @@ export class MatrixAccount {
 
   /** The platform's acknowledgement, bound to the signed-in account and grant generation. */
   ownerLanguage(identity: MatrixIdentity): DesktopLocale | undefined {
-    if (!this.languageAck) {
+    const scope = this.appScope()
+
+    if (!this.languageAck || !scope) {
       return undefined
     }
 
-    const scope = this.appScope()
     const current = this.identity()
 
     if (current?.userId === identity.userId && current.deviceId === identity.deviceId &&
-        this.languageAck.accountKey === scope?.accountKey && this.languageAck.generation === scope.generation) {
+        this.languageAck.accountKey === scope.accountKey && this.languageAck.generation === scope.generation) {
       return this.languageAck.language
     }
 
@@ -4212,7 +4213,8 @@ export class MatrixAccount {
     const owner = this.domainOwner()
     const scope = this.appScope()
     const grant = await this.agentGrant()
-    if (scope?.generation !== this.generation || scope.accountKey !== this.appScope()?.accountKey) {
+
+    if (!scope || scope.generation !== this.generation || scope.accountKey !== this.appScope()?.accountKey) {
       throw new Error('matrix_login_cancelled')
     }
 

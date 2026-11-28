@@ -1,6 +1,6 @@
 import { AGENT_HOMES_CLOUD_ONLY } from '../../shared/agent-home-cloud-only'
 import { readBetaFeatures } from '../../shared/beta-features'
-import { isDesktopLocale, type DesktopLocale } from '../../shared/desktop-locale'
+import { type DesktopLocale, isDesktopLocale } from '../../shared/desktop-locale'
 import type { MatrixDomainIdentity } from '../../shared/matrix'
 
 import type { NativeGrant } from './authorization'

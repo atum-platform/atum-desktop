@@ -10,3 +10,5 @@ The greeting protocol still supports English and Vietnamese.
 The Electron tests exercise the callback, provisioning request and roster
 acknowledgement. The welcome tests cover a Vietnamese greeting in an English UI
 and the UI-language fallback when the account preference is absent.
+The desktop typecheck, lint on touched files and outbound public guard cover
+the source and release boundary.

@@ -2,7 +2,7 @@ import { createServer, type ServerResponse } from 'node:http'
 
 import * as oidc from 'openid-client'
 
-import { desktopLocaleFor, type DesktopLocale } from '../../shared/desktop-locale'
+import { type DesktopLocale, desktopLocaleFor } from '../../shared/desktop-locale'
 
 import { MATRIX_CALLBACK_PAGE_HEADERS, type MatrixCallbackPage, matrixCallbackPage } from './callback-page'
 

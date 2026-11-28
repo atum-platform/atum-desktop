@@ -1238,10 +1238,13 @@ describe('the account language on the Matrix roster read', () => {
   it('retries an unacknowledged signup language and uses the stored language for this owner', async () => {
     const { account } = ownerReaderFixture('en')
     const requests: Array<string | null> = []
+
     const request = vi.fn<typeof globalThis.fetch>(async (_input, init) => {
       requests.push(new Headers(init?.headers).get('Atum-Language'))
+
       return Response.json([], { headers: requests.length === 2 ? { 'Atum-Language-Ack': 'vi' } : {} })
     })
+
     vi.stubGlobal('fetch', request)
     const identity = account.identity()!
     const signal = new AbortController().signal
