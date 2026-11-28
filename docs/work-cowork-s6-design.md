@@ -43,14 +43,15 @@ skill exists. A matching Work server needs to load it for its Design starter
 and use S1's private pin and settlement channel. Pin a fresh artifact ID and
 output directory for each turn, then send the explicit relative source path
 in `result: { path: 'Design.html', format: 'html', preview: null }` or its
-SVG equivalent. Desktop owns raster generation. The receipt adds
-`previewName`; open the source with the existing receipt identity and the
-preview with the same identity plus `asset: 'preview'`.
+SVG equivalent. Desktop owns raster generation. Once both files are saved,
+the status IPC supplies `previewName` and a bounded PNG `previewDataUrl`.
+Desktop checks the companion's pinned inode and content digest before
+resizing with Electron's native image API. The thumbnail fits within 480 px
+per side and 512 KiB. The receipt opens the source by its existing identity
+and the preview by the same identity plus `asset: 'preview'`.
 
-The pinned Work 0.1.21 runtime creates a Design starter and only settles
-DOCX. Connecting the Design starter to output admission, finalization and
-the receipt UI requires a companion Work runtime change. Desktop's fixture
-exercises the private protocol with a simulated enrolled Drive journal.
+Package the companion Work S6 runtime to enable design settlement. Desktop's
+fixture exercises the private protocol with a simulated enrolled Drive journal.
 
 ## Verify locally
 

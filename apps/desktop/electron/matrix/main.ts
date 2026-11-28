@@ -972,7 +972,7 @@ import { matrixEndedSession, matrixHumanSnapshot, matrixSavedIdentity, matrixWin
 import { MatrixWindowedLog } from './windowed-log'
 import { MatrixWordDocument } from './word-document'
 import { WorkDeliverables } from './work-deliverable'
-import { workDesignRenderer } from './work-design-preview'
+import { workDesignRenderer, workDesignThumbnail } from './work-design-preview'
 import { MatrixWebPreviewOffers } from './workbench-preview'
 import { readMatrixWorkspaceDriveRoots } from './workspace-root-facts'
 import { MatrixWorkspaceStartup } from './workspace-startup'
@@ -20673,7 +20673,8 @@ async function start() {
         remaining: () => workDrive.importQuota()?.remaining,
         manifestFor: paths => workDrive.manifestFor(paths),
         open: (relativePath, identity) => workDrive.openWorkDeliverable(relativePath, identity)
-      }, workDesignRenderer(path.join(process.resourcesPath, 'runtime', 'work-authoring', 'resvg', 'resvg'))) : undefined,
+      }, workDesignRenderer(path.join(process.resourcesPath, 'runtime', 'work-authoring', 'resvg', 'resvg')),
+      workDesignThumbnail) : undefined,
       userData: app.getPath('userData'),
       home: app.getPath('home'),
       resources: process.resourcesPath,

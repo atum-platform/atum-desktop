@@ -7,7 +7,7 @@ import { setTimeout as delay } from 'node:timers/promises'
 import { pathToFileURL } from 'node:url'
 import { promisify } from 'node:util'
 
-import { BrowserWindow, type NativeImage, session } from 'electron'
+import { BrowserWindow, nativeImage, type NativeImage, session } from 'electron'
 
 import { Serial } from '../work/session/serial'
 
@@ -15,6 +15,25 @@ import type { WorkDesignRenderer } from './drive-import-native'
 
 const exec = promisify(execFile)
 const serial = new Serial()
+
+export function workDesignThumbnail(bytes: Buffer): string | undefined {
+  const image = nativeImage.createFromBuffer(bytes)
+
+  if (image.isEmpty()) {return undefined}
+  const { width, height } = image.getSize()
+  const resize = (limit: number) => {
+    const scale = Math.min(1, limit / Math.max(width, height))
+
+    return scale === 1 ? image : image.resize({
+      width: Math.max(1, Math.round(width * scale)),
+      height: Math.max(1, Math.round(height * scale))
+    })
+  }
+  const limit = 512 * 1024
+  let png = resize(480).toPNG()
+  if (png.length > limit) {png = resize(240).toPNG()}
+  if (png.length > 0 && png.length <= limit) {return 'data:image/png;base64,' + png.toString('base64')}
+}
 
 async function captureHtml(file: string, width: number, height: number, signal: AbortSignal): Promise<Buffer | null> {
   const isolated = session.fromPartition('work-design-preview', { cache: false })

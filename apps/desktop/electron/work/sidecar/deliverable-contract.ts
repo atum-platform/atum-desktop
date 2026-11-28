@@ -8,7 +8,7 @@ export interface WorkDeliverableId {
 }
 
 export type WorkDeliverableStatus =
-  | { state: 'syncing' | 'saved'; artifactId: string; name: string; previewName?: string }
+  | { state: 'syncing' | 'saved'; artifactId: string; name: string; previewName?: string; previewDataUrl?: string }
   | { state: 'drive_unavailable' | 'changed' | 'invalid' | 'no_room' | 'retry' | 'cancelled' }
 
 export type WorkDeliverableReply =

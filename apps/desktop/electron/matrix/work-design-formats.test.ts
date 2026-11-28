@@ -32,7 +32,7 @@ function workspace() {
   return root
 }
 
-function lab(render: WorkDesignRenderer) {
+function lab(render: WorkDesignRenderer, thumbnail?: (bytes: Buffer) => string | undefined) {
   const home = workspace()
   const root = path.join(home, 'Drive')
   const owner = { root: path.join(home, 'owner'), key: 'fixture' }
@@ -53,7 +53,7 @@ function lab(render: WorkDesignRenderer) {
         resource: { storage: 'storage', space: 'space', opaque: 'file' }
       }]))
     })
-  }, render)
+  }, render, thumbnail)
   const host = new WorkDeliverableHost(receiver, async () => ['research'])
   const signal = new AbortController().signal
   const current = () => true
@@ -99,6 +99,27 @@ it.skipIf(posix)('refuses an empty raster before publishing the editable source'
   const run = await s.admit(svg, 'svg')
   expect(await run.settle()).toMatchObject({ status: { state: 'invalid' } })
   expect(readdirSync(s.folder)).toEqual([])
+})
+
+it.skipIf(posix)('only returns thumbnail data for a saved, verified companion', async () => {
+  const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aD5sAAAAASUVORK5CYII=', 'base64')
+  const previewDataUrl = 'data:image/png;base64,' + png.toString('base64')
+  const thumbnail = vi.fn(() => previewDataUrl)
+  const source = svg.replace('width="320" height="240"', 'width="1" height="1"')
+  const s = lab(async () => png, thumbnail)
+  const design = await s.admit(source, 'svg')
+  s.setPngSynced(false)
+  expect(await design.settle()).toMatchObject({ status: { state: 'syncing' } })
+  expect(await design.status()).not.toHaveProperty('previewDataUrl')
+  expect(thumbnail).not.toHaveBeenCalled()
+
+  s.setPngSynced(true)
+  expect(await design.status()).toMatchObject({ state: 'saved', previewName: 'Design.svg.png', previewDataUrl })
+  expect(thumbnail).toHaveBeenCalledExactlyOnceWith(png)
+
+  writeFileSync(path.join(s.folder, 'Design.svg.png'), Buffer.alloc(png.length))
+  expect(await design.status()).not.toHaveProperty('previewDataUrl')
+  expect(thumbnail).toHaveBeenCalledTimes(1)
 })
 
 const electron = process.env.WORK_DESIGN_ELECTRON
@@ -153,5 +174,15 @@ it.skipIf(posix || !electron || !resvg)('settles native HTML and SVG raster proo
     expect(png.length).toBeGreaterThan(100)
     expect([png.readUInt32BE(16), png.readUInt32BE(20)]).toEqual([width, height])
   }
+  const thumbnailDirectory = workspace()
+  writeFileSync(path.join(thumbnailDirectory, 'source'), readFileSync(path.join(s.folder, 'Design.html.png')))
+  const env = { ...process.env }
+  delete env.ELECTRON_RUN_AS_NODE
+  await runElectron(electron!, [entry, resvg!, thumbnailDirectory, 'thumbnail'], { env, timeout: 15_000 })
+  const dataUrl = readFileSync(path.join(thumbnailDirectory, 'thumbnail'), 'utf8')
+  expect(dataUrl).toMatch(/^data:image\/png;base64,/u)
+  const thumbnail = Buffer.from(dataUrl.split(',')[1], 'base64')
+  expect(thumbnail.length).toBeLessThanOrEqual(512 * 1024)
+  expect([thumbnail.readUInt32BE(16), thumbnail.readUInt32BE(20)]).toEqual([360, 480])
   expect(readFileSync(path.join(s.folder, 'Design (2).html.png'))).not.toEqual(readFileSync(path.join(s.folder, 'Design.html.png')))
 }, 60_000)

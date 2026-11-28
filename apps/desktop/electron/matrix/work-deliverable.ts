@@ -1,13 +1,15 @@
-import { randomUUID } from 'node:crypto'
-import { lstatSync, realpathSync } from 'node:fs'
+import { createHash, randomUUID } from 'node:crypto'
+import { constants, lstatSync, realpathSync } from 'node:fs'
+import { open } from 'node:fs/promises'
 import path from 'node:path'
 
 import type { WorkDeliverableStatus } from '../work/sidecar/deliverable-contract'
 
 import { validMacDeliverablePath } from './drive-deliverables-source'
-import { executeNativeDriveImport, type NativeDriveImportInput, type NativeWorkDriveTarget, type WorkDesignRenderer } from './drive-import-native'
+import { executeNativeDriveImport, type NativeDriveImportInput, type NativeWorkDriveTarget, type NativeWorkPlacement, type WorkDesignRenderer } from './drive-import-native'
 
 const mainInstance = randomUUID()
+const maxPreviewBytes = 8 * 1024 * 1024
 
 /** Explicit native skill result. All paths are relative to the host-owned run output directory. */
 export interface WorkDeliverableResult {
@@ -65,13 +67,34 @@ function sameLiveTarget(a: NativeWorkDriveTarget | undefined, b: NativeWorkDrive
   return Boolean(a && a.ownerKey === b.ownerKey && sameBinding(a, b))
 }
 
+async function verifiedPreview(file: string, facts: NativeWorkPlacement) {
+  if (facts.size <= 0 || facts.size > maxPreviewBytes) {return undefined}
+  const handle = await open(file, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK)
+
+  try {
+    const stat = await handle.stat()
+
+    if (!stat.isFile() || stat.nlink !== 1 || stat.dev !== facts.dev || stat.ino !== facts.ino || stat.size !== facts.size) {
+      return undefined
+    }
+
+    const bytes = Buffer.alloc(facts.size)
+    const { bytesRead } = await handle.read(bytes, 0, bytes.length, 0)
+
+    return bytesRead === bytes.length && createHash('sha256').update(bytes).digest('hex') === facts.sha256 ? bytes : undefined
+  } finally {
+    await handle.close()
+  }
+}
+
 /** Main-only receiver. The native Work host is responsible for authenticating and settling the run. */
 export class WorkDeliverables {
   constructor(
     private readonly home: string,
     private readonly python: string,
     private readonly drive: WorkDeliverableDrive,
-    private readonly renderDesign?: WorkDesignRenderer
+    private readonly renderDesign?: WorkDesignRenderer,
+    private readonly thumbnail?: (bytes: Buffer) => string | undefined
   ) {}
 
   async pin(artifactId: string, agentPrincipal: string, outputRoot: string): Promise<WorkDeliverableScope | undefined> {
@@ -106,7 +129,19 @@ export class WorkDeliverables {
   }
 
   async status(scope: WorkDeliverableScope, result: WorkDeliverableResult, signal?: AbortSignal): Promise<WorkDeliverableStatus> {
-    return (await this.check(scope, result, 'work-probe', signal)).status
+    const checked = await this.check(scope, result, 'work-probe', signal)
+    const { status, previewReceipt } = checked
+
+    if (status.state !== 'saved' || !previewReceipt || !this.thumbnail) {return status}
+    const { target, relativePath, facts } = previewReceipt
+
+    if (signal?.aborted || !sameLiveTarget(this.drive.target(), target)) {return { state: 'changed' }}
+    const bytes = await verifiedPreview(path.join(target.root, relativePath), facts).catch(() => undefined)
+
+    if (signal?.aborted || !sameLiveTarget(this.drive.target(), target)) {return { state: 'changed' }}
+    const previewDataUrl = bytes && this.thumbnail(bytes)
+
+    return previewDataUrl ? { ...status, previewDataUrl } : status
   }
 
   async open(scope: WorkDeliverableScope, result: WorkDeliverableResult, admitted?: () => boolean, preview = false): Promise<void> {
@@ -122,7 +157,11 @@ export class WorkDeliverables {
   private async check(
     scope: WorkDeliverableScope, result: WorkDeliverableResult, mode: 'work-place' | 'work-probe',
     signal?: AbortSignal, admitted?: () => boolean, preview = false
-  ): Promise<{ status: WorkDeliverableStatus; receipt?: { relativePath: string; dev: number; ino: number; target: NativeWorkDriveTarget } }> {
+  ): Promise<{
+    status: WorkDeliverableStatus
+    receipt?: { relativePath: string; dev: number; ino: number; target: NativeWorkDriveTarget }
+    previewReceipt?: { relativePath: string; facts: NativeWorkPlacement; target: NativeWorkDriveTarget }
+  }> {
     if (signal?.aborted || admitted?.() === false) {return { status: { state: 'cancelled' } }}
 
     if (!parseWorkDeliverableResult(result)) {
@@ -194,6 +233,10 @@ export class WorkDeliverables {
 
     const asset = preview ? companion : placed
 
-    return { status: { state: 'saved', ...display }, receipt: asset && { relativePath: relative(asset.name), dev: asset.dev, ino: asset.ino, target } }
+    return {
+      status: { state: 'saved', ...display },
+      receipt: asset && { relativePath: relative(asset.name), dev: asset.dev, ino: asset.ino, target },
+      previewReceipt: companion && { relativePath: relative(companion.name), facts: companion, target }
+    }
   }
 }
