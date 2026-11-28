@@ -1,6 +1,7 @@
 interface MatrixThreadCopy {
   thread: string
   threads: string
+  allThreads: string
   openThreads: string
   closeThreads: string
   recent: string
@@ -28,6 +29,7 @@ const copy: Record<string, MatrixThreadCopy> = {
   en: {
     thread: 'Thread',
     threads: 'Threads',
+    allThreads: 'All threads',
     openThreads: 'Open threads',
     closeThreads: 'Close threads',
     recent: 'Recent',
@@ -51,6 +53,7 @@ const copy: Record<string, MatrixThreadCopy> = {
   vi: {
     thread: 'Chuỗi thảo luận',
     threads: 'Chuỗi thảo luận',
+    allThreads: 'Tất cả chuỗi thảo luận',
     openThreads: 'Mở chuỗi thảo luận',
     closeThreads: 'Đóng chuỗi thảo luận',
     recent: 'Gần đây',
@@ -74,6 +77,7 @@ const copy: Record<string, MatrixThreadCopy> = {
   ja: {
     thread: 'スレッド',
     threads: 'スレッド',
+    allThreads: 'すべてのスレッド',
     openThreads: 'スレッドを開く',
     closeThreads: 'スレッドを閉じる',
     recent: '最近',
@@ -97,6 +101,7 @@ const copy: Record<string, MatrixThreadCopy> = {
   zh: {
     thread: '讨论串',
     threads: '讨论串',
+    allThreads: '所有讨论串',
     openThreads: '打开讨论串',
     closeThreads: '关闭讨论串',
     recent: '最近',
@@ -120,6 +125,7 @@ const copy: Record<string, MatrixThreadCopy> = {
   'zh-hant': {
     thread: '討論串',
     threads: '討論串',
+    allThreads: '所有討論串',
     openThreads: '開啟討論串',
     closeThreads: '關閉討論串',
     recent: '最近',

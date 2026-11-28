@@ -40,6 +40,8 @@ import { createWorkConsentClient, deviceServiceCall } from '../work/surface/plat
 import { readWorkProviders } from '../work/surface/provider-config'
 import { createOwnerRelay } from '../work/surface/relay'
 
+import type { WorkDeliverables } from './work-deliverable'
+import { WorkDeliverableHost } from './work-deliverable-host'
 import { MatrixWorkLifecycle, type WorkAccount, workAccountFor } from './work-lifecycle'
 
 /** Atum's panel radius (`--atum-r-panel`, styles.css): Work's native view is rounded to it. */
@@ -72,6 +74,7 @@ export interface MatrixWorkWalletPort {
 }
 
 export interface MatrixWorkDeps {
+  deliverables?: WorkDeliverables
   userData: string
   home: string
   /** `process.resourcesPath` of the app (the staged `work-runtime` and the Hermes runtime live under it). */
@@ -261,6 +264,8 @@ export function readShippedPin(resources: string): PinRef {
 }
 
 export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
+  const deliverables = new WorkDeliverableHost(deps.deliverables, deps.eligiblePlanAgents)
+
   const modelKeys = new WorkModelKeys({
     scope: () => deps.scope(),
     closing: () => deps.closing(),
@@ -563,7 +568,10 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
     },
     // The owner view reads Work’s balance through the model proxy.
     readAccess: () => readWorkAccess(deps.model, deps.wallet),
-    openProtons: deps.openProtons
+    openProtons: deps.openProtons,
+    deliverableMessage: (owner, message, current, signal) => deliverables.message(owner, message, current, signal),
+    deliverableStatus: (owner, identity) => deliverables.status(owner, identity),
+    openDeliverable: (owner, identity, current) => deliverables.open(owner, identity, current)
   })
 
   const readNativePlanCapabilities = async (bound: WorkAccount) => {
