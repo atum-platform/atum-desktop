@@ -18,6 +18,18 @@ export interface NativeWorkDriveTarget extends NativeDriveImportTarget {
   bindingKey: string
 }
 
+export type WorkDesignRenderer = (
+  source: Buffer, format: 'html' | 'svg', width: number, height: number, signal?: AbortSignal
+) => Promise<Buffer | null>
+
+export interface NativeWorkPlacement {
+  name: string
+  sha256: string
+  size: number
+  dev: number
+  ino: number
+}
+
 export interface NativeDriveImportInput {
   mode: 'plan' | 'run' | 'cleanup' | 'work-place' | 'work-probe'
   home: string
@@ -39,6 +51,7 @@ export interface NativeDriveImportInput {
     outputRoot: string
     outputIdentity: number[]
     path: string[]
+    design?: 'html' | 'svg'
   }
   workRecovery?: boolean
 }
@@ -62,7 +75,8 @@ export interface NativeDriveImportReply {
   used?: number
   fingerprint?: string
   added: number
-  placement?: { name: string; sha256: string; size: number; dev: number; ino: number }
+  placement?: NativeWorkPlacement
+  previewPlacement?: NativeWorkPlacement
 }
 
 /** Owned stdlib process; no renderer paths, credentials, inherited environment or stderr logs. */
@@ -70,7 +84,8 @@ export function executeNativeDriveImport(
   python: string,
   input: NativeDriveImportInput,
   signal?: AbortSignal,
-  targetStillCurrent?: () => boolean
+  targetStillCurrent?: () => boolean,
+  renderDesign?: WorkDesignRenderer
 ): Promise<NativeDriveImportReply> {
   if (signal?.aborted) {
     return Promise.resolve({ state: 'cancelled', added: 0 })
@@ -112,7 +127,8 @@ export function executeNativeDriveImport(
     child.stdout.on('data', chunk => {
       output += String(chunk)
 
-      if (output.length > 16_384) {
+      // The only large native message is a bounded base64 design snapshot.
+      if (output.length > (renderDesign ? 720_000 : 16_384)) {
         stop()
       }
 
@@ -133,6 +149,18 @@ export function executeNativeDriveImport(
             }
 
             child.stdin.write(JSON.stringify({ place }) + '\n')
+          } else if (typeof message.renderWorkDesign === 'string') {
+            const { format, width, height } = message
+            if (!renderDesign || format !== input.work?.design || (format !== 'html' && format !== 'svg') ||
+                ![width, height].every(side => Number.isInteger(side) && side > 0 && side <= 2048)) {
+              stop()
+              continue
+            }
+
+            void renderDesign(Buffer.from(message.renderWorkDesign, 'base64'), format, width, height, signal)
+              .then(png => ({ png: png?.toString('base64') }))
+              .catch(() => ({ unavailable: true }))
+              .then(response => { if (!settled) {child.stdin.write(JSON.stringify(response) + '\n')} })
           } else {
             reply = message
           }

@@ -43,7 +43,13 @@ export const REQUIRED_RUNTIME_COMPONENTS = Object.freeze([
     disposition: 'license_file_present'
   },
   // tirith is not bundled (AGPL-3.0): Hermes downloads it into the agent home on first use.
-  { id: 'uv', path: 'tools/uv', licenses: ['tools/uv/LICENSE-APACHE', 'tools/uv/LICENSE-MIT'], disposition: 'license_file_present' }
+  { id: 'uv', path: 'tools/uv', licenses: ['tools/uv/LICENSE-APACHE', 'tools/uv/LICENSE-MIT'], disposition: 'license_file_present' },
+  {
+    id: 'resvg',
+    path: 'work-authoring/resvg',
+    licenses: ['work-authoring/resvg/LICENSE-APACHE', 'work-authoring/resvg/LICENSE-MIT'],
+    disposition: 'license_file_present'
+  }
 ])
 
 export const RESTRICTED_STAGED_SKILL_PATHS = Object.freeze(

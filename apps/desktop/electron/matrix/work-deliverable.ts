@@ -5,15 +5,26 @@ import path from 'node:path'
 import type { WorkDeliverableStatus } from '../work/sidecar/deliverable-contract'
 
 import { validMacDeliverablePath } from './drive-deliverables-source'
-import { executeNativeDriveImport, type NativeDriveImportInput, type NativeWorkDriveTarget } from './drive-import-native'
+import { executeNativeDriveImport, type NativeDriveImportInput, type NativeWorkDriveTarget, type WorkDesignRenderer } from './drive-import-native'
 
 const mainInstance = randomUUID()
 
 /** Explicit native skill result. All paths are relative to the host-owned run output directory. */
 export interface WorkDeliverableResult {
   path: string
-  format: 'docx'
-  preview: { path: string; format: 'pdf' } | null
+  format: 'docx' | 'html' | 'svg'
+  preview: null
+}
+
+export function parseWorkDeliverableResult(value: unknown): WorkDeliverableResult | undefined {
+  if (!value || typeof value !== 'object') {return undefined}
+  const { path: relativePath, format, preview } = value as Partial<WorkDeliverableResult>
+
+  if ((format === 'docx' || format === 'html' || format === 'svg') && preview === null &&
+      typeof relativePath === 'string' && validMacDeliverablePath(relativePath) &&
+      relativePath.toLowerCase().endsWith('.' + format)) {
+    return { path: relativePath, format, preview }
+  }
 }
 
 /** Main-only scope captured at run admission. Persist with the owning run for restart. */
@@ -56,7 +67,12 @@ function sameLiveTarget(a: NativeWorkDriveTarget | undefined, b: NativeWorkDrive
 
 /** Main-only receiver. The native Work host is responsible for authenticating and settling the run. */
 export class WorkDeliverables {
-  constructor(private readonly home: string, private readonly python: string, private readonly drive: WorkDeliverableDrive) {}
+  constructor(
+    private readonly home: string,
+    private readonly python: string,
+    private readonly drive: WorkDeliverableDrive,
+    private readonly renderDesign?: WorkDesignRenderer
+  ) {}
 
   async pin(artifactId: string, agentPrincipal: string, outputRoot: string): Promise<WorkDeliverableScope | undefined> {
     const target = this.drive.target()
@@ -93,8 +109,8 @@ export class WorkDeliverables {
     return (await this.check(scope, result, 'work-probe', signal)).status
   }
 
-  async open(scope: WorkDeliverableScope, result: WorkDeliverableResult, admitted?: () => boolean): Promise<void> {
-    const checked = await this.check(scope, result, 'work-probe', undefined, admitted)
+  async open(scope: WorkDeliverableScope, result: WorkDeliverableResult, admitted?: () => boolean, preview = false): Promise<void> {
+    const checked = await this.check(scope, result, 'work-probe', undefined, admitted, preview)
 
     if (!checked.receipt || admitted?.() === false || !sameLiveTarget(this.drive.target(), checked.receipt.target)) {
       throw new Error('work_deliverable_unavailable')
@@ -105,13 +121,11 @@ export class WorkDeliverables {
 
   private async check(
     scope: WorkDeliverableScope, result: WorkDeliverableResult, mode: 'work-place' | 'work-probe',
-    signal?: AbortSignal, admitted?: () => boolean
+    signal?: AbortSignal, admitted?: () => boolean, preview = false
   ): Promise<{ status: WorkDeliverableStatus; receipt?: { relativePath: string; dev: number; ino: number; target: NativeWorkDriveTarget } }> {
     if (signal?.aborted || admitted?.() === false) {return { status: { state: 'cancelled' } }}
 
-    if (!result || result.format !== 'docx' || !validMacDeliverablePath(result.path) || !/\.docx$/iu.test(result.path) ||
-        (result.preview !== null && (result.preview?.format !== 'pdf' ||
-          !validMacDeliverablePath(result.preview.path) || !/\.pdf$/iu.test(result.preview.path)))) {
+    if (!parseWorkDeliverableResult(result)) {
       return { status: { state: 'invalid' } }
     }
 
@@ -129,11 +143,12 @@ export class WorkDeliverables {
       mode, home: this.home, target, workRecovery, remaining: this.drive.remaining(),
       work: {
         id: scope.artifactId, bindingKey: target.bindingKey, folder: scope.folder, folderIdentity: scope.folderIdentity,
-        outputRoot: scope.outputRoot, outputIdentity: scope.outputIdentity, path: result.path.split('/')
+        outputRoot: scope.outputRoot, outputIdentity: scope.outputIdentity, path: result.path.split('/'),
+        ...(result.format === 'docx' ? {} : { design: result.format })
       }
     }
 
-    const native = await executeNativeDriveImport(this.python, input, signal, current)
+    const native = await executeNativeDriveImport(this.python, input, signal, current, this.renderDesign)
 
     if (signal?.aborted) {return { status: { state: 'cancelled' } }}
 
@@ -146,17 +161,22 @@ export class WorkDeliverables {
 
     if (native.state !== 'completed' || !placed) {return { status: { state: 'retry' } }}
 
-    const relativePath = [...scope.folder, placed.name].join('/')
-    const manifest = await this.drive.manifestFor([relativePath]).catch(() => null)
-    const clean = manifest?.files.get(relativePath)
+    const companion = native.previewPlacement
+    if (result.format !== 'docx' && !companion) {return { status: { state: 'retry' } }}
+    const placements = companion ? [placed, companion] : [placed]
+    const relative = (name: string) => [...scope.folder, name].join('/')
+    const manifest = await this.drive.manifestFor(placements.map(file => relative(file.name))).catch(() => null)
 
     if (!current()) {return { status: { state: 'changed' } }}
 
     if (signal?.aborted) {return { status: { state: 'cancelled' } }}
-    const display = { artifactId: scope.artifactId, name: placed.name }
+    const display = { artifactId: scope.artifactId, name: placed.name, ...(companion && { previewName: companion.name }) }
 
-    if (manifest?.root !== target.root || !clean?.etag || clean.size !== placed.size ||
-        !clean.resource.storage || !clean.resource.space || !clean.resource.opaque) {
+    if (manifest?.root !== target.root || !placements.every(file => {
+      const clean = manifest.files.get(relative(file.name))
+
+      return clean?.etag && clean.size === file.size && clean.resource.storage && clean.resource.space && clean.resource.opaque
+    })) {
       return { status: { state: 'syncing', ...display } }
     }
 
@@ -167,10 +187,13 @@ export class WorkDeliverables {
 
     if (!current() || verified.state === 'changed') {return { status: { state: 'changed' } }}
 
-    if (verified.state !== 'completed' || verified.placement?.sha256 !== placed.sha256) {
+    if (verified.state !== 'completed' || verified.placement?.sha256 !== placed.sha256 ||
+        verified.previewPlacement?.sha256 !== companion?.sha256) {
       return { status: { state: 'retry' } }
     }
 
-    return { status: { state: 'saved', ...display }, receipt: { relativePath, dev: placed.dev, ino: placed.ino, target } }
+    const asset = preview ? companion : placed
+
+    return { status: { state: 'saved', ...display }, receipt: asset && { relativePath: relative(asset.name), dev: asset.dev, ino: asset.ino, target } }
   }
 }
