@@ -1,18 +1,25 @@
 # Cloud agents reaching the owner's Mac (Hermes-native route)
 
-Atum's cloud host gives each agent a `mac` delegation profile (a Hermes profile whose terminal backend is SSH to the
-owner's Mac). Two things in this tree make that route usable by the model:
+The original cloud host gave each owner agent one `mac` delegation profile
+whose terminal backend was SSH. The coordinated cloud-side named-Mac rollout
+adds `terminal(device="list")` to check reachability and
+`terminal(device="<Mac name>", command=...)` to select a Mac. Both native and
+relayed turns use the owner agent's terminal through the same SSH route.
+Environment pairing is unavailable in Atum chat.
 
-## The "Where you run" section
+## Desktop reconciliation checkpoint (2026-11-28)
 
-`agent/prompt_builder.py` renders one section per place. A managed (`agent.atum_instructions`) agent that has the
-device-bridge tool (`device_send_file`) keeps `ATUM_CLOUD_PLACE` (`device="<Mac name>"` routing, unchanged). A managed
-agent **without** the bridge, which is the Hermes-native cloud host, gets `ATUM_CLOUD_PLACE_NATIVE`: terminal and file
-tools run in the cloud; for the owner's Mac, call `delegate_task` with a task whose `profile` is `mac` (a bare `profile=`
-argument is not a `delegate_task` parameter and would run a cloud helper); if no `mac` profile is offered, say so. The
-text is identical whether or not a Mac is connected, so connecting one never changes a conversation's prompt bytes. A
-stored conversation built with the other text is rebuilt once at its next turn boundary (managed agents:
-`_stored_prompt_matches_instructions`).
+The enrolled desktop starts reconciliation on launch and retries once a minute.
+If a saved token has missing or invalid metadata, the app stops the old job
+and asks the registry to prepare a fresh route under the signed-in owner and
+current device. A registry `not_prepared` refusal also triggers re-prepare on
+the next tick. Successful setup, pending enrollment, an unavailable port 22,
+and a saved Disconnect are distinguishable in the log.
+
+On installed 0.20.55 the native connector was observed running after relaunch.
+The enrolled route answered a read-only Cloudflare SSH command with its
+registered host key pinned. Focused tests cover the new legacy-state retry,
+registry refusal recovery and preserved Disconnect behavior.
 
 ## SSH ControlMaster socket path
 

@@ -74,7 +74,25 @@ const SETUP_CODES = new Set([
   'tunnel_stop_failed'
 ])
 
-const REGISTRY_REASONS = new Set(['invalid', 'mac_route_unavailable'])
+const REGISTRY_REASONS = new Set(['invalid', 'mac_route_unavailable', 'not_prepared'])
+
+function savedRouteHost(settings: string | null, token: string | null): string | undefined {
+  if (!settings || !token) {
+    return undefined
+  }
+
+  try {
+    const route = JSON.parse(settings)
+
+    if (nativeSshHost(route?.host) && route.tokenDigest === tokenDigest(token)) {
+      return route.host
+    }
+  } catch {
+    // Invalid settings are equivalent to missing route metadata.
+  }
+
+  return undefined
+}
 
 /** Allow fixed codes only. Even a short error message or registry reason can contain a secret. */
 function nativeSshFailureCode(error: unknown): string {
@@ -200,6 +218,10 @@ export class NativeMacSsh {
       this.accountScope = scope
       this.disconnected = saved === 'off' || saved === 'cleanup_pending'
 
+      if (this.disconnected) {
+        this.log(`native-ssh setup paused: ${saved === 'off' ? 'disconnected_in_settings' : 'native_ssh_cleanup_pending'}`)
+      }
+
       if (saved === 'cleanup_pending') {
         this.view = this.cleanupPendingView()
       } else if (this.disconnected || this.view.status === 'not_connected' || this.view.reason === 'native_ssh_cleanup_pending') {
@@ -281,7 +303,6 @@ export class NativeMacSsh {
   }
   refresh(): Promise<void> {
     return this.serial(async () => {
-      let recoveryRequired = false
       let step: SetupStep = 'prepare'
 
       try {
@@ -298,6 +319,10 @@ export class NativeMacSsh {
         }
 
         if (!record || record.state !== 'active') {
+          if (this.view.code !== 'native_ssh_enrollment_unavailable') {
+            this.log('native-ssh setup waiting: native_ssh_enrollment_unavailable')
+          }
+
           if (this.id) {
             await this.cleanup()
           } else {
@@ -305,7 +330,7 @@ export class NativeMacSsh {
             await this.deps.system.stop()
           }
 
-          this.view = { status: 'error', settingsUrl: REMOTE_LOGIN_SETTINGS }
+          this.view = { status: 'error', code: 'native_ssh_enrollment_unavailable', settingsUrl: REMOTE_LOGIN_SETTINGS }
 
           return
         }
@@ -323,6 +348,10 @@ export class NativeMacSsh {
         const ready = await this.deps.system.ready()
 
         if (!ready.remoteLogin) {
+          if (this.view.status !== 'needs_remote_login') {
+            this.log('native-ssh setup waiting: remote_login_unavailable (localhost:22)')
+          }
+
           await this.deps.system.keys([])
           await this.deps.system.stop()
           this.enrolled = undefined
@@ -340,21 +369,16 @@ export class NativeMacSsh {
         const routeKey = `native-ssh:route:${record.ownerUserId}:${record.matrixDeviceId}:${this.id}`
         this.routeKey = routeKey
         const token = await this.deps.system.token(this.id)
-        let host: string
+        let host = savedRouteHost(this.deps.settings.getItem(routeKey), token)
 
-        if (token) {
-          recoveryRequired = true
-          const route = JSON.parse(this.deps.settings.getItem(routeKey) ?? 'null')
-
-          if (!route || !nativeSshHost(route.host) || route.tokenDigest !== tokenDigest(token)) {
-            // prepare rotates a connector; it is not a metadata GET. Retain the
-            // credential for explicit disconnect/reconnect recovery instead.
-            throw new Error('native_ssh_route_recovery_required')
+        if (!host) {
+          if (token) {
+            this.log('native-ssh setup refreshing stale route metadata')
+            // A saved token cannot identify its owner or host. Stop its setup
+            // before the authenticated, device-scoped prepare rotates the route.
+            await this.deps.system.stop()
           }
 
-          recoveryRequired = false
-          host = route.host
-        } else {
           const prepared = await this.deps.call({ operation: 'ssh_prepare', deviceServiceId: this.id }) as Record<string, unknown>
 
           if (
@@ -368,8 +392,8 @@ export class NativeMacSsh {
           }
 
           host = prepared.host
-          await this.deps.system.saveToken(this.id, prepared.tunnelToken)
           this.deps.settings.setItem(routeKey, JSON.stringify({ host, tokenDigest: tokenDigest(prepared.tunnelToken) }))
+          await this.deps.system.saveToken(this.id, prepared.tunnelToken)
         }
 
         step = 'authorized_keys'
@@ -417,6 +441,7 @@ export class NativeMacSsh {
             hostKey: ready.hostKey
           })
           this.enrolled = epoch
+          this.log('native-ssh setup registered and tunnel job started')
         }
 
         this.hintEnrollmentKey = this.enrollmentHintKey(record)
@@ -426,15 +451,26 @@ export class NativeMacSsh {
         }
       } catch (error) {
         // Never propagate HTTP/process errors: they may contain credentials.
-        const code = recoveryRequired ? 'native_ssh_route_recovery_required' : nativeSshFailureCode(error)
+        const code = nativeSshFailureCode(error)
 
         this.log(`native-ssh setup failed at ${step}: ${code}`)
         await this.deps.system.keys([]).catch(() => undefined)
         await this.deps.system.stop().catch(() => undefined)
+
+        if (step === 'enroll' && code === 'device_registry_403_not_prepared' && this.routeKey) {
+          // The registry no longer recognizes the cached host. A fresh prepare
+          // on the next tick is the only way to recover the authoritative host.
+          try {
+            this.deps.settings.setItem(this.routeKey, 'null')
+          } catch {
+            this.log('native-ssh setup could not clear stale route metadata')
+          }
+        }
+
         this.enrolled = undefined
         this.view = {
           status: 'error',
-          reason: recoveryRequired ? 'native_ssh_route_recovery_required' : 'native_ssh_setup_failed',
+          reason: 'native_ssh_setup_failed',
           step,
           code,
           settingsUrl: REMOTE_LOGIN_SETTINGS
