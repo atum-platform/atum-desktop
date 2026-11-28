@@ -57,6 +57,24 @@ function fixture(reply: (body: RequestBody) => Response | Promise<Response> = ac
 }
 
 describe('native Work plan facts', () => {
+  it('reports a newly signed-out plan after a pending connected report', async () => {
+    let finish!: () => void
+    const inFlight = new Promise<void>(resolve => {finish = resolve})
+    const { root, target, bodies } = fixture(async body => {
+      if (body.state === 'connected') {await inFlight}
+
+      return acknowledges(body)
+    })
+    const reporter = new WorkPlanFacts(root)
+    const connected = reporter.refresh(target, async () => ({ antigravity: { state: 'connected' } }))
+    await vi.waitFor(() => expect(bodies).toHaveLength(1))
+    const signedOut = reporter.refresh(target, async () => ({ antigravity: { state: 'disconnected' } }))
+
+    finish()
+    await Promise.all([connected, signedOut])
+    expect(bodies.map(({ state }) => state)).toEqual(['connected', 'disconnected'])
+  })
+
   it.each([undefined, 5])('enrolls metadata for a reporting refusal, using the published epoch %s when available', async epoch => {
     const { root, target, bodies } = fixture(body => {
       if (body.operation === 'work_enroll') {return Response.json({ deviceServiceId, work: null })}

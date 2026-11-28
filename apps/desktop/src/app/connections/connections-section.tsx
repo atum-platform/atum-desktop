@@ -1,7 +1,7 @@
 import { useStore } from '@nanostores/react'
 import { useCallback, useEffect, useState } from 'react'
 
-import { setWorkActive } from '@/app/work/store'
+import { $work, setWorkActive } from '@/app/work/store'
 import { Switch } from '@/components/ui/switch'
 import { useI18n } from '@/i18n'
 import { Home, Messages } from '@/lib/icons'
@@ -80,7 +80,7 @@ function usePlansInUse(bridge: Partial<Pick<ConnectionsBridge, 'readPlanConsent'
   return { inUse, refresh }
 }
 
-function useAccountConnections() {
+function useAccountConnections(planStatusRevision?: number) {
   const view = useStore($accountConnections)
 
   useEffect(() => {
@@ -90,7 +90,7 @@ function useAccountConnections() {
     window.addEventListener('focus', refresh)
 
     return () => window.removeEventListener('focus', refresh)
-  }, [])
+  }, [planStatusRevision])
 
   return view
 }
@@ -113,7 +113,8 @@ export function AccountSubscriptionsSection({
 }) {
   const { locale } = useI18n()
   const copy = connectionsCopy(locale)
-  const view = useAccountConnections()
+  const planStatusRevision = useStore($work)?.planStatusRevision
+  const view = useAccountConnections(planStatusRevision)
   const rows = accountPlanRows(view)
   const opencode = useMatrixSubscriptions(scopeKey)
   const opencodeConnected = subscriptionProviderStatus(opencode.status, 'opencode-go')?.connected === true
@@ -125,7 +126,7 @@ export function AccountSubscriptionsSection({
 
   useEffect(() => {
     void loadFirstRunLabels(bridge)
-  }, [bridge])
+  }, [bridge, planStatusRevision])
 
   // Stop using: the account consent for this plan is revoked on every Mac (it stays off; the automatic pick never re-grants a
   // revoked plan) and the assistants move to the next best plan, or Atum's model.

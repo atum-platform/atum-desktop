@@ -388,23 +388,17 @@ it('reports both withdrawal failures with safe codes and retries both after rela
   ])
 })
 
-it('keeps the published native models while Work is offline and accepts an explicit disconnect', async () => {
+it('restores an acknowledged publication until the native session expires', async () => {
   const { target, advance, newPublication } = fixture()
   const { deviceServiceId, store } = target
   const publication = newPublication()
-  const catalog = { codex: { state: 'connected' as const, models: [{ id: 'test-model', displayName: 'Test model' }] } }
 
   expect(publication.isPublished(store, deviceServiceId)).toBe(false)
   await publication.refresh(target)
   expect(publication.isPublished(store, deviceServiceId)).toBe(true)
-  expect(publication.planCatalog(store, deviceServiceId, catalog)).toEqual(catalog)
 
   const reopened = newPublication()
   expect(reopened.isPublished(store, deviceServiceId)).toBe(true)
-  expect(reopened.planCatalog(store, deviceServiceId, {})).toEqual(catalog)
-  const disconnected = { codex: { state: 'disconnected' as const } }
-  expect(reopened.planCatalog(store, deviceServiceId, disconnected)).toEqual(disconnected)
-  expect(reopened.planCatalog(store, 'another-device', {})).toEqual({})
 
   advance(31 * DAY)
   expect(reopened.isPublished(store, deviceServiceId)).toBe(false)

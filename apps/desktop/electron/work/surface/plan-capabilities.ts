@@ -2,7 +2,7 @@ import { z } from 'zod'
 
 import type { FirstRunLabels } from '../../../shared/first-run-labels'
 import { firstRunPick, type FirstRunProvider } from '../../../shared/first-run-pick'
-import { PLAN_PROVIDER_BY_INSTANCE } from '../plan-providers'
+import { ACCOUNT_PLAN_PROVIDERS, type AccountPlanProvider, PLAN_PROVIDER_BY_INSTANCE } from '../plan-providers'
 
 import type { PlanCapabilities } from './plan-facts'
 
@@ -23,30 +23,35 @@ const nativeProvider = z.object({
 })
 
 /** Project T3's native status into device capabilities. Only built-in model names cross the account boundary. */
-export function projectPlanCapabilities(providers: unknown): PlanCapabilities {
+export function projectPlanCapabilities(
+  providers: unknown,
+  log?: (plan: AccountPlanProvider, state: 'connected' | 'disconnected' | 'unknown', reason: string) => void
+): PlanCapabilities {
   const result: PlanCapabilities = {}
+  const reasons: Partial<Record<AccountPlanProvider, string>> = {}
 
-  if (!Array.isArray(providers)) {return result}
-
-  for (const value of providers) {
+  for (const value of Array.isArray(providers) ? providers : []) {
     const parsed = nativeProvider.safeParse(value)
 
     if (!parsed.success) {continue}
-
     const { instanceId, driver, enabled, installed, status, auth, models } = parsed.data
 
     if (instanceId !== driver || !Object.hasOwn(PLAN_PROVIDER_BY_INSTANCE, instanceId)) {continue}
-
     const provider = PLAN_PROVIDER_BY_INSTANCE[instanceId as keyof typeof PLAN_PROVIDER_BY_INSTANCE]
 
     if (!enabled || status === 'disabled' || auth.status === 'unauthenticated') {
       result[provider] = { state: 'disconnected' }
+      reasons[provider] = !enabled || status === 'disabled' ? 'disabled' : 'signed_out'
 
       continue
     }
 
-    // A pending or failed probe gives no new auth evidence. Keep the previous fact until it expires.
-    if (!installed || auth.status !== 'authenticated') {continue}
+    // An incomplete native probe is not evidence of sign-out.
+    if (!installed || auth.status !== 'authenticated' || status === 'error') {
+      reasons[provider] = status === 'error' ? 'probe_error' : !installed ? 'client_missing_or_pending' : 'auth_unknown'
+
+      continue
+    }
 
     const planLogin = {
       codex: auth.type === 'chatgpt' || (auth.type === undefined && auth.subscriptionSharing === true),
@@ -56,6 +61,7 @@ export function projectPlanCapabilities(providers: unknown): PlanCapabilities {
 
     if (!planLogin) {
       result[provider] = { state: 'disconnected' }
+      reasons[provider] = 'different_login_type'
 
       continue
     }
@@ -80,6 +86,11 @@ export function projectPlanCapabilities(providers: unknown): PlanCapabilities {
       state: 'connected',
       ...(catalog.size ? { models: [...catalog].map(([id, displayName]) => ({ id, displayName })) } : {})
     }
+    reasons[provider] = catalog.size ? 'native_authenticated' : 'catalog_pending'
+  }
+
+  for (const plan of ACCOUNT_PLAN_PROVIDERS) {
+    log?.(plan, result[plan]?.state ?? 'unknown', reasons[plan] ?? (Array.isArray(providers) ? 'native_status_missing' : 'native_rpc_unavailable'))
   }
 
   return result
