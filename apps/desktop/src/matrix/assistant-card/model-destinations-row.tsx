@@ -396,7 +396,9 @@ export function ModelDestinationsRow({
             trigger={answering => {
               // A cloud row names what answers now, as the composer's chip does: a Mac plan's
               // model while one is selected, else this choice's own model.
-              const shown = choice.kind === 'cloud' && answering.plan ? answering.plan : label
+              const named = choice.kind === 'cloud' && answering.plan ? answering.plan : label
+              // The level other than the model's default, as the chip says it (T3's trigger).
+              const shown = choice.kind === 'cloud' && answering.effort ? `${named} · ${answering.effort}` : named
 
               return (
               <button

@@ -282,6 +282,7 @@ describe('the OpenRouter shelf on a cloud home (atum.agent-home/2.5)', () => {
     fireEvent.click(row(card, OPUS_ROUTE))
     expect(model).toHaveBeenCalledWith('agent-luna', expect.objectContaining({ model: 'opus', source: 'atum' }))
     expect(command).not.toHaveBeenCalled()
-    expect(await screen.findByRole('button', { name: 'Model: Claude Opus 5.5' })).toBeTruthy()
+    // A level other than the default the thinking column marks follows the name, as on T3's trigger.
+    expect(await screen.findByRole('button', { name: /^Model: Claude Opus 5\.5( · .+)?$/u })).toBeTruthy()
   })
 })

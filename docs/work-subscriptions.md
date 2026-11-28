@@ -22,6 +22,12 @@ provider the gate sets. It replaces the SSH ChatGPT relay, which is removed.
 
 ## The contract, as the Mac speaks it
 
+The agent picker sends `X-Atum-Work-Selection-Effort: 1` on
+`work_selection_read`. When the response advertises `efforts`, the picker
+offers those levels and includes the chosen `selection.effort` on
+`work_selection_set`. A response without `efforts` keeps the model-only
+picker available.
+
 - **Pull.** `work_sync_pull` carries `contract: "1.2"`. A platform that answers 400 to it (it does not know 1.2) is pulled as 1.1 for an hour, then asked
   again: revocation keeps working, there is simply no consent snapshot, so every plan launch is refused `plan_consent_stale`. **The refusal is immediate.**
   Entering the fallback (and every 1.1 pull of the hour after it) calls `gate.invalidateConsent()`: the snapshot already held stops authorising plan

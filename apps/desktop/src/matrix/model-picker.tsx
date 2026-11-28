@@ -72,7 +72,12 @@ import {
   parseMatrixSubscriptionProvider
 } from '../../shared/matrix-subscriptions'
 import type { WorkAgentPlans } from '../../shared/matrix-work'
-import { WORK_RELAY_PLANS, WORK_RELAY_PROVIDER, workRelayNoticePlan } from '../../shared/matrix-work-relay'
+import {
+  WORK_RELAY_PLANS,
+  WORK_RELAY_PROVIDER,
+  type WorkRelayMachine,
+  workRelayNoticePlan
+} from '../../shared/matrix-work-relay'
 
 import {
   $agentPlans,
@@ -283,8 +288,17 @@ interface PendingHomePick {
  */
 export interface MatrixModelPickerRelay {
   view: WorkRelayPickerView
-  /** Writes the selection (`work_selection_set`). Anything but `saved` keeps the pick retryable. */
-  select(model: string): Promise<{ status: string } | undefined>
+  /**
+   * Writes the selection (`work_selection_set`), with a thinking level once the platform keeps one.
+   * Anything but `saved` keeps the pick retryable.
+   */
+  select(model: string, effort?: MatrixEffort): Promise<{ status: string } | undefined>
+  /** The owner's Macs that report this plan (`work_subscription_read`), each on or off. */
+  machines?: readonly WorkRelayMachine[]
+  /** The levels the platform keeps with a plan selection; absent offers no thinking column. */
+  efforts?: readonly MatrixEffort[]
+  /** The saved selection's level, when it names this plan and carries one. */
+  effort?: MatrixEffort
   /** The greyed rows' one action (Connect: the plan's Connect step; Allow: the consent sheet). */
   fix?(fix: WorkRelayFix): void
   /** The plan's models as T3 advertises them, when the account read does not carry them. */
@@ -364,7 +378,7 @@ export function MatrixModelPicker({
    * A row that opens this picker, replacing the composer's model pill. As a function it learns the
    * Mac plan's model when one answers (the chip's own name), so the row and the chip never disagree.
    */
-  trigger?: ReactNode | ((answering: { plan?: string }) => ReactNode)
+  trigger?: ReactNode | ((answering: { plan?: string; effort?: string }) => ReactNode)
   /** Controlled open state, for a surface whose row owns it. */
   open?: boolean
   onOpenChange?: (open: boolean) => void
@@ -425,14 +439,17 @@ export function MatrixModelPicker({
               : undefined
           }),
           models: agentPlans?.plans[plan]?.models ?? [],
-          select: async (model: string) => {
+          ...(agentPlans?.machines?.[plan] ? { machines: agentPlans.machines[plan] } : {}),
+          ...(agentPlans?.efforts ? { efforts: agentPlans.efforts } : {}),
+          ...(shownPlanSelection?.plan === plan && shownPlanSelection.effort ? { effort: shownPlanSelection.effort } : {}),
+          select: async (model: string, effort?: MatrixEffort) => {
             // Numbered before it goes, so a later Atum write acknowledged first keeps the plan cleared;
             // its intent is every picker's pick until it settles.
             const write = plansKey ? beginAgentPlansWrite(plansKey, { kind: 'select', plan, model }) : undefined
             let saved: Awaited<ReturnType<typeof selectAgentPlan>>
 
             try {
-              saved = await selectAgentPlan(agentPrincipal, model, plan)
+              saved = await (effort ? selectAgentPlan(agentPrincipal, model, plan, effort) : selectAgentPlan(agentPrincipal, model, plan))
             } catch (error) {
               if (write) {failAgentPlansWrite(write)}
 
@@ -1005,10 +1022,18 @@ export function MatrixModelPicker({
     const plan = each.view.plan
     const provider = WORK_RELAY_PROVIDER[plan].picker
     const name = WORK_RELAY_PLAN_NAMES[plan]
-    const ready = each.view.rows === 'selectable'
 
-    return modelsFor(each).map(model => ({
+    return modelsFor(each).map(model => {
+    // The Macs that list this model (a Mac that lists no models serves the whole plan). With Macs
+    // known and every one of them off, the row waits: nothing could answer with it now.
+    const machines = (each.machines ?? []).filter(machine => !machine.models || machine.models.includes(model.id))
+    const macsOff = machines.length > 0 && machines.every(machine => !machine.online)
+    const ready = each.view.rows === 'selectable' && !macsOff
+
+    return {
     relayPlan: plan,
+    ...(machines.length ? { machines } : {}),
+    ...(each.view.rows === 'selectable' && macsOff ? { reason: words.macsOff } : {}),
     route: {
       id: matrixModelRouteId(provider, model.id),
       provider,
@@ -1019,13 +1044,14 @@ export function MatrixModelPicker({
       connection: 'plan' as const,
       target: 'agent_default' as const,
       destination: 'cloud' as const,
-      efforts: [],
+      efforts: [...(each.efforts ?? [])],
       current: selectedRelay?.view.plan === plan && relayCurrent === model.id,
       ready
     },
     subscription: true,
     ...(ready ? {} : { disabled: true })
-    }))
+    }
+    })
   })
 
   const cloudSubscriptionRoutes: PickerRoute[] = cloudSubscriptions
@@ -1345,9 +1371,11 @@ export function MatrixModelPicker({
         defaultEffort: currentPlan.defaultEffort,
         value:
           pendingPlanEffort?.value ??
-          (!pendingCloudSubscription && cloudSubscription?.model === currentPlan.route.model
-            ? cloudSubscription.effort
-            : undefined)
+          (currentPlan.relayPlan
+            ? relays.find(each => each.view.plan === currentPlan.relayPlan)?.effort
+            : !pendingCloudSubscription && cloudSubscription?.model === currentPlan.route.model
+              ? cloudSubscription.effort
+              : undefined)
       })
     : undefined
 
@@ -1430,10 +1458,21 @@ export function MatrixModelPicker({
   // Never name a saved level the model on the chip does not advertise.
   const namedEffort = chosenEffort && efforts.includes(chosenEffort) ? chosenEffort : undefined
 
+  // As T3's trigger: a level other than the model's default follows its name, on the chip and the
+  // card's Model row, from the same choice the thinking column shows (whichever list is open).
+  const answeringChoice = planEffortChoice ?? managedEffortChoice ?? localEffortChoice ?? homeEffortChoice
+
+  const answeringEffort =
+    answeringChoice?.selected && answeringChoice.selected !== answeringChoice.defaultLevel
+      ? words.efforts[answeringChoice.selected]
+      : undefined
+
   const label =
     connectedHere && namedEffort && namedEffort !== MATRIX_DEFAULT_EFFORT
       ? `${name} · ${words.efforts[namedEffort]}`
-      : name
+      : answeringEffort && !connectedHere
+        ? `${name} · ${answeringEffort}`
+        : name
 
   const displayName =
     homeDisplayRoute?.name ??
@@ -1975,6 +2014,12 @@ export function MatrixModelPicker({
 
   /** A new thinking level for the cloud plan model that answers now: the same plan write, same model. */
   const chooseCloudPlanEffort = (plan: PickerRoute, level: MatrixEffort) => {
+    if (plan.relayPlan) {
+      chooseRelayEffort(plan, level)
+
+      return
+    }
+
     const write = window.atumMatrix.modelDestinations?.writeSubscription
 
     if (!write || !agentPrincipal || switching || pendingPlanEffort?.saved === false) {
@@ -1990,6 +2035,41 @@ export function MatrixModelPicker({
       plan.route.model,
       level
     ).then(
+      result => {
+        if (!context.current()) {
+          return
+        }
+
+        if (result?.status !== 'saved') {
+          setPendingPlanEffort(null)
+          fail()
+
+          return
+        }
+
+        setPendingPlanEffort({ value: level, saved: true })
+      },
+      () => {
+        if (context.current()) {
+          setPendingPlanEffort(null)
+          fail()
+        }
+      }
+    )
+  }
+
+  /** A Mac plan's new level: the same selection write with the same model and the level beside it. */
+  const chooseRelayEffort = (plan: PickerRoute, level: MatrixEffort) => {
+    const target = relays.find(each => each.view.plan === plan.relayPlan)
+
+    if (!target || switching || pendingPlanEffort?.saved === false) {
+      return
+    }
+
+    const context = beginSelection()
+    setPendingPlanEffort({ value: level, saved: false })
+
+    void target.select(plan.route.model, level).then(
       result => {
         if (!context.current()) {
           return
@@ -2477,7 +2557,11 @@ export function MatrixModelPicker({
 
   const chipLabel =
     !connectedHere && !shownPlanName && (!homeDisplayRoute || homeDisplayRoute.provider === 'atum')
-      ? (atumChipName ?? label)
+      ? atumChipName
+        ? answeringEffort
+          ? `${atumChipName} · ${answeringEffort}`
+          : atumChipName
+        : label
       : label
 
   // The chip's mark names the same connection as its name: the current row's, else the saved plan's,
@@ -2514,7 +2598,7 @@ export function MatrixModelPicker({
     <Popover onOpenChange={changeOpen} open={open}>
       {trigger ? (
         <PopoverTrigger asChild>{typeof trigger === 'function'
-          ? trigger(shownPlanName ? { plan: shownPlanName } : {})
+          ? trigger({ ...(shownPlanName ? { plan: shownPlanName } : {}), ...(answeringEffort ? { effort: answeringEffort } : {}) })
           : trigger}</PopoverTrigger>
       ) : (
         <Tip label={chipWarning ?? copy.modelPicker}>

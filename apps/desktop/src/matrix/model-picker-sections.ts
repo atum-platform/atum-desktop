@@ -1,6 +1,6 @@
 import type { MatrixModelRoute } from '../../shared/matrix-models'
 import type { MatrixShelfModelView } from '../../shared/matrix-shelf-models'
-import type { WorkRelayPlan } from '../../shared/matrix-work-relay'
+import type { WorkRelayMachine, WorkRelayPlan } from '../../shared/matrix-work-relay'
 
 import { matrixModelRouteMatches, matrixModelRoutesForFacet } from './model-picker-preferences'
 
@@ -35,6 +35,8 @@ export interface PickerRoute {
   hint?: string
   /** An Atum-funded OpenRouter shelf model: its second line names the maker and the Proton price. */
   shelf?: MatrixShelfModelView
+  /** A plan model's Macs: one icon each after the name, dimmed while that Mac is off. */
+  machines?: readonly WorkRelayMachine[]
 }
 
 /** A provider family: the id every route carries, and its safe display name. */

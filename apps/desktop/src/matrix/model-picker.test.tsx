@@ -780,7 +780,7 @@ describe('the T3-layout conversation model picker', () => {
     fireEvent.click(rail(card, 'openrouter'))
     fireEvent.click(row(card, OPENROUTER_ROUTE))
     expect(model).toHaveBeenCalledWith('agent-luna', expect.objectContaining({ model: 'other/model' }))
-    expect(screen.getByRole('button', { name: 'Model: Other Model' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: /^Model: Other Model( · .+)?$/u })).toBeTruthy()
     expect(selected(card)).toHaveLength(1)
   })
 
@@ -2667,7 +2667,8 @@ it('undoes a refused managed cloud effort write', async () => {
   picker(ROOM, { managed: true, cloud: true, here: 'cloud', bridge: { command },
     cloudChoice: { offered: ['nguyet-thuc'], current: 'nguyet-thuc', effort: 'low',
       models: [{ alias: 'nguyet-thuc', efforts: ['low', 'high'] }] } })
-  const card = await open('Model: Nguyệt Thực 1.3')
+  // The saved level is not the model's default, so the chip names it after the model (T3's trigger).
+  const card = await open('Model: Nguyệt Thực 1.3 · Quick')
   fireEvent.click(card.querySelector<HTMLElement>('[data-matrix-model-effort-level="high"]')!)
   await waitFor(() => expect(command).toHaveBeenCalled())
   await waitFor(() => expect(card.querySelector('[data-matrix-model-effort-level="low"]')?.getAttribute('aria-checked')).toBe('true'))
@@ -2782,5 +2783,157 @@ describe('relay R1: plan rows from the relay view-model (lane U1)', () => {
     relayPicker({ plan: 'codex', rows: 'selectable', currentModel: 'gpt-6-sol' })
     const chip = screen.getByRole('button', { name: 'Model: GPT-6 Sol' })
     expect(chip.querySelector('[data-matrix-model-warning]')).toBeNull()
+  })
+})
+
+describe('the agent picker as Work’s: Macs on plan rows and the plan’s thinking level', () => {
+  const AGENT = '00000000-0000-4000-8000-bd7662a5ee01'
+  const SOL = 'openai-codex:gpt-6-sol'
+  const laptop = { id: '00000000-0000-4000-8000-0000000000a1', name: 'MacBook Air', kind: 'laptop' as const, online: true }
+  const mini = { id: '00000000-0000-4000-8000-0000000000a2', name: 'Mac mini', kind: 'mac-mini' as const, online: false }
+  let scopeCount = 0
+
+  const plansWith = (extra: Partial<WorkAgentPlans> = {}): WorkAgentPlans => ({
+    published: true,
+    plans: { codex: { state: 'connected', models: [{ id: 'gpt-6-sol', displayName: 'GPT-6 Sol' }] } },
+    selection: { provider: 'atum-work', plan: 'codex', model: 'gpt-6-sol', revision: 2 },
+    ...extra
+  })
+
+  const mount = (plans: WorkAgentPlans, surfaces: readonly ('composer' | 'card')[] = ['composer']) => {
+    const selectRelay = vi.fn(async (_agent: string, model: string, plan: 'codex', effort?: 'low' | 'medium' | 'high') =>
+      ({ provider: 'atum-work' as const, plan, model, ...(effort ? { effort } : {}), revision: 3 }))
+
+    window.atumMatrix = {
+      command: vi.fn(async () => null),
+      work: { readAgentPlans: vi.fn(async () => plans), selectRelay } as unknown as NonNullable<MatrixUiBridge['work']>
+    } as unknown as MatrixUiBridge
+
+    const shared = {
+      agentPrincipal: AGENT,
+      cloud: true,
+      cloudChoice: { offered: ['default' as const], current: 'default' as const, revision: 1 },
+      disabled: false,
+      fail: vi.fn(),
+      here: 'cloud' as const,
+      // One store entry per test: the shared plan view is keyed by account scope and agent.
+      preferenceScope: `account:machines-${++scopeCount}`
+    }
+
+    render(
+      <I18nProvider configClient={null} initialLocale="en">
+        {surfaces.map(surface =>
+          surface === 'composer' ? (
+            <div data-surface="composer" key={surface}><MatrixModelPicker {...shared} room={ROOM} /></div>
+          ) : (
+            // The assistant card's Model row: the same picker behind the card's own row.
+            <div data-surface="card" key={surface}>
+              <MatrixModelPicker
+                {...shared}
+                room={{ ...ROOM, id: 'assistant-card:agent:cloud' }}
+                trigger={answering => (
+                  <button data-card-model-row type="button">
+                    {[answering.plan, answering.effort].filter(Boolean).join(' · ') || 'Model'}
+                  </button>
+                )}
+              />
+            </div>
+          )
+        )}
+      </I18nProvider>
+    )
+
+    return { selectRelay }
+  }
+
+  const openOn = async (trigger: HTMLElement) => {
+    fireEvent.click(trigger)
+    const card = await screen.findByRole('dialog', { name: 'Model' })
+    await waitFor(() => expect(rail(card, 'openai-codex')).toBeTruthy())
+    fireEvent.click(rail(card, 'openai-codex'))
+
+    return card
+  }
+
+  const icons = (card: HTMLElement, id: string) =>
+    Array.from(row(card, id).querySelectorAll<SVGElement>('[data-matrix-model-machine]')).map(icon => ({
+      kind: icon.dataset.matrixModelMachineKind,
+      online: icon.dataset.matrixModelMachineOnline
+    }))
+
+  it('marks a plan model with one icon per Mac that serves it, the Mac that is off dimmed, and says so in words', async () => {
+    mount(plansWith({ machines: { codex: [laptop, mini] } }))
+    await waitFor(() => expect(screen.getByRole('button', { name: /^Model: GPT-6 Sol/ })).toBeTruthy())
+    const card = await openOn(screen.getByRole('button', { name: /^Model: GPT-6 Sol/ }))
+
+    expect(icons(card, SOL)).toEqual([{ kind: 'laptop', online: 'true' }, { kind: 'mac-mini', online: 'false' }])
+    expect(row(card, SOL).querySelector('[data-matrix-model-machine-online="false"]')?.getAttribute('class')).toContain('opacity-40')
+    expect(row(card, SOL).getAttribute('aria-label')).toContain('MacBook Air is on · Mac mini is off')
+    // Any Mac that is on can answer, so the row stays a choice.
+    expect(row(card, SOL).disabled).toBe(false)
+  })
+
+  it('greys a plan model when every Mac that serves it is off, with one short line', async () => {
+    mount(plansWith({ selection: null, machines: { codex: [{ ...laptop, online: false }, mini] } }))
+    const card = await openOn(await screen.findByRole('button', { name: /^Model:/ }))
+
+    expect(row(card, SOL).disabled).toBe(true)
+    expect(within(card).getAllByText('Your Macs are off')).toHaveLength(1)
+    expect(icons(card, SOL).map(icon => icon.online)).toEqual(['false', 'false'])
+  })
+
+  it('shows only the Macs that list the model', async () => {
+    mount(plansWith({ machines: { codex: [{ ...laptop, models: ['gpt-6-sol'] }, { ...mini, online: true, models: ['other-model'] }] } }))
+    const card = await openOn(await screen.findByRole('button', { name: /^Model: GPT-6 Sol/ }))
+
+    expect(icons(card, SOL)).toEqual([{ kind: 'laptop', online: 'true' }])
+  })
+
+  it('offers the plan model’s thinking levels once the platform keeps one, and saves a level with the same model', async () => {
+    const { selectRelay } = mount(plansWith({
+      efforts: ['low', 'medium', 'high'],
+      selection: { provider: 'atum-work', plan: 'codex', model: 'gpt-6-sol', effort: 'low', revision: 2 }
+    }))
+
+    // T3's trigger: a level other than the default follows the model's name.
+    const chip = await screen.findByRole('button', { name: 'Model: GPT-6 Sol · Quick' })
+    const card = await openOn(chip)
+    const column = card.querySelector<HTMLElement>('[data-matrix-model-effort-column]')!
+
+    expect(column.querySelector('[data-matrix-model-effort-model]')?.textContent).toBe('GPT-6 Sol')
+    expect(column.querySelector('[data-matrix-model-effort-level="low"]')?.getAttribute('aria-checked')).toBe('true')
+
+    fireEvent.click(column.querySelector<HTMLElement>('[data-matrix-model-effort-level="high"]')!)
+    await waitFor(() => expect(selectRelay).toHaveBeenCalledWith(AGENT, 'gpt-6-sol', 'codex', 'high'))
+    await waitFor(() =>
+      expect(column.querySelector('[data-matrix-model-effort-level="high"]')?.getAttribute('aria-checked')).toBe('true'))
+  })
+
+  it('offers no thinking column for a plan model while the platform keeps no level', async () => {
+    mount(plansWith())
+    const card = await openOn(await screen.findByRole('button', { name: 'Model: GPT-6 Sol' }))
+
+    expect(card.querySelector('[data-matrix-model-effort-column]')).toBeNull()
+  })
+
+  it('is one picker for the composer chip and the assistant card’s Model row: same name, level and Macs', async () => {
+    mount(plansWith({
+      efforts: ['low', 'medium', 'high'],
+      machines: { codex: [laptop, mini] },
+      selection: { provider: 'atum-work', plan: 'codex', model: 'gpt-6-sol', effort: 'high', revision: 2 }
+    }), ['composer', 'card'])
+
+    const cardRow = await waitFor(() => {
+      const found = window.document.querySelector<HTMLElement>('[data-card-model-row]')!
+      expect(found.textContent).toBe('GPT-6 Sol · Thorough')
+
+      return found
+    })
+
+    expect(screen.getByRole('button', { name: 'Model: GPT-6 Sol · Thorough' })).toBeTruthy()
+
+    const card = await openOn(cardRow)
+    expect(icons(card, SOL)).toEqual([{ kind: 'laptop', online: 'true' }, { kind: 'mac-mini', online: 'false' }])
+    expect(card.querySelector('[data-matrix-model-effort-level="high"]')?.getAttribute('aria-checked')).toBe('true')
   })
 })

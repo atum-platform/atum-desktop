@@ -315,7 +315,7 @@ describe('the assistant card’s model rows', () => {
     renderRow(view([choice({ shelf: 'opus', recommended: false })]), { home })
 
     const cloud = screen.getByRole('button', { name: /^Mô hình/ })
-    expect(within(cloud).getByText('OpenRouter · Claude Opus 5.5')).toBeTruthy()
+    expect(within(cloud).getByText(/^OpenRouter · Claude Opus 5\.5( · .+)?$/u)).toBeTruthy()
     expect(within(cloud).queryByText('Đề xuất')).toBeNull()
 
     fireEvent.click(cloud)
