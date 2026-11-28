@@ -67,4 +67,4 @@ tests check malformed, active, external and oversized input, real HTML and
 SVG raster output, quota interruption, partial sync, replay, and a
 same-thread title-size revision that preserves the original. The standalone
 Electron test process has a separate startup allowance from the renderer's
-production deadline.
+production deadline and keeps its profile in the fixture directory.

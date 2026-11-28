@@ -6,6 +6,7 @@ import { workDesignRenderer, workDesignThumbnail } from './work-design-preview'
 
 const [resvg, directory, format, width, height] = process.argv.slice(2)
 
+app.setPath('userData', directory)
 app.on('window-all-closed', () => {})
 
 void app.whenReady().then(async () => {
