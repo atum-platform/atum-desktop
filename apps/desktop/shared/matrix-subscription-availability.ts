@@ -109,11 +109,13 @@ export function matrixCurrentPlanAvailability(input: {
     return undefined
   }
 
-  if (plan.source === 'openrouter_free') {
+  const source = plan.source
+
+  if (source === 'openrouter_free') {
     return matrixCloudPlanAvailability(input.choice)
   }
 
-  const provider = input.account?.find(each => each.id === matrixCloudPlanProvider(plan.source))
+  const provider = input.account?.find(each => each.id === matrixCloudPlanProvider(source))
 
   return matrixAccountPlanAvailability(provider) ?? matrixCloudPlanAvailability(input.choice)
 }

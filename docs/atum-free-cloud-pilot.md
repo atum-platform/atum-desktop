@@ -16,3 +16,4 @@ OpenRouter Activity and Atum's managed usage.
 Focused tests cover the exchange, status parser, destination choice, and
 the eligible and ineligible picker paths. The pilot uses loopback directly.
 The connect and disconnect controls use the picker and Connections handler patterns.
+Saved Free choices use the cloud connection status for availability.
