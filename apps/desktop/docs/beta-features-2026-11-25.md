@@ -21,7 +21,8 @@ out as "Coming soon". Nothing is hidden, and no error state appears.
 | Assistant card, Skills popover | The skills the assistant has stay listed. "Find more skills" is greyed and disabled, with "Coming soon" in place of the arrow (`data-assistant-card-skills-coming-soon`). (2026-11-26) |
 
 All labels reuse `t.surfaces.comingSoon` and `t.surfaces.comingSoonHelp`. No new copy strings were added,
-so the mobile copy export inventory is unchanged.
+so the mobile copy export inventory is unchanged. The phone gets both from the mobile design snapshot as
+`desktop.surfaces.{comingSoon,comingSoonHelp}` (wave 4g, `docs/ports/mobile-export-wave4-copy.md`).
 
 Checked and left alone on 2026-11-26: Settings has no hire or skill entry of its own (an assistant's
 page reuses the card above). Team Space's Marketplace page sits behind the Team Space gate. The Store

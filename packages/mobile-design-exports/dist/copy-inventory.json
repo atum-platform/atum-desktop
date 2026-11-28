@@ -6,7 +6,8 @@
         "atum",
         "common",
         "timeline",
-        "dm"
+        "dm",
+        "surfaces"
       ],
       "source": "apps/desktop/src/i18n/en.ts",
       "tables": [
@@ -18,7 +19,8 @@
         "atum",
         "common",
         "timeline",
-        "dm"
+        "dm",
+        "surfaces"
       ],
       "source": "apps/desktop/src/i18n/vi.ts",
       "tables": [
@@ -30,7 +32,8 @@
         "atum",
         "common",
         "timeline",
-        "dm"
+        "dm",
+        "surfaces"
       ],
       "source": "apps/desktop/src/i18n/ja.ts",
       "tables": [
@@ -42,7 +45,8 @@
         "atum",
         "common",
         "timeline",
-        "dm"
+        "dm",
+        "surfaces"
       ],
       "source": "apps/desktop/src/i18n/zh.ts",
       "tables": [
@@ -54,7 +58,8 @@
         "atum",
         "common",
         "timeline",
-        "dm"
+        "dm",
+        "surfaces"
       ],
       "source": "apps/desktop/src/i18n/zh-hant.ts",
       "tables": [
@@ -182,9 +187,11 @@
       ]
     },
     {
-      "note": "Partial locale table, not exported: copies",
+      "note": "English fallback table (ja, zh, zh-Hant read en, as desktop does): copies",
       "source": "apps/desktop/src/matrix/google-write-card-copy.ts",
-      "tables": []
+      "tables": [
+        "copies"
+      ]
     },
     {
       "source": "apps/desktop/src/matrix/group-picker-copy.ts",
@@ -262,6 +269,12 @@
       ]
     },
     {
+      "source": "apps/desktop/src/matrix/rail-badge-copy.ts",
+      "tables": [
+        "copies"
+      ]
+    },
+    {
       "source": "apps/desktop/src/matrix/read-state-copy.ts",
       "tables": [
         "copies"
@@ -271,6 +284,12 @@
       "note": "Derived formatting helpers; no locale table",
       "source": "apps/desktop/src/matrix/readiness-copy.ts",
       "tables": []
+    },
+    {
+      "source": "apps/desktop/src/matrix/room-upgrade-copy.ts",
+      "tables": [
+        "copies"
+      ]
     },
     {
       "source": "apps/desktop/src/matrix/roster-copy.ts",

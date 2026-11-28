@@ -211,7 +211,8 @@ the already-exported `matrixAgentStatusCopy.unfunded` and `trialExpired`.
   card's `copies` (en, vi) and `MATRIX_VIDEO_CONSENT_SENTENCES` (the platform's hashed en/vi
   sentences). The producer used to fail on any partial table. It now records these two by exact
   source and table in the inventory ("Partial locale table, not exported") and still fails on any
-  other partial table. A new test checks that both are recorded and never exported.
+  other partial table. A new test checks that both are recorded and never exported. (Wave 4h
+  exports the card's `copies`, with desktop's English fallback; see "Wave 4h" below.)
 - `wave4/spec.json` and `wave4/splice4.mjs`: wave 3's splice, which also takes the producer's
   inventory and checks that every entry shared with the producer is now byte-identical.
 
@@ -420,3 +421,266 @@ Desktop #119 (`2365efe8`) moved the picker's thinking heading, levels and taglin
 - Checks: producer `export.mjs --check` 0 and tests 46/46. As before, six glyph aliases got throwaway mappings
   for the run; `glyphs.json` is not spliced. Desktop `tsc -p . --noEmit` 0. The model-picker and copy vitest
   files pass, 180 tests. All 44 manifest hashes match. The outbound guard passes.
+
+## Wave 4g: the beta gate's "Coming soon" (#132)
+
+W4-C7. Desktop #132 (`70464afa`, merged at `f60b25d6`) greys Team Space, hires and skills as "Coming soon"
+for accounts without beta features. The phone has to show the same state with the same words. Desktop
+added no strings for it (`apps/desktop/docs/beta-features-2026-11-25.md`). Every place reuses two i18n
+keys in the `surfaces` scope:
+
+| Key | Desktop draws it |
+|---|---|
+| `t.surfaces.comingSoon` | the rail's greyed Team space popover title (`app/atum/shell-surface.tsx:209`), the Team Space page title (`matrix/workspace.tsx:363`), the Store card's and sheet's disabled action (`store/discover-view.tsx:257,608`, `store-card.tsx`, `store-detail.tsx`), and the new-assistant sheet's listing button (`agent-roster.tsx:615`, `listing-hire.tsx`), which covers the Researcher hire |
+| `t.surfaces.comingSoonHelp` | the rail popover's line (`shell-surface.tsx:272`) and the Team Space page's description (`workspace.tsx:363`) |
+
+The export read only the `atum`, `common`, `timeline` and `dm` scopes, so neither key was in it. The
+producer now reads `surfaces` too (atum-app `scripts/copy.mjs` `I18N_SCOPES`), and both keys are promoted
+under their own desktop path. Nothing goes into `mobileScreensCopy`. Producer inputs are on atum-app
+`chore/mobile-export-wave4g-keys` (`d266144b`).
+
+- **Added: 2.** Both are plain words with no arguments. Desktop has all five locales:
+  - `desktop.surfaces.comingSoon`: Coming soon / Sắp có / 近日公開 / 即将推出 / 即將推出
+  - `desktop.surfaces.comingSoonHelp`: This place is not ready yet. / Chỗ này chưa sẵn sàng. /
+    この場所はまだ利用できません。 / 此处尚未就绪。 / 此處尚未就緒。
+- **Removed: 3.** Desktop `e8ce4357` (Kit on T3 step 3, "no Mac is full") removed the disk alerts, so the
+  producer can no longer emit `src.matrix.attention-copy.copies.items.disk_critical` ("Mac is out of
+  space"), `items.disk_low` ("Mac almost full") and `snooze` ("Remind me later"). They are recorded as
+  deprecated with no replacement. None was a `phone-copy-map.json` target, and the phone's main branch
+  does not read them.
+- **Refreshed: none.** Every other entry the snapshot shares with the producer is still byte-identical.
+  Catalog: 4138 → 4137 entries. `copy-contract.json` adds 2 entries and drops 3, with no exact selectors.
+  `copy-inventory.json` lists `surfaces` in the five i18n rows and adds `src/matrix/rail-badge-copy.ts`
+  (new in `e8ce4357`; listed, nothing from it exported). The copy map is unchanged.
+- **Already exported, so not added:** the plain "Coming soon" in other tables
+  (`desktop.atum.discover.comingSoon`, `desktop.atum.workspace.launcherComingSoon`, same words in all five
+  locales), and the phone's combined rail label `src.matrix.mobile-device-copy.mobileDeviceCopy.teamSpaceSoon`
+  ("Team space · Coming soon"). The phone should draw the gate with the `desktop.surfaces.*` keys, as desktop
+  does. The listing button's spoken name (`${comingSoon} ${title}`) is a composition, not a new word.
+- **Held back:** the rest of the scope, `surfaces.{needsSetup,needsUpdate,needsUpdateHelp}`. No phone flow
+  needs them yet.
+
+### For the phone repin
+
+- Manifest SHA-256: `8a9f52066a4990850ca3c242e1915da29d166e2adfa2c22f3250b15598d8eacb` (was
+  `2f1c4ea3c95f4b9612817198956306851e2951b123d3873cc851b8d59fa64dc1`).
+- Changed file hashes: `Localizable.xcstrings` `7b1b70d0c20109b87a3b29147710dda72a13fe6c5eeef86045bb0430ce9ad52d`,
+  `copy-contract.json` `9b20a768b5835643183b71eec26c8bc4d9f7066fd6e102b54d51612acbbdeecb`,
+  `copy-inventory.json` `7efc62100014be889525c0c21022e4e05cacd8318547a652923ee657b7d51643`.
+  `schemaVersion` stays 1, and the manifest keeps its 44 members.
+- Rekeys: none. The phone only gains the two keys, and the three removed keys need nothing from it.
+- Which items are greyed is the platform's `betaFeatures: true` on `/me`, the same reader desktop uses
+  (`shared/beta-features.ts`). The Shell does not return it yet, so every account sees "Coming soon" until
+  it does.
+
+### Checks
+
+- Producer: `export.mjs` and `export.mjs --check` exit 0 on this tree's `apps/desktop` and
+  `packages/atum-kit`. Tests pass 47 of 47, including the new beta-gate test, which pins both keys in all
+  five locales against the desktop source and fails if any other `desktop.surfaces.*` key is exported.
+  Eight glyph aliases the producer cannot map yet got throwaway entries for the run only: the six above,
+  plus `Paperclip` and `UserPlus` from `e8ce4357`. `glyphs.json` is not spliced.
+- Splice: `wave4/splice4.mjs` with `wave4g/spec.json` added 2, refreshed 0 and removed 3. All 44 manifest
+  hashes match their files.
+- No desktop source changed, so desktop typecheck, lint and vitest have nothing new to cover. The outbound
+  guard results are in the commit.
+
+## Wave 4h: Google write cards for Work (#134)
+
+Desktop #134 (merged at `6bd26341`) shows Work's Google writes on the owner's confirmation card, next to the
+assistants' ones, and changed `apps/desktop/src/matrix/google-write-card-copy.ts`. The phone needs the same words
+to show these cards and let the owner approve or decline. Producer inputs are on atum-app
+`chore/mobile-export-wave4h-keys` (`42d51de7`), run on this tree (`3f56c918`).
+
+The card's own words sit in its `copies` table (`google-write-card-copy.ts:54–155`), written in en and vi only.
+Its reader returns `copies[locale] ?? copies.en` (`:157–159`), so desktop shows the English in ja, zh and zh-Hant.
+Until now the producer recorded this table as partial and never exported it (see "Producer changes" above). It
+now reads it the way desktop does, which is wave 4's rule for Work's en/vi copy ("Desktop wording to review
+across locales"): ja, zh and zh-Hant repeat the English. In the producer, the table moves from
+`PARTIAL_LOCALE_TABLES` to a new `ENGLISH_FALLBACK_TABLES` in `scripts/copy.mjs`. Any other partial table still
+fails generation, and `MATRIX_VIDEO_CONSENT_SENTENCES` stays recorded and unexported.
+
+- **Added: 50.** None takes arguments, and none has exact selectors.
+  - 36 under `src.matrix.google-write-card-copy.copies.`: the 24 that #134 added, plus 12 the card already had
+    that were never exported because the table was partial.
+  - 14 under `shared.matrix-google-write-copy.MATRIX_GOOGLE_WRITE_COPY.`
+    (`shared/matrix-google-write-copy.ts:40–115`). These are the question for an email or event and the 11
+    field names the card draws (`google-write-card.tsx:183–219`). They are written in all five locales.
+- **Held back:** the card's spread copies of the shared words (`copies.question.{send_email,create_event,
+  update_event}`, `copies.labels.{from,to,…}`), so the phone reads each word from one place. Also held back are
+  the shared table's fields the card does not draw (`labels.{from,calendar,notes,current,after,noInvitations}`),
+  and the dialog's `confirm.*` and `cancel`.
+- **Refreshed / removed: none.** Catalog: 4137 → 4187 entries. `copy-contract.json` adds 50 entries. The
+  `copy-inventory.json` row for `google-write-card-copy.ts` now lists `copies` with the note "English fallback
+  table (ja, zh, zh-Hant read en, as desktop does): copies". The copy map is unchanged. A semantic diff of the
+  catalog and the contract shows exactly the 50 added keys and no other change.
+
+| Key (`C` = `src.matrix.google-write-card-copy.copies`) | en | vi |
+|---|---|---|
+| `C.question.create_draft` | Save this draft in Gmail? | Lưu thư nháp này trong Gmail? |
+| `C.question.update_draft` | Update this Gmail draft? | Cập nhật thư nháp Gmail này? |
+| `C.question.create_label` | Create this Gmail label? | Tạo nhãn Gmail này? |
+| `C.mailbox.archive` | Archive this in Gmail? | Lưu trữ mục này trong Gmail? |
+| `C.mailbox.unarchive` | Move this back to your Gmail inbox? | Đưa mục này về hộp thư đến Gmail? |
+| `C.mailbox.mark_read` | Mark this as read in Gmail? | Đánh dấu đã đọc trong Gmail? |
+| `C.mailbox.mark_unread` | Mark this as unread in Gmail? | Đánh dấu chưa đọc trong Gmail? |
+| `C.mailbox.star` | Star this in Gmail? | Gắn sao trong Gmail? |
+| `C.mailbox.unstar` | Remove the star in Gmail? | Bỏ gắn sao trong Gmail? |
+| `C.mailbox.trash` | Move this to the Gmail trash? | Chuyển mục này vào thùng rác Gmail? |
+| `C.mailbox.untrash` | Take this out of the Gmail trash? | Lấy mục này ra khỏi thùng rác Gmail? |
+| `C.mailbox.add_labels` | Add these Gmail labels? | Thêm các nhãn Gmail này? |
+| `C.mailbox.remove_labels` | Remove these Gmail labels? | Gỡ các nhãn Gmail này? |
+| `C.labels.name` | Name | Tên |
+| `C.labels.labels` | Labels | Nhãn |
+| `C.labels.appliesTo` | Applies to | Áp dụng cho |
+| `C.labels.conversation` | The whole conversation | Cả cuộc trò chuyện |
+| `C.labels.oneEmail` | One email | Một email |
+| `C.work.source` | From Work on this Mac | Từ Work trên máy Mac này |
+| `C.work.approved` | Approved. | Đã duyệt. |
+| `C.work.declined` | Declined. Nothing was changed. | Đã từ chối. Không có gì thay đổi. |
+| `C.work.superseded` | A newer request from Work replaced this one. | Một yêu cầu mới hơn từ Work đã thay thế yêu cầu này. |
+| `C.work.expired` | This request expired. | Yêu cầu này đã hết hạn. |
+| `C.work.changed` | This doesn’t match what Work asked for, so it can’t be approved here. | Nội dung này không khớp với yêu cầu của Work nên không thể duyệt ở đây. |
+| `C.approve` · `C.decline` | Approve · Decline | Duyệt · Từ chối |
+| `C.approving` · `C.declining` | Approving… · Declining… | Đang duyệt… · Đang từ chối… |
+| `C.labels.quote` | Quoted message | Tin nhắn được trích dẫn |
+| `C.labels.truncated` | The quoted message is shortened. | Tin nhắn trích dẫn đã được rút gọn. |
+| `C.approved` | Approved. Your assistant will carry it out. | Đã duyệt. Trợ lý sẽ thực hiện việc này. |
+| `C.declined` | Declined. Your assistant won’t do this. | Đã từ chối. Trợ lý sẽ không thực hiện việc này. |
+| `C.superseded` | A newer request replaced this one. | Một yêu cầu mới hơn đã thay thế yêu cầu này. |
+| `C.closed` | This request is no longer waiting for you. | Yêu cầu này không còn chờ bạn nữa. |
+| `C.changed` | This draft doesn’t match what your assistant proposed, so it can’t be approved here. Ask for a fresh one. | Bản nháp này không khớp với đề xuất của trợ lý nên không thể duyệt ở đây. Hãy nhờ soạn lại. |
+| `C.retry` | Couldn’t reach Atum. Try again. | Không kết nối được với Atum. Hãy thử lại. |
+
+| Key (`W` = `shared.matrix-google-write-copy.MATRIX_GOOGLE_WRITE_COPY`) | en | vi |
+|---|---|---|
+| `W.message.send-email` | Send this email? | Gửi email này? |
+| `W.message.create-event` | Add this event to your calendar? | Thêm sự kiện này vào lịch? |
+| `W.message.update-event` | Save these changes to your calendar? | Lưu thay đổi này vào lịch? |
+| `W.labels.to` · `cc` · `bcc` | To · Cc · Bcc | Đến · Cc · Bcc |
+| `W.labels.subject` | Subject | Tiêu đề |
+| `W.labels.forwarded` | Forwarded message | Thư được chuyển tiếp |
+| `W.labels.attachments` | Attachments | Tệp đính kèm |
+| `W.labels.inReplyTo` | Replies in the same conversation. | Trả lời trong cùng cuộc trò chuyện. |
+| `W.labels.title` | Title | Tên |
+| `W.labels.start` · `end` | Start · End | Bắt đầu · Kết thúc |
+| `W.labels.location` | Location | Địa điểm |
+
+### Desktop wording to review across locales
+
+- **English fallback.** All 36 `C.*` keys read English in ja, zh and zh-Hant, as desktop shows them. Translating
+  them belongs in desktop first.
+- **A mixed-language card.** On desktop the whole card is English in ja, zh and zh-Hant: `copies.en` spreads
+  the shared table's English question and labels. The 14 `W.*` keys carry the shared table's own ja, zh and
+  zh-Hant words, which desktop's main-process write dialog shows. A phone card built from these keys therefore
+  shows translated questions and field names next to English actions and states in those three locales. For
+  exact desktop parity in those locales, the phone can read the `en` localization of the `W.*` keys. The real
+  fix is the desktop translation of `copies`.
+
+### Phone wording the export does not have yet
+
+Desktop's provenance line is `C.work.source`, "From Work on this Mac" / "Từ Work trên máy Mac này". On the
+phone, "this Mac" would point at the phone, so the phone needs "From Work on your Mac". Desktop source was not
+changed in this wave, and phone copy comes only from this export (owner ruling, top of this doc). So the phone
+lane should not type the words itself. The pattern for words only the phone shows is the desktop phone table,
+`apps/desktop/src/matrix/mobile-device-copy.ts` and its `.trace.json` (`teamSpaceSoon` is one such key).
+Follow-up for desktop:
+
+- Add a phone key there (suggested name `workGoogleWriteSource`), in all five locales. en "From Work on your
+  Mac". vi "Từ Work trên máy Mac của bạn" (suggested, to be reviewed). ja, zh and zh-Hant fall back to English,
+  as `C.*` does, unless desktop translates them.
+- Then export it in a following wave.
+
+Until that lands, the phone's Work card has no correct provenance words in the export.
+
+Phone mapping notes, from `google-write-card.tsx:393`: a Work card that settles as `closed` shows `C.work.expired`.
+An assistant's card that settles as `expired` shows `C.closed`. The other states map to the same name
+(`C.work.<state>` for Work, `C.<state>` for an assistant). `C.work.source` is drawn only on Work's card (`:427`).
+
+### For the phone repin
+
+- Manifest SHA-256: `e9136dc388da23f8c88fddfff22d9b63db60abd53023182d8ee6e450bc874c39` (was
+  `8a9f52066a4990850ca3c242e1915da29d166e2adfa2c22f3250b15598d8eacb`).
+- Changed file hashes: `Localizable.xcstrings` `eca4f73011571be5e78d3eda11a15dd9acc94c4eef1a7b4fc2cf93096d75bee6`,
+  `copy-contract.json` `198fcf28decca8f94f97487fbd32b8ed2ccb006912614d7f20536afd7b9ad79d`,
+  `copy-inventory.json` `ed5b5624767ee88e0c3f7ff7144f67cbec6339f1c0cda16eee809976a5f35001`.
+  `schemaVersion` stays 1, and the manifest keeps its 44 members.
+- Rekeys: none. The phone only gains keys.
+
+### Checks
+
+- Producer: `export.mjs` and `export.mjs --check` exit 0 in a scratch root holding this tree's `apps/desktop`
+  and `packages/atum-kit` (`git archive 3f56c918`). Tests pass 48 of 48. That includes the new Google write
+  card test, which:
+  - pins all 50 keys in en and vi against the desktop source;
+  - checks that ja, zh and zh-Hant of the 36 card words are the English, and that the shared words are
+    desktop's own in every locale;
+  - fails if any other key of either table is exported;
+  - checks the inventory row.
+
+  The partial-table test now covers only the video consent table. The same eight glyph aliases as wave 4g got
+  throwaway entries for the run only. `glyphs.json` is not spliced.
+- Splice: `wave4/splice4.mjs` with `wave4h/spec.json` added 50, refreshed 0 and removed 0. All 44 manifest
+  hashes match their files.
+- No desktop source changed, so desktop typecheck, lint and vitest have nothing new to cover. The outbound
+  guard results are in the commit.
+
+## Merge of desktop main `3424194e` into waves 4g + 4h (28 Nov)
+
+PR #135 had fallen 20 commits behind main. `origin/main` (`3424194e`) is merged in with a merge commit. No
+`dist/` file conflicted, because main has not touched `packages/mobile-design-exports` or this doc since the
+merge base `52b0d1aa`. The only conflict was `apps/desktop/docs/beta-features-2026-11-25.md`. That file keeps
+main's two new rows (composer paperclip, assistant card Skills, #145) and main's "Checked and left alone"
+note, and adds this branch's sentence on `desktop.surfaces.{comingSoon,comingSoonHelp}` reaching the phone.
+
+The export was then regenerated, not hand-merged. The producer is wave 4h's (atum-app
+`chore/mobile-export-wave4h-keys` `42d51de7`, unchanged). It ran in a scratch root holding the merged tree's
+`apps/desktop` and `packages/atum-kit` (`git write-tree` of the staged merge). After that,
+`wave4/splice4.mjs` ran with an empty spec (`{"families":{},"refresh":{},"remove":{}}`).
+
+### What the regenerated export carries, against the previous head `c0245fd`
+
+- **Catalog, contract and copy map: unchanged.** The splice reports 0 added, 0 refreshed and 0 removed, so
+  the catalog keeps 4187 entries. Every entry the snapshot shares with the producer is byte-identical.
+  `Localizable.xcstrings` keeps `eca4f730…`, so no new identifier is involved and the `reviewed_blobs`
+  question doesn't arise.
+- **Inventory: +1 source.** `apps/desktop/src/matrix/room-upgrade-copy.ts` (`copies`, #160) is new on main.
+- The producer was also run on `c0245fd`'s own tree as a baseline. Its catalog, contract and copy map equal
+  the merged tree's, and only the inventory row above differs.
+
+### Phone-relevant words main added that the export does not carry yet
+
+The phone key list (`phone-export-keys.json`) picks keys one by one. Main's new words are not on it, so this
+merge exports none of them. Adding any of them is a new wave (4i) in the producer, which needs a key list
+change and a test. On main's sources, compared with `c0245fd`, the producer reads 26 new catalog leaves, sees 2
+changed and finds none removed:
+
+| Desktop change | Readable by the producer now | Keys |
+|---|---|---|
+| #160 room upgrade | yes, 7 | `src.matrix.room-upgrade-copy.copies.{continues,earlier,join,moved,open,unavailable,unconfirmed}` |
+| #155 notification modes | yes, 8 new + 2 changed | `shared.matrix-notification-copy.copy.{roomModes.{all,inherit,mentions,nothing},roomModeHelp.{all,mentions,nothing},encryptedMentionsHelp}`; changed: `copy.accountLevel` ("Team space thread messages"), `copy.accountLevelHelp` |
+| #156 threads and pins | yes, 1 | `src.matrix.thread-copy.copy.allThreads` |
+| #154 roster filter | yes, 5 | `src.matrix.roster-create-copy.copies.{filterMenu,filterAll,filterUnread,filterFavourites,filterLowPriority}` |
+| Agent panel, consistency audit (#147) | yes, 5 | `shared.matrix-agent-desk-copy.matrixAgentDeskCopy.{filesUnavailable,noFiles,nothingScheduled,scheduleUnavailable,tryAgain}` |
+| #145 Coming soon entry points | already exported | reuses `desktop.surfaces.{comingSoon,comingSoonHelp}` (wave 4g) |
+| #157 voice, polls, location, stickers | no | the words sit inline in `poll/row.tsx`, `rich-content-dialog.tsx`, `rich-row.tsx` and `voice-note/*.tsx`, not in a copy table. They need lifting into a `-copy.ts` table, or copying into `mobileScreensCopy` |
+| #148 plan pick, #150 New assistant | no | `src/app/connections/first-run-copy.ts` is outside the producer's `src/matrix` scan. Wave 4c's rule applies: copy into `mobileScreensCopy`. #150 adds no copy table keys |
+
+None of the export's existing keys changed wording on main, so the phone needs no rekey for this merge.
+
+### For the phone repin
+
+- Manifest SHA-256: `726ec4a924e886e4e18a616608492d61097e54637c33b62856bd531d57a5fb75` (was
+  `e9136dc388da23f8c88fddfff22d9b63db60abd53023182d8ee6e450bc874c39`).
+- Changed file hash: `copy-inventory.json` `3abfab0efeed360435570dcd1a9adec03d123be9211a250daa33475b0c2110e1`.
+  `Localizable.xcstrings` and `copy-contract.json` are unchanged.
+
+### Checks
+
+- Producer on the merged tree: `export.mjs` and `export.mjs --check` exit 0, and tests pass 48 of 48. The run
+  needed desktop's own dependency versions in the scratch root (`zod` 4.6.6, `nanostores` 1.3.0,
+  `@nanostores/react` 1.1.0, `react` 19.2.7, `@phosphor-icons/core` 2.1.1, `typescript` 6.0.3, `esbuild` 0.28.1).
+  Wave 4g's eight glyph aliases got throwaway entries for the run only, plus `Funnel`, which is new from #154.
+  `glyphs.json` is not spliced, and mapping `Funnel` properly is a separate design-export step.
+- Producer on `c0245fd`: `export.mjs` and `--check` exit 0, without `Funnel`.
+- Splice: 0 added, 0 refreshed, 0 removed. All 44 manifest hashes match their files.
