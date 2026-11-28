@@ -37,6 +37,8 @@ const desktopRoot = resolve(here, '..')
 const defaultRepoRoot = resolve(desktopRoot, '../..')
 const workDocxRequirements = join(here, 'work-docx.requirements.txt')
 const workMemoScript = join(here, 'work-memo.py')
+const workFormatsRequirements = join(here, 'work-formats.requirements.txt')
+const workFormatValidators = ['validate-xlsx.py', 'validate-pptx.py']
 
 const TARGETS = Object.freeze({
   arm64: {
@@ -807,8 +809,10 @@ function installLockedDependencies({ uv, repoRoot, scratchRoot, pythonRoot, pyth
     { cwd: repoRoot, capture: true }
   )
 
-  // Reuse the pinned lxml and typing-extensions already selected by the Hermes lock.
-  appendFileSync(requirements, '\n' + readFileSync(workDocxRequirements, 'utf8'))
+  // Reuse the pinned lxml, Pillow, defusedxml and typing-extensions from the Hermes lock.
+  for (const lock of [workDocxRequirements, workFormatsRequirements]) {
+    appendFileSync(requirements, '\n' + readFileSync(lock, 'utf8'))
+  }
   run(uv, [
     'pip',
     'install',
@@ -931,6 +935,9 @@ export function stageBundledRuntime({
     })
     mkdirSync(join(scratchRoot, 'work-authoring'))
     cpSync(workMemoScript, join(scratchRoot, 'work-authoring', 'memo.py'))
+    for (const validator of workFormatValidators) {
+      cpSync(join(here, validator), join(scratchRoot, 'work-authoring', validator))
+    }
     archiveHermesSource({ repoRoot, commit, destination: sourceRoot, scratchRoot })
     const privateSourceInputs = applyRuntimeOverlay({ repoRoot, destination: sourceRoot })
     const excludedSourcePaths = excludeRestrictedStagedSkills(sourceRoot)
@@ -986,7 +993,9 @@ export function stageBundledRuntime({
       },
       workAuthoring: {
         requirementsSha256: sha256File(workDocxRequirements),
-        memoScriptSha256: sha256File(workMemoScript)
+        memoScriptSha256: sha256File(workMemoScript),
+        formatsRequirementsSha256: sha256File(workFormatsRequirements),
+        validatorsSha256: Object.fromEntries(workFormatValidators.map(name => [name, sha256File(join(here, name))]))
       },
       browser,
       tools

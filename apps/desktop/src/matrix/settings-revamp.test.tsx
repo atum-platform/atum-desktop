@@ -31,12 +31,8 @@ vi.mock('./app-bots/settings', () => ({ AppBotSettings: () => <button>Installed 
 vi.mock('./cloud-device-settings', () => ({ MatrixCloudDeviceSettings: () => <button>Cloud devices</button> }))
 vi.mock('./desktop-settings', () => ({
   $matrixFeedbackOpen: atom(false),
-  MatrixDesktopSettings: () => (
-    <div>
-      <button>Software update</button>
-      <button>Usage sharing and feedback</button>
-    </div>
-  )
+  MatrixDesktopSettings: () => <button>Usage sharing and feedback</button>,
+  MatrixUpdateSettings: () => <button>Software update</button>
 }))
 vi.mock('./display-settings', () => ({
   MatrixDisplaySettings: () => <button>Display controls</button>,
@@ -274,6 +270,9 @@ describe('the fixed Settings information architecture', () => {
     expect(window.document.querySelectorAll('[data-matrix-settings-assistant]').length).toBeGreaterThan(0)
 
     fireEvent.click(within(nav).getByRole('button', { name: 'General' }))
+    // The version and its update lead General (owner 2026-11-28), not Help.
+    const general = container.querySelector('[data-matrix-settings-destination="general"]')!
+    expect(general.querySelector('button')?.textContent).toBe('Software update')
     expect(screen.getByRole('button', { name: 'Language' })).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Display controls' })).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Notification controls' })).toBeTruthy()
@@ -302,7 +301,7 @@ describe('the fixed Settings information architecture', () => {
     expect(screen.getByRole('button', { name: 'Blocked people' })).toBeTruthy()
 
     fireEvent.click(within(nav).getByRole('button', { name: 'Help' }))
-    expect(screen.getByRole('button', { name: 'Software update' })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Software update' })).toBeNull()
     expect(screen.getByRole('button', { name: 'Usage sharing and feedback' })).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Contact Atum' })).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Legal' })).toBeTruthy()
