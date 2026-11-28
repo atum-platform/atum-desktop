@@ -73,6 +73,15 @@ function tomorrow(timezone: string): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
 }
 
+function keepsNativeSchedule(routine: MatrixAgentRoutine): boolean {
+  return Boolean(routine.native && (routine.schedule.kind === 'interval' ||
+    routine.schedule.kind === 'unsupported' && routine.schedule.kindName !== 'native'))
+}
+
+function readOnlyRoutine(routine: MatrixAgentRoutine): boolean {
+  return (routine.schedule.kind === 'interval' || routine.schedule.kind === 'unsupported') && !keepsNativeSchedule(routine)
+}
+
 function draftFor(routine: MatrixAgentRoutine | undefined, timezone: string): Draft {
   const empty: Draft = {
     title: '',
@@ -136,7 +145,7 @@ function draftFor(routine: MatrixAgentRoutine | undefined, timezone: string): Dr
       }
 
     default:
-      return empty
+      return { ...empty, title: routine.title, instruction: routine.instruction, enabled: routine.enabled }
   }
 }
 
@@ -171,6 +180,10 @@ function draftSchedule(draft: Draft, timezone: string): MatrixAgentRoutineWriteS
 }
 
 function sameSchedule(left: MatrixAgentRoutineWriteSchedule, right: MatrixAgentRoutineWriteSchedule): boolean {
+  if (left.kind === 'once' && right.kind === 'once') {
+    return Date.parse(left.runAt) === Date.parse(right.runAt)
+  }
+
   return JSON.stringify(left) === JSON.stringify(right)
 }
 
@@ -226,6 +239,8 @@ export function RoutinesRow({
   const row = useRef<HTMLButtonElement>(null)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editingId, setEditingId] = useState<string>()
+  const [nativeBase, setNativeBase] = useState<MatrixAgentRoutine>()
+  const readSequence = useRef(0)
   const [draft, setDraft] = useState<Draft>(() => draftFor(undefined, ''))
   const [notice, setNotice] = useState<Notice>()
   const [pending, setPending] = useState<string>()
@@ -269,12 +284,13 @@ export function RoutinesRow({
       return
     }
 
+    const sequence = ++readSequence.current
     setFailed(false)
 
     try {
       const result = await bridge.read(agent.principal)
 
-      if (!live.current) {
+      if (!live.current || sequence !== readSequence.current) {
         return
       }
 
@@ -284,15 +300,30 @@ export function RoutinesRow({
         setFailed(true)
       }
     } catch {
-      if (live.current) {
+      if (live.current && sequence === readSequence.current) {
         setFailed(true)
       }
     }
   }, [agent.principal, bridge])
 
   useEffect(() => {
-    void load()
+    const refresh = () => void load()
+    refresh()
+    window.addEventListener('focus', refresh)
+    window.addEventListener('matrix-native-routines-changed', refresh)
+
+    return () => {
+      readSequence.current += 1
+      window.removeEventListener('focus', refresh)
+      window.removeEventListener('matrix-native-routines-changed', refresh)
+    }
   }, [load])
+
+  const nativeChanged = () => {
+    if (agent.runtime === 'hermes') {
+      window.dispatchEvent(new Event('matrix-native-routines-changed'))
+    }
+  }
 
   // Arriving from the composer: the person asked for this list, so open it and bring it into view.
   useEffect(() => {
@@ -323,12 +354,13 @@ export function RoutinesRow({
   }
 
   const edit = (routine: MatrixAgentRoutine) => {
-    if (routine.schedule.kind === 'interval' || routine.schedule.kind === 'unsupported') {
+    if (readOnlyRoutine(routine)) {
       return
     }
 
     setDraft(draftFor(routine, routine.timezone))
     setEditingId(routine.id)
+    setNativeBase(routine.native ? routine : undefined)
     setDialogOpen(true)
     setNotice(undefined)
     setConfirmDelete(false)
@@ -338,11 +370,12 @@ export function RoutinesRow({
 
   // A38: a new routine belongs to the owner, so it defaults to the zone the platform
   // acknowledged for this sign-in; only an account that never reported falls back to this Mac.
-  const createTimeZone = ownerTimeZone ?? deviceTimeZone
+  const createTimeZone = snapshot?.nativeTimezone ?? ownerTimeZone ?? deviceTimeZone
 
   const add = (seed?: { instruction: string }) => {
     setDraft({ ...draftFor(undefined, createTimeZone), ...(seed ? { instruction: seed.instruction } : {}) })
     setEditingId(undefined)
+    setNativeBase(undefined)
     setDialogOpen(true)
     setNotice(undefined)
     setConfirmDelete(false)
@@ -352,26 +385,30 @@ export function RoutinesRow({
   const closeDialog = () => {
     setDialogOpen(false)
     setEditingId(undefined)
+    setNativeBase(undefined)
     setConfirmDelete(false)
     setNotice(undefined)
   }
 
-  const base = editingId ? snapshot?.routines.find(each => each.id === editingId) : undefined
-  const schedule = draftSchedule(draft, base?.timezone ?? createTimeZone)
+  // A background refresh must never rebase an already open native edit.
+  const base = nativeBase ?? (editingId ? snapshot?.routines.find(each => each.id === editingId) : undefined)
+  const keepSchedule = base ? keepsNativeSchedule(base) : false
+  const schedule = keepSchedule ? null : draftSchedule(draft, base?.timezone ?? createTimeZone)
+  const scheduleChanged = !keepSchedule && (schedule === null || !base ||
+    !sameSchedule(schedule, base.schedule as MatrixAgentRoutineWriteSchedule))
 
   const hasDraftChanges = base
     ? routineTitleFor(draft) !== base.title ||
       draft.instruction.trim() !== base.instruction ||
       draft.enabled !== base.enabled ||
-      schedule === null ||
-      !sameSchedule(schedule, base.schedule as MatrixAgentRoutineWriteSchedule)
+      scheduleChanged
     : true
 
   const changed = base
     ? routineTitleFor(draft) !== base.title ||
       draft.instruction.trim() !== base.instruction ||
       draft.enabled !== base.enabled ||
-      (schedule !== null && !sameSchedule(schedule, base.schedule as MatrixAgentRoutineWriteSchedule))
+      (schedule !== null && scheduleChanged)
     : true
 
   const canSave =
@@ -380,7 +417,7 @@ export function RoutinesRow({
     draft.instruction.trim().length > 0 &&
     Array.from(draft.instruction.trim()).length <= 20_000 &&
     routineTitleFor(draft).length > 0 &&
-    schedule !== null &&
+    (schedule !== null || keepSchedule) &&
     changed
 
   useEffect(() => {
@@ -414,7 +451,7 @@ export function RoutinesRow({
   const toggle = async (routine: MatrixAgentRoutine) => {
     const schedule = routine.schedule
 
-    if (!bridge || schedule.kind === 'interval' || schedule.kind === 'unsupported') {
+    if (!bridge || readOnlyRoutine(routine)) {
       return
     }
 
@@ -427,7 +464,7 @@ export function RoutinesRow({
       expectedRevision: routine.revision,
       title: routine.title,
       instruction: routine.instruction,
-      schedule,
+      schedule: schedule.kind === 'interval' || schedule.kind === 'unsupported' ? null : schedule,
       timezone: routine.timezone,
       enabled: !routine.enabled,
       notifications: routine.notifications
@@ -442,6 +479,7 @@ export function RoutinesRow({
 
       if (result.ok && 'routine' in result) {
         apply(result.routine)
+        nativeChanged()
       } else if (!result.ok) {
         setNotice(routineErrorCopy(result.error))
 
@@ -457,7 +495,7 @@ export function RoutinesRow({
   }
 
   const save = async () => {
-    if (!bridge || !schedule) {
+    if (!bridge || (!schedule && !keepSchedule)) {
       return
     }
 
@@ -479,7 +517,7 @@ export function RoutinesRow({
             enabled: draft.enabled,
             notifications: base.notifications
           })
-        : await bridge.create({
+        : schedule && await bridge.create({
             principal: agent.principal,
             title,
             instruction,
@@ -489,20 +527,22 @@ export function RoutinesRow({
             notifications: true
           })
 
-      if (!live.current) {
+      if (!live.current || !result) {
         return
       }
 
       if (result.ok && 'routine' in result) {
         apply(result.routine)
+        nativeChanged()
         setDialogOpen(false)
         setEditingId(undefined)
+        setNativeBase(undefined)
         setConfirmDelete(false)
       } else if (!result.ok) {
         setNotice(routineErrorCopy(result.error))
 
         if (result.error === 'conflict' || result.error === 'legacy') {
-          // Keep the draft and refresh the revision in the background: the next save can win.
+          // Refresh the list. A native draft keeps its original revision until reopened.
           void load()
         }
       }
@@ -528,7 +568,7 @@ export function RoutinesRow({
       // The button describes what is on screen: unchanged forms run the saved routine
       // directly; valid edits are saved once, then that returned revision is run.
       if (hasDraftChanges) {
-        if (!canSave || !schedule) {
+        if (!canSave || (!schedule && !keepSchedule)) {
           setNotice({ action: 'run', error: 'invalid' })
 
           return
@@ -561,7 +601,13 @@ export function RoutinesRow({
         }
 
         saved = updated.routine
+
+        if (saved.native) {
+          setNativeBase(saved)
+        }
+
         apply(saved)
+        nativeChanged()
       }
 
       const action = (current: MatrixAgentRoutine): MatrixAgentRoutineAction => ({
@@ -574,7 +620,7 @@ export function RoutinesRow({
 
       // A stale read should not make an unchanged Run now a two-click operation. Re-read
       // authoritative state and retry once; edited drafts never get silently rebased.
-      if (!hasDraftChanges && !result.ok && result.error === 'conflict') {
+      if (!saved.native && !hasDraftChanges && !result.ok && result.error === 'conflict') {
         const refreshed = await bridge.read(agent.principal)
 
         if (refreshed.ok) {
@@ -593,6 +639,12 @@ export function RoutinesRow({
 
       if (result.ok && 'routine' in result) {
         apply(result.routine)
+
+        if (result.routine.native) {
+          setNativeBase(result.routine)
+        }
+
+        nativeChanged()
 
         if (bridge) {
           const history = await bridge.runs(agent.principal, routine.id)
@@ -643,6 +695,7 @@ export function RoutinesRow({
         remove(result.deleted.id)
         setDialogOpen(false)
         setEditingId(undefined)
+        setNativeBase(undefined)
         setConfirmDelete(false)
       } else if (!result.ok) {
         setNotice(routineErrorCopy(result.error))
@@ -660,7 +713,7 @@ export function RoutinesRow({
 
   const routineCount = snapshot?.routines.length ?? 0
   const legacy = snapshot?.legacyState
-  const quota = routineCount >= MAX_ROUTINES
+  const quota = !snapshot?.nativeTimezone && routineCount >= MAX_ROUTINES
   const addable = legacy === 'clear' && !quota
   const runsInCloud = matrixRoutineRunsInCloud(agent)
   const runsOnPlace = routineRunsOn(agent, locale, copy)
@@ -738,7 +791,7 @@ export function RoutinesRow({
               ) : (
                 <ul className="divide-y divide-(--atum-line)" data-routines-list>
                   {snapshot.routines.map(routine => {
-                    const readOnly = routine.schedule.kind === 'interval' || routine.schedule.kind === 'unsupported'
+                    const readOnly = readOnlyRoutine(routine)
 
                     return (
                       <li className="flex items-center gap-3 py-2" data-routine-id={routine.id} data-routine-row key={routine.id}>
@@ -878,106 +931,114 @@ export function RoutinesRow({
                 value={draft.instruction}
               />
             </label>
-            <div className="space-y-1.5">
-              <span className="block text-(length:--atum-t-caption) text-(--atum-ink-muted)">
-                {copy.routineSchedule}
-              </span>
-              <AtumSegmented<'at' | 'repeat'>
-                disabled={saving}
-                label={copy.routineSchedule}
-                onChange={() => {}}
-                options={[
-                  { id: 'at', label: copy.routineAtTime },
-                  { badge: copy.routineComingSoon, disabled: true, id: 'repeat', label: copy.routineRepeat }
-                ]}
-                value="at"
-              />
-            </div>
-            <AtumSegmented
-              disabled={saving}
-              label={copy.routineAtTime}
-              onChange={kind => setDraft(current => ({ ...current, kind }))}
-              options={[
-                { id: 'once', label: copy.routineOnce },
-                { id: 'daily', label: copy.routineDaily },
-                { id: 'weekly', label: copy.routineWeekly },
-                { id: 'monthly', label: copy.routineMonthly }
-              ]}
-              value={draft.kind}
-            />
-            {draft.kind === 'once' && (
-              <div className="flex flex-wrap items-center gap-2">
-                <Input
-                  aria-label={copy.routineDate}
-                  data-routine-date
-                  onChange={event => setDraft(current => ({ ...current, date: event.target.value }))}
-                  type="date"
-                  value={draft.date}
-                />
-                <RoutineTimeField
-                  copy={copy}
+            {keepSchedule && base ? (
+              <p className="text-(length:--atum-t-caption) text-(--atum-ink-muted)">
+                {matrixRoutineScheduleWords(base.schedule, base.timezone, locale, copy)}
+              </p>
+            ) : (
+              <>
+                <div className="space-y-1.5">
+                  <span className="block text-(length:--atum-t-caption) text-(--atum-ink-muted)">
+                    {copy.routineSchedule}
+                  </span>
+                  <AtumSegmented<'at' | 'repeat'>
+                    disabled={saving}
+                    label={copy.routineSchedule}
+                    onChange={() => {}}
+                    options={[
+                      { id: 'at', label: copy.routineAtTime },
+                      { badge: copy.routineComingSoon, disabled: true, id: 'repeat', label: copy.routineRepeat }
+                    ]}
+                    value="at"
+                  />
+                </div>
+                <AtumSegmented
                   disabled={saving}
-                  onChange={time => setDraft(current => ({ ...current, time }))}
-                  value={draft.time}
+                  label={copy.routineAtTime}
+                  onChange={kind => setDraft(current => ({ ...current, kind }))}
+                  options={[
+                    { id: 'once', label: copy.routineOnce },
+                    { id: 'daily', label: copy.routineDaily },
+                    { id: 'weekly', label: copy.routineWeekly },
+                    { id: 'monthly', label: copy.routineMonthly }
+                  ]}
+                  value={draft.kind}
                 />
-              </div>
-            )}
-            {draft.kind !== 'once' && (
-              <RoutineTimeField
-                copy={copy}
-                disabled={saving}
-                onChange={time => setDraft(current => ({ ...current, time }))}
-                value={draft.time}
-              />
-            )}
-            {draft.kind === 'weekly' && (
-              <div aria-label={copy.routineWeekdays} className="flex flex-wrap gap-1" role="group">
-                {[1, 2, 3, 4, 5, 6, 7].map(day => {
-                  const on = draft.weekdays.includes(day)
+                {draft.kind === 'once' && (
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Input
+                      aria-label={copy.routineDate}
+                      data-routine-date
+                      onChange={event => setDraft(current => ({ ...current, date: event.target.value }))}
+                      type="date"
+                      value={draft.date}
+                    />
+                    <RoutineTimeField
+                      copy={copy}
+                      disabled={saving}
+                      onChange={time => setDraft(current => ({ ...current, time }))}
+                      value={draft.time}
+                    />
+                  </div>
+                )}
+                {draft.kind !== 'once' && (
+                  <RoutineTimeField
+                    copy={copy}
+                    disabled={saving}
+                    onChange={time => setDraft(current => ({ ...current, time }))}
+                    value={draft.time}
+                  />
+                )}
+                {draft.kind === 'weekly' && (
+                  <div aria-label={copy.routineWeekdays} className="flex flex-wrap gap-1" role="group">
+                    {[1, 2, 3, 4, 5, 6, 7].map(day => {
+                      const on = draft.weekdays.includes(day)
 
-                  return (
-                    <button
-                      aria-checked={on}
-                      className={
-                        on
-                          ? 'rounded-(--control-radius) bg-(--atum-ink) px-2.5 py-1 text-(length:--atum-t-caption) text-(--atum-paper)'
-                          : 'rounded-(--control-radius) border border-(--atum-line) px-2.5 py-1 text-(length:--atum-t-caption) text-(--atum-ink-muted)'
-                      }
-                      data-routine-weekday={day}
-                      key={day}
-                      onClick={() =>
-                        setDraft(current => ({
-                          ...current,
-                          weekdays: on
-                            ? current.weekdays.filter(each => each !== day)
-                            : [...current.weekdays, day]
-                        }))
-                      }
-                      role="checkbox"
-                      type="button"
+                      return (
+                        <button
+                          aria-checked={on}
+                          className={
+                            on
+                              ? 'rounded-(--control-radius) bg-(--atum-ink) px-2.5 py-1 text-(length:--atum-t-caption) text-(--atum-paper)'
+                              : 'rounded-(--control-radius) border border-(--atum-line) px-2.5 py-1 text-(length:--atum-t-caption) text-(--atum-ink-muted)'
+                          }
+                          data-routine-weekday={day}
+                          key={day}
+                          onClick={() =>
+                            setDraft(current => ({
+                              ...current,
+                              weekdays: on
+                                ? current.weekdays.filter(each => each !== day)
+                                : [...current.weekdays, day]
+                            }))
+                          }
+                          role="checkbox"
+                          type="button"
+                        >
+                          {matrixRoutineWeekdayChip(day, locale)}
+                        </button>
+                      )
+                    })}
+                  </div>
+                )}
+                {draft.kind === 'monthly' && (
+                  <label className="flex items-center gap-2 text-(length:--atum-t-caption) text-(--atum-ink-muted)">
+                    {copy.routineMonthDay}
+                    <select
+                      className="desktop-input-chrome rounded-[2.5px] px-2 py-1 text-xs text-foreground"
+                      data-routine-month-day
+                      onChange={event => setDraft(current => ({ ...current, monthDay: Number(event.target.value) }))}
+                      value={draft.monthDay}
                     >
-                      {matrixRoutineWeekdayChip(day, locale)}
-                    </button>
-                  )
-                })}
-              </div>
-            )}
-            {draft.kind === 'monthly' && (
-              <label className="flex items-center gap-2 text-(length:--atum-t-caption) text-(--atum-ink-muted)">
-                {copy.routineMonthDay}
-                <select
-                  className="desktop-input-chrome rounded-[2.5px] px-2 py-1 text-xs text-foreground"
-                  data-routine-month-day
-                  onChange={event => setDraft(current => ({ ...current, monthDay: Number(event.target.value) }))}
-                  value={draft.monthDay}
-                >
-                  {Array.from({ length: 28 }, (_, index) => index + 1).map(day => (
-                    <option key={day} value={day}>
-                      {day}
-                    </option>
-                  ))}
-                </select>
-              </label>
+                      {Array.from({ length: 28 }, (_, index) => index + 1).map(day => (
+                        <option key={day} value={day}>
+                          {day}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                )}
+              </>
             )}
             <div className="flex items-start gap-3 border-t border-(--atum-line) pt-2" data-routine-enabled>
               <div className="min-w-0 flex-1">

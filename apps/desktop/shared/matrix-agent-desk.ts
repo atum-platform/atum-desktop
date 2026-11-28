@@ -40,7 +40,7 @@ export const MatrixHostDeskPathSchema = z
       /^(home|work)(\/[^/]+)*$/u.test(path)
   )
 
-export type MatrixHostDeskRead = { read: 'schedule' } | { read: 'memory' } | { read: 'files'; path?: string }
+export type MatrixHostDeskRead = { read: 'schedule'; summary?: true } | { read: 'memory' } | { read: 'files'; path?: string }
 
 const stamp = z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER)
 const date = z.iso.datetime({ offset: true }).nullable()
@@ -89,7 +89,9 @@ export const MatrixHostDeskScheduleSchema = z
           .strict()
       )
       .max(32),
-    truncated: z.boolean()
+    truncated: z.boolean(),
+    remaining: stamp.optional(),
+    globallyPaused: z.boolean().optional()
   })
   .strict()
 

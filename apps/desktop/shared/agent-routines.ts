@@ -53,6 +53,7 @@ export interface MatrixAgentRoutineRun {
 }
 
 export interface MatrixAgentRoutine {
+  native?: boolean
   id: string
   title: string
   instruction: string
@@ -66,6 +67,7 @@ export interface MatrixAgentRoutine {
 }
 
 export interface MatrixAgentRoutinesSnapshot {
+  nativeTimezone?: string
   assistantId: string
   assistantPrincipal: string
   serverTime: number
@@ -90,7 +92,8 @@ export interface MatrixAgentRoutineCreate {
   notifications: boolean
 }
 
-export interface MatrixAgentRoutineUpdate extends MatrixAgentRoutineCreate {
+export interface MatrixAgentRoutineUpdate extends Omit<MatrixAgentRoutineCreate, 'schedule'> {
+  schedule: MatrixAgentRoutineWriteSchedule | null
   routineId: string
   expectedRevision: number
 }
@@ -158,6 +161,10 @@ function exact(row: JsonObject, keys: readonly string[]): boolean {
 
 function uuid(value: unknown): value is string {
   return typeof value === 'string' && UUID.test(value)
+}
+
+export function matrixRoutineId(value: unknown): value is string {
+  return typeof value === 'string' && /^[A-Za-z0-9_-]{1,128}$/u.test(value)
 }
 
 function safeInteger(value: unknown, minimum = 0): value is number {
@@ -333,13 +340,13 @@ export function parseMatrixAgentRoutineRun(value: unknown): MatrixAgentRoutineRu
   }
 }
 
-export function parseMatrixAgentRoutine(value: unknown): MatrixAgentRoutine | null {
+export function parseMatrixAgentRoutine(value: unknown, native = false): MatrixAgentRoutine | null {
   const row = object(value)
 
   if (
     !row ||
     !exact(row, ['id', 'title', 'instruction', 'schedule', 'timezone', 'enabled', 'notifications', 'revision', 'nextRunAt', 'lastRun']) ||
-    !uuid(row.id) ||
+    !(native ? matrixRoutineId(row.id) : uuid(row.id)) ||
     !text(row.title, 120) ||
     !instruction(row.instruction) ||
     !matrixRoutineTimeZone(row.timezone) ||
@@ -359,7 +366,8 @@ export function parseMatrixAgentRoutine(value: unknown): MatrixAgentRoutine | nu
   }
 
   return {
-    id: row.id,
+    ...(native ? { native: true } : {}),
+    id: row.id as string,
     title: row.title,
     instruction: row.instruction,
     schedule,
@@ -393,7 +401,7 @@ export function parseMatrixAgentRoutinesSnapshot(value: unknown): MatrixAgentRou
     return null
   }
 
-  const routines = row.routines.map(parseMatrixAgentRoutine)
+  const routines = row.routines.map(routine => parseMatrixAgentRoutine(routine))
 
   if (routines.some(routine => routine === null) || new Set(routines.map(routine => routine!.id)).size !== routines.length) {
     return null
@@ -496,14 +504,14 @@ export function matrixRoutineUpdateInput(value: unknown): MatrixAgentRoutineUpda
     !row ||
     !exact(row, ['principal', 'routineId', 'expectedRevision', 'title', 'instruction', 'schedule', 'timezone', 'enabled', 'notifications']) ||
     !uuid(row.principal) ||
-    !uuid(row.routineId) ||
+    !matrixRoutineId(row.routineId) ||
     !safeInteger(row.expectedRevision, 1) ||
     !text(row.title, 120) ||
     !instruction(row.instruction) ||
     !matrixRoutineTimeZone(row.timezone) ||
     typeof row.enabled !== 'boolean' ||
     typeof row.notifications !== 'boolean' ||
-    !schedule
+    (row.schedule !== null && !schedule)
   ) {
     return null
   }
@@ -528,7 +536,7 @@ export function matrixRoutineActionInput(value: unknown): MatrixAgentRoutineActi
     !row ||
     !exact(row, ['principal', 'routineId', 'expectedRevision']) ||
     !uuid(row.principal) ||
-    !uuid(row.routineId) ||
+    !matrixRoutineId(row.routineId) ||
     !safeInteger(row.expectedRevision, 1)
   ) {
     return null

@@ -883,7 +883,11 @@ describe('round 4: pause and routines', () => {
   }
 
   it('offers one Pause switch once its schedule is known, with the meaning as a tooltip only', async () => {
-    const control = bridge([job('brief', 'Morning brief', 'scheduled')], async () => ({ action: 'pause', changed: 1 }))
+    const jobs = [job('brief', 'Morning brief', 'scheduled')]
+    const control = bridge(jobs, async () => {
+      jobs[0] = job('brief', 'Morning brief', 'paused', 'owner_pause')
+      return { action: 'pause', changed: 1 }
+    })
     render(panel(hermesBase()))
 
     const toggle = await waitFor(() => pauseSwitch())
@@ -900,7 +904,11 @@ describe('round 4: pause and routines', () => {
   })
 
   it('reads as paused when every routine is paused, and Resume asks to resume', async () => {
-    const control = bridge([job('brief', 'Morning brief', 'paused')], async () => ({ action: 'resume', changed: 1 }))
+    const jobs = [job('brief', 'Morning brief', 'paused', 'owner_pause'), job('off', 'Off by owner', 'paused', 'owner_routine_off')]
+    const control = bridge(jobs, async () => {
+      jobs[0] = job('brief', 'Morning brief', 'scheduled')
+      return { action: 'resume', changed: 1 }
+    })
     render(panel(hermesBase()))
     const toggle = await waitFor(() => pauseSwitch())
     expect(toggle.getAttribute('aria-checked')).toBe('true')
@@ -911,6 +919,9 @@ describe('round 4: pause and routines', () => {
 
     expect(control).toHaveBeenCalledWith('agent-luna', { action: 'resume' })
     expect(pauseSwitch().getAttribute('aria-checked')).toBe('false')
+    const controls = document.querySelector<HTMLElement>('[data-agent-desk-controls]')!
+    await openMore(controls)
+    expect(within(controls).getByRole('switch', { name: 'Off by owner' }).getAttribute('aria-checked')).toBe('false')
   })
 
   it('rolls back honestly when the change fails, and says so in one quiet line', async () => {
@@ -954,11 +965,18 @@ describe('round 4: pause and routines', () => {
     expect(within(controls).queryByRole('switch', { name: en.pause })).toBeNull()
   })
 
-  it('turns one routine off and on from More › Routines, optimistically', async () => {
-    const control = bridge(
-      [job('brief', 'Morning brief', 'scheduled'), job('sweep', 'Follow-up sweep', 'paused')],
-      async request => ({ action: (request as { action: string }).action, changed: 1 })
-    )
+  it('reads back each routine switch from the host', async () => {
+    const jobs = [job('brief', 'Morning brief', 'scheduled'), job('sweep', 'Follow-up sweep', 'paused')]
+    const control = bridge(jobs, async request => {
+      const { action } = request as { action: string }
+      if (action === 'routine_off') {
+        jobs[0] = job('brief', 'Morning brief', 'paused', 'owner_routine_off')
+      } else {
+        jobs[1] = job('sweep', 'Follow-up sweep', 'scheduled')
+      }
+
+      return { action, changed: 1 }
+    })
 
     render(panel(hermesBase()))
     const controls = document.querySelector<HTMLElement>('[data-agent-desk-controls]')!
@@ -1040,17 +1058,19 @@ describe('round 4: pause and routines', () => {
     }
   })
 
-  it('retries once after the shared cooldown when the host is busy, keeping the switch where you put it', async () => {
+  it('retries once after the shared cooldown when the host is busy, then reads the host state', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true })
     let calls = 0
 
-    const control = bridge([job('brief', 'Morning brief', 'scheduled')], async () => {
+    const jobs = [job('brief', 'Morning brief', 'scheduled')]
+    const control = bridge(jobs, async () => {
       calls++
 
       if (calls === 1) {
         throw new Error('matrix_host_control_busy')
       }
 
+      jobs[0] = job('brief', 'Morning brief', 'paused', 'owner_pause')
       return { action: 'pause', changed: 1 }
     })
 
@@ -1061,7 +1081,7 @@ describe('round 4: pause and routines', () => {
       fireEvent.click(toggle)
     })
 
-    expect(pauseSwitch().getAttribute('aria-checked')).toBe('true')
+    expect(pauseSwitch().getAttribute('aria-checked')).toBe('false')
 
     await act(async () => {
       await vi.advanceTimersByTimeAsync(MATRIX_AGENT_CONTROL_RETRY_MS)
@@ -1071,6 +1091,34 @@ describe('round 4: pause and routines', () => {
     expect(pauseSwitch().getAttribute('aria-checked')).toBe('true')
     expect(screen.queryByText(en.controlFailed)).toBeNull()
     vi.useRealTimers()
+  })
+
+  it('finds agent-created jobs on focus and explicit refresh and shows the overflow count', async () => {
+    const visible = Array.from({ length: 32 }, (_, index) => job(String(index), `Job ${index}`, 'scheduled'))
+    const readSchedule = vi.fn()
+      .mockResolvedValueOnce({ read: 'schedule', observedAt: 1, jobs: [], truncated: false, remaining: 0 })
+      .mockResolvedValueOnce({ read: 'schedule', observedAt: 2, jobs: [job('agent', 'Agent added this', 'scheduled')], truncated: false })
+      .mockResolvedValueOnce({ read: 'schedule', observedAt: 3, jobs: visible, truncated: true, remaining: 3 })
+    const read = vi.fn(async (_principal: string, request: { read: string }) => {
+      if (request.read === 'schedule') {
+        return readSchedule()
+      }
+
+      throw new Error('Read unavailable in fixture')
+    })
+    Object.assign(window.atumMatrix, { agentDesk: { read, control: vi.fn() } })
+
+    render(panel(hermesBase()))
+    const controls = document.querySelector<HTMLElement>('[data-agent-desk-controls]')!
+    await openMore(controls)
+    expect(screen.queryByText('Agent added this')).toBeNull()
+    await act(async () => window.dispatchEvent(new Event('focus')))
+    expect(screen.getByText('Agent added this')).toBeTruthy()
+
+    await act(async () => fireEvent.click(screen.getByRole('button', { name: en.refresh })))
+    expect(screen.getByText('Job 31')).toBeTruthy()
+    expect(screen.getByText('+3 more')).toBeTruthy()
+    expect(read).toHaveBeenLastCalledWith('agent-luna', { read: 'schedule', summary: true })
   })
 
   it('moves the switch back when Resume changed nothing (its routines were turned off one by one)', async () => {

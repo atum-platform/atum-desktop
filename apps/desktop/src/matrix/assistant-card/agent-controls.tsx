@@ -102,7 +102,7 @@ function PauseRow({ active, agent }: { active: boolean; agent: MatrixAgentView }
   const { locale } = useI18n()
   const copy = matrixAgentDeskText(locale)
   const schedule = useMatrixAgentSchedule(active, agent)
-  const paused = matrixAgentDeskPaused(schedule.jobs)
+  const paused = matrixAgentDeskPaused(schedule.jobs, schedule.globallyPaused)
 
   if (!schedule.hosted) {
     return null
@@ -138,7 +138,7 @@ function PauseRow({ active, agent }: { active: boolean; agent: MatrixAgentView }
       <Switch
         aria-label={copy.pause}
         checked={paused}
-        disabled={!schedule.canControl}
+        disabled={!schedule.canControl || schedule.pending}
         onCheckedChange={on => (on ? schedule.pause() : schedule.resume())}
       />
     </div>

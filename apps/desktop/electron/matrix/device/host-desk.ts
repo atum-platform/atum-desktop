@@ -43,7 +43,7 @@ export async function requestHostDesk(
       Origin: url.origin,
       'X-Atum-Host-Bridge-Contract': 'atum.s2.host-bridge/1.0.0'
     },
-    body: JSON.stringify({ agent, read: request.read, ...(path !== undefined ? { path } : {}) }),
+    body: JSON.stringify({ agent, read: request.read, ...(path !== undefined ? { path } : {}), ...(request.read === 'schedule' && request.summary ? { summary: true } : {}) }),
     signal
   })
 

@@ -352,7 +352,12 @@ import {
   type MatrixReenrollReason,
   reenrollMatrixAgent
 } from './agent-reenroll'
-import { MatrixAgentRoutines, registerMatrixAgentRoutinesIpc } from './agent-routines'
+import {
+  MatrixAgentRoutines,
+  MatrixNativeAgentRoutines,
+  registerMatrixAgentRoutinesIpc,
+  requestNativeAgentRoutines
+} from './agent-routines'
 import {
   matrixAgentHomeRoom,
   matrixDefaultAgent,
@@ -13160,6 +13165,17 @@ const assistantCards = new MatrixAssistantCards({
  * Main maps the window's principal to the platform's assistant id and holds the bearer; the
  * window only sees closed routines. The request ledger makes a retried draft one mutation.
  */
+const nativeAgentRoutines = new MatrixNativeAgentRoutines({
+  request: (principal, command, signal) => account.s1Request(
+    (token, base, requestSignal) =>
+      requestNativeAgentRoutines(base, token, principal, command, requestSignal, (url, init) => session.defaultSession.fetch(url, init)),
+    signal
+  ),
+  readLegacy: (assistantId, signal) => account.agentRoutines(assistantId, signal),
+  mutateLegacy: (assistantId, input, signal) => account.mutateAgentRoutine(assistantId, input, signal),
+  runsLegacy: (assistantId, routineId, signal) => account.agentRoutineRuns(assistantId, routineId, signal)
+})
+
 const agentRoutines = new MatrixAgentRoutines({
   agents: () =>
     allAgents().flatMap(each =>
@@ -13167,9 +13183,15 @@ const agentRoutines = new MatrixAgentRoutines({
         ? [{ principal: each.agentPrincipal, assistantId: each.assistantId }]
         : []
     ),
-  read: (assistantId, signal) => account.agentRoutines(assistantId, signal),
-  mutate: (assistantId, input, signal) => account.mutateAgentRoutine(assistantId, input, signal),
-  runs: (assistantId, routineId, signal) => account.agentRoutineRuns(assistantId, routineId, signal),
+  read: (assistantId, signal, principal) => hostRuntimeAgents.has(principal)
+    ? nativeAgentRoutines.read(assistantId, principal, signal)
+    : account.agentRoutines(assistantId, signal),
+  mutate: (assistantId, input, signal, principal) => hostRuntimeAgents.has(principal)
+    ? nativeAgentRoutines.mutate(assistantId, principal, input, signal)
+    : account.mutateAgentRoutine(assistantId, input, signal),
+  runs: (assistantId, id, signal, principal) => hostRuntimeAgents.has(principal)
+    ? nativeAgentRoutines.runs(assistantId, principal, id, signal)
+    : account.agentRoutineRuns(assistantId, id, signal),
   ownerZone: () => account.ownerTimeZone()
 })
 
@@ -24416,6 +24438,7 @@ async function start() {
         // home. Only roster `runtime: 'hermes'` agents; the Shell resolves the owner from the bearer.
         const principal = typeof request.agentPrincipal === 'string' ? request.agentPrincipal : ''
         const read = request.read
+        const summary = 'summary' in request && request.summary === true
         const path = typeof request.path === 'string' ? request.path : undefined
         const scope = account.appScope()
 
@@ -24429,7 +24452,7 @@ async function start() {
 
         const result = await account.s1Request(
           (token, base, signal) =>
-            requestHostDesk(base, token, principal, read === 'files' ? { read, ...(path !== undefined ? { path } : {}) } : { read },
+            requestHostDesk(base, token, principal, read === 'files' ? { read, ...(path !== undefined ? { path } : {}) } : read === 'schedule' && summary ? { read, summary: true } : { read },
               signal, (url, init) => session.defaultSession.fetch(url, init)),
           AbortSignal.timeout(15_000), { timeoutMs: 15_000 })
 

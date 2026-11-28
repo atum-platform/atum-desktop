@@ -192,12 +192,12 @@ export function playgroundRoutines(mode: PlaygroundRoutinesMode): MatrixRoutines
         ...current,
         title: input.title,
         instruction: input.instruction,
-        schedule: input.schedule,
+        schedule: input.schedule ?? current.schedule,
         timezone: input.timezone,
         enabled: input.enabled,
         notifications: input.notifications,
         revision: current.revision + 1,
-        nextRunAt: input.enabled ? nextFor(input.schedule) : null
+        nextRunAt: input.enabled ? nextFor(input.schedule ?? current.schedule) : null
       }
 
       routines = routines.map(each => (each.id === routine.id ? routine : each))
