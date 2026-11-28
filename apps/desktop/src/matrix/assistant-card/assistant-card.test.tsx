@@ -134,6 +134,13 @@ afterEach(() => {
 
 const rosterNames = () => screen.getAllByText((_, element) => element?.hasAttribute('data-roster-name') ?? false).map(each => each.textContent)
 
+/** The header's "…" menu (revamp 2026-11-28), opened as a pointer opens it. */
+async function openMore() {
+  fireEvent.pointerDown(await screen.findByRole('button', { name: 'Thêm' }), { button: 0 })
+
+  return screen.findByRole('menu')
+}
+
 async function openLan(focus?: 'name', base: MatrixSnapshot = snapshot()) {
   render(<Window base={base} />)
   act(() => openAssistantCard({ kind: 'agent', principal: LAN, ...(focus ? { focus } : {}) }))
@@ -824,7 +831,9 @@ it('removes an agent photo through the canonical assistant bridge', async () => 
   act(() => openAssistantCard({ kind: 'agent', principal: LAN }))
   await waitFor(() => expect(assistants.read).toHaveBeenCalledWith(LAN))
 
-  fireEvent.click(await screen.findByRole('button', { name: 'Gỡ ảnh' }))
+  // Remove photo lives in the "…" menu now, not as a link under the face.
+  expect(screen.queryByRole('button', { name: 'Gỡ ảnh' })).toBeNull()
+  fireEvent.click(within(await openMore()).getByRole('menuitem', { name: 'Gỡ ảnh' }))
   await waitFor(() => expect(assistants.avatar).toHaveBeenCalledExactlyOnceWith({ principal: LAN, avatar: null }))
 })
 
@@ -1193,7 +1202,11 @@ describe('the assistant’s public handle', () => {
     render(<Window base={withDirectory(snapshot())} />)
     act(() => openAssistantCard({ kind: 'agent', principal: LAN }))
 
-    // The same two names as the "Trợ lý mới" sheet: the display name above, the bot handle here.
+    // The same two names as the "Trợ lý mới" sheet: the display name above, the bot handle from
+    // the "…" menu (revamp 2026-11-28), in the same editor, in a popover.
+    expect(window.document.querySelector('[data-assistant-card-handle]')).toBeNull()
+    fireEvent.click(within(await openMore()).getByRole('menuitem', { name: 'Đổi @tên…' }))
+
     const section = await waitFor(() => {
       const found = window.document.querySelector<HTMLElement>('[data-assistant-card-handle]')
       expect(found).toBeTruthy()
@@ -1201,8 +1214,7 @@ describe('the assistant’s public handle', () => {
       return found!
     })
 
-    expect(within(section).getByRole('heading', { name: 'Tên bot' })).toBeTruthy()
-    expect(within(section).getByText('Người khác gõ @tên này để tìm và nhắc đến trợ lý.')).toBeTruthy()
+    expect(section.getAttribute('aria-label')).toBe('Tên bot')
     expect(screen.getByRole('button', { name: 'Tên hiển thị, Lan. Nhấn để đổi' })).toBeTruthy()
     expect(await screen.findByText('Chưa có tên bot')).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: 'Chọn tên bot' }))
@@ -1216,7 +1228,8 @@ describe('the assistant’s public handle', () => {
     expect(dialog.textContent).toContain('@lan_bot sẽ là tên bot của Lan.')
     fireEvent.click(screen.getByRole('button', { name: 'Dùng tên' }))
 
-    expect(await screen.findByText('@lan_bot')).toBeTruthy()
+    // Shown under the name too, with what it is for as its tooltip.
+    await waitFor(() => expect(window.document.querySelector('[data-assistant-card-handle-line]')?.textContent).toBe('@lan_bot'))
     expect(requests.filter(request => request.action === 'claim')).toEqual([
       expect.objectContaining({ action: 'claim', handle: 'lan_bot', assistantId: LAN_ASSISTANT })
     ])
@@ -1226,6 +1239,7 @@ describe('the assistant’s public handle', () => {
     directory()
     render(<Window base={withDirectory(snapshot())} />)
     act(() => openAssistantCard({ kind: 'agent', principal: LAN }))
+    fireEvent.click(within(await openMore()).getByRole('menuitem', { name: 'Đổi @tên…' }))
     fireEvent.click(await screen.findByRole('button', { name: 'Chọn tên bot' }))
     fireEvent.keyDown(screen.getByRole('textbox', { name: 'Tên bot' }), { key: 'Escape' })
 
@@ -1239,6 +1253,91 @@ describe('the assistant’s public handle', () => {
     expect(screen.getByRole('button', { name: 'Tên hiển thị, Lan. Nhấn để đổi' })).toBeTruthy()
     expect(screen.queryByText('Chưa có tên bot')).toBeNull()
     expect(screen.queryByRole('button', { name: 'Chọn tên bot' })).toBeNull()
+    expect(within(await openMore()).queryByRole('menuitem', { name: 'Đổi @tên…' })).toBeNull()
+  })
+
+  it('copies the handle it holds from the "…" menu', async () => {
+    directory()
+    const writeText = vi.fn(async () => {})
+    window.atumMatrix = { ...window.atumMatrix, clipboard: { writeText } } as unknown as MatrixUiBridge
+    const aliases = window.atumMatrix.aliases!
+    vi.mocked(aliases.request).mockImplementation(async input =>
+      input.action === 'current'
+        ? { ok: true as const, value: { kind: 'current' as const, alias: { handle: 'lan_bot', generation: 1 } } }
+        : { ok: false as const, error: 'unavailable' as const }
+    )
+    render(<Window base={withDirectory(snapshot())} />)
+    act(() => openAssistantCard({ kind: 'agent', principal: LAN }))
+
+    await waitFor(() => expect(window.document.querySelector('[data-assistant-card-handle-line]')?.textContent).toBe('@lan_bot'))
+    fireEvent.click(within(await openMore()).getByRole('menuitem', { name: 'Sao chép @lan_bot' }))
+    await waitFor(() => expect(writeText).toHaveBeenCalledWith('@lan_bot'))
+  })
+})
+
+describe('the header’s "…" menu', () => {
+  it('holds rename and delete for an assistant, and Rename opens the name field', async () => {
+    await openLan()
+    await screen.findByText('Xong')
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Tên hiển thị, Lan. Nhấn để đổi' }).hasAttribute('disabled')).toBe(false))
+
+    // Delete is not a row on the card any more.
+    expect(window.document.querySelector('[data-assistant-card-delete]')).toBeNull()
+    const menu = await openMore()
+    expect(within(menu).getByRole('menuitem', { name: 'Xóa Lan…' })).toBeTruthy()
+
+    fireEvent.click(within(menu).getByRole('menuitem', { name: 'Đổi tên…' }))
+    await waitFor(() => expect(screen.getByRole('textbox', { name: 'Tên hiển thị' })).toBeTruthy())
+  })
+
+  it('opens the delete confirmation from its last item', async () => {
+    await openLan()
+    await screen.findByText('Xong')
+    fireEvent.click(within(await openMore()).getByRole('menuitem', { name: 'Xóa Lan…' }))
+
+    expect(await screen.findByRole('dialog', { name: /Lan/ })).toBeTruthy()
+    expect(screen.queryByRole('dialog', { name: 'Lan info' })).toBeNull()
+  })
+
+  it('gives the primary no Delete', async () => {
+    render(<Window base={snapshot()} />)
+    act(() => openAssistantCard({ kind: 'agent', principal: ATUM }))
+    await waitFor(() => expect(assistants.read).toHaveBeenCalledWith(ATUM))
+    await screen.findByText('Xong')
+
+    const menu = await openMore().catch(() => null)
+    expect(menu ? within(menu).queryByRole('menuitem', { name: /^Xóa/ }) : null).toBeNull()
+  })
+})
+
+describe('the pet row', () => {
+  const withStore = (base: MatrixSnapshot) => ({ ...base, apps: { apps: [] }, petScope: 'scope' }) as unknown as MatrixSnapshot
+
+  it('is absent until a pet is chosen; "Choose a pet…" is in the menu', async () => {
+    window.atumMatrix = { ...window.atumMatrix, pets: { read: vi.fn(async () => ({ sprite: null })) } } as unknown as MatrixUiBridge
+    await openLan(undefined, withStore(snapshot()))
+    await screen.findByText('Xong')
+
+    expect(window.document.querySelector('[data-assistant-card-pet]')).toBeNull()
+    expect(within(await openMore()).getByRole('menuitem', { name: 'Chọn thú cưng…' })).toBeTruthy()
+  })
+
+  it('shows its pet by name once chosen, and the menu offers to change it', async () => {
+    window.atumMatrix = {
+      ...window.atumMatrix,
+      pets: { read: vi.fn(async () => ({ sprite: { enabled: true, displayName: 'Pip' } })) }
+    } as unknown as MatrixUiBridge
+    await openLan(undefined, withStore(snapshot()))
+
+    const row = await waitFor(() => {
+      const found = window.document.querySelector<HTMLElement>('[data-assistant-card-pet]')
+      expect(found?.textContent).toContain('Pip')
+
+      return found!
+    })
+
+    expect(row.closest('[data-assistant-card-section="chat"]')).toBeTruthy()
+    expect(within(await openMore()).getByRole('menuitem', { name: 'Đổi thú cưng…' })).toBeTruthy()
   })
 })
 
@@ -1589,11 +1688,11 @@ describe('one assistant card, the primary included', () => {
     cleanup()
 
     await openCard(ATUM, withModel)
-    expect(window.document.querySelector('[data-assistant-card-delete]')).toBeNull()
+    expect(within(await openMore()).queryByRole('menuitem', { name: /^Xóa/ })).toBeNull()
     cleanup()
 
     await openCard(LAN, withModel)
-    expect(window.document.querySelector('[data-assistant-card-delete]')).not.toBeNull()
+    expect(within(await openMore()).getByRole('menuitem', { name: 'Xóa Lan…' })).toBeTruthy()
   })
 
   it('shows the primary’s “Tính cách” row even when its card carries the built-in persona', async () => {

@@ -14,7 +14,6 @@ import contextFileLimits from '../../../../../hermes_cli/data/context-file-limit
 import { appCatalogNames } from '../../../shared/app-catalog'
 import type { MatrixAgentView, MatrixSnapshot } from '../../../shared/matrix'
 import { matrixAgentActions, matrixAgentAnswersInCloud, matrixAgentNeedsLocalSetup } from '../../../shared/matrix-agent-actions'
-import { matrixAliasCopy } from '../../../shared/matrix-alias-copy'
 import type { MatrixAssistantCard, MatrixAssistantCardError } from '../../../shared/matrix-assistant-card'
 import {
   type AssistantNameProblem,
@@ -26,10 +25,7 @@ import { MatrixAgentHomeRow, MatrixAgentPlaceRow } from '../agent-home-control'
 import { agentStatus, RetireAgent } from '../agent-roster'
 import { changeMatrixCheckIns } from '../check-in-card'
 import { matrixCheckInTime } from '../check-ins-copy'
-import { MatrixHandleEditor } from '../handle-editor'
-import { suggestMatrixAgentHandle } from '../handle-rules'
 import { MainAgentBadge } from '../main-agent-badge'
-import { rememberAgentHandle } from '../person-handles'
 import { MatrixProfileAvatar } from '../profile-avatar'
 import { matrixRosterAgentName } from '../roster-model'
 import { SettingsSection } from '../settings-row'
@@ -38,6 +34,7 @@ import { runMatrixCommand } from '../text-document-actions'
 
 import type { AssistantCardControlSlots } from './agent-controls'
 import { BackgroundSweepRow } from './background-sweep-row'
+import { CardHandle, CardMenu, type CardPhotoActions, useAgentHandle } from './card-menu'
 import { type AssistantCardCopy, useAssistantCardCopy } from './copy'
 import { ModelDestinationsRow } from './model-destinations-row'
 import { InlineNameField } from './name-field'
@@ -144,6 +141,12 @@ export function AssistantCard({
   const [refusal, setRefusal] = useState<{ message: string; draft: string }>()
   const [retiring, setRetiring] = useState(false)
   const [editingName, setEditingName] = useState(false)
+  // "Rename…" in the "…" menu opens the name field again each time (a new token).
+  const [renameRequest, setRenameRequest] = useState(0)
+  const [photo, setPhoto] = useState<CardPhotoActions>()
+  const handle = useAgentHandle(agent, snapshot)
+  const pet = useAgentPetName(agent, snapshot)
+  const store = Boolean(snapshot.apps)
   const cardRef = useRef<MatrixAssistantCard | undefined>(undefined)
   const queue = useRef<Promise<unknown>>(Promise.resolve())
   const live = useRef(true)
@@ -395,6 +398,12 @@ export function AssistantCard({
   const status = agentStatus(agent)
   const name = shownName
 
+  const openShelf = (shelf: 'pets' | 'skills') => {
+    $matrixStoreShelfRequest.set(shelf)
+    onClose()
+    void runMatrixCommand({ kind: 'discoverApps' }).catch(() => $matrixStoreShelfRequest.set(null))
+  }
+
   return (
     <>
       {placement === 'sheet' && (
@@ -406,12 +415,26 @@ export function AssistantCard({
       )}
       <div className="atum-card-body" data-compact={compact || undefined} data-placement={placement}>
         <header className="atum-card-header" data-editing-name={editingName || undefined}>
+          <CardMenu
+            agent={agent}
+            handle={{ editable: handle.editable, value: handle.handle }}
+            name={name}
+            onDelete={primary ? undefined : () => setRetiring(true)}
+            onHandleChanged={next => handle.setHandle(next)}
+            onPet={store ? () => openShelf('pets') : undefined}
+            onRename={nameLocked || !editable ? undefined : () => setRenameRequest(value => value + 1)}
+            pet={pet}
+            photo={photo}
+            ready={ready}
+            snapshot={snapshot}
+          />
           <CardAvatar
             agent={agent}
             compact={compact}
             copy={copy}
             key={`${snapshot.petScope ?? ''}/${snapshot.identity?.userId}/${snapshot.identity?.deviceId}/${agent.principal}`}
             name={name}
+            onActions={setPhoto}
             onFailed={() => setBand({ kind: 'photo' })}
             snapshot={snapshot}
           />
@@ -435,9 +458,10 @@ export function AssistantCard({
               onCommit={next => rename(next)}
               onEditingChange={setEditingName}
               refusal={refusal}
-              startEditing={focusName}
+              startEditing={renameRequest || focusName}
             />
           )}
+          <CardHandle handle={handle.handle} />
           {agent.title && <p className="atum-card-caption text-center" data-assistant-card-title>{agent.title}</p>}
           {noteLine('name')}
           {placement === 'sheet' && (
@@ -473,7 +497,6 @@ export function AssistantCard({
         {offline && <p className="atum-card-caption text-center">{copy.offline}</p>}
         {lead}
         <CardStateNotice agent={agent} band={Boolean(band)} copy={copy} paused={controls?.paused} status={status} />
-        <AgentHandle agent={agent} name={name} ready={ready} snapshot={snapshot} />
         <section className="atum-card-section" data-assistant-card-section="about">
           <div className="atum-settings-section-head">
             <h3 className="ak-section atum-settings-section-title">{copy.sectionAbout}</h3>
@@ -512,73 +535,14 @@ export function AssistantCard({
           focusRoutines={focusRoutines}
           locale={locale}
           name={name}
-          onClose={onClose}
+          openShelf={openShelf}
+          pet={pet}
           snapshot={snapshot}
         />
         {trail}
-        {!primary && (
-          <section className="atum-card-section">
-            <div className="atum-settings-group">
-              <button
-                className="atum-settings-row atum-card-danger"
-                data-assistant-card-delete
-                disabled={snapshot.state !== 'ready'}
-                onClick={() => setRetiring(true)}
-                type="button"
-              >
-                {copy.deleteRow(name)}
-              </button>
-            </div>
-          </section>
-        )}
       </div>
       {!primary && <RetireAgent agent={agent} name={name} onClose={() => setRetiring(false)} open={retiring} />}
     </>
-  )
-}
-
-/**
- * The assistant's bot handle ("Tên bot", spec/public-handles/v1): how people find and @mention
- * it, beside its display name in the header. Shown where the directory exists; chosen or changed
- * in place, the platform deciding what is free. One editor per account and assistant.
- */
-function AgentHandle({
-  agent,
-  name,
-  ready,
-  snapshot
-}: {
-  agent: MatrixAgentView
-  name: string
-  ready: boolean
-  snapshot: MatrixSnapshot
-}) {
-  const { locale } = useI18n()
-  const copy = matrixAliasCopy(locale)
-  const bridge = window.atumMatrix?.aliases
-
-  if (!bridge || !snapshot.domainEnabled || !snapshot.identity || !agent.assistantId) {
-    return null
-  }
-
-  return (
-    <SettingsSection
-      className="atum-card-section"
-      data-assistant-card-handle
-      help={copy.botNameHelp}
-      title={copy.botName}
-    >
-      <MatrixHandleEditor
-        assistantId={agent.assistantId}
-        bridge={bridge}
-        disabled={!ready}
-        key={`${snapshot.identity.userId}:${agent.assistantId}`}
-        name={name}
-        names={snapshot.agents}
-        onChanged={(handle, previous) => rememberAgentHandle(agent.userId, handle, previous)}
-        suggestion={suggestMatrixAgentHandle(name)}
-      />
-    </SettingsSection>
   )
 }
 
@@ -619,6 +583,7 @@ function CardAvatar({
   compact,
   copy,
   name,
+  onActions,
   onFailed,
   snapshot
 }: {
@@ -626,6 +591,8 @@ function CardAvatar({
   compact: boolean
   copy: AssistantCardCopy
   name: string
+  /** What the "…" menu can do with the photo, or nothing where it cannot change here. */
+  onActions(actions: CardPhotoActions | undefined): void
   onFailed(): void
   snapshot: MatrixSnapshot
 }) {
@@ -656,6 +623,22 @@ function CardAvatar({
       setPending(false)
     }
   }
+
+  // The menu's Change photo / Remove photo do what a click on the face and the old link did.
+  useEffect(() => {
+    onActions(
+      canEdit
+        ? {
+            hasPhoto: Boolean(avatarUrl),
+            pending,
+            change: () => input.current?.click(),
+            remove: () => void change()
+          }
+        : undefined
+    )
+    // `change` reads the latest state through its closure each render; the menu only needs these.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [avatarUrl, canEdit, onActions, pending])
 
   const face = (
     <MatrixProfileAvatar
@@ -703,11 +686,6 @@ function CardAvatar({
           {copy.avatarBand}
         </span>
       </button>
-      {avatarUrl && (
-        <Button disabled={pending} onClick={() => void change()} size="inline" variant="text">
-          {copy.photoRemove}
-        </Button>
-      )}
       <input
         accept={ATUM_AVATAR_ACCEPT}
         aria-hidden
@@ -820,7 +798,8 @@ function CardSections({
   focusRoutines,
   locale,
   name,
-  onClose,
+  openShelf,
+  pet,
   snapshot
 }: {
   agent: MatrixAgentView
@@ -830,18 +809,13 @@ function CardSections({
   focusRoutines: boolean
   locale: string
   name: string
-  onClose(): void
+  openShelf(shelf: 'pets' | 'skills'): void
+  /** Its pet's name, once it has one; choosing one lives in the "…" menu. */
+  pet?: string
   snapshot: MatrixSnapshot
 }) {
   const store = Boolean(snapshot.apps)
-  const pet = useAgentPetName(agent, snapshot)
   const homeBridge = window.atumMatrix.agentHome
-
-  const openShelf = (shelf: 'pets' | 'skills') => {
-    $matrixStoreShelfRequest.set(shelf)
-    onClose()
-    void runMatrixCommand({ kind: 'discoverApps' }).catch(() => $matrixStoreShelfRequest.set(null))
-  }
 
   // The routines panel's "Chuyển lên đám mây" opens the card's one placement surface (D1 home).
   const openAnswerWhere = () => {
@@ -908,10 +882,12 @@ function CardSections({
     chat.push(<Fragment key="notifications">{controls.notifications}</Fragment>)
   }
 
-  if (store) {
+  // Owner 2026-11-28 (open question 2, yes): the row shows once a pet is chosen; until then
+  // "Choose a pet…" is in the "…" menu, so the card carries no upsell row.
+  if (store && pet) {
     chat.push(
       <button
-        aria-label={`${copy.pet}, ${pet ?? copy.petChoose}`}
+        aria-label={`${copy.pet}, ${pet}`}
         className="atum-settings-row atum-settings-link"
         data-assistant-card-pet
         key="pet"
@@ -920,7 +896,7 @@ function CardSections({
       >
         <RowGlyph icon={PawPrint} />
         <span className="atum-settings-row-title min-w-0 flex-1">{copy.pet}</span>
-        <span className="atum-card-row-value">{pet ?? copy.petChoose}</span>
+        <span className="atum-card-row-value">{pet}</span>
         <ChevronRight aria-hidden className="atum-settings-chevron" />
       </button>
     )
