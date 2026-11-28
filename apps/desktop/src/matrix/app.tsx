@@ -171,6 +171,7 @@ import {
 import { matrixAgentDeskAgent, matrixAgentDeskSteers } from './agent-desk-model'
 import { useMatrixAgentHandleBackfill } from './agent-handle-backfill'
 import { agentHomeTitleIconShown, MatrixAgentHomeRow } from './agent-home-control'
+import { AgentPlaceFor } from './agent-place-icon'
 import { bindAgentPlansAccount } from './agent-plans-store'
 import { NewAssistantButton } from './agent-roster'
 import { authorizedBotApi, botApiAppForMessage, isBotApiRoom } from './app-bots/bot-api'
@@ -8416,6 +8417,20 @@ function MatrixAccountView({
     ? teamSpaceChannelOpen && teamSpaceTranscriptVisible
     : conversationShellVisible
 
+  // The header names an assistant's own chat: the cloud or Mac icon follows its name, unless the
+  // title bar's home control (a Mac home, a move) already draws the place.
+  const headerPlaceShown = Boolean(
+    profileAgent &&
+      room &&
+      conversationShellVisible &&
+      !workplaceOnScreen &&
+      !driveActive &&
+      !appDestination &&
+      !notesSelfBound &&
+      !roomBot &&
+      !(profileAgent.home && window.atumMatrix.agentHome && agentHomeTitleIconShown(profileAgent.home, cloudOnly))
+  )
+
   // The workspace's selected company and its authoritative channel directory scope ⌘K and the shortcuts.
   const activeCompanyId = useStore($companyChannelCompanyId)
   const companyOrder = useStore($companyChannelOrder)
@@ -9567,6 +9582,15 @@ function MatrixAccountView({
                               copy.title
                             )}
                           </span>
+                          {headerPlaceShown && profileAgent && (
+                            // Where it is working, the cloud or a Mac, as its roster row shows it (agent-place.ts).
+                            <AgentPlaceFor
+                              accountUserId={snapshot.identity?.userId}
+                              agent={profileAgent}
+                              className="-ms-1"
+                              labelId="matrix-header-agent-place"
+                            />
+                          )}
                           {profileAgent?.title && (
                             <span className="truncate text-[0.8125rem] text-(--atum-ink-faint)" data-matrix-agent-title>
                               {profileAgent.title}
@@ -9593,6 +9617,7 @@ function MatrixAccountView({
                         </button>
                       ) : profileAgent && conversationShellVisible && !driveActive && !appDestination ? (
                         <button
+                          aria-describedby={headerPlaceShown ? 'matrix-header-agent-place' : undefined}
                           aria-label={assistantCardCopy.sheetLabel(
                             matrixRosterAgentName(profileAgent, shell.assistantName)
                           )}

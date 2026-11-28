@@ -22,6 +22,7 @@ import {
 } from '../../../shared/matrix-assistant-name'
 import { type ParsedPersona, parsePersona, renderPersona } from '../../../shared/matrix-assistant-persona'
 import { MatrixAgentHomeRow, MatrixAgentPlaceRow } from '../agent-home-control'
+import { AgentPlaceFor } from '../agent-place-icon'
 import { agentStatus, RetireAgent } from '../agent-roster'
 import { changeMatrixCheckIns } from '../check-in-card'
 import { matrixCheckInTime } from '../check-ins-copy'
@@ -397,6 +398,8 @@ export function AssistantCard({
   const editable = Boolean(card) && ready && !nameLocked
   const status = agentStatus(agent)
   const name = shownName
+  // Where it is working, the cloud or a Mac, as its roster row and the chat header show it.
+  const place = <AgentPlaceFor accountUserId={snapshot.identity?.userId} agent={agent} />
 
   const openShelf = (shelf: 'pets' | 'skills') => {
     $matrixStoreShelfRequest.set(shelf)
@@ -446,11 +449,21 @@ export function AssistantCard({
               >
                 <span className="min-w-0 truncate">{name}</span>
                 {primary && <MainAgentBadge tip={false} />}
+                {place}
               </h2>
             </Tip>
           ) : (
             <InlineNameField
-              adornment={primary ? <MainAgentBadge tip={false} /> : undefined}
+              adornment={
+                primary ? (
+                  <>
+                    <MainAgentBadge tip={false} />
+                    {place}
+                  </>
+                ) : (
+                  place
+                )
+              }
               check={check}
               editable={editable}
               key={agent.principal}

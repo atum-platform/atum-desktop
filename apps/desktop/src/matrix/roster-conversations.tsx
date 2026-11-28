@@ -24,6 +24,7 @@ import { appChatCopy } from '../../shared/matrix-app-chat-copy'
 import { accountVerificationTier, appVerificationTier } from '../../shared/verification'
 
 import { matrixAgentAttention, useMatrixAttentionNow } from './agent-attention'
+import { AgentPlaceFor } from './agent-place-icon'
 import { agentStatus } from './agent-roster'
 import { useAppCopy } from './app-copy'
 import { useChatCopy } from './chat-copy'
@@ -1117,6 +1118,8 @@ export function MatrixRosterConversations({
           // A named agent with no chat yet starts one: its row is never a dead end.
           const reachable = ready && !assistantOpening && (agent.isDefault || Boolean(target) || Boolean(agent.userId))
           const statusId = status || accessEnded ? `matrix-agent-status-${agent.principal}` : undefined
+          // Where it is working (the cloud or a Mac), beside its name; nothing while that is unknown.
+          const placeId = `${ids}-${agent.principal}-place`
 
           const badgeId = badge ? `matrix-agent-unread-${agent.principal}` : undefined
 
@@ -1146,7 +1149,7 @@ export function MatrixRosterConversations({
                     aria-busy={assistantOpening || undefined}
                     aria-current={here ? 'page' : undefined}
                     aria-describedby={
-                      [dotId, statusId, workingId, previewId, badgeId].filter(Boolean).join(' ') || undefined
+                      [dotId, statusId, workingId, previewId, badgeId, placeId].filter(Boolean).join(' ') || undefined
                     }
                     aria-label={name}
                     className="flex min-w-0 flex-1 items-center gap-2.5 self-stretch rounded-[inherit] ps-2 pe-2 text-left"
@@ -1190,6 +1193,7 @@ export function MatrixRosterConversations({
                       )}
                     </span>
                     <RosterLines
+                      adornment={<AgentPlaceFor accountUserId={snapshot.identity?.userId} agent={agent} labelId={placeId} />}
                       badge={badge}
                       badgeId={badgeId}
                       preview={searchHandle ?? pausedHire?.[0] ?? statusLine ?? preview ?? agent.title}
