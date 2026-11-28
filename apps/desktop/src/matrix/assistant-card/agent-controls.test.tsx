@@ -80,7 +80,7 @@ describe('the agent panel keeps Pause and Files for a cloud agent the host serve
   })
 
   it('says when its schedule could not be read, reads again on Try again, then pauses for real', async () => {
-    const { control, read } = hostDesk({ schedule: [new Error('matrix_host_desk_refused'), schedule([job])], files: [files([])] })
+    const { control, read } = hostDesk({ schedule: [new Error('matrix_host_desk_refused'), schedule([job]), schedule([{ ...job, state: 'paused' }])], files: [files([])] })
     show()
 
     await waitFor(() => expect(pauseRow()?.dataset.assistantCardPause).toBe('failed'))

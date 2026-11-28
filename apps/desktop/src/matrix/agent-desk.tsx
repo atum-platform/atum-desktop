@@ -661,7 +661,11 @@ type JobState = Jobs[number]['state']
 const LIVE: ReadonlySet<JobState> = new Set(['scheduled', 'running'])
 
 /** Paused when it has routines and none of them can start on its own. */
-export function matrixAgentDeskPaused(jobs: Jobs | undefined): boolean {
+export function matrixAgentDeskPaused(jobs: Jobs | undefined, globallyPaused?: boolean): boolean {
+  if (globallyPaused !== undefined) {
+    return globallyPaused
+  }
+
   return Boolean(jobs?.some(job => job.state === 'paused') && !jobs.some(job => LIVE.has(job.state)))
 }
 
@@ -671,17 +675,19 @@ export const MATRIX_AGENT_CONTROL_RETRY_MS = 10_500
 /**
  * Its native schedule as the host reads it (desk H1), plus its controls through the host
  * agent-control route: Pause / Resume (native cron pause, resume with no catch-up) and each
- * routine on or off. Optimistic: the switch moves at once and rolls back if the host refuses
- * or changes nothing; a busy reply (the shared cooldown) is retried once after it.
+ * routine on or off. Every successful control re-reads native state. A busy reply
+ * (the shared cooldown) is retried once after it.
  */
 function useAgentSchedule(active: boolean, agent: MatrixAgentView) {
   const desk = window.atumMatrix.agentDesk
-  const [jobs, setJobs] = useState<Jobs>()
+  const [snapshot, setSnapshot] = useState<MatrixHostDeskSchedule>()
+  const [controlling, setControlling] = useState(false)
   const [problem, setProblem] = useState<'failed' | 'stopped'>()
   // Whether the last read of its schedule answered: a failed read says so instead of hiding Pause.
   const [read, setRead] = useState<'loading' | 'ready' | 'failed'>('loading')
   const [attempt, setAttempt] = useState(0)
   const live = useRef(true)
+  const reload = () => setAttempt(each => each + 1)
 
   useEffect(() => {
     live.current = true
@@ -696,12 +702,28 @@ function useAgentSchedule(active: boolean, agent: MatrixAgentView) {
       return
     }
 
+    const refresh = () => setAttempt(each => each + 1)
+
+    window.addEventListener('focus', refresh)
+    window.addEventListener('matrix-native-routines-changed', refresh)
+
+    return () => {
+      window.removeEventListener('focus', refresh)
+      window.removeEventListener('matrix-native-routines-changed', refresh)
+    }
+  }, [active, agent.runtime, desk])
+
+  useEffect(() => {
+    if (!active || !desk || agent.runtime !== 'hermes') {
+      return
+    }
+
     let current = true
     setRead('loading')
-    void desk.read(agent.principal, { read: 'schedule' as const }).then(
+    void desk.read(agent.principal, { read: 'schedule', summary: true }).then(
       next => {
         if (current) {
-          setJobs(next.jobs)
+          setSnapshot(next)
           setRead('ready')
         }
       },
@@ -713,23 +735,22 @@ function useAgentSchedule(active: boolean, agent: MatrixAgentView) {
     }
   }, [active, agent.principal, agent.runtime, attempt, desk])
 
-  const control = (request: MatrixHostAgentControl, optimistic: (jobs: Jobs) => Jobs) => {
+  const control = (request: MatrixHostAgentControl) => {
     const send = desk?.control
 
-    if (!send || !jobs) {
+    if (!send || !snapshot?.jobs.length || controlling || read !== 'ready') {
       return
     }
 
-    const before = jobs
     setProblem(undefined)
-    setJobs(optimistic(jobs))
+    setControlling(true)
 
     const attempt = (retry: boolean): Promise<void> =>
       send(agent.principal, request).then(
-        reply => {
-          // Resume that changed nothing (its routines were turned off one by one) is no resume.
-          if (live.current && reply.changed === 0 && request.action !== 'pause') {
-            setJobs(before)
+        () => {
+          if (live.current) {
+            setRead('loading')
+            window.dispatchEvent(new Event('matrix-native-routines-changed'))
           }
         },
         (error: unknown) => {
@@ -742,33 +763,32 @@ function useAgentSchedule(active: boolean, agent: MatrixAgentView) {
           }
 
           if (live.current) {
-            setJobs(before)
             setProblem(code === 'matrix_host_control_stopped' ? 'stopped' : 'failed')
           }
         }
       )
 
-    void attempt(true)
+    void attempt(true).finally(() => {
+      if (live.current) {
+        setControlling(false)
+      }
+    })
   }
 
-  const setState = (from: (state: JobState) => boolean, to: JobState, only?: string) => (list: Jobs) =>
-    list.map(job => ((only === undefined || job.id === only) && from(job.state) ? { ...job, state: to } : job))
-
   return {
-    jobs,
+    jobs: snapshot?.jobs,
+    globallyPaused: snapshot?.globallyPaused,
+    remaining: snapshot?.remaining,
+    truncated: snapshot?.truncated,
     problem,
     read,
-    reload: () => setAttempt(each => each + 1),
-    /** The host route reads and changes this agent's schedule (a native Hermes cloud agent). */
+    reload,
     hosted: Boolean(desk?.read && desk.control && agent.runtime === 'hermes'),
-    canControl: Boolean(desk?.control && jobs?.length),
-    pause: () => control({ action: 'pause' }, setState(state => LIVE.has(state), 'paused')),
-    resume: () => control({ action: 'resume' }, setState(state => state === 'paused', 'scheduled')),
-    routine: (job: string, on: boolean) =>
-      control(
-        on ? { action: 'routine_on', job } : { action: 'routine_off', job },
-        on ? setState(state => state === 'paused', 'scheduled', job) : setState(state => LIVE.has(state), 'paused', job)
-      )
+    canControl: Boolean(desk?.control && snapshot?.jobs.length),
+    pending: controlling || read === 'loading',
+    pause: () => control({ action: 'pause' }),
+    resume: () => control({ action: 'resume' }),
+    routine: (job: string, on: boolean) => control(on ? { action: 'routine_on', job } : { action: 'routine_off', job })
   }
 }
 
@@ -778,7 +798,7 @@ function Routines({ schedule }: { schedule: ReturnType<typeof useAgentSchedule> 
   const copy = matrixAgentDeskText(locale)
   const { jobs } = schedule
 
-  if (!jobs?.length) {
+  if (!schedule.hosted && !jobs?.length && !schedule.truncated) {
     return null
   }
 
@@ -795,7 +815,10 @@ function Routines({ schedule }: { schedule: ReturnType<typeof useAgentSchedule> 
   return (
     <>
       <div className="atum-desk-subhead">{copy.routines}</div>
-      {jobs.map(job => {
+      <button className="ak-btn ak-btn--sm" disabled={schedule.pending} onClick={schedule.reload} type="button">
+        {copy.refresh}
+      </button>
+      {jobs?.map(job => {
         const switchable = schedule.canControl && (LIVE.has(job.state) || job.state === 'paused')
         const switchedOff = job.state === 'paused' && job.pausedReason === 'owner_routine_off'
         // A switched-off routine already reads off on its own switch, so it adds nothing; every
@@ -813,12 +836,18 @@ function Routines({ schedule }: { schedule: ReturnType<typeof useAgentSchedule> 
               <Switch
                 aria-label={job.name}
                 checked={job.state !== 'paused'}
+                disabled={schedule.pending}
                 onCheckedChange={on => schedule.routine(job.id, on)}
               />
             )}
           </div>
         )
       })}
+      {schedule.truncated && (
+        <p className="atum-desk-quiet" role="status">
+          {copy.moreRoutines(schedule.remaining)}
+        </p>
+      )}
     </>
   )
 }
@@ -868,7 +897,7 @@ function Controls({
   const { muted, toggle } = useMatrixRoomMute(room)
   const [more, setMore] = useState(false)
   const schedule = useAgentSchedule(active, agent)
-  const paused = matrixAgentDeskPaused(schedule.jobs)
+  const paused = matrixAgentDeskPaused(schedule.jobs, schedule.globallyPaused)
 
   return (
     <section aria-label={copy.controls} data-agent-desk-controls>
@@ -892,6 +921,7 @@ function Controls({
             <Switch
               aria-label={copy.pause}
               checked={paused}
+              disabled={schedule.pending}
               onCheckedChange={on => (on ? schedule.pause() : schedule.resume())}
             />
           </label>

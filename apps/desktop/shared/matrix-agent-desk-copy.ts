@@ -52,6 +52,8 @@ export interface MatrixAgentDeskCopy {
   moreControls: string
   /** Its routines, as the host reads its native schedule. */
   routines: string
+  refresh: string
+  moreRoutines: (remaining?: number) => string
   /** A paused routine's state word. */
   paused: string
   /** A routine's next run: "Next: Fri 08:00". */
@@ -109,6 +111,8 @@ export const matrixAgentDeskCopy: Record<DesktopLocale, MatrixAgentDeskCopy> = {
     notifications: 'Thông báo',
     moreControls: 'Thêm',
     routines: 'Việc định kỳ',
+    refresh: 'Làm mới',
+    moreRoutines: n => n ? `+thêm ${n} việc` : 'Còn việc định kỳ khác',
     paused: 'Tạm dừng',
     nextRun: when => `Lần tới: ${when}`,
     allSettings: 'Tất cả cài đặt',
@@ -151,6 +155,8 @@ export const matrixAgentDeskCopy: Record<DesktopLocale, MatrixAgentDeskCopy> = {
     notifications: 'Notifications',
     moreControls: 'More',
     routines: 'Routines',
+    refresh: 'Refresh',
+    moreRoutines: n => n ? `+${n} more` : 'More routines available',
     paused: 'Paused',
     nextRun: when => `Next: ${when}`,
     allSettings: 'All settings',
@@ -193,6 +199,8 @@ export const matrixAgentDeskCopy: Record<DesktopLocale, MatrixAgentDeskCopy> = {
     notifications: '通知',
     moreControls: 'その他',
     routines: '定期タスク',
+    refresh: '更新',
+    moreRoutines: n => n ? `+ほか ${n} 件` : 'ほかにも定期タスクがあります',
     paused: '一時停止中',
     nextRun: when => `次回: ${when}`,
     allSettings: 'すべての設定',
@@ -235,6 +243,8 @@ export const matrixAgentDeskCopy: Record<DesktopLocale, MatrixAgentDeskCopy> = {
     notifications: '通知',
     moreControls: '更多设置',
     routines: '例行任务',
+    refresh: '刷新',
+    moreRoutines: n => n ? `+${n} 项` : '还有更多例行任务',
     paused: '已暂停',
     nextRun: when => `下次：${when}`,
     allSettings: '全部设置',
@@ -277,6 +287,8 @@ export const matrixAgentDeskCopy: Record<DesktopLocale, MatrixAgentDeskCopy> = {
     notifications: '通知',
     moreControls: '更多設定',
     routines: '例行任務',
+    refresh: '重新整理',
+    moreRoutines: n => n ? `+${n} 項` : '還有更多例行任務',
     paused: '已暫停',
     nextRun: when => `下次：${when}`,
     allSettings: '全部設定',

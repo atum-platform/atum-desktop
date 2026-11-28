@@ -5,10 +5,12 @@ import { parseMatrixAgentRoutinesSnapshot } from '../../shared/agent-routines'
 
 import {
   MatrixAgentRoutines,
+  MatrixNativeAgentRoutines,
   MatrixRoutineRequestLedger,
   mutateMatrixAgentRoutine,
   readMatrixAgentRoutineRuns,
-  readMatrixAgentRoutines
+  readMatrixAgentRoutines,
+  requestNativeAgentRoutines
 } from './agent-routines'
 
 const ASSISTANT = '00000000-0000-4000-8000-af16785cab34'
@@ -328,4 +330,45 @@ describe('a mapped routine still fits the shared contract', () => {
       'title'
     ])
   })
+})
+
+it('sends agent-created jobs through S2 with their native ID and preserves projected routine identity', async () => {
+  const nativeId = '12ab34cd56ef'
+  const projectedId = 'ar_' + ROUTINE.replaceAll('-', '')
+  const created = routine({ id: nativeId, title: 'Agent-created' })
+  const fetcher = vi.fn<typeof fetch>()
+    .mockResolvedValueOnce(json({ action: 'routine_editor', timezone: 'Asia/Ho_Chi_Minh',
+      routines: [created, routine({ id: projectedId })] }))
+    .mockResolvedValueOnce(json({ action: 'routine_editor', routine: { ...created, title: 'Owner-edit', revision: 3 } }))
+    .mockResolvedValueOnce(json({ action: 'routine_editor', routine: routine({ id: projectedId, revision: 3 }) }))
+  const mutateLegacy = vi.fn(async () => ({ id: OTHER_ROUTINE, revision: 2 }))
+  const native = new MatrixNativeAgentRoutines({
+    request: (principal, command, signal) => requestNativeAgentRoutines(resource, TOKEN, principal, command, signal, fetcher),
+    readLegacy: async () => parseMatrixAgentRoutinesSnapshot(snapshot([routine(), routine({ id: OTHER_ROUTINE })]))!,
+    mutateLegacy,
+    runsLegacy: vi.fn()
+  })
+  const ipc = new MatrixAgentRoutines({
+    agents: () => [OWNER],
+    read: (id, signal, principal) => native.read(id, principal, signal),
+    mutate: (id, command, signal, principal) => native.mutate(id, principal, command, signal),
+    runs: (id, routineId, signal, principal) => native.runs(id, principal, routineId, signal)
+  })
+
+  const loaded = await ipc.read(PRINCIPAL)
+  expect(loaded.ok && loaded.snapshot.routines.map(row => row.id)).toEqual([nativeId, ROUTINE, OTHER_ROUTINE])
+  const updated = await ipc.update(input({ routineId: nativeId, expectedRevision: 2, title: 'Owner-edit' }))
+  expect(updated).toMatchObject({ ok: true, routine: { id: nativeId, title: 'Owner-edit', revision: 3 } })
+  expect(String(fetcher.mock.calls[1][0])).toBe('https://matrix.test/api/host/agent-control')
+  expect(body(fetcher.mock.calls[1])).toMatchObject({
+    agent: PRINCIPAL, action: 'routine_editor', command: { operation: 'update', routineId: nativeId, expectedRevision: 2 }
+  })
+  expect(await ipc.update(input({ routineId: ROUTINE, expectedRevision: 2 })))
+    .toMatchObject({ ok: true, routine: { id: ROUTINE, revision: 3 } })
+  expect(body(fetcher.mock.calls[2])).toMatchObject({ command: { routineId: projectedId } })
+  expect(mutateLegacy).not.toHaveBeenCalled()
+
+  expect(await ipc.delete({ principal: PRINCIPAL, routineId: OTHER_ROUTINE, expectedRevision: 2 }))
+    .toMatchObject({ ok: true, deleted: { id: OTHER_ROUTINE, revision: 2 } })
+  expect(mutateLegacy).toHaveBeenCalledOnce()
 })
