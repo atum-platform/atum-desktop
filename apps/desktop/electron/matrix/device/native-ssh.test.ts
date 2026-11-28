@@ -221,18 +221,24 @@ it('still refuses an invalid host key with the uppercase OS login', async () => 
   expect(f.system.start).not.toHaveBeenCalled()
 })
 
-it('retains a legacy token without blind prepare rotation; explicit revoke/reconnect recovers', async () => {
+it('retries authenticated prepare after relaunch with a legacy token and a transient registry failure', async () => {
+  vi.useFakeTimers()
   const f = fixture(mockSettings(), secret)
-  await f.service.refresh()
-  expect(f.service.status().status).toBe('error')
-  expect(f.http).not.toHaveBeenCalled()
-  expect(f.saved() === secret).toBe(true)
-  expect(f.system.start).not.toHaveBeenCalled()
-  await f.service.disconnect()
-  await f.service.start(true)
-  expect(f.service.status().status).toBe('needs_full_disk_access_hint')
-  expect(requests(f).map(row => row.operation)).toEqual(['ssh_revoke', 'ssh_prepare', 'ssh_authorized_keys', 'ssh_enroll'])
-  await f.service.disconnect()
+  f.http.mockImplementationOnce(async () => Response.json({ details: { reason: 'mac_route_unavailable' } }, { status: 503 }))
+
+  try {
+    await f.service.start()
+    expect(f.service.status()).toMatchObject({ status: 'error', code: 'device_registry_503_mac_route_unavailable' })
+    expect(f.saved()).toBe(secret)
+    expect(f.system.start).not.toHaveBeenCalled()
+    await vi.advanceTimersByTimeAsync(60_000)
+    expect(f.service.status().status).toBe('needs_full_disk_access_hint')
+    expect(requests(f).map(row => row.operation)).toEqual(['ssh_prepare', 'ssh_prepare', 'ssh_authorized_keys', 'ssh_enroll'])
+    expect(f.log).toHaveBeenCalledWith('native-ssh setup registered and tunnel job started')
+  } finally {
+    await f.service.disconnect()
+    vi.useRealTimers()
+  }
 })
 
 it('clears route metadata on revoke and prepares a fresh canonical route on reconnect', async () => {
@@ -271,11 +277,14 @@ it('does not reuse metadata for another owner or a different credential', async 
   await first.service.refresh()
   const foreign = fixture(settings, first.saved())
   foreign.setEnrollment({ ...enrollment, ownerUserId: '@foreign:example.com', state: 'active' } as DeviceEnrollmentRecord)
+  foreign.http.mockImplementationOnce(async () => Response.json({}, { status: 404 }))
   await foreign.service.refresh()
-  expect(foreign.http).not.toHaveBeenCalled()
+  expect(requests(foreign).map(row => row.operation)).toEqual(['ssh_prepare'])
+  expect(foreign.system.start).not.toHaveBeenCalled()
+  expect(foreign.saved()).toBe(secret)
   const rotated = fixture(settings, 'another-test-credential')
   await rotated.service.refresh()
-  expect(rotated.http).not.toHaveBeenCalled()
+  expect(requests(rotated)[0].operation).toBe('ssh_prepare')
   expect(rotated.system.removeToken).not.toHaveBeenCalled()
 })
 
@@ -323,6 +332,7 @@ describe('native SSH owner route', () => {
     vi.mocked(f.system.ready).mockResolvedValueOnce({ remoteLogin: false, user: 'owner', hostKey: '' })
     await f.service.refresh()
     expect(f.service.status().status).toBe('needs_remote_login')
+    expect(f.log).toHaveBeenCalledWith('native-ssh setup waiting: remote_login_unavailable (localhost:22)')
     await f.service.refresh()
     expect(f.service.status().status).toBe('needs_full_disk_access_hint')
     vi.mocked(f.system.ready).mockRejectedValueOnce(new Error('unavailable'))
@@ -584,19 +594,19 @@ it.each([
   expect(requests(f).map(row => row.operation)).toEqual(['ssh_prepare'])
 })
 
-it('fails closed on a replaced credential or corrupted persisted route without rotating', async () => {
+it('prepares under the active device when the token or cached metadata was replaced', async () => {
   const settings = mockSettings()
   const first = fixture(settings)
   await first.service.refresh()
   const replaced = fixture(settings, 'different-test-credential')
   await replaced.service.refresh()
-  expect(replaced.http).not.toHaveBeenCalled()
-  expect(replaced.service.status().reason).toBe('native_ssh_route_recovery_required')
+  expect(requests(replaced).map(row => row.operation)).toEqual(['ssh_prepare', 'ssh_authorized_keys', 'ssh_enroll'])
+  expect(replaced.service.status().status).toBe('needs_full_disk_access_hint')
   settings.setItem(routeKey, '{')
   const corrupt = fixture(settings, first.saved())
   await corrupt.service.refresh()
-  expect(corrupt.http).not.toHaveBeenCalled()
-  expect(corrupt.system.removeToken).not.toHaveBeenCalled()
+  expect(requests(corrupt).map(row => row.operation)).toEqual(['ssh_prepare', 'ssh_authorized_keys', 'ssh_enroll'])
+  expect(corrupt.service.status().status).toBe('needs_full_disk_access_hint')
 })
 
 it('does not reuse another owner or Matrix device route and clears metadata on enrollment revoke', async () => {
@@ -608,8 +618,7 @@ it('does not reuse another owner or Matrix device route and clears metadata on e
     const other = fixture(settings, first.saved())
     other.setEnrollment({ ...enrollment, state: 'active', ...scope } as DeviceEnrollmentRecord)
     await other.service.refresh()
-    expect(other.http).not.toHaveBeenCalled()
-    expect(other.system.start).not.toHaveBeenCalled()
+    expect(requests(other)[0]).toMatchObject({ operation: 'ssh_prepare', deviceServiceId: enrollment.deviceServiceId })
   }
 
   first.setEnrollment({ ...enrollment, state: 'revoked' } as DeviceEnrollmentRecord)
@@ -619,15 +628,32 @@ it('does not reuse another owner or Matrix device route and clears metadata on e
   expect(first.disk()).toBe('ssh-ed25519 user-owned-line\n')
 })
 
-it('preserves a token after metadata persistence failure and never blindly prepares on retry', async () => {
+it('does not replace the token when metadata persistence fails and retries setup', async () => {
   const f = fixture()
   f.settings.setItem.mockImplementationOnce(() => { throw new Error('storage unavailable') })
   await f.service.refresh()
   expect(f.service.status().status).toBe('error')
-  expect(f.saved() !== null).toBe(true)
+  expect(f.saved()).toBeNull()
   await f.service.refresh()
-  expect(requests(f).filter(row => row.operation === 'ssh_prepare')).toHaveLength(1)
-  expect(f.system.start).not.toHaveBeenCalled()
+  expect(requests(f).filter(row => row.operation === 'ssh_prepare')).toHaveLength(2)
+  expect(f.service.status().status).toBe('needs_full_disk_access_hint')
+})
+
+it('re-prepares on the next reconciliation when the registry withdrew the cached host', async () => {
+  const f = fixture()
+  const original = f.http.getMockImplementation()!
+  let reject = true
+
+  f.http.mockImplementation(async (url, init) => JSON.parse(init.body).operation === 'ssh_enroll' && reject
+    ? Response.json({ details: { reason: 'not_prepared' } }, { status: 403 })
+    : original(url, init))
+  await f.service.refresh()
+  expect(f.service.status().code).toBe('device_registry_403_not_prepared')
+  expect(f.settings.getItem(routeKey)).toBe('null')
+  reject = false
+  await f.service.refresh()
+  expect(requests(f).filter(row => row.operation === 'ssh_prepare')).toHaveLength(2)
+  expect(f.service.status().status).toBe('needs_full_disk_access_hint')
 })
 
 /** Answer one owner operation differently, leaving the rest of the fixture in place. */

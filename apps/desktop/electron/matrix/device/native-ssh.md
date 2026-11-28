@@ -157,16 +157,13 @@ new matching metadata; stale/interrupted writes cannot associate it with another
 route. Sign-out/revoke clears metadata independently with the existing token,
 managed-key and LaunchAgent cleanup. No new persistence service or platform API.
 
-Legacy recovery is deliberately explicit: an existing token with absent, corrupt,
-foreign-scope or digest-mismatched metadata reports
-`native_ssh_route_recovery_required`, retains the secret, removes managed keys and
-stops the connector. It does **not** call prepare automatically. Use the existing
-Disconnect action to revoke/clean up, then Connect to prepare a fresh route under
-the authenticated owner. A failed revoke must be resolved/retried before
-activation. This is the safe recovery available through the current revoke and
-prepare contract, not a silent destructive token rotation. An interrupted first
-setup metadata write uses the same recovery. Automatic in-place legacy migration
-would require a new read-only owner metadata API and is outside this client fix.
+Recovery as of 2026-11-28: an existing token with absent, corrupt or
+digest-mismatched metadata stops the old job and retries prepare under the
+current authenticated owner and device enrollment. Prepare rotates that device's
+tunnel credential, so valid matching metadata continues to reuse the token. The
+registry's `not_prepared` enrollment refusal invalidates cached metadata so that
+the next normal reconciliation can repair it. Other registry refusals retain
+the normal retry behavior. An explicit Disconnect remains off across restarts.
 
 The enrollment fixtures now use the current platform-shaped opaque hostname
 rather than the legacy `founder.mac`/UUID shape. They are adapted cross-contract
@@ -226,6 +223,12 @@ The view contains the step and an allowlisted code. Main logs the same pair.
 Registry response text and process messages stay out of both. The saved token
 and the enrollment-scoped Full Disk Access reminder retain their existing
 recovery and acknowledgement rules.
+
+After a relaunch with an enrolled device, the adapter reconciles immediately
+and every minute. The log now distinguishes successful setup, missing
+enrollment, unavailable localhost port 22, saved Disconnect, and stale route
+metadata. A successful setup means the registry accepted enrollment and launchd
+started the job. The agent checks end-to-end SSH availability separately.
 
 The current Connections row calls `nativeMac.ssh('disconnect')`. C4 can call
 the same action from its Connections pane. This action disables automatic
