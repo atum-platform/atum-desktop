@@ -73,6 +73,13 @@ export async function submitWorkLearning(value: unknown, port: {
   const session = bound?.session ?? threadId
   const target = `work-learning-${principal}-${session}`
 
+  const { options, ...selection } = model.data
+
+
+  const relayModel = { ...selection,
+    ...(options ? { options: options.map(({ id, value }) => ({ id, value })) } : {}) }
+
+
   const fallback = bound ? standalone : unavailable
   const deadline = Date.now() + 45_000
 
@@ -81,7 +88,7 @@ export async function submitWorkLearning(value: unknown, port: {
     const event = await owner.command({
       kind: 'sendWorkQuestion', roomId: room, agentId: agent, question: text, requestId,
       threadId: session, transactionId: `atum-work-learning-${requestId}`,
-      learning: { server, followup: Boolean(bound), model: model.data,
+      learning: { server, followup: Boolean(bound), model: relayModel,
         ...(path ? { document: path } : {}) }
     }).catch(() => undefined)
 

@@ -14,3 +14,5 @@ retry. A busy receipt keeps the active Work run and the draft.
 Focused connector tests exercise the selected provider, original assistant,
 unreachable relay, explicit local fallback and busy receipts. Installed
 assistant consent and transport were not exercised.
+
+The connector preserves validated provider option values when building the Matrix marker.
