@@ -14,6 +14,7 @@ import { useAgentPlaceLabel } from './agent-place-copy'
 import {
   $agentPlans,
   agentPlansKey,
+  agentPlansSession,
   agentPlansShownSelection,
   beginAgentPlansRead,
   failAgentPlansRead,
@@ -26,7 +27,11 @@ export function agentPlacePlansKey(accountUserId: string | undefined, agentPrinc
   return agentPlansKey(`account:${accountUserId ?? 'signed-out'}`, agentPrincipal)
 }
 
-/** One read per agent per change of Work's plan facts, however many rows and headers show it. */
+/**
+ * One read per agent per signed-in session and change of Work's plan facts, however many rows and
+ * headers show it. A read begun before the account was bound is retired by the binding, so the new
+ * session reads again rather than leaving the icon empty.
+ */
 const asked = new Map<string, string>()
 
 /** Tests only. */
@@ -48,7 +53,7 @@ export function useAgentPlace(
   const work = useStore($work)
   const read = window.atumMatrix?.work?.readAgentPlans
   const needsRead = Boolean(read && accountUserId && agent.home?.lives.kind !== 'mac' && matrixAgentAnswersInCloud(agent))
-  const token = `${work?.planStatusRevision ?? ''}|${work?.view ?? ''}`
+  const token = `${agentPlansSession()}|${work?.planStatusRevision ?? ''}|${work?.view ?? ''}`
 
   useEffect(() => {
     if (!needsRead || !read || asked.get(key) === token) {

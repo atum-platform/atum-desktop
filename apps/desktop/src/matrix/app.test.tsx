@@ -11470,6 +11470,39 @@ describe("the person's other agents (per-agent runtime plan §2.8)", () => {
     }
   }
 
+  it('shows where the open assistant is working right after its name in the window title bar', async () => {
+    // A cloud-only assistant on an Atum model works in the cloud (agent-place.ts); 293b202d no longer hides it.
+    const cloud: MatrixSnapshot = {
+      ...ready,
+      assistantPath: 'server',
+      agents: ready.agents!.map(agent => ({ ...agent, answering: 'cloud' as const, title: 'Chief of staff' }))
+    }
+    const readAgentPlans = vi.fn(async () => ({ published: true, plans: {}, selection: null }))
+    const harness = fixture(async () => cloud, 'en', undefined, undefined, undefined, undefined, undefined, {
+      // No Work page for this account (read: null); only the plan read the place icon shares.
+      work: { subscribe: () => () => {}, read: async () => null, readAgentPlans } as unknown as NonNullable<MatrixUiBridge['work']>
+    })
+    await waitFor(() => expect(plate()).toBeNull(), LAUNCH_OPENS)
+    harness.emit(cloud)
+
+    const titleBar = await waitFor(() => {
+      const found = window.document.querySelector<HTMLElement>('[data-atum-chat] [data-atum-main-header]')
+      expect(found?.querySelector('[data-matrix-title-place] [data-agent-place="cloud"]')).toBeTruthy()
+
+      return found!
+    })
+
+    const card = titleBar.querySelector<HTMLElement>('[data-matrix-header-card]')!
+    const slot = titleBar.querySelector<HTMLElement>('[data-matrix-title-place]')!
+    // The name's button, then the icon, then the title: one place icon and no second home control.
+    expect(card.nextElementSibling).toBe(slot)
+    expect(slot.nextElementSibling?.hasAttribute('data-matrix-agent-title')).toBe(true)
+    expect(titleBar.querySelectorAll('[data-agent-place]')).toHaveLength(1)
+    expect(titleBar.querySelector('[data-matrix-agent-home]')).toBeNull()
+    expect(window.document.getElementById(card.getAttribute('aria-describedby')!)?.textContent).toBe('Working in the cloud')
+    expect(readAgentPlans).toHaveBeenCalledWith('default')
+  })
+
   it('keeps the Main star out of the roster and header (Atum Kit) and moves it with the role in the palette', async () => {
     const { emit } = await open(ready)
 

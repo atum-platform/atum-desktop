@@ -20,6 +20,8 @@ import { matrixAgentAnswersInCloud } from '../../shared/matrix-agent-actions'
 import type { MatrixAgentSourcesBridge } from '../../shared/matrix-agent-sources'
 
 import { agentHomeCopy, agentHomeIssue, agentHomePlace, agentHomeStatus } from './agent-home-copy'
+import type { AgentPlace } from './agent-place'
+import { AgentPlaceGlyph, AgentPlaceIcon, useAgentPlace } from './agent-place-icon'
 import { openMatrixConnections } from './connections-request'
 import { MatrixCanUseList, useMatrixReachMacs } from './mac-reach-rows'
 import { matrixHomeModelProvider, ModelPickerPopover, pickerRouteOf } from './model-picker-popover'
@@ -34,6 +36,11 @@ export interface MatrixAgentHomeRowProps {
   view?: MatrixAgentHomeView
   /** The assistant card's place row, or the title bar's icon opening the same D1 surface. */
   display?: 'icon' | 'row'
+  /**
+   * The title bar's icon: where the assistant is working (agent-place.ts), drawn as the roster and
+   * the picker draw it. Without one the icon falls back to this home's own cloud or Mac.
+   */
+  place?: AgentPlace
   /**
    * Cloud-only S0: only the cloud is ever offered, and a Mac home shows one quiet line with Move to
    * the cloud. Defaults to the desktop's one switch; only tests pass `false` (the dormant Mac moves).
@@ -126,6 +133,7 @@ export function MatrixAgentHomeRow({
   bridge,
   cloudOnly = AGENT_HOMES_CLOUD_ONLY,
   display = 'row',
+  place,
   sources = window.atumMatrix?.agentSources,
   view
 }: MatrixAgentHomeRowProps) {
@@ -563,7 +571,7 @@ export function MatrixAgentHomeRow({
               data-matrix-agent-home
               type="button"
             >
-              <PlaceIcon className="size-4" kind={currentKind} />
+              {place ? <AgentPlaceGlyph place={place} /> : <PlaceIcon className="size-4" kind={currentKind} />}
               {moving ? (
                 <span
                   aria-hidden
@@ -576,7 +584,7 @@ export function MatrixAgentHomeRow({
         </Tip>
       )}
       <PopoverContent
-        align="end"
+        align={display === 'icon' ? 'start' : 'end'}
         aria-label={copy.title}
         className="ak-glass ak-menu z-[140] w-80 max-w-[calc(100vw-1rem)] border-0 bg-transparent p-1.5"
         data-agent-home-popover
@@ -941,5 +949,50 @@ export function MatrixAgentPlaceRow({
         ) : null}
       </PopoverContent>
     </Popover>
+  )
+}
+
+/** The title bar's one move-era control applies: a Mac home, or a move under way (cloud-only S0). */
+export function agentTitleHomeControlShown(
+  agent: Pick<MatrixAgentView, 'home'>,
+  bridge: MatrixAgentHomeBridge | undefined,
+  cloudOnly: boolean = AGENT_HOMES_CLOUD_ONLY
+): boolean {
+  return Boolean(agent.home && bridge && agentHomeTitleIconShown(agent.home, cloudOnly))
+}
+
+/**
+ * The title bar's place icon, right after the assistant's name (owner 2026-11-28): the cloud or the
+ * Mac it is working on, as its roster row shows it (agent-place.ts). Always one icon. While a Mac
+ * home or a move still needs the D1 popover, the icon is that popover's trigger; otherwise it is the
+ * plain icon with its tooltip, read through `labelId`. Unknown draws nothing.
+ */
+export function MatrixAgentTitlePlace({
+  accountUserId,
+  agent,
+  bridge = window.atumMatrix?.agentHome,
+  cloudOnly = AGENT_HOMES_CLOUD_ONLY,
+  labelId
+}: {
+  accountUserId: string | undefined
+  agent: Pick<MatrixAgentView, 'answering' | 'home' | 'macRole' | 'name' | 'principal'>
+  bridge?: MatrixAgentHomeBridge
+  cloudOnly?: boolean
+  labelId?: string
+}) {
+  const place = useAgentPlace(agent, accountUserId)
+
+  return bridge && agent.home && agentTitleHomeControlShown(agent, bridge, cloudOnly) ? (
+    <MatrixAgentHomeRow
+      agentName={agent.name}
+      agentPrincipal={agent.principal}
+      bridge={bridge}
+      cloudOnly={cloudOnly}
+      display="icon"
+      place={place}
+      view={agent.home}
+    />
+  ) : (
+    <AgentPlaceIcon labelId={labelId} place={place} />
   )
 }

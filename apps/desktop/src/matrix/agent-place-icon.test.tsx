@@ -9,7 +9,13 @@ import type { WorkAgentPlans } from '../../shared/matrix-work'
 import type { WorkRelayMachine } from '../../shared/matrix-work-relay'
 
 import { AgentPlaceFor, agentPlacePlansKey, resetAgentPlaceReadsForTests } from './agent-place-icon'
-import { $agentPlans, beginAgentPlansRead, resetAgentPlansForTests, settleAgentPlansRead } from './agent-plans-store'
+import {
+  $agentPlans,
+  beginAgentPlansRead,
+  bindAgentPlansAccount,
+  resetAgentPlansForTests,
+  settleAgentPlansRead
+} from './agent-plans-store'
 import { MatrixRosterConversations } from './roster-conversations'
 
 const owner = '@owner:test'
@@ -103,6 +109,24 @@ describe('AgentPlaceFor', () => {
     expect(read).toHaveBeenCalledTimes(1)
     await waitFor(() => expect(view.container.querySelectorAll('[data-agent-place="cloud"]')).toHaveLength(2))
     expect(Object.keys($agentPlans.get())).toEqual([key])
+  })
+
+  it('reads again when the account is bound after its first read began, and draws the place', async () => {
+    // The window's first rows can read before the snapshot binds the account; the binding retires that read.
+    let first: (value: WorkAgentPlans) => void = () => {}
+    const read = vi
+      .fn<(principal: string) => Promise<WorkAgentPlans | null>>()
+      .mockImplementationOnce(() => new Promise(resolve => (first = resolve)))
+      .mockImplementation(async () => plansFor(null, [mini]))
+    bridge(read)
+    const view = render(wrap(<AgentPlaceFor accountUserId={owner} agent={agent('moon')} />))
+
+    await waitFor(() => expect(read).toHaveBeenCalledTimes(1))
+    act(() => bindAgentPlansAccount(owner))
+    await act(async () => first(plansFor(null, [mini])))
+
+    await waitFor(() => expect(view.container.querySelector('[data-agent-place="cloud"]')).toBeTruthy())
+    expect(read).toHaveBeenCalledTimes(2)
   })
 
   it('reads nothing for an agent this Mac answers for and draws nothing', () => {

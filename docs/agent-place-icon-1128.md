@@ -7,7 +7,7 @@ Branch `feat/agent-place-icon`, based on `train/desktop-1128` (PR #179), because
 ## What the owner sees
 
 - **Roster rows.** A small icon sits right after each assistant's name. It shows a cloud, a Mac mini, a laptop, a Mac Studio, or T3's generic desktop for any other Mac.
-- **Chat header.** The same icon follows the assistant's name.
+- **Window title bar.** The same icon follows the open assistant's name in the chat's title bar, before its title ("Atum ☁ Chief of staff"). It shows for cloud-only assistants too (round 2, below).
 - **Assistant card.** The same icon appears beside the name, after the main-agent badge.
 - **No text.** The row and the header show only the icon. Hovering shows a tooltip: "Working in the cloud", "Working on Mac mini", or "Works on Mac mini, which is off". Screen readers hear the same words through `aria-describedby`, because the row's and the header's buttons are named by the assistant's name. The words are translated into vi, ja, zh and zh-Hant.
 - **Same look as the picker.** The icon set, muted ink, 1.75 stroke and 14 px size all come from `machine-icon.tsx`. An offline Mac is dimmed to 40%, as in the picker's machine rows.
@@ -25,6 +25,24 @@ The old icon came from private atum-app `50adf8a4a09`, "fix(desktop): cloud/comp
 The public repo's `293b202d`, "feat(desktop): hide Mac-era UI for cloud-only assistants", 2026-11-11, removed the settled icon. It now appears only during a Mac-to-cloud move (`agentHomeTitleIconShown`).
 
 That icon described the agent's *home*. In the cloud-only world every home is the cloud, so the place that changes now is where the *turns* run. That is why the new icon reads the relay route instead.
+
+## Round 2: the window title bar (2026-11-28)
+
+The owner asked the same day: "i think 'where agent live' icon should be in title bar next to its name in chat too - like we used to have before right?" Round 1's "chat header" already sat inside the title bar's leaf (`AtumMainHeaderSurface`), but its screenshots were mock cards. Round 2 makes the title bar's place one slot and proves it in the real window.
+
+- **One slot, one icon.** `MatrixAgentTitlePlace` in `agent-home-control.tsx` is the title bar's place, right after the name. It reuses the old home control instead of a parallel component. While a Mac home or a Mac-to-cloud move still needs the D1 popover (`agentHomeTitleIconShown`), the icon is that popover's trigger, drawn with round 1's glyph, with the moving dot. Otherwise it is round 1's plain icon with its tooltip. The old control is gone from the right-hand actions, so there are never two icons.
+- **Cloud-only assistants too.** `293b202d` hid the settled home icon for cloud-only assistants. The place icon no longer depends on that: a cloud assistant shows the cloud, or the Mac its plan relays through.
+- **Where it sits.** The old icon (`50adf8a4a09`) was an icon button at the right end of the title bar. The owner remembers it "next to its name", so it now follows the name. The name's button still opens the card. The icon and the title sit just outside that button, so the move-era trigger can be its own button and isn't nested inside another one. The popover opens from the start edge.
+- **Labels.** Same words: "Working in the cloud", "Working on Mac mini", "…which is off". The name's button is described by them (`aria-describedby`) when the icon is the plain one. The move-era trigger keeps its own label. Unknown draws nothing.
+- **Fix found on the way.** A plan read that began before the snapshot bound the account was retired by the binding and never retried, so the icon could stay empty. The window's first snapshot (`atumMatrix.snapshot()`) now binds the account as the subscription does. `useAgentPlace` also reads again in each new session (`agentPlansSession()`).
+
+Screens from the full window playground (`matrix-playground.html?scenario=chat&agentPlace=cloud|mini|laptop|off`, made with `scripts/agent-place-titlebar-shots.mjs`). Each one is the real title bar with the tooltip open:
+
+- Cloud: [light](agent-place-icon-1128/titlebar-cloud-light.png), [dark](agent-place-icon-1128/titlebar-cloud-dark.png)
+- Mac mini: [light](agent-place-icon-1128/titlebar-mac-mini-light.png), [dark](agent-place-icon-1128/titlebar-mac-mini-dark.png)
+- MacBook Pro: [light](agent-place-icon-1128/titlebar-macbook-light.png), [dark](agent-place-icon-1128/titlebar-macbook-dark.png)
+
+The full window has not loaded in a plain browser since #149, because `shared/browser/policy.ts` imports Node's `net`. The shot script answers that one module with an empty stub through request interception. Product code is unchanged.
 
 ## Where the place comes from (one source of truth)
 
@@ -57,8 +75,8 @@ This is optional. Most owners have one Mac per plan, and today's rule already co
 - `apps/desktop/src/matrix/agent-place.ts`: the rule (pure).
 - `apps/desktop/src/matrix/agent-place-copy.ts`: the tooltip and screen-reader words, in five locales.
 - `apps/desktop/src/matrix/agent-place-icon.tsx`: `useAgentPlace`, `AgentPlaceIcon` and `AgentPlaceFor`, which reuse `MachineIcon` plus lucide's `CloudIcon` at the same stroke.
-- `roster-conversations.tsx` (the row's `adornment` slot and `aria-describedby`), `app.tsx` (the header; hidden when the move-era title-bar home control already shows the place) and `assistant-card/assistant-card.tsx` (the name line).
-- Dev only, never bundled: `agent-place-fixture.html`, `src/matrix/playground/agent-place-entry.tsx` and `scripts/agent-place-shots.mjs`.
+- `roster-conversations.tsx` (the row's `adornment` slot and `aria-describedby`), `agent-home-control.tsx` (`MatrixAgentTitlePlace`, the title bar's one slot), `app.tsx` (mounts it after the name) and `assistant-card/assistant-card.tsx` (the name line).
+- Dev only, never bundled: `agent-place-fixture.html`, `src/matrix/playground/agent-place-entry.tsx`, `src/matrix/playground/agent-place-fixtures.ts` (`?agentPlace=`), `scripts/agent-place-shots.mjs` and `scripts/agent-place-titlebar-shots.mjs`.
 
 ## Verification
 
@@ -72,3 +90,15 @@ This is optional. Most owners have one Mac per plan, and today's rule already co
 | `python3 scripts/public_guard.py --base origin/train/desktop-1128 --head HEAD` | rc 0 |
 
 The full signed candidate build was not run. This is a public repo with free CI, so only a quick local sanity pass was run.
+
+### Round 2 (title bar)
+
+| Check | Result |
+| --- | --- |
+| `npx vitest run src/matrix/agent-title-place.test.tsx src/matrix/agent-place-icon.test.tsx src/matrix/agent-place.test.ts` | 24 passed. Covers the title bar's cloud, Mac mini, MacBook, off and unknown cases, the move-era trigger as the one icon, and the account-binding re-read |
+| `npx vitest run src/matrix/app.test.tsx src/matrix/assistant-card` | 11 files, 650 passed, including the window title bar test |
+| Neighbouring suites: agent home, cloud-only, plans store, roster, playground fixtures | 8 files, 166 passed |
+| `npm run typecheck` parts (boundary, renderer, consumer-browser, electron) | pass. Round 1's dev fixture `agent-place-entry.tsx` needed `leadsRow`/`reserveOverlay`/`scopeKey` against the train |
+| `npx eslint` on touched files | 0 errors, and no warnings on changed lines |
+| Renderer brand gate, as round 1 | "Atum branding verified in all three desktop renderers", rc 0 |
+| `python3 scripts/public_guard.py --base origin/train/desktop-1128 --head HEAD` | rc 0 |

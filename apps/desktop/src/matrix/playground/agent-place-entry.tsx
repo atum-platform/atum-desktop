@@ -9,7 +9,7 @@ import type { MatrixAgentView, MatrixRoom, MatrixSnapshot } from '../../../share
 import { MATRIX_ASSISTANT_ROOM_TYPE } from '../../../shared/matrix-assistant-room'
 import type { WorkAgentPlans } from '../../../shared/matrix-work'
 import type { WorkRelayMachine } from '../../../shared/matrix-work-relay'
-import { AgentPlaceFor } from '../agent-place-icon'
+import { MatrixAgentTitlePlace } from '../agent-home-control'
 import { MatrixAppearance } from '../appearance'
 import { MatrixProfileAvatar } from '../profile-avatar'
 import { MatrixRosterConversations } from '../roster-conversations'
@@ -99,7 +99,7 @@ const SNAPSHOT = {
 
 function Header({ who }: { who: MatrixAgentView }) {
   return (
-    <AtumMainHeaderSurface data-agent-place-fixture-header={who.principal}>
+    <AtumMainHeaderSurface data-agent-place-fixture-header={who.principal} leadsRow={false} reserveOverlay={false}>
       <div className="flex min-w-0 flex-1 items-center gap-2.5" data-matrix-header-identity>
         <button
           aria-describedby={`place-${who.principal}`}
@@ -110,12 +110,16 @@ function Header({ who }: { who: MatrixAgentView }) {
             className="size-[22px] shrink-0 rounded-lg text-xs"
             id={who.principal}
             name={who.name ?? ''}
+            scopeKey={OWNER}
             target={{ kind: 'agent', principal: who.principal }}
           />
           <span className="max-w-full shrink-0 truncate [font:var(--ak-t-headline)]">{who.name}</span>
-          <AgentPlaceFor accountUserId={OWNER} agent={who} className="-ms-1" labelId={`place-${who.principal}`} />
-          <span className="truncate text-[0.8125rem] text-(--atum-ink-faint)">{who.title}</span>
         </button>
+        {/* As app.tsx lays out the title bar: the place right after the name's button, then the title. */}
+        <span className="-ms-2.5 flex shrink-0 items-center empty:hidden">
+          <MatrixAgentTitlePlace accountUserId={OWNER} agent={who} labelId={`place-${who.principal}`} />
+        </span>
+        <span className="truncate text-[0.8125rem] text-(--atum-ink-faint)">{who.title}</span>
       </div>
     </AtumMainHeaderSurface>
   )

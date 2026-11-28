@@ -93,6 +93,11 @@ export function bindAgentPlansAccount(next: string | null): void {
   $agentPlans.set({})
 }
 
+/** The signed-in session the entries belong to; it changes whenever `bindAgentPlansAccount` empties the store. */
+export function agentPlansSession(): number {
+  return generation
+}
+
 export interface AgentPlansRead {
   key: string
   generation: number

@@ -13,6 +13,7 @@ import { openAssistantCard } from '../assistant-card'
 import { MatrixDesktopServicesBootstrap } from '../desktop-services'
 
 import { playgroundAgentHome, withPlaygroundHome } from './agent-home-fixtures'
+import { playgroundAgentPlaceMode, playgroundAgentPlaceWork, withPlaygroundAgentPlace } from './agent-place-fixtures'
 import { playgroundAssistants } from './assistant-fixtures'
 import { playgroundBridge, playgroundDesktopServices, PlaygroundStore } from './bridge'
 import { PlaygroundCheckIns, playgroundCheckInsMode } from './check-ins-fixtures'
@@ -79,7 +80,9 @@ prepareStory(initial)
 const store = new PlaygroundStore(initial, initialLocale)
 // Optional places (Drive, company, Mac apps, a document, offers) come from the URL.
 const places = playgroundPlaces(params)
-const emitSnapshot = store.emit.bind(store)
+const emitStore = store.emit.bind(store)
+// Outermost, so the open assistant's place (?agentPlace=) holds over every other decoration.
+const emitSnapshot: typeof emitStore = snapshot => emitStore(withPlaygroundAgentPlace(snapshot, agentPlaceMode))
 // The wallet, the Store and the checkout a signed-in window has (?balance=, ?order=, ?store=).
 const commerce = new PlaygroundCommerce(playgroundCommerceOptions(params))
 // Settings' native pieces and account states (?recovery=, ?ignored=, ?model=, ?google=, ?login=).
@@ -95,6 +98,8 @@ const bridge = playgroundBridge(store)
 const linkPreviews = playgroundLinkPreviewMode(params)
 // Relay R1's line on a short exchange in the open chat (?relay=waiting|needs-ok|fallback-mac|late|…).
 const relayMode = playgroundRelayMode(params)
+// Where the open assistant is working, for the place icon beside its name (?agentPlace=cloud|mini|laptop|off).
+const agentPlaceMode = playgroundAgentPlaceMode(params)
 
 // The account's ChatGPT states in Settings › Connections and the model picker (?subscriptions=).
 const subscriptionsMode = playgroundSubscriptionsMode(params)
@@ -137,7 +142,7 @@ window.atumMatrix = {
   agentHome: playgroundAgentHome(() => store.current),
   ...playgroundPlaceBridges(places, () => store.current),
   // Self-work slice A: `?work=<state>` opens the Work page (work-fixtures.ts).
-  ...playgroundWork(params),
+  ...playgroundAgentPlaceWork(agentPlaceMode, playgroundWork(params).work),
   ...(places.doc ? { previewDocument: async () => playgroundDocumentPreview(places) } : {}),
   // The title-bar failover control reads and saves against the fixture (§9.4), never a network.
   executionPolicy: playgroundPolicyBridge(policyMode),
