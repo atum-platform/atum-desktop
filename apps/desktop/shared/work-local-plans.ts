@@ -1,6 +1,7 @@
 /** Provider IDs for interactive Work sessions on this Mac. */
 export const WORK_LOCAL_PLANS = {
-  copilot: { title: 'GitHub Copilot', driver: 'acpRegistry' }
+  copilot: { title: 'GitHub Copilot', driver: 'acpRegistry' },
+  kiro: { title: 'Kiro', driver: 'kiro' }
 } as const
 
 export type WorkLocalPlan = keyof typeof WORK_LOCAL_PLANS

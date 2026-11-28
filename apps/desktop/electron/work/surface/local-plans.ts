@@ -7,7 +7,7 @@ import { readWorkProviders, workOwnerSocketUrl, type OwnerFetch } from './provid
 
 const nativeStatus = z.object({
   instanceId: z.string(), driver: z.string(), enabled: z.boolean(), installed: z.boolean(),
-  auth: z.object({ status: z.string() })
+  auth: z.object({ status: z.string(), type: z.string().optional() })
 })
 
 export function projectLocalPlanStates(providers: unknown): WorkLocalPlanStates {
@@ -22,7 +22,7 @@ export function projectLocalPlanStates(providers: unknown): WorkLocalPlanStates 
 
     if (!isWorkLocalPlan(instanceId) || driver !== WORK_LOCAL_PLANS[instanceId].driver || !enabled) {continue}
 
-    states[instanceId] = !installed ? 'not_installed' : auth.status === 'authenticated' ? 'ready' : 'signed_out'
+    states[instanceId] = !installed ? 'not_installed' : auth.status === 'authenticated' && auth.type !== 'api_key' ? 'ready' : 'signed_out'
   }
 
   return states

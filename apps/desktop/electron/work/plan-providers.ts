@@ -7,7 +7,8 @@ export const PLAN_PROVIDER_DEFAULTS = {
 export const LOCAL_PLAN_PROVIDER_DEFAULTS = {
   copilot: { driver: 'acpRegistry', enabled: true, displayName: 'GitHub Copilot', config: {
     source: 'local', commandPath: 'copilot', commandArgs: ['--acp']
-  } }
+  } },
+  kiro: { driver: 'kiro', enabled: true }
 }
 
 // The built-in T3 instances and the corresponding registry identifiers.

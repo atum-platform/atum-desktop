@@ -93,11 +93,12 @@ export function workRuntimeEnvironment(root: string, resources: string, shellPat
     ...(process.env.LOGNAME ? { LOGNAME: process.env.LOGNAME } : {}),
     ...(process.env.SHELL ? { SHELL: process.env.SHELL } : {}),
     ...Object.fromEntries(['XDG_CONFIG_HOME', 'XDG_CACHE_HOME', 'XDG_DATA_HOME', 'CODEX_HOME', 'CLAUDE_CONFIG_DIR'].flatMap(name => process.env[name] ? [[name, process.env[name]!]] : [])),
-    PATH: [join(resources, 'work-runtime'), shellPath, join(homedir(), '.local', 'bin'), '/usr/bin', '/bin', '/usr/sbin', '/sbin'].filter(Boolean).join(':'),
+    PATH: [join(resources, 'work-runtime'), shellPath, join(homedir(), '.local', 'bin'), join(root, 'server', 'tools', 'kiro-free'), '/usr/bin', '/bin', '/usr/sbin', '/sbin'].filter(Boolean).join(':'),
     PYTHONPATH: join(resources, 'runtime', 'hermes-agent'),
     LANG: 'en_US.UTF-8',
     NO_PROXY: 'localhost,127.0.0.1,::1',
     T3CODE_HOME: join(root, 'server'),
+    ATUM_WORK_KIRO_SETUP: '1',
     T3CODE_TELEMETRY_ENABLED: 'false',
     OTEL_SDK_DISABLED: 'true'
   }
