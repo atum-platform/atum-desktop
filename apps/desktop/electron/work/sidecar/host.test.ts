@@ -10,7 +10,7 @@ import { MATRIX_WORK_IPC } from '../../../shared/matrix-work'
 import { workSessionPaths } from '../session/paths'
 
 import { WORK_DELIVERABLE_OPEN_CHANNEL, WORK_DELIVERABLE_STATUS_CHANNEL } from './deliverable-contract'
-import { WORK_ACCESS_CHANNEL, WORK_ASSERTION_CHANNEL, WORK_OPEN_PROTONS_CHANNEL, WorkHost } from './host'
+import { WORK_ASSERTION_CHANNEL, WORK_OPEN_PROTONS_CHANNEL, WorkHost } from './host'
 import type * as WorkProcess from './process'
 
 const { handlers, starts } = vi.hoisted(() => ({
@@ -267,6 +267,8 @@ describe.skipIf(process.platform !== 'darwin' || process.arch !== 'arm64')('Work
 
   it('selects resources for each pin while keeping a single owner IPC registration', async () => {
     const { host } = lab()
+    const ownerHandlers = new Map(handlers)
+    expect(ownerHandlers.get(WORK_ASSERTION_CHANNEL)).toBeDefined()
     const packaged = host.forResources('/bundled')
     const target = host.forResources('/target')
     await packaged.start({ continuation: false })
@@ -285,7 +287,7 @@ describe.skipIf(process.platform !== 'darwin' || process.arch !== 'arm64')('Work
     await target.start({ continuation: false })
 
     expect(starts.mock.calls).toEqual([['/bundled'], ['/target'], ['/target']])
-    expect([...handlers.keys()]).toEqual([WORK_ASSERTION_CHANNEL, 'atum:work:startup-phase', MATRIX_WORK_IPC.surfaceModeChanged, MATRIX_WORK_IPC.sidebarChanged, MATRIX_WORK_IPC.attentionChanged, WORK_ACCESS_CHANNEL, WORK_OPEN_PROTONS_CHANNEL, WORK_DELIVERABLE_STATUS_CHANNEL, WORK_DELIVERABLE_OPEN_CHANNEL])
+    expect(handlers).toEqual(ownerHandlers)
   })
 })
 

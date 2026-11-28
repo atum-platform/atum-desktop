@@ -51,4 +51,6 @@
 
 The brand scrub changed the logged-out billing card to refer to the provider and changed the early runtime-exit label to Atum. The billing state, rendered billing card, and abort tests now expect those messages. They still check that logged-out billing hides account rows and that a terminated runtime reports the signal.
 
+The macOS Work host test also had a stale channel inventory after the learning channel landed. It now verifies that switching runtime pins preserves the original owner handlers, with duplicate registration still rejected by the test IPC implementation.
+
 Run the full client suite with `npm exec --workspace apps/desktop -- vitest run --maxWorkers 4` and the public history check with `python3 scripts/public_guard.py --base origin/main --head HEAD`.
