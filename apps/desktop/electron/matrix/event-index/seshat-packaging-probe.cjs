@@ -1,0 +1,42 @@
+const assert = require('node:assert/strict')
+const { randomBytes } = require('node:crypto')
+const fs = require('node:fs/promises')
+const path = require('node:path')
+const { app, safeStorage } = require('electron')
+
+app.setName('Atum Seshat Probe')
+app.whenReady().then(async () => {
+  assert(app.isPackaged)
+  const { Seshat } = require('@matrix-org/seshat')
+  console.log('Packaged native module loaded')
+  assert(safeStorage.isEncryptionAvailable(), 'Secure storage is unavailable')
+  assert.notEqual(safeStorage.getSelectedStorageBackend?.(), 'basic_text')
+  const parent = app.getPath('userData')
+  await fs.mkdir(parent, { recursive: true })
+  const dir = await fs.mkdtemp(path.join(parent, 'index-'))
+  const key = randomBytes(32).toString('base64url')
+  const wrapped = safeStorage.encryptString(key)
+  assert(!wrapped.includes(key))
+  const keyFile = path.join(parent, 'key')
+  await fs.writeFile(keyFile, wrapped, { mode: 0o600 })
+  const event = {
+    event_id: '$packaged-probe', room_id: '!probe:example.test', sender: '@sender:example.test',
+    origin_server_ts: 1, type: 'm.room.message', content: { msgtype: 'm.text', body: 'probeinvoice1042canary' }
+  }
+  let db = new Seshat(dir, { passphrase: key })
+  db.addEvent(event, {})
+  await db.commit(true)
+  await db.shutdown()
+  assert.throws(() => new Seshat(dir, { passphrase: randomBytes(32).toString('base64url') }))
+  db = new Seshat(dir, { passphrase: safeStorage.decryptString(await fs.readFile(keyFile)) })
+  const response = await db.search({ search_term: 'probeinvoice1042canary' })
+  assert.equal(response.results[0]?.result.event_id, event.event_id)
+  await db.shutdown()
+  await fs.rm(dir, { recursive: true })
+  await fs.unlink(keyFile)
+  console.log('Encrypted index commit, wrong-key rejection, reopen and wipe passed')
+  app.exit(0)
+}).catch(error => {
+  console.error(error.stack)
+  app.exit(1)
+})

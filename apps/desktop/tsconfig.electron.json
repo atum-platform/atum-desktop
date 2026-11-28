@@ -242,6 +242,7 @@
     "shared/matrix-progress-kernel.ts",
     "shared/matrix-progress-line.ts",
     "shared/matrix-progress-marker.ts",
+    "shared/matrix-roster-search.ts",
     "shared/matrix-room-shared.ts",
     "shared/matrix-room-upgrade.ts",
     "shared/matrix-progress-transaction.ts",

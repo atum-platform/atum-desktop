@@ -1,0 +1,32 @@
+[
+  {
+    "master": 0,
+    "layout": 6,
+    "text": ["Quarterly operations budget", "The team has $250 left in the quarterly budget.", "$6,000 planned"],
+    "notes": "Open with the quarter's remaining budget and explain that all amounts are in USD."
+  },
+  {
+    "master": 0,
+    "layout": 6,
+    "text": ["Staffing costs", "The team spent $300 less than planned on staffing.", "$3,700 spent"],
+    "notes": "Compare $3,700 actual staffing costs with the $4,000 staffing allocation."
+  },
+  {
+    "master": 0,
+    "layout": 6,
+    "text": ["Software costs", "Software spending came in $100 below plan.", "$1,100 spent"],
+    "notes": "Compare software spending with the $1,200 allocation."
+  },
+  {
+    "master": 0,
+    "layout": 6,
+    "text": ["Event costs", "Event spending exceeded the allocation by $150.", "$950 spent"],
+    "notes": "Describe the event budget variance using the $800 allocation."
+  },
+  {
+    "master": 0,
+    "layout": 6,
+    "text": ["Remaining budget", "Savings on staffing and software covered the event overrun.", "$250 remaining"],
+    "notes": "Reconcile $5,750 of actual spending with the $6,000 plan."
+  }
+]

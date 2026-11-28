@@ -9,7 +9,7 @@ import { MATRIX_TIMELINE_EVENT_BOUND, MATRIX_TIMELINE_SEARCH_PAGES, type MatrixT
 export interface MatrixHistoryReveal {
   roomId: string
   eventId: string
-  owner?: 'company' | 'pinned'
+  owner?: 'company' | 'pinned' | 'roster'
   threadRootId?: string
   accountKey?: string
 }
@@ -20,7 +20,7 @@ export const $matrixHistoryReveal = atom<MatrixHistoryReveal | null>(null)
 export function revealMatrixHistoryMessage(
   roomId: string,
   eventId: string,
-  owner: 'chat' | 'company' | 'pinned' = 'chat',
+  owner: 'chat' | 'company' | 'pinned' | 'roster' = 'chat',
   threadRootId?: string,
   accountKey?: string
 ): void {
@@ -33,7 +33,7 @@ export function revealMatrixHistoryMessage(
   })
 }
 
-export function clearMatrixHistoryReveal(roomId?: string, owner: 'chat' | 'company' | 'pinned' = 'chat'): void {
+export function clearMatrixHistoryReveal(roomId?: string, owner: 'chat' | 'company' | 'pinned' | 'roster' = 'chat'): void {
   const current = $matrixHistoryReveal.get()
   if ((!roomId || current?.roomId === roomId) && (current?.owner ?? 'chat') === owner) {
     $matrixHistoryReveal.set(null)

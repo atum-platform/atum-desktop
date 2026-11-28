@@ -56,6 +56,7 @@ const ChevronLeftIcon = phosphorIcon('caret-left')
 const ChevronRight = phosphorIcon('caret-right')
 const ChevronRightIcon = phosphorIcon('caret-right')
 const ChevronUp = phosphorIcon('caret-up')
+const CircleArrowDown = phosphorIcon('arrow-circle-down')
 const CircleArrowDownFilled = phosphorIcon('arrow-circle-down', { weight: 'fill' })
 const CircleIcon = phosphorIcon('circle')
 const CircleLetterA = phosphorIcon('text-aa')
@@ -313,6 +314,7 @@ export {
   ChevronRightIcon,
   ChevronUp,
   ChevronUpDown,
+  CircleArrowDown,
   CircleArrowDownFilled,
   CircleIcon,
   CircleLetterA,

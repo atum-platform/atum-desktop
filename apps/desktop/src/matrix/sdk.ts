@@ -219,6 +219,13 @@ import {
 import { ownerRecoveryCarrier } from './owner-recovery-carrier'
 import { requireMatrixRoomPeerTrust } from './peer-identity'
 import { readPeoplePrivacy, searchMatrixPeople, writePeoplePrivacy } from './people-search-sdk'
+import {
+  rosterSearchEventTimeline,
+  rosterSearchRoom,
+  rosterSearchWindowEnd,
+  searchLoadedPrivateMessages,
+  searchPersonalMessages
+} from './personal-message-search'
 import { createPetLiveEvents } from './pet/live-events'
 import { changeMatrixMessagePin, matrixPinnedMessages } from './pinned-events'
 import { confirmedPlainRoom, plainRoomAnswer, withJoinedWireType } from './plain-room'
@@ -244,7 +251,7 @@ import { matrixSecurity, recoveryKeyCache } from './security'
 import { matrixStarterOnboarding } from './starter-onboarding'
 import { matrixStoreRuns } from './store-runs'
 import { matrixThreadRoomKind } from './thread-room'
-import { MATRIX_COMPANY_THREADS_MAX, matrixCompanyThreads, matrixRoomTimelineEvents, matrixThreads, readMatrixThread, sendMatrixThreadReply, setMatrixThreadFollow } from './threads'
+import { MATRIX_COMPANY_THREADS_MAX, MATRIX_THREAD_REPLIES_MAX, matrixCompanyThreads, matrixRoomTimelineEvents, matrixThreads, readMatrixThread, sendMatrixThreadReply, setMatrixThreadFollow } from './threads'
 import {
   MATRIX_TIMELINE_EVENT_BOUND,
   MATRIX_TIMELINE_INITIAL_EVENTS,
@@ -715,6 +722,7 @@ export async function startMatrixSdk(
 
   const client = createClient({
     ...configuration,
+    timelineSupport: !appBotMode,
     store,
     logger: quietLogger,
     cryptoCallbacks: recoveryKeys.callbacks,
@@ -835,10 +843,24 @@ export async function startMatrixSdk(
   let dirtyTimer: ReturnType<typeof setTimeout> | undefined
   let draftPruneTimer: ReturnType<typeof setTimeout> | undefined
   const timelineWindows = new Map<string, { timeline: ReturnType<Room['getLiveTimeline']>; limit: number }>()
+  let searchFocus: {
+    revision: number
+    room: Room
+    timeline: ReturnType<Room['getLiveTimeline']>
+    eventId: string
+    limit: number
+    threadRootId?: string
+  } | undefined
+  let rosterPrivateHistoryRevision = 0
 
   // A limited sync replaces a room's live timeline. Keep the projection bound attached to
   // the timeline it counted so a previously capped room can page the replacement normally.
   const timelineWindow = (room: Room) => {
+    if (searchFocus?.room === room && searchFocus.revision === selectionRevision &&
+      room.getMyMembership() === 'join' && !searchFocus.threadRootId) {
+      return searchFocus
+    }
+
     const timeline = room.getLiveTimeline()
     const previous = timelineWindows.get(room.roomId)
 
@@ -1078,6 +1100,13 @@ export async function startMatrixSdk(
     petLive.loaded(room?.roomId ?? null)
 
     const history = room ? timelineWindow(room) : null
+    const focus = searchFocus?.room === room && searchFocus.revision === selectionRevision &&
+      room?.getMyMembership() === 'join' ? searchFocus : undefined
+    const historyEvents = history?.timeline.getEvents() ?? []
+    const historyEnd = rosterSearchWindowEnd(historyEvents, focus?.threadRootId ? undefined : focus?.eventId)
+    const visibleHistory = history ? historyEvents.slice(Math.max(0, historyEnd - history.limit), historyEnd) : []
+    const threadEvents = focus?.threadRootId ? focus.timeline.getEvents() : []
+    const threadEnd = rosterSearchWindowEnd(threadEvents, focus?.eventId)
     const ignoredUsers = client.getIgnoredUsers()
     const ignored = new Set(ignoredUsers)
     activityIgnored = ignored
@@ -1167,6 +1196,8 @@ export async function startMatrixSdk(
       appShortcuts: shortcuts.snapshot(appIds ?? [], state === 'ready'),
       members: room ? conversationMembers(room, configuration.userId) : [],
       ignoredUsers,
+      rosterPrivateHistoryRevision,
+      ...(focus ? { historyFocused: true as const } : {}),
       canSend: room?.maySendMessage() ?? false,
       typing: room ? typingIn(room, ignored) : [],
       messages:
@@ -1175,7 +1206,7 @@ export async function startMatrixSdk(
               room,
               history.timeline,
               // Cut the room window first. Compatibility replies may only fill gaps inside it.
-              history.timeline.getEvents().slice(-history.limit)
+              visibleHistory
             )
               .map(event => message(event, ignored, room, threadKind === 'group'))
               .filter((m): m is MatrixMessage => m !== null)
@@ -1191,12 +1222,20 @@ export async function startMatrixSdk(
         ? { pinnedMessages: matrixPinnedMessages(room, configuration.userId, event => message(event, ignored, room, threadKind === 'group')) }
         : {}),
       ...(room && showThreads
-        ? { threads: matrixThreads(room, configuration.userId, event => message(event, ignored, room, threadKind === 'group')) }
+        ? { threads: matrixThreads(
+            room,
+            configuration.userId,
+            event => message(event, ignored, room, threadKind === 'group'),
+            focus?.threadRootId ? {
+              rootId: focus.threadRootId,
+              events: threadEvents.slice(Math.max(0, threadEnd - MATRIX_THREAD_REPLIES_MAX), threadEnd)
+            } : undefined
+          ) }
         : {}),
       // Who came in and who is no longer in, from the channel's own membership events (the same
       // bound as the messages). Only a Team Space channel room has them.
       ...(room && history && room.getType() === MATRIX_COMPANY_CHANNEL_TYPE
-        ? { membershipLines: matrixMembershipLines(room, history.timeline.getEvents().slice(-history.limit), ignored) }
+        ? { membershipLines: matrixMembershipLines(room, visibleHistory, ignored) }
         : {}),
       // A channel's intro opens its history only once nothing older is left to load (Slack's and
       // Mattermost's "start of the channel"), never above a window that still has pages behind it.
@@ -1236,6 +1275,7 @@ export async function startMatrixSdk(
 
   const activityContentChanged = () => {
     activityProjectionRevision++
+    rosterPrivateHistoryRevision++
     changed()
   }
 
@@ -1309,6 +1349,7 @@ export async function startMatrixSdk(
 
   client.on(ClientEvent.Room, roomChanged)
   client.on(RoomEvent.Timeline, (event, room, toStart, removed, data) => {
+    if (room?.hasEncryptionStateEvent()) {rosterPrivateHistoryRevision++}
     if (!stopped && !appBotMode && state === 'ready') {
       petLive.observed(event, room?.roomId ?? '', Boolean(toStart), Boolean(removed), data?.liveEvent === true)
     }
@@ -1318,6 +1359,12 @@ export async function startMatrixSdk(
     }
 
     changed()
+  })
+  client.on(RoomEvent.TimelineReset, room => {
+    if (room?.hasEncryptionStateEvent()) {
+      rosterPrivateHistoryRevision++
+      changed()
+    }
   })
   client.on(RoomEvent.MyMembership, roomChanged)
   client.on(RoomEvent.LocalEchoUpdated, changed)
@@ -2968,11 +3015,46 @@ export async function startMatrixSdk(
         await shortcuts.change(command.appId, command.visibility)
 
         return null
+      case 'selectSearchEvent':
       case 'select': {
         const selected = client.getRoom(command.roomId)
 
         if (!selected || ignoredInvitation(client, selected)) {
           throw new Error('matrix_room_missing')
+        }
+
+        let targetThread: string | undefined
+
+        if (command.kind === 'selectSearchEvent') {
+          const revision = selectionRevision
+          const active = () => !stopped && state === 'ready' && selectionRevision === revision &&
+            rosterSearchRoom(client, command.roomId) === selected
+
+          if (!active() || (command.scope === 'device'
+            ? !selected.hasEncryptionStateEvent()
+            : !await confirmedPlainRoom(client, selected))) {
+            throw new Error('matrix_roster_search_result_unavailable')
+          }
+
+          const { timeline, event } = await rosterSearchEventTimeline(client, selected, command.eventId, command.scope, command.threadRootId)
+
+          if (!active() || selected.hasEncryptionStateEvent() !== (command.scope === 'device') ||
+            event.isRedacted() || event.localRedactionEvent()) {
+            throw new Error('matrix_roster_search_result_unavailable')
+          }
+
+          const threadKind = matrixThreadRoomKind(selected)
+          targetThread = command.threadRootId && message(event, new Set(client.getIgnoredUsers()), selected, threadKind === 'group')?.thread
+            ? command.threadRootId
+            : undefined
+          const tail = timeline.getEvents().slice(-MATRIX_TIMELINE_INITIAL_EVENTS)
+
+          searchFocus = (targetThread || timeline !== selected.getLiveTimeline() || !tail.includes(event))
+            ? { revision: revision + 1, room: selected, timeline, eventId: command.eventId,
+                limit: MATRIX_TIMELINE_INITIAL_EVENTS, ...(targetThread ? { threadRootId: targetThread } : {}) }
+            : undefined
+        } else {
+          searchFocus = undefined
         }
 
         roomId = command.roomId
@@ -2982,7 +3064,7 @@ export async function startMatrixSdk(
         conversationNotice = null
         snapshot()
 
-        return null
+        return targetThread ?? null
       }
 
       case 'notesSelfOpen': {
@@ -3016,9 +3098,11 @@ export async function startMatrixSdk(
         const history = timelineWindow(selected)
         const timeline = history.timeline
         const timelineEvents = timeline.getEvents()
+        const focusEventId = history === searchFocus ? searchFocus?.eventId : undefined
+        const end = rosterSearchWindowEnd(timelineEvents, focusEventId)
         const current = history.limit
-        const visible = Math.min(timelineEvents.length, current)
-        const cached = timelineEvents.length > current
+        const visible = Math.min(end, current)
+        const cached = end > current
 
         if (
           current >= MATRIX_TIMELINE_EVENT_BOUND ||
@@ -3036,7 +3120,11 @@ export async function startMatrixSdk(
         const before = timelineEvents.length
 
         if (!cached) {
-          await client.scrollback(selected, MATRIX_TIMELINE_PAGE_EVENTS)
+          if (focusEventId && timeline !== selected.getLiveTimeline()) {
+            await client.paginateEventTimeline(timeline, { backwards: true, limit: MATRIX_TIMELINE_PAGE_EVENTS })
+          } else {
+            await client.scrollback(selected, MATRIX_TIMELINE_PAGE_EVENTS)
+          }
         }
 
         if (stopped || state !== 'ready' || roomId !== command.roomId) {
@@ -3048,26 +3136,27 @@ export async function startMatrixSdk(
         const nextTimeline = nextHistory.timeline
         const nextEvents = nextTimeline.getEvents()
         const after = nextEvents.length
+        const nextEnd = rosterSearchWindowEnd(nextEvents, focusEventId)
         const nextCurrent = nextTimeline === timeline ? current : nextHistory.limit
         const limit = nextTimelineEventLimit(nextCurrent)
 
         // Matrix scrollback can resolve before the page has finished decrypting. Decrypt both
         // newly learned events and the cached window this step newly admits; the snapshot sent
         // before the command result then contains every readable message in the page.
-        const admittedStart = Math.max(0, after - limit)
-        const previousStart = Math.max(0, after - nextCurrent)
+        const admittedStart = Math.max(0, nextEnd - limit)
+        const previousStart = Math.max(0, nextEnd - nextCurrent)
 
         const learned =
           nextTimeline === timeline
             ? nextEvents.filter(event => !beforeEvents.has(event))
-            : nextEvents.slice(admittedStart)
+            : nextEvents.slice(admittedStart, nextEnd)
 
         const decrypt = new Set([...learned, ...nextEvents.slice(admittedStart, previousStart)])
         await Promise.allSettled(
           [...decrypt].filter(event => event.isEncrypted()).map(event => client.decryptEventIfNeeded(event))
         )
 
-        if (stopped || state !== 'ready' || roomId !== command.roomId || selected.getLiveTimeline() !== nextTimeline) {
+        if (stopped || state !== 'ready' || roomId !== command.roomId || timelineWindow(selected).timeline !== nextTimeline) {
           throw new Error('matrix_timeline_unavailable')
         }
 
@@ -3077,12 +3166,21 @@ export async function startMatrixSdk(
 
         return {
           loaded: Math.max(0, after - before),
-          visible: Math.min(after, limit),
+          visible: Math.min(nextEnd, limit),
           hasMore:
             !capped &&
-            (nextEvents.length > limit || nextTimeline.getPaginationToken(Direction.Backward) !== null),
+            (nextEnd > limit || nextTimeline.getPaginationToken(Direction.Backward) !== null),
           capped
         } satisfies MatrixTimelinePage
+      }
+
+      case 'rosterMessageSearch': {
+        const active = () => !stopped && state === 'ready'
+
+        if (!active() || appBotMode) {throw new Error('matrix_roster_search_unavailable')}
+
+        return command.scope === 'device' ? searchLoadedPrivateMessages(client, command.roomIds, command.query) :
+          searchPersonalMessages(client, command.roomIds, command.query, active)
       }
 
       case 'companyMessageSearch':

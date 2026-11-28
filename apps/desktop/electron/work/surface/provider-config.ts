@@ -1,27 +1,35 @@
-interface OwnerFetch {
+export interface OwnerFetch {
   fetch(input: string, init: RequestInit): Promise<Response>
+}
+
+export async function workOwnerSocketUrl(origin: string, owner: OwnerFetch, signal?: AbortSignal): Promise<URL | undefined> {
+  if (!/^http:\/\/127\.0\.0\.1:[1-9][0-9]{0,4}$/u.test(origin)) {return undefined}
+
+  const ticket = await owner.fetch(`${origin}/api/auth/websocket-ticket/rpc`, {
+    method: 'POST', credentials: 'include', redirect: 'error',
+    signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(2_000)]) : AbortSignal.timeout(2_000)
+  })
+
+  const body = ticket.ok ? await ticket.json() as { ticket?: unknown } : undefined
+
+  if (typeof body?.ticket !== 'string' || !body.ticket) {return undefined}
+
+  const url = new URL('/ws', origin)
+  url.protocol = 'ws:'
+  url.searchParams.set('orchestrationProtocol', '2')
+  url.searchParams.set('wsTicket', body.ticket)
+
+  return url
 }
 
 /** Read-only Work owner RPC. The pinned T3 exposes authentication and usage in server.getConfig.
  * The ticket and Effect RPC frame shapes are exercised by fixtures/t3-plan-config.json.
  */
 export async function readWorkProviders(origin: string, owner: OwnerFetch): Promise<unknown> {
-  if (!/^http:\/\/127\.0\.0\.1:[1-9][0-9]{0,4}$/u.test(origin)) {return undefined}
-
   try {
-    const ticket = await owner.fetch(`${origin}/api/auth/websocket-ticket/rpc`, {
-      method: 'POST', credentials: 'include', redirect: 'error', signal: AbortSignal.timeout(2_000)
-    })
+    const url = await workOwnerSocketUrl(origin, owner)
 
-    const body = ticket.ok ? await ticket.json() as { ticket?: unknown } : undefined
-
-    if (typeof body?.ticket !== 'string' || !body.ticket) {return undefined}
-
-    const url = new URL('/ws', origin)
-
-    url.protocol = 'ws:'
-    url.searchParams.set('orchestrationProtocol', '2')
-    url.searchParams.set('wsTicket', body.ticket)
+    if (!url) {return undefined}
 
     return await new Promise<unknown>(resolve => {
       const socket = new WebSocket(url)
