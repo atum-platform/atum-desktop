@@ -2,7 +2,7 @@ import { Direction, EventType, type MatrixClient, MsgType } from 'matrix-js-sdk'
 
 import { MATRIX_PLAIN_SENDER_DEVICE, type MatrixInvocationMessage } from '../../shared/matrix'
 import { MATRIX_FIND_TURN } from '../../shared/matrix-turn'
-import { WORK_LEARNING_MSGTYPE, WORK_REQUEST_KEY, type WorkLearningRequest, workAnswer } from '../../shared/work-question'
+import { WORK_LEARNING_MSGTYPE, WORK_REQUEST_KEY, workAnswer, type WorkLearningRequest } from '../../shared/work-question'
 
 import { confirmedPlainRoom } from './plain-room'
 import { readMatrixInvocation } from './read-invocation'

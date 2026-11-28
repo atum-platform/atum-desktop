@@ -2,7 +2,6 @@ import { existsSync, unlinkSync } from 'node:fs'
 import { join } from 'node:path'
 
 import { ipcMain, type IpcMainInvokeEvent, type WebContents } from 'electron'
-import { WORK_LEARNING_CHANNEL } from '../../../shared/work-question'
 
 import {
   MATRIX_WORK_IPC,
@@ -14,6 +13,7 @@ import {
   type WorkSidebarSnapshot,
   type WorkSurfaceModeSnapshot
 } from '../../../shared/matrix-work'
+import { WORK_LEARNING_CHANNEL } from '../../../shared/work-question'
 import { writeFileDurably } from '../session/files'
 import type { WorkSessionPaths } from '../session/paths'
 import type { PinHost } from '../session/update'

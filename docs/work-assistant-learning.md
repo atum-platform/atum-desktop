@@ -15,3 +15,7 @@ For a finished S1 DOCX, Desktop resolves the result identity against the
 account's Work receipt and verifies the original file in the private Work
 output directory. The Mac provider receives the local reference. Signed,
 enrolled provider acceptance follows runtime assembly.
+
+The Desktop fixture verifies the owner request and reply, provider override,
+and disconnected launch behavior. Renderer and Electron TypeScript checks
+passed. Lint for the touched files reported zero errors.

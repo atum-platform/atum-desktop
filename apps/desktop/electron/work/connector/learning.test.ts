@@ -1,11 +1,13 @@
 import { describe, expect, it, vi } from 'vitest'
 
 import type { MatrixSdkCommand } from '../../../shared/matrix'
+
 import { submitWorkLearning } from './learning'
 
 const agent = '93c18c68-865e-4926-9bca-74df9917fd83'
 const session = '0d407f2d-ff6c-441a-8d91-5c7227f57849'
 const bound = `work-learning-${agent}-${session}`
+
 const input = {
   requestId: 'ea00aa7e-6383-41f0-bf5e-1777cc94566e',
   threadId: session, text: 'Remember this format',
@@ -16,11 +18,15 @@ function fixture() {
   const command = vi.fn(async (request: MatrixSdkCommand) => {
     switch (request.kind) {
       case 'findAssistantRoom': return '!owner-dm:example.test'
+
       case 'sendWorkQuestion': return '$owner-event'
+
       case 'readWorkAnswer': return { learning: { threadId: bound, runId: 'accepted-run' } }
+
       default: throw new Error('Unexpected command')
     }
   })
+
   return {
     owner: () => ({ userId: '@owner:example.test', command }),
     selected: () => agent,
