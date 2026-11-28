@@ -7657,6 +7657,16 @@ body:has(.atum-shell) .atum-assistant-card-compact[data-slot='dialog-content'] {
   padding-bottom: 1.25rem;
 }
 
+/* The side panel beside the agent's chat: 24 px sides, the header with room for its "…" (revamp). */
+.atum-card-body[data-placement='panel'] {
+  padding-inline: 1.5rem;
+  padding-top: 1.5rem;
+}
+
+.atum-card-body .atum-card-header {
+  position: relative;
+}
+
 .atum-card-header {
   display: flex;
   flex-direction: column;
@@ -7849,6 +7859,61 @@ body:has(.atum-shell) .atum-assistant-card-compact[data-slot='dialog-content'] {
   margin-top: 0;
 }
 
+/* Agent card revamp (2026-11-28): a row's 18 px Phosphor Light glyph in ink-2 before its label, and
+   the hairline above such a row starts at the label, not the glyph (Atum Kit STYLE §13). */
+.atum-card-row-glyph {
+  width: 1.125rem;
+  height: 1.125rem;
+  flex: none;
+  color: var(--ak-ink-2);
+}
+
+.atum-card-section .atum-settings-row:has(> .atum-card-row-glyph)::before {
+  left: 2.75rem;
+}
+
+/* The one state notice under the header (paused, not set up): the kit notice at full width. */
+.atum-card-notice {
+  text-align: start;
+}
+
+/* About: the summary reads as prose, three lines at most; the full text lives in its editor. */
+.atum-card-about {
+  display: -webkit-box;
+  overflow: hidden;
+  /* Margins, not padding: a clamped box clips at its padding edge, so padding would show a 4th line. */
+  margin: 0.6875rem 0.875rem;
+  color: var(--atum-ink);
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+}
+
+.atum-card-about[data-empty] {
+  color: var(--atum-ink-faint);
+}
+
+/* The About editor's lines sit flush with its fields. */
+[data-assistant-card-about-editor] .atum-settings-section-foot {
+  padding-inline: 0;
+}
+
+/* The handle under the name: Body in ink-3, a tooltip says what it is for. */
+.atum-card-handle {
+  margin-top: 0.125rem;
+  color: var(--ak-ink-3);
+  font-size: var(--atum-t-ui);
+}
+
+/* The header's "…": top right of the card body, quiet until hovered. */
+.atum-card-more {
+  position: absolute;
+  top: 0;
+  right: 0;
+}
+
 .atum-settings-row.atum-card-field-row {
   flex-direction: column;
   align-items: stretch;
@@ -7871,7 +7936,7 @@ textarea.atum-input.atum-card-field {
   resize: none;
 }
 
-body:has(.atum-shell) .atum-assistant-card textarea.atum-input.atum-card-field:focus {
+body:has(.atum-shell) :is(.atum-assistant-card, [data-assistant-card-about-editor]) textarea.atum-input.atum-card-field:focus {
   box-shadow: var(--atum-glass-edge);
 }
 

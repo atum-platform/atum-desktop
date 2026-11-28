@@ -4401,10 +4401,11 @@ describe('isolated Matrix composition', () => {
       expect(command).toHaveBeenCalledWith({ kind: 'mute', roomId: controlsState.rooms[0]!.id, muted: true })
     )
 
-    // Your devices: the Macs it can use, one row that opens to each one's state.
+    // Your devices: the Macs it can use, one row that opens to each one's state. With one Mac the
+    // row names it (revamp 2026-11-28: in use, else the Mac's name, else how many).
     const devices = await waitFor(() => {
       const found = panel.querySelector<HTMLElement>('[data-assistant-card-devices]')
-      expect(found?.textContent).toContain('1')
+      expect(found?.textContent).toContain('Mac mini')
 
       return found!
     })
@@ -6636,7 +6637,9 @@ describe('isolated Matrix composition', () => {
     fireEvent.click(screen.getByRole('menuitem', { name: 'Edit assistant… Lan' }))
     await screen.findByRole('dialog', { name: 'Lan info' })
     await waitFor(() => expect(assistants.read).toHaveBeenCalledWith(principal))
-    expect(await screen.findByRole('textbox', { name: 'What does Lan help you with?' })).toBeTruthy()
+    // About shows what it helps with as prose; the raw field opens from Edit (revamp 2026-11-28).
+    expect(await screen.findByRole('button', { name: 'Edit' })).toBeTruthy()
+    expect(window.document.querySelector('[data-assistant-card-about]')).toBeTruthy()
     expect(screen.getByText('Not ready yet')).toBeTruthy()
 
     emit({ ...ready, agents: [] })

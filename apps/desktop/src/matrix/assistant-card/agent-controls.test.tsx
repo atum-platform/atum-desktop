@@ -7,7 +7,7 @@ import type { MatrixAgentView, MatrixRoom, MatrixUiBridge } from '../../../share
 import { matrixAgentDeskCopy } from '../../../shared/matrix-agent-desk-copy'
 import { MatrixAgentDeskFiles, type MatrixAgentDeskState } from '../agent-desk'
 
-import { AssistantCardControls } from './agent-controls'
+import { useAssistantCardControls } from './agent-controls'
 
 const en = matrixAgentDeskCopy.en
 
@@ -50,10 +50,25 @@ function hostDesk(answers: { schedule?: Answer[]; files?: Answer[] }) {
   return { control, read }
 }
 
+/** The card's slots in the order the card places them: the Paused notice, then each row. */
+function Controls({ agent }: { agent: MatrixAgentView }) {
+  const slots = useAssistantCardControls({ active: true, agent, desk, room })
+
+  return (
+    <>
+      {slots.paused}
+      {slots.notifications}
+      {slots.devices}
+      {slots.pause}
+      <span data-routines-paused={slots.routinesPaused ? 'yes' : 'no'} />
+    </>
+  )
+}
+
 function show(agent: MatrixAgentView = luna) {
   return render(
     <I18nProvider configClient={null} initialLocale="en">
-      <AssistantCardControls active agent={agent} desk={desk} room={room} />
+      <Controls agent={agent} />
       <MatrixAgentDeskFiles active agent={agent} desk={desk} roomId={room.id} />
     </I18nProvider>
   )
@@ -70,12 +85,14 @@ afterEach(() => cleanup())
 // Owner 2026-11-27: "agent card don't see pause and files". Both were hidden while a cloud agent had no
 // routine and no file yet, and when a read failed, so the panel looked like it had lost them.
 describe('the agent panel keeps Pause and Files for a cloud agent the host serves', () => {
-  it('keeps Pause with nothing to pause, saying so, with the switch waiting', async () => {
+  it('keeps Pause with nothing to pause, saying so in its tooltip, with the switch waiting', async () => {
     hostDesk({ schedule: [schedule([])], files: [files([])] })
     show()
 
     await waitFor(() => expect(pauseRow()?.dataset.assistantCardPause).toBe('empty'))
-    expect(within(pauseRow()!).getByText(en.nothingScheduled)).toBeTruthy()
+    // Not a line in the row (revamp 2026-11-28: one line only for a failure); the tooltip says it.
+    expect(within(pauseRow()!).queryByText(en.nothingScheduled)).toBeNull()
+    expect(pauseRow()!.title).toContain(en.nothingScheduled)
     expect(within(pauseRow()!).getByRole('switch', { name: en.pause }).hasAttribute('disabled')).toBe(true)
   })
 
@@ -146,5 +163,115 @@ describe('the agent panel keeps Pause and Files for a cloud agent the host serve
 
     expect(pauseRow()).toBeNull()
     expect(window.document.querySelector('[data-agent-desk-files]')).toBeNull()
+  })
+})
+
+describe('Paused: one notice under the header, with Resume', () => {
+  const paused = { ...job, state: 'paused', pausedReason: 'owner_pause' }
+
+  it('shows the notice only while its routines are paused, and Resume resumes them', async () => {
+    const { control } = hostDesk({ schedule: [schedule([paused])], files: [files([])] })
+    show()
+
+    const notice = await waitFor(() => {
+      const found = window.document.querySelector<HTMLElement>('[data-assistant-card-paused]')
+      expect(found).toBeTruthy()
+
+      return found!
+    })
+
+    expect(within(notice).getByText('Paused')).toBeTruthy()
+    expect(within(notice).getByText(en.pauseHint)).toBeTruthy()
+    expect(window.document.querySelector('[data-routines-paused]')?.getAttribute('data-routines-paused')).toBe('yes')
+
+    await act(async () => {
+      fireEvent.click(within(notice).getByRole('button', { name: 'Resume' }))
+    })
+
+    expect(control).toHaveBeenCalledWith('agent-luna', { action: 'resume' })
+    await waitFor(() => expect(window.document.querySelector('[data-assistant-card-paused]')).toBeNull())
+    expect(pauseRow()?.dataset.assistantCardPause).toBe('running')
+  })
+
+  it('shows no notice while its routines run', async () => {
+    hostDesk({ schedule: [schedule([job])], files: [files([])] })
+    show()
+
+    await waitFor(() => expect(pauseRow()?.dataset.assistantCardPause).toBe('running'))
+    expect(window.document.querySelector('[data-assistant-card-paused]')).toBeNull()
+  })
+})
+
+describe('Files on the card: the newest three, then Show all files', () => {
+  const now = Date.now()
+
+  const sentFile = (id: string, body: string, minutesAgo: number) =>
+    ({ id, body, timestamp: now - minutesAgo * 60_000, attachmentSize: 2_000 }) as unknown as MatrixAgentDeskState['sent'][number]
+
+  const withSent = {
+    devices: [],
+    sent: [sentFile('$a', 'Weekly plan.docx', 5), sentFile('$b', 'Meeting notes.pdf', 60)]
+  } as unknown as MatrixAgentDeskState
+
+  function showFiles() {
+    return render(
+      <I18nProvider configClient={null} initialLocale="en">
+        <MatrixAgentDeskFiles active agent={luna} desk={withSent} roomId={room.id} />
+      </I18nProvider>
+    )
+  }
+
+  const rows = [
+    { name: 'Reports', kind: 'folder', size: 0, modifiedAt: now - 30 * 60_000 },
+    { name: 'old.csv', kind: 'file', size: 10, modifiedAt: now - 3 * 86_400_000 }
+  ]
+
+  it('mixes what it sent and what is on its computer, newest first, three at most', async () => {
+    hostDesk({ files: [files(rows)] })
+    showFiles()
+
+    const list = await waitFor(() => {
+      const found = window.document.querySelector<HTMLElement>('[data-agent-card-files]')
+      expect(found?.querySelectorAll('.ak-row').length).toBe(4)
+
+      return found!
+    })
+
+    const names = [...list.querySelectorAll('.ak-row .truncate')].map(each => each.textContent)
+    expect(names).toEqual(['Weekly plan.docx', 'Reports', 'Meeting notes.pdf', 'Show all files'])
+    expect(within(list).getAllByText(/^Sent here · /)).toHaveLength(2)
+    expect(within(list).getByText('On its computer')).toBeTruthy()
+    expect(screen.queryByText('old.csv')).toBeNull()
+  })
+
+  it('saves a sent file from its row', async () => {
+    hostDesk({ files: [files(rows)] })
+    showFiles()
+
+    fireEvent.click(await screen.findByRole('button', { name: en.save('Weekly plan.docx') }))
+    expect(window.atumMatrix.command).toHaveBeenCalledWith({ kind: 'download', roomId: room.id, eventId: '$a' })
+  })
+
+  it('opens the full lists in place, with Save and folders, and Show less folds them back', async () => {
+    hostDesk({ files: [files(rows), files(rows)] })
+    showFiles()
+
+    fireEvent.click(await waitFor(() => screen.getByText('Show all files')))
+    expect(await screen.findByText('old.csv')).toBeTruthy()
+    expect(screen.getAllByRole('button', { name: /^Save / }).length).toBe(2)
+
+    fireEvent.click(screen.getByText(en.less))
+    await waitFor(() => expect(screen.queryByText('old.csv')).toBeNull())
+    expect(screen.getByText('Show all files')).toBeTruthy()
+  })
+
+  it('opens a folder from the short list into the full one', async () => {
+    const { read } = hostDesk({ files: [files(rows), files([{ name: 'q4.xlsx', kind: 'file', size: 10, modifiedAt: now }])] })
+    showFiles()
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Reports' }))
+    await waitFor(() =>
+      expect(read).toHaveBeenLastCalledWith('agent-luna', { read: 'files', path: 'home/Reports' })
+    )
   })
 })

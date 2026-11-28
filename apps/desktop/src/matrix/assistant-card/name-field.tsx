@@ -37,8 +37,8 @@ export function InlineNameField({
   refusal?: { message: string; draft: string }
   onCommit(next: string): void
   onEditingChange?(editing: boolean): void
-  /** Open in edit mode with the text selected ("Rename…"). */
-  startEditing?: boolean
+  /** Open in edit mode with the text selected ("Rename…"); a new number opens it again (the "…" menu). */
+  startEditing?: boolean | number
 }) {
   const copy = useAssistantCardCopy()
   const [editing, setEditing] = useState(false)
@@ -61,11 +61,11 @@ export function InlineNameField({
   }
 
   // "Rename…": the field opens, text selected, as soon as the card can save a name.
-  const started = useRef(false)
+  const started = useRef<boolean | number>(false)
 
   useEffect(() => {
-    if (startEditing && editable && !started.current) {
-      started.current = true
+    if (startEditing && editable && started.current !== startEditing) {
+      started.current = startEditing
       cancelled.current = false
       setDraft(name)
       setEditing(true)
