@@ -3621,9 +3621,9 @@ body:has(.atum-shell) [data-slot='sheet-overlay'] {
   padding-right: 1.625rem;
 }
 
-/* Your own turn is the one strong bubble (Atum Kit 0.1, mock 1a): ink in light, a raised grey in
-   dark so it never glares; everyone else's is the quiet bubble, so yours are found at a glance
-   without any colour. */
+/* Your own turn is the one strong bubble (Atum Kit 0.1, mock 1a): ink with white text in light,
+   near-white with ink text in dark (owner 2026-11-28); everyone else's is the quiet bubble, so
+   yours are found at a glance without any colour. */
 .atum-shell .composer-human-message,
 .atum-pet-chat .composer-human-message {
   border-color: transparent;
@@ -3644,6 +3644,21 @@ body:has(.atum-shell) [data-slot='sheet-overlay'] {
 .atum-shell .composer-human-message a {
   color: inherit;
   text-decoration: underline;
+}
+
+/* In dark your bubble is near-white with ink text (owner 2026-11-28), so the window's light ink
+   tones would vanish on it. Inside it the ink roles (a reply quote, its "in thread", a file chip,
+   a code fence's hairline, the quote's hover) take the bubble's own ink, quietened, at least 4.5:1.
+   A bubble being edited is back on the quiet field and keeps the window's inks. */
+.dark :is(.atum-shell, .atum-pet-chat) .composer-human-message:not([data-slot='aui_edit-composer-root'] *) {
+  --atum-ink: var(--ak-on-bubble-own);
+  --atum-ink-soft: color-mix(in srgb, var(--ak-on-bubble-own) 84%, var(--ak-bubble-own));
+  --atum-ink-muted: color-mix(in srgb, var(--ak-on-bubble-own) 68%, var(--ak-bubble-own));
+  --atum-ink-faint: color-mix(in srgb, var(--ak-on-bubble-own) 66%, var(--ak-bubble-own));
+  --dt-muted-foreground: var(--atum-ink-muted);
+  --atum-line: color-mix(in srgb, var(--ak-on-bubble-own) 18%, transparent);
+  --dt-border: var(--atum-line);
+  --atum-hover: color-mix(in srgb, var(--ak-on-bubble-own) 7%, transparent);
 }
 
 /* An edit happens in the box itself, so the bubble being edited goes back to the quiet field. */

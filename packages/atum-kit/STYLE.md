@@ -71,7 +71,7 @@ cheap"). Ink carries everything.
 | Ink           | `--ak-ink`, `--ak-ink-2`, `--ak-ink-3`                                   | text, strongest to quietest. `--ak-ink-3` is the lowest text tone |
 | Icon-only ink | `--ak-ink-4`                                                             | icons and strokes, **never text**                                 |
 | On ink        | `--ak-on-ink`                                                            | text on an ink fill (primary button, badge, tooltip)              |
-| Your bubble   | `--ak-bubble-own`, `-hover`, `--ak-on-bubble-own`                        | your own chat bubble: ink in light, a raised grey in dark         |
+| Your bubble   | `--ak-bubble-own`, `-hover`, `--ak-on-bubble-own`                        | your own chat bubble: ink in light, near-white with ink in dark   |
 | Lines         | `--ak-line`, `--ak-line-2`                                               | one hairline; the strong one only where a field needs an edge     |
 | Fills         | `--ak-fill-quiet`, `-hover`, `-press`, `-selected`                       | quiet surfaces, states                                            |
 | Danger        | `--ak-danger`, `-fill`, `-hover`                                         | destructive actions, errors, the mention badge                    |
@@ -265,9 +265,14 @@ exceptions.
   after the one before. A new day, the unread line and the typing row break
   it.
 - **Your own messages** are the one strong bubble on the right
-  (`--ak-bubble-own` with `--ak-on-bubble-own`): ink in light; a raised grey
-  (#3d3f47) with near-white text in dark, because inverted ink glares there
-  (2026-10-28). While being edited, a turn returns to the quiet field.
+  (`--ak-bubble-own` with `--ak-on-bubble-own`): ink with white text in light;
+  near-white (#ecedf0) with ink text (#17181c) in dark (owner 2026-11-28,
+  replacing the 2026-10-28 raised grey, which read as "mine" by alignment
+  alone). Targets: at least 3:1 between your bubble and the quiet one, and
+  4.5:1 for everything drawn on yours. In dark, what sits on your bubble (a
+  reply quote, "in thread", a file chip, a code fence) takes the bubble's own
+  ink, quietened, never the window's light ink tones. While being edited, a
+  turn returns to the quiet field.
 - **Team space channels read like Slack** (owner, 2026-10-25, reconfirmed
   2026-10-28): flat runs, edge to edge, for people and assistants alike. A
   36 px round face, the bold name and the time open a run; later lines show

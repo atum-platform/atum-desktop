@@ -27,7 +27,7 @@
   --ak-ink-3: #5f646d;
   --ak-ink-4: #8a8f98; /* Icons and strokes only, never text. */
   --ak-on-ink: #ffffff;
-  --ak-bubble-own: #1b1d22; /* Your own chat bubble. Ink in light; a raised grey in dark, so it never glares (2026-10-28). */
+  --ak-bubble-own: #1b1d22; /* Your own chat bubble: the theme's ink with on-ink text, so it is the strongest element in both themes (dark flipped to near-white, owner 2026-11-28). */
   --ak-bubble-own-hover: #2c2f36;
   --ak-on-bubble-own: #ffffff;
   --ak-line: rgba(23, 25, 31, .08);
@@ -70,9 +70,9 @@
   --ak-ink-3: #9da2ab;
   --ak-ink-4: #6e737c; /* Icons and strokes only, never text. */
   --ak-on-ink: #17181c;
-  --ak-bubble-own: #3d3f47; /* Your own chat bubble. Ink in light; a raised grey in dark, so it never glares (2026-10-28). */
-  --ak-bubble-own-hover: #464851;
-  --ak-on-bubble-own: #f4f5f7;
+  --ak-bubble-own: #ecedf0; /* Your own chat bubble: the theme's ink with on-ink text, so it is the strongest element in both themes (dark flipped to near-white, owner 2026-11-28). */
+  --ak-bubble-own-hover: #d6d8dd;
+  --ak-on-bubble-own: #17181c;
   --ak-line: rgba(255, 255, 255, .08);
   --ak-line-2: rgba(255, 255, 255, .14);
   --ak-fill-quiet: rgba(255, 255, 255, .065);
