@@ -27,6 +27,7 @@ import {
   requestFirstRunRepick,
   setFirstRunAutoEnabled
 } from './first-run-store'
+import { LocalPlanRows } from './local-plan-rows'
 import { $accountConnections, type ConnectionsBridge, loadAccountConnections, openAccountConnect } from './store'
 import {
   accountPlanMacNames,
@@ -106,7 +107,7 @@ export function AccountSubscriptionsSection({
   scopeKey
 }: {
   bridge?: Pick<ConnectionsBridge, 'openPlanConnect'> &
-    Partial<Pick<MatrixWorkBridge, 'readPlanConsent' | 'revokePlanConsent' | 'readPlanLabels'>>
+    Partial<Pick<MatrixWorkBridge, 'readPlanConsent' | 'revokePlanConsent' | 'readPlanLabels' | 'readLocalPlans' | 'localPlanAction'>>
   /** Closes Settings so the owner lands on Work. */
   onLeave?: () => void
   scopeKey?: string
@@ -222,6 +223,7 @@ export function AccountSubscriptionsSection({
         help={firstRun.autoLine}
         title={firstRun.autoTitle}
       />
+      <LocalPlanRows bridge={bridge} manageLabel={copy.manage} onLeave={onLeave} />
       {keyDialog === 'connect' && (
         <SubscriptionConnectDialog
           onClose={() => setKeyDialog(null)}

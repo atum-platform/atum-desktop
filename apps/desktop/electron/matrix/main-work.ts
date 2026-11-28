@@ -39,6 +39,7 @@ import { WorkPlanFacts } from '../work/surface/plan-facts'
 import { readPlanUsage } from '../work/surface/plan-usage'
 import { createWorkConsentClient, deviceServiceCall } from '../work/surface/platform'
 import { readWorkProviders } from '../work/surface/provider-config'
+import { readLocalPlanStates, setupWorkLocalPlan } from '../work/surface/local-plans'
 import { createOwnerRelay } from '../work/surface/relay'
 
 import type { WorkDeliverables } from './work-deliverable'
@@ -782,6 +783,20 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
         const providers = await readWorkProviders(running.origin, deps.sessionFromPartition(partitionFor(bound.key)))
 
         return host.current() === running ? projectPlanLabels(providers) : {}
+      },
+      readLocalPlans: () => readLocalPlanStates(
+        host.current(), bound, deps.sessionFromPartition(partitionFor(bound.key)), () => host.current()
+      ),
+      async setupLocalPlan(plan) {
+        const running = host.current()
+
+        if (!running || !host.enabled() || running.accountKey !== bound.key || running.generation !== bound.generation) {
+          throw new Error('work_setup_unavailable')
+        }
+
+        const scope = new AbortController()
+        void running.exited.then(() => scope.abort())
+        await setupWorkLocalPlan(running.origin, deps.sessionFromPartition(partitionFor(bound.key)), plan, scope.signal)
       },
       deviceServiceId: () => deps.deviceServiceId(),
       relay: createOwnerRelay(async () => {

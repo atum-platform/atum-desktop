@@ -4,6 +4,12 @@ export const PLAN_PROVIDER_DEFAULTS = {
   antigravity: { driver: 'antigravity', enabled: true }
 }
 
+export const LOCAL_PLAN_PROVIDER_DEFAULTS = {
+  copilot: { driver: 'acpRegistry', enabled: true, displayName: 'GitHub Copilot', config: {
+    source: 'local', commandPath: 'copilot', commandArgs: ['--acp']
+  } }
+}
+
 // The built-in T3 instances and the corresponding registry identifiers.
 export const PLAN_PROVIDER_BY_INSTANCE = {
   codex: 'codex',
