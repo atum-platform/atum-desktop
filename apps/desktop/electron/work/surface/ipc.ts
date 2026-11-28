@@ -51,7 +51,7 @@ export function registerMatrixWorkIpc(
 
       case 'readAgentPlans': return surface.readAgentPlans(request.principal)
 
-      case 'selectRelay': return surface.selectRelay(request.principal, request.model, request.plan)
+      case 'selectRelay': return surface.selectRelay(request.principal, request.model, request.plan, request.effort)
 
 
       case 'read':

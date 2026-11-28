@@ -95,6 +95,13 @@ interface ModelPickerCopy {
   noModels: string
   needsSignIn(names: string): string
   planAccount: (provider: string) => string
+  /** A plan row's Macs, in its tooltip and label: each Mac that serves it, on or off (T3's machine rows). */
+  machineOn: (mac: string) => string
+  machineOff: (mac: string) => string
+  /** A Mac whose fact carries no name. */
+  aMac: string
+  /** A plan model every Mac that serves it is off for: the row waits, greyed. */
+  macsOff: string
   keyAccount: string
   thisMac: string
   /** Exactly what a pick changes. */
@@ -220,6 +227,10 @@ const en: ModelPickerCopy = {
   noModels: 'No models are available through this assistant’s connections.',
   needsSignIn: names => `Sign in again for ${names} in Connections.`,
   planAccount: provider => `${provider} plan`,
+  machineOn: mac => `${mac} is on`,
+  machineOff: mac => `${mac} is off`,
+  aMac: 'A Mac',
+  macsOff: 'Your Macs are off',
   keyAccount: 'API key',
   thisMac: 'This Mac',
   changesAssistant: agent => `${agent} on this Mac`,
@@ -320,6 +331,10 @@ const vi: ModelPickerCopy = {
   noModels: 'Chưa có mô hình nào dùng được qua các kết nối của trợ lý này.',
   needsSignIn: names => `Đăng nhập lại ${names} trong Kết nối.`,
   planAccount: provider => `Gói ${provider}`,
+  machineOn: mac => `${mac} đang bật`,
+  machineOff: mac => `${mac} đang tắt`,
+  aMac: 'Một máy Mac',
+  macsOff: 'Các máy Mac của bạn đang tắt',
   keyAccount: 'Khóa API',
   thisMac: 'Máy này',
   changesAssistant: agent => `${agent} trên máy này`,
@@ -419,6 +434,10 @@ const ja: ModelPickerCopy = {
   noModels: 'このアシスタントの接続で使えるモデルがありません。',
   needsSignIn: names => `${names} にもう一度サインインしてください。`,
   planAccount: provider => `${provider} のプラン`,
+  machineOn: mac => `${mac} はオン`,
+  machineOff: mac => `${mac} はオフ`,
+  aMac: 'Mac',
+  macsOff: 'お使いの Mac はすべてオフです',
   keyAccount: 'API キー',
   thisMac: 'この Mac',
   changesAssistant: agent => `${agent}・この Mac`,
@@ -518,6 +537,10 @@ const zh: ModelPickerCopy = {
   noModels: '此助理的连接中没有可用模型。',
   needsSignIn: names => `请在“连接”中重新登录 ${names}。`,
   planAccount: provider => `${provider} 方案`,
+  machineOn: mac => `${mac} 已开启`,
+  machineOff: mac => `${mac} 已关闭`,
+  aMac: '一台 Mac',
+  macsOff: '你的 Mac 都已关闭',
   keyAccount: 'API 密钥',
   thisMac: '这台 Mac',
   changesAssistant: agent => `${agent} · 这台 Mac`,
@@ -616,6 +639,10 @@ const zhHant: ModelPickerCopy = {
   noModels: '此助理的連接中沒有可用模型。',
   needsSignIn: names => `請在「連接」中重新登入 ${names}。`,
   planAccount: provider => `${provider} 方案`,
+  machineOn: mac => `${mac} 已開啟`,
+  machineOff: mac => `${mac} 已關閉`,
+  aMac: '一台 Mac',
+  macsOff: '你的 Mac 都已關閉',
   keyAccount: 'API 金鑰',
   thisMac: '這台 Mac',
   changesAssistant: agent => `${agent} · 這台 Mac`,
