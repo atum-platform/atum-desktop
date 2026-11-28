@@ -10,3 +10,4 @@
 - #170 merged cleanly.
 - #171 merged cleanly.
 - #172: Combined pre-selection publication with account-machine and effort handling in `relay.ts` and `main-work.ts`. Kept guest mounting and the plan status revision in `matrix-work.ts`, and retained machine, model and effort data in `model-picker.tsx`.
+- #173 merged cleanly.
