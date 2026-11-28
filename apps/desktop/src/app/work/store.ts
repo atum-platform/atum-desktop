@@ -46,7 +46,7 @@ export function connectWorkBridge(bridge: MatrixWorkBridge | undefined): () => v
   }
 }
 
-/** Leaving Work for another rail place, or Work going away: the page closes and the view leaves the window. */
+/** The current rail destination controls whether the retained Work guest is visible. */
 export function setWorkActive(active: boolean): void {
   $workActive.set(active)
 }

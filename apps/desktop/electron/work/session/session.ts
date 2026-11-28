@@ -173,18 +173,32 @@ export class WorkSession {
    * partition's cookie and takes no grant. A failed pairing recycles the
    * server (stop, full reset, start) and tries once more with a fresh grant.
    */
-  async openOwnerView(createView: (incarnation: WorkIncarnation) => OwnerViewPort): Promise<OpenOwnerView> {
+  async openOwnerView(
+    createView: (incarnation: WorkIncarnation) => OwnerViewPort | Promise<OwnerViewPort>,
+    signal?: AbortSignal
+  ): Promise<OpenOwnerView> {
     const state = this.state()
 
     for (let attempt = 0; attempt < 2; attempt++) {
       const incarnation = this.host.current() ?? (await this.start())
 
+      signal?.throwIfAborted()
+
       if (state.views.size > 0) {
         throw new WorkSessionError('work_view_exists')
       }
 
-      const view = createView(incarnation)
-      const detach = this.host.bindOwnerView(incarnation, view.contents)
+      const view = await createView(incarnation)
+      let detach: () => void
+
+      try {
+        signal?.throwIfAborted()
+        detach = this.host.bindOwnerView(incarnation, view.contents)
+      } catch (error) {
+        view.close()
+        throw error
+      }
+
       state.views.set(view, detach)
       view.onClosed(() => {
         if (state.views.delete(view)) {
@@ -193,13 +207,17 @@ export class WorkSession {
       })
 
       if (state.pairedIncarnation === incarnation.id && (await view.signedIn().catch(() => false))) {
+        signal?.throwIfAborted()
         await view.load(`${incarnation.origin}/`)
 
         return { state: 'reused', view, incarnation }
       }
 
+      signal?.throwIfAborted()
       const { cli, grants } = this.tools(state.paths)
       const outcome = await pairOwnerView({ incarnation, view, cli, grants, ...this.options.pairing })
+
+      signal?.throwIfAborted()
 
       if (outcome.state === 'paired') {
         state.pairedIncarnation = incarnation.id
@@ -209,6 +227,7 @@ export class WorkSession {
 
       this.closeViews(state)
       await this.options.clearPartition(partitionFor(state.account.key))
+      signal?.throwIfAborted()
       await this.restart('pairing-failed')
 
       if (attempt === 1) {

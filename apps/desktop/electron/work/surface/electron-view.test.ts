@@ -1,60 +1,42 @@
 import { EventEmitter } from 'node:events'
 import { createRequire } from 'node:module'
 
-import type { BrowserWindow } from 'electron'
+import type { Session, WebContents, WebPreferences } from 'electron'
 import { describe, expect, it, vi } from 'vitest'
 
-import { createWorkViewFactory } from './electron-view'
+import type { MatrixWorkGuest } from '../../../shared/matrix-work'
 
-const { fromPartition, views } = vi.hoisted(() => ({
-  fromPartition: vi.fn(),
-  views: [] as Array<{ webContents?: EventEmitter }>
-}))
+import { createWorkGuestHost } from './electron-view'
 
-vi.mock('electron', () => ({
-  session: { fromPartition },
-  WebContentsView: class {
-    webContents = Object.assign(new EventEmitter(), {
-      isDestroyed: () => !this.webContents,
-      focus: vi.fn(),
-      insertCSS: vi.fn(async () => 'work-shell'),
-      setWindowOpenHandler: vi.fn()
-    })
+function setup() {
+  const session = Object.assign(new EventEmitter(), {
+    setPermissionRequestHandler: vi.fn(),
+    setPermissionCheckHandler: vi.fn(),
+    webRequest: { onBeforeRequest: vi.fn() }
+  })
 
-    constructor() {
-      views.push(this)
-    }
+  const host = Object.assign(new EventEmitter(), { isDestroyed: () => false, getZoomFactor: () => 1.2 })
 
-    setBackgroundColor = vi.fn()
-    setBorderRadius = vi.fn()
-    setBounds = vi.fn()
-  }
-}))
+  const contents = Object.assign(new EventEmitter(), {
+    isDestroyed: () => false,
+    close: vi.fn(),
+    insertCSS: vi.fn(async (_css: string) => 'work-shell'),
+    setWindowOpenHandler: vi.fn(),
+    session
+  })
 
-describe('Work view teardown', () => {
-  it.each([false, true])('handles destroyed contents when host destroyed is %s', hostDestroyed => {
-    const session = Object.assign(new EventEmitter(), {
-      setPermissionRequestHandler: vi.fn(),
-      setPermissionCheckHandler: vi.fn(),
-      webRequest: { onBeforeRequest: vi.fn() }
-    })
+  const owner = host as unknown as WebContents
 
-    fromPartition.mockReturnValue(session)
+  const guestHost = createWorkGuestHost({
+    contents: () => owner,
+    preload: 'work-preload.js',
+    sessionFromPartition: () => session as unknown as Session
+  })
 
-    let windowDestroyed = false
-    const host = {
-      isDestroyed: () => windowDestroyed,
-      getContentBounds: () => ({ x: 0, y: 0, width: 800, height: 600 }),
-      contentView: { addChildView: vi.fn(), removeChildView: vi.fn() }
-    }
+  const start = (signal = new AbortController().signal) => {
+    let guest!: MatrixWorkGuest
 
-    const zoomFactor = vi.fn(() => 1)
-
-    const handle = createWorkViewFactory({
-      window: () => host as unknown as BrowserWindow,
-      preload: 'work-preload.js',
-      zoomFactor
-    })({
+    const opening = guestHost.createView({
       id: 'work',
       accountKey: 'test',
       generation: 1,
@@ -63,12 +45,34 @@ describe('Work view teardown', () => {
       pid: 1,
       exited: Promise.resolve(),
       takePairingUrl: () => undefined
-    })
+    }, signal, value => { guest = value })
 
-    const view = views.at(-1)!
-    const contents = view.webContents!
+    return { opening, guest }
+  }
+
+  return { contents, guestHost, host, owner, session, start }
+}
+
+describe('Work webview', () => {
+  it('admits exactly the pending guest on its host with main-owned preferences and fences it before pairing', async () => {
+    const { contents, guestHost, host, owner, session, start } = setup()
+    const { guest, opening } = start()
+    const prefs: WebPreferences = { preload: 'untrusted.js', nodeIntegration: true, webSecurity: false }
+
+    expect(guestHost.allowAttach({} as WebContents, prefs, { ...guest })).toBe(false)
+    expect(guestHost.allowAttach(owner, prefs, { ...guest, src: 'https://example.invalid' })).toBe(false)
+    expect(guestHost.allowAttach(owner, prefs, { ...guest, partition: 'persist:other' })).toBe(false)
+    expect(guestHost.allowAttach(owner, prefs, { ...guest })).toBe(true)
+    expect(prefs).toMatchObject({ preload: 'work-preload.js', partition: guest.partition, sandbox: true, contextIsolation: true, nodeIntegration: false, webSecurity: true, zoomFactor: 1.2 })
+    expect(guestHost.allowAttach(owner, prefs, { ...guest })).toBe(false)
+
+    host.emit('did-attach-webview', {}, contents)
+    expect(session.webRequest.onBeforeRequest).toHaveBeenCalledOnce()
+    expect(contents.setWindowOpenHandler).toHaveBeenCalledOnce()
+    contents.emit('did-finish-load')
+    expect((await opening).contents).toBe(contents)
     contents.emit('dom-ready')
-    const css = vi.mocked((contents as unknown as { insertCSS: (css: string) => Promise<string> }).insertCSS).mock.calls[0][0]
+    const css = contents.insertCSS.mock.calls[0]![0]
     // Exercise the scoped selector on both update states and the separate provider pill.
     const { JSDOM } = createRequire(import.meta.url)('jsdom')
     const dom = new JSDOM()
@@ -93,21 +97,17 @@ describe('Work view teardown', () => {
     expect(getComputedStyle(footer.querySelector('[data-provider-update-main]')!).display).not.toBe('none')
     dom.window.close()
 
-    const rect = { x: 20, y: 10, width: 400, height: 300 }
-
-    handle.place(rect)
-    expect(host.contentView.addChildView).toHaveBeenCalledExactlyOnceWith(view)
-
-    windowDestroyed = hostDestroyed
-    // Electron clears the getter before it notifies listeners on the original WebContents.
-    view.webContents = undefined
-    expect(() => contents.emit('destroyed')).not.toThrow()
-    expect(() => handle.place(rect)).not.toThrow()
-    expect(() => handle.focus?.()).not.toThrow()
-
-    expect(host.contentView.removeChildView).toHaveBeenCalledTimes(hostDestroyed ? 0 : 1)
-    expect(host.contentView.addChildView).toHaveBeenCalledTimes(1)
-    expect(zoomFactor).toHaveBeenCalledTimes(1)
+    contents.emit('destroyed')
     expect(session.listenerCount('will-download')).toBe(0)
+  })
+
+  it('withdraws a pending guest when the account is retired', async () => {
+    const { guestHost, host, owner, start } = setup()
+    const controller = new AbortController()
+    const { guest, opening } = start(controller.signal)
+    controller.abort()
+    await expect(opening).rejects.toThrow('work_guest_unavailable')
+    expect(guestHost.allowAttach(owner, {}, { ...guest })).toBe(false)
+    expect(host.listenerCount('did-attach-webview')).toBe(0)
   })
 })

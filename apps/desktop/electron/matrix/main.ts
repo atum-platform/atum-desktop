@@ -1144,6 +1144,9 @@ const matrixConsumerBrowser = createConsumerBrowserController({
   // Matrix's consumer tabs are ephemeral and never inherit an app/account
   // partition or the legacy app-partition cleanup capability.
   consumerOnly: true,
+  allowTrustedGuest: (contents, preferences, params) =>
+    contents === ui?.webContents && contents.getURL() === UI_URL &&
+    (work?.allowGuestAttach(contents, preferences, params) ?? false),
   sessionFromPartition: partition => session.fromPartition(partition),
   // A browser tab's download asks where to save (FR27), starting in Downloads.
   downloads: {
@@ -20705,7 +20708,6 @@ async function start() {
       ui: () => ui,
       ipcMain,
       requireUi: event => requireMatrixCaller(event, ui?.webContents, UI_URL),
-      zoomFactor: () => ui?.webContents.getZoomFactor() ?? 1,
       sessionFromPartition: partition => session.fromPartition(partition),
       model: {
         baseUrl: () => managedModel?.baseUrl,

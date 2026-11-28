@@ -1,29 +1,13 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
-import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { I18nProvider, type Locale } from '@/i18n'
+import { AppViewOverlayHold } from '@/store/use-app-view-overlay'
 
 import type { MatrixWorkBridge, MatrixWorkProjection } from '../../../shared/matrix-work'
 
 import { resetWorkStoreForTests } from './store'
 import { WorkScreen } from './work-screen'
-
-beforeAll(() => {
-  vi.stubGlobal(
-    'ResizeObserver',
-    class {
-      observe() {}
-      unobserve() {}
-      disconnect() {}
-    }
-  )
-  vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => {
-    callback(0)
-
-    return 1
-  })
-  vi.stubGlobal('cancelAnimationFrame', () => {})
-})
 
 beforeEach(() => {
   resetWorkStoreForTests()
@@ -41,8 +25,7 @@ function bridge(): MatrixWorkBridge & { [K in keyof MatrixWorkBridge]: ReturnTyp
     onSurfaceModeChanged: vi.fn(() => () => {}),
     runCommand: vi.fn(async () => true),
     read: vi.fn(async () => null),
-    show: vi.fn(async () => {}),
-    hide: vi.fn(async () => {}),
+    open: vi.fn(async () => {}),
     retry: vi.fn(async () => {}),
     openPlanConnect: vi.fn(async () => {}),
     readPlanConsent: vi.fn(async () => ({ state: 'off' as const, agents: [], eligible: [], macs: [], alsoWhenScheduled: false })),
@@ -59,19 +42,20 @@ const NAMES: Record<string, string> = { '@luna:example.invalid': 'Luna', '@nova:
 
 function show(
   projection: Partial<MatrixWorkProjection> = {},
-  options: { locale?: Locale; obstructed?: boolean; work?: ReturnType<typeof bridge>; onAddProtons?: () => void } = {}
+  options: { locale?: Locale; work?: ReturnType<typeof bridge>; onAddProtons?: () => void } = {}
 ) {
   const work = options.work ?? bridge()
   const onAddProtons = options.onAddProtons ?? vi.fn()
 
-  const element = (next: Partial<MatrixWorkProjection>, obstructed = options.obstructed ?? false) => (
+  const element = (next: Partial<MatrixWorkProjection>, overlay = false, active = true) => (
     <I18nProvider configClient={null} initialLocale={options.locale ?? 'en'}>
       <WorkScreen
+        active={active}
         bridge={work}
-        obstructed={obstructed}
         onAddProtons={onAddProtons}
         projection={{ ...READY, ...next }}
       />
+      {overlay && <div role="dialog"><AppViewOverlayHold />Account</div>}
     </I18nProvider>
   )
 
@@ -80,38 +64,52 @@ function show(
   return {
     work,
     onAddProtons,
-    rerender: (next: Partial<MatrixWorkProjection>, obstructed?: boolean) =>
-      rendered.rerender(element({ ...projection, ...next }, obstructed))
+    host: () => rendered.container.querySelector('[data-atum-work-host]')!,
+    rerender: (next: Partial<MatrixWorkProjection>, overlay?: boolean, active?: boolean) =>
+      rendered.rerender(element({ ...projection, ...next }, overlay, active))
   }
 }
 
 describe('WorkScreen: the owner view', () => {
-  it('asks main to paint the view over its host region and takes it off when it goes', () => {
-    const { work } = show({ view: 'starting' })
+  it('starts Work on demand and mounts the requested guest before pairing completes', () => {
+    const { host, rerender, work } = show({ view: 'starting' })
 
     expect(screen.getByRole('status').textContent).toContain('Opening Work…')
-    expect(work.show).toHaveBeenCalledTimes(1)
-    expect(Object.keys(work.show.mock.calls[0][0]).sort()).toEqual(['height', 'width', 'x', 'y'])
-
-    cleanup()
-    expect(work.hide).toHaveBeenCalled()
+    expect(work.open).toHaveBeenCalledOnce()
+    const guest = { src: 'about:blank#mount', partition: 'persist:atum-work-test' }
+    rerender({ guest })
+    const embedded = host().querySelector('webview')
+    expect(embedded?.getAttribute('src')).toBe(guest.src)
+    expect(embedded?.getAttribute('partition')).toBe(guest.partition)
+    rerender({ guest, view: 'ready' })
+    expect(host().querySelector('webview')).toBe(embedded)
+    expect(screen.queryByRole('status')).toBeNull()
   })
 
-  it('leaves the window while something covers it, and comes back after', () => {
-    const { rerender, work } = show({}, { obstructed: false })
+  it('keeps the guest mounted and visible under shell overlays and preserves it across destinations', () => {
+    const guest = { src: 'about:blank#mount', partition: 'persist:atum-work-test' }
+    const { host, rerender, work } = show({ guest })
+    const embedded = host().querySelector('webview')!
+    const section = host().closest('section')!
+    const visible = () => !section.hasAttribute('inert') && !embedded.classList.contains('invisible')
 
-    expect(work.show).toHaveBeenCalledTimes(1)
     rerender({}, true)
-    expect(work.hide).toHaveBeenCalled()
-    rerender({}, false)
-    expect(work.show).toHaveBeenCalledTimes(2)
+    expect(screen.getByRole('dialog')).toBeTruthy()
+    expect(host().querySelector('webview')).toBe(embedded)
+    expect(visible()).toBe(true)
+    rerender({}, false, false)
+    expect(section.hasAttribute('inert')).toBe(true)
+    rerender({})
+    expect(host().querySelector('webview')).toBe(embedded)
+    expect(visible()).toBe(true)
+    expect(work.open).not.toHaveBeenCalled()
   })
 
   it('says it could not open, in one line, and tries again on request', async () => {
     const { work } = show({ view: 'unavailable' })
 
     expect(screen.getByText('Work couldn’t open just now.')).toBeTruthy()
-    expect(work.show).not.toHaveBeenCalled()
+    expect(work.open).not.toHaveBeenCalled()
     fireEvent.click(screen.getByRole('button', { name: 'Try again' }))
     await waitFor(() => expect(work.retry).toHaveBeenCalledTimes(1))
   })
@@ -120,7 +118,7 @@ describe('WorkScreen: the owner view', () => {
     const { work } = show({ view: 'off' })
 
     expect(screen.getByText('Work is off on this Mac.')).toBeTruthy()
-    expect(work.show).not.toHaveBeenCalled()
+    expect(work.open).not.toHaveBeenCalled()
     expect(screen.queryByRole('button', { name: 'Try again' })).toBeNull()
   })
 
@@ -220,7 +218,7 @@ describe('Work page Google write card', () => {
 
     const page = (owner?: string) => (
       <I18nProvider configClient={null} initialLocale="en">
-        <WorkScreen bridge={work} obstructed={false} onAddProtons={vi.fn()} owner={owner} projection={READY} />
+        <WorkScreen active bridge={work} onAddProtons={vi.fn()} owner={owner} projection={READY} />
       </I18nProvider>
     )
 

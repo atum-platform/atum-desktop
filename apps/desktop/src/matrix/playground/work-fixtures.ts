@@ -5,8 +5,7 @@ import type { FirstRunLabels } from '../../../shared/first-run-labels'
 import type {
   MatrixWorkBridge,
   MatrixWorkPlanConsent,
-  MatrixWorkProjection,
-  MatrixWorkRect
+  MatrixWorkProjection
 } from '../../../shared/matrix-work'
 
 const STATES: Record<string, Partial<MatrixWorkProjection>> = {
@@ -52,47 +51,6 @@ function consentFixture(mode: string | null): MatrixWorkPlanConsent {
     : { state: 'off', agents: [], eligible: [...PLAYGROUND_WORK_AGENTS], macs, alsoWhenScheduled: false }
 }
 
-function paint(rect: MatrixWorkRect | null, shot: string | null, live: string | null) {
-  let layer = document.querySelector<HTMLElement>('[data-playground-work-view]')
-
-  if (!rect || (!shot && !live)) {
-    layer?.remove()
-
-    return
-  }
-
-  if (!layer && live) {
-    // `workView=<url>`: the real Work web UI where main lays the native view: a transparent page,
-    // rounded to the panel radius as electron-view.ts rounds it.
-    const frame = document.createElement('iframe')
-    frame.dataset.playgroundWorkView = ''
-    frame.style.cssText = 'position:fixed;z-index:20;border:0;border-radius:14px;background:transparent;color-scheme:normal'
-    frame.setAttribute('allowtransparency', 'true')
-    frame.src = live
-    document.body.append(frame)
-    layer = frame
-  } else if (!layer && shot) {
-    const image = document.createElement('img')
-    image.dataset.playgroundWorkView = ''
-    image.alt = ''
-    image.style.cssText = 'position:fixed;z-index:20;object-fit:cover;object-position:left top;border-radius:14px;pointer-events:none'
-    image.src = shot
-    document.body.append(image)
-    layer = image
-  }
-
-  if (!layer) {
-    return
-  }
-
-  Object.assign(layer.style, {
-    left: `${rect.x}px`,
-    top: `${rect.y}px`,
-    width: `${rect.width}px`,
-    height: `${rect.height}px`
-  })
-}
-
 export function playgroundWork(params: URLSearchParams): { work?: MatrixWorkBridge } {
   const state = params.get('work')
 
@@ -103,8 +61,6 @@ export function playgroundWork(params: URLSearchParams): { work?: MatrixWorkBrid
   let projection = { ...READY, ...STATES[state] }
   let consent = consentFixture(params.get('consent'))
   const listeners = new Set<(projection: MatrixWorkProjection | null) => void>()
-  const shot = params.get('workShot')
-  const live = params.get('workView')
   const sidebarEdge = Number(params.get('workSidebar') ?? 0)
   // `workRightPanel=open|closed` stands in for the view's report that a thread with a panel is open.
   const rightPanelParam = params.get('workRightPanel')
@@ -145,8 +101,7 @@ export function playgroundWork(params: URLSearchParams): { work?: MatrixWorkBrid
       setSurfaceMode: async () => {},
       onSurfaceModeChanged: () => () => {},
       read: async () => projection,
-      show: async rect => paint(projection.view === 'ready' ? rect : null, shot, live),
-      hide: async () => paint(null, shot, live),
+      open: async () => {},
       retry: async () => emit({ view: 'ready' }),
       setWork: async on => emit({ view: on ? 'ready' : 'off' }),
       openPlanConnect: async () => emit({ view: 'ready' }),

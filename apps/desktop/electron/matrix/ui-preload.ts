@@ -128,8 +128,7 @@ const bridge: MatrixUiBridge = {
       return () => { ipcRenderer.removeListener(MATRIX_WORK_IPC.sidebarChanged, receive) }
     },
     read: () => ipcRenderer.invoke(MATRIX_WORK_IPC.request, { kind: 'read' }),
-    show: rect => ipcRenderer.invoke(MATRIX_WORK_IPC.request, { kind: 'show', rect }),
-    hide: () => ipcRenderer.invoke(MATRIX_WORK_IPC.request, { kind: 'hide' }),
+    open: () => ipcRenderer.invoke(MATRIX_WORK_IPC.request, { kind: 'open' }),
     retry: () => ipcRenderer.invoke(MATRIX_WORK_IPC.request, { kind: 'retry' }),
     setWork: on => ipcRenderer.invoke(MATRIX_WORK_IPC.request, { kind: 'setWork', on }),
     openPlanConnect: plan => ipcRenderer.invoke(MATRIX_WORK_IPC.request, plan ? { kind: 'openPlanConnect', plan } : { kind: 'openPlanConnect' }),

@@ -1,13 +1,13 @@
 import { describe, expect, it, vi } from 'vitest'
 
-import { MATRIX_WORK_IPC, type MatrixWorkProjection, type MatrixWorkRect } from '../../../shared/matrix-work'
+import { MATRIX_WORK_IPC, type MatrixWorkGuest, type MatrixWorkProjection } from '../../../shared/matrix-work'
 import type { OwnerViewPort } from '../session/pairing'
 import type { OpenOwnerView } from '../session/session'
 import type { WorkIncarnation } from '../sidecar/process'
 
 import { registerMatrixWorkIpc } from './ipc'
 import { projectWorkConsent } from './projection'
-import { WorkSurface, type WorkSurfaceParts, type WorkViewHandle } from './surface'
+import { WorkSurface, type WorkSurfaceParts } from './surface'
 
 describe('Work consent projection', () => {
   const MAC = '00000000-0000-4000-8000-00000000a001'
@@ -75,35 +75,36 @@ describe('Work consent projection', () => {
 
 const INCARNATION = { id: 'i1', accountKey: 'acct', origin: 'http://127.0.0.1:1' } as WorkIncarnation
 
-function harness(overrides: Partial<WorkSurfaceParts> = {}, open?: () => Promise<OpenOwnerView>, canPrewarm?: () => boolean) {
+function harness(overrides: Partial<WorkSurfaceParts> = {}, open?: () => Promise<OpenOwnerView>, canPrewarm?: () => boolean, viewOverrides?: Partial<OwnerViewPort>) {
   const published: (MatrixWorkProjection | null)[] = []
-  const placed: (MatrixWorkRect | null)[] = []
   const closed: string[] = []
   const calls: string[] = []
   let views = 0
 
-  const createView = (): WorkViewHandle => {
-    views++
+  const createView = async (_incarnation: WorkIncarnation, _signal: AbortSignal, publish: (guest: MatrixWorkGuest) => void) => {
+    const id = ++views
+    publish({ src: `about:blank#${id}`, partition: 'persist:atum-work-acct' })
     const onClosed: (() => void)[] = []
 
     const port = {
       close: () => {
-        closed.push(`v${views}`)
+        closed.push(`v${id}`)
         onClosed.splice(0).forEach(listener => listener())
       },
-      onClosed: (listener: () => void) => void onClosed.push(listener)
+      onClosed: (listener: () => void) => void onClosed.push(listener),
+      ...viewOverrides
     } as unknown as OwnerViewPort
 
-    return { port, place: rect => void placed.push(rect), focus: () => void calls.push('focus') }
+    return port
   }
 
   const session = {
-    openOwnerView: vi.fn(async (factory: (incarnation: WorkIncarnation) => OwnerViewPort): Promise<OpenOwnerView> => {
+    openOwnerView: vi.fn(async (factory: (incarnation: WorkIncarnation) => Promise<OwnerViewPort>): Promise<OpenOwnerView> => {
       if (open) {
         return open()
       }
 
-      const view = factory(INCARNATION)
+      const view = await factory(INCARNATION)
 
       return { state: 'paired', view, incarnation: INCARNATION }
     })
@@ -134,7 +135,6 @@ function harness(overrides: Partial<WorkSurfaceParts> = {}, open?: () => Promise
     parts,
     session,
     published,
-    placed,
     closed,
     calls,
     log,
@@ -142,8 +142,6 @@ function harness(overrides: Partial<WorkSurfaceParts> = {}, open?: () => Promise
 
   }
 }
-
-const RECT = { x: 72, y: 52, width: 900, height: 600 }
 
 describe('WorkSurface', () => {
   it('has nothing to say before an account hands over its Work', async () => {
@@ -156,16 +154,15 @@ describe('WorkSurface', () => {
     vi.useFakeTimers()
 
     try {
-      const { surface, parts, session, placed } = harness()
+      const { surface, parts, session } = harness()
       surface.attach(parts)
       expect(session.openOwnerView).not.toHaveBeenCalled()
       await vi.advanceTimersByTimeAsync(2_000)
       expect(session.openOwnerView).toHaveBeenCalledTimes(1)
-      expect(placed.at(-1)).toBeNull()
-      await surface.show(RECT)
-      await surface.show(RECT)
+      expect(surface.projection()?.guest?.src).toBe('about:blank#1')
+      await surface.open()
+      await surface.open()
       expect(session.openOwnerView).toHaveBeenCalledTimes(1)
-      expect(placed.at(-1)).toEqual(RECT)
       surface.attach(undefined)
     } finally {vi.useRealTimers()}
   })
@@ -178,7 +175,7 @@ describe('WorkSurface', () => {
       rig.surface.attach(rig.parts)
       await vi.advanceTimersByTimeAsync(4000)
       expect(rig.session.openOwnerView).not.toHaveBeenCalled()
-      await rig.surface.show(RECT)
+      await rig.surface.open()
       expect(rig.session.openOwnerView).toHaveBeenCalledTimes(1)
       rig.surface.attach(undefined)
     } finally {vi.useRealTimers()}
@@ -206,57 +203,22 @@ describe('WorkSurface', () => {
     })
 
     surface.attach(parts)
-    await surface.show(RECT)
+    await surface.open()
     expect(surface.projection()?.view).toBe('ready')
     surface.attach(undefined)
   })
 
-  it('opens the one owner view on the first show and paints it where the page asks', async () => {
-    const { last, parts, placed, session, surface } = harness()
+  it('publishes one mount descriptor during pairing and keeps it when ready', async () => {
+    const { last, parts, published, session, surface } = harness()
 
     surface.attach(parts)
-    expect(last()?.view).toBe('starting')
-    await surface.show(RECT)
-    expect(session.openOwnerView).toHaveBeenCalledTimes(1)
-    expect(last()).toEqual({ view: 'ready', protons: 'ok' })
-    expect(placed.at(-1)).toEqual(RECT)
-
-    await surface.show({ ...RECT, height: 400 })
-    expect(session.openOwnerView).toHaveBeenCalledTimes(1)
-    expect(placed.at(-1)).toEqual({ ...RECT, height: 400 })
-
-    await surface.hide()
-    expect(placed.at(-1)).toBeNull()
-  })
-
-  it('New thread from the band moves focus into the view before it runs, so the caret lands in its composer', async () => {
-    const { calls, parts, surface } = harness()
-
-    surface.attach(parts)
-    await surface.show(RECT)
-    await expect(surface.runCommand('chat.new')).resolves.toBe(true)
-    await surface.runCommand('sidebar.toggle')
-    expect(calls.filter(call => call === 'focus' || call.startsWith('run:'))).toEqual(['focus', 'run:chat.new', 'run:sidebar.toggle'])
-  })
-
-  it('does not paint a view the page left while it was signing in', async () => {
-    let finish!: () => void
-    const gate = new Promise<void>(resolve => (finish = resolve))
-    const { parts, placed, surface } = harness({}, undefined)
-
-    parts.session.openOwnerView = async factory => {
-      const view = factory(INCARNATION)
-      await gate
-
-      return { state: 'paired', view, incarnation: INCARNATION }
-    }
-
-    surface.attach(parts)
-    const opening = surface.show(RECT)
-    await surface.hide()
-    finish()
-    await opening
-    expect(placed.at(-1)).toBeNull()
+    expect(last()).not.toHaveProperty('guest')
+    await surface.open()
+    await surface.open()
+    expect(session.openOwnerView).toHaveBeenCalledOnce()
+    const mounting = published.find(projection => projection?.guest)
+    expect(mounting?.view).toBe('starting')
+    expect(last()).toEqual({ view: 'ready', protons: 'ok', guest: mounting?.guest })
   })
 
   it('recovers a preloaded sidecar while its view is hidden', async () => {
@@ -268,7 +230,7 @@ describe('WorkSurface', () => {
       const rig = harness()
       const incarnation = { ...INCARNATION, unexpectedExit }
       rig.session.openOwnerView.mockImplementationOnce(async factory => ({
-        state: 'paired', incarnation, view: factory(incarnation)
+        state: 'paired', incarnation, view: await factory(incarnation)
       }))
       rig.surface.attach(rig.parts)
       await vi.advanceTimersByTimeAsync(2000)
@@ -276,8 +238,8 @@ describe('WorkSurface', () => {
       exit(true)
       await vi.advanceTimersByTimeAsync(1000)
       expect(rig.session.openOwnerView).toHaveBeenCalledTimes(2)
-      expect(rig.placed.at(-1)).toBeNull()
-      await rig.surface.show(RECT)
+      expect(rig.surface.projection()?.guest?.src).toBe('about:blank#2')
+      await rig.surface.open()
       expect(rig.session.openOwnerView).toHaveBeenCalledTimes(2)
       rig.surface.attach(undefined)
     } finally {vi.useRealTimers()}
@@ -293,9 +255,9 @@ describe('WorkSurface', () => {
       rig.surface.attach(rig.parts)
       const incarnation = { ...INCARNATION, unexpectedExit }
       rig.session.openOwnerView.mockImplementationOnce(async factory => ({
-        state: 'paired', incarnation, view: factory(incarnation)
+        state: 'paired', incarnation, view: await factory(incarnation)
       }))
-      await rig.surface.show(RECT)
+      await rig.surface.open()
       exit(true)
       await vi.advanceTimersByTimeAsync(1000)
       expect(rig.session.openOwnerView).toHaveBeenCalledTimes(2)
@@ -317,9 +279,9 @@ describe('WorkSurface', () => {
       rig.session.openOwnerView.mockImplementation(async factory => {
         const incarnation = { ...INCARNATION, unexpectedExit: Promise.resolve(true) }
 
-        return { state: 'paired', incarnation, view: factory(incarnation) }
+        return { state: 'paired', incarnation, view: await factory(incarnation) }
       })
-      await rig.surface.show(RECT)
+      await rig.surface.open()
       // Crash-looping runs reopen after 1s, 2s, 4s: the delay grows instead of staying at 1s.
       await vi.advanceTimersByTimeAsync(1000)
       expect(rig.session.openOwnerView).toHaveBeenCalledTimes(2)
@@ -344,9 +306,9 @@ describe('WorkSurface', () => {
     rig.surface.attach(rig.parts)
     const incarnation = { ...INCARNATION, unexpectedExit }
     rig.session.openOwnerView.mockImplementationOnce(async factory => ({
-      state: 'paired', incarnation, view: factory(incarnation)
+      state: 'paired', incarnation, view: await factory(incarnation)
     }))
-    await rig.surface.show({ x: 0, y: 0, width: 500, height: 500 })
+    await rig.surface.open()
     exit(true)
     await Promise.resolve()
     expect(rig.surface.projection()?.view).toBe('unavailable')
@@ -364,11 +326,11 @@ describe('WorkSurface', () => {
     )
 
     surface.attach(parts)
-    await surface.show(RECT)
+    await surface.open()
     expect(last()?.view).toBe('unavailable')
     expect(log).toHaveBeenCalledWith('[work-surface] view_failed timeout')
 
-    await surface.show(RECT)
+    await surface.open()
     expect(session.openOwnerView).toHaveBeenCalledTimes(1)
 
     fail = false
@@ -381,11 +343,11 @@ describe('WorkSurface', () => {
     const { closed, last, parts, session, surface } = harness()
 
     surface.attach(parts)
-    await surface.show(RECT)
+    await surface.open()
     surface.attach(parts)
     expect(closed).toEqual(['v1'])
     expect(last()?.view).toBe('starting')
-    await surface.show(RECT)
+    await surface.open()
     expect(session.openOwnerView).toHaveBeenCalledTimes(2)
   })
 
@@ -393,7 +355,7 @@ describe('WorkSurface', () => {
     const { last, parts, session, surface } = harness()
 
     surface.attach(parts)
-    await surface.show(RECT)
+    await surface.open()
     // the view's own close (a crash) reaches the surface as the port's onClosed
     const view = (await session.openOwnerView.mock.results[0]!.value).view as unknown as { close(): void }
     view.close()
@@ -409,7 +371,7 @@ describe('WorkSurface', () => {
     const { last, parts, session, surface } = harness({ enabled: () => false })
 
     surface.attach(parts)
-    await surface.show(RECT)
+    await surface.open()
     expect(session.openOwnerView).not.toHaveBeenCalled()
     expect(last()?.view).toBe('off')
   })
@@ -418,7 +380,7 @@ describe('WorkSurface', () => {
     const { closed, last, parts, surface } = harness()
 
     surface.attach(parts)
-    await surface.show(RECT)
+    await surface.open()
     surface.attach(undefined)
     expect(closed).toEqual(['v1'])
     expect(last()).toBeNull()
@@ -430,14 +392,14 @@ describe('WorkSurface', () => {
     const { closed, last, parts, surface } = harness()
 
     parts.session.openOwnerView = async factory => {
-      const view = factory(INCARNATION)
+      const view = await factory(INCARNATION)
       await wait
 
       return { state: 'paired', view, incarnation: INCARNATION }
     }
 
     surface.attach(parts)
-    const opening = surface.show(RECT)
+    const opening = surface.open()
     surface.attach(undefined)
     finish()
     await opening
@@ -450,22 +412,22 @@ describe('WorkSurface', () => {
     const { last, parts, surface } = harness({ readAccess: async () => access })
 
     surface.attach(parts)
-    await surface.show(RECT)
+    await surface.open()
     expect(last()?.protons).toBe('empty')
     access = 'allowed'
     expect((await surface.read())?.protons).toBe('ok')
   })
 
   it('Work off: the view leaves the window first, then the switch runs; Work on opens nothing until shown', async () => {
-    const { calls, closed, last, placed, published, surface, parts, session } = harness()
+    const { calls, closed, last, published, surface, parts, session } = harness()
 
     surface.attach(parts)
-    await surface.show(RECT)
+    await surface.open()
     expect(last()?.view).toBe('ready')
 
     await surface.setWork(false)
     expect(closed).toEqual(['v1'])
-    expect(placed.at(-1)).toBeNull()
+    expect(last()).not.toHaveProperty('guest')
     expect(calls).toContain('work:false')
     expect(last()?.view).toBe('off')
 
@@ -475,7 +437,7 @@ describe('WorkSurface', () => {
     expect(last()?.view).toBe('starting')
     expect(session.openOwnerView).toHaveBeenCalledTimes(1)
 
-    await surface.show(RECT)
+    await surface.open()
     expect(session.openOwnerView).toHaveBeenCalledTimes(2)
     expect(last()?.view).toBe('ready')
     expect(published.length).toBeGreaterThan(0)
@@ -513,30 +475,22 @@ describe('WorkSurface: native Connect and account consent', () => {
 
   function navigable() {
     const loads: string[] = []
-    const h = harness()
 
-    const create = (h.surface as unknown as { options: { createView: () => WorkViewHandle } }).options.createView
-
-    ;(h.surface as unknown as { options: { createView: () => WorkViewHandle } }).options.createView = () => {
-      const handle = create()
-      Object.assign(handle.port, {
-        currentUrl: () => 'http://127.0.0.1:61275/?pairing=done',
-        load: async (url: string) => void loads.push(url)
-      })
-
-      return handle
-    }
+    const h = harness({}, undefined, undefined, {
+      currentUrl: () => 'http://127.0.0.1:61275/?pairing=done',
+      load: async (url: string) => void loads.push(url)
+    })
 
     return { ...h, loads }
   }
 
-  it('Connect opens T3\'s own provider screen on the view\'s own origin, after the view is painted', async () => {
+  it('Connect opens T3\'s own provider screen on the view\'s own origin, after pairing', async () => {
     const { loads, parts, surface } = navigable()
 
     surface.attach(parts)
     await surface.openPlanConnect()
     expect(loads).toEqual([])
-    await surface.show(RECT)
+    await surface.open()
     expect(loads).toEqual(['http://127.0.0.1:61275/settings/providers?instanceId=codex'])
 
     await surface.openPlanConnect()
@@ -548,7 +502,7 @@ describe('WorkSurface: native Connect and account consent', () => {
     const prepareChatGptConnect = vi.fn(async () => undefined)
 
     surface.attach({ ...parts, prepareChatGptConnect })
-    await surface.show(RECT)
+    await surface.open()
     await surface.openPlanConnect('claude')
     await surface.openPlanConnect('antigravity')
 
@@ -575,7 +529,7 @@ describe('WorkSurface: native Connect and account consent', () => {
       .mockRejectedValueOnce(new Error('work_chatgpt_custody_pending'))
 
     surface.attach({ ...parts, prepareChatGptConnect })
-    await surface.show(RECT)
+    await surface.open()
     await expect(surface.openPlanConnect()).rejects.toThrow('work_chatgpt_custody_pending')
     expect(loads).toEqual([])
 
@@ -627,8 +581,7 @@ describe('registerMatrixWorkIpc', () => {
       readAgentPlans: vi.fn(),
       selectRelay: vi.fn(),
       read: vi.fn(async () => null),
-      show: vi.fn(async () => {}),
-      hide: vi.fn(async () => {}),
+      open: vi.fn(async () => {}),
       retry: vi.fn(async () => {}),
       setWork: vi.fn(async () => {}),
       openPlanConnect: vi.fn(async () => {}),
@@ -659,10 +612,10 @@ describe('registerMatrixWorkIpc', () => {
   it('routes each request and refuses anything else rather than trimming it', async () => {
     const { call, surface } = registered()
 
-    await call({ kind: 'show', rect: RECT })
+    await call({ kind: 'open' })
     await call({ kind: 'setWork', on: true })
     expect(surface.setWork).toHaveBeenCalledWith(true)
-    expect(surface.show).toHaveBeenCalledWith(RECT)
+    expect(surface.open).toHaveBeenCalledOnce()
 
     const consent = { agents: ['00000000-0000-4000-8000-00000000b001'], macs: ['00000000-0000-4000-8000-00000000a001'], alsoWhenScheduled: true }
     await call({ kind: 'openPlanConnect' })
@@ -702,9 +655,9 @@ describe('registerMatrixWorkIpc', () => {
       { kind: 'setPlan', on: true, provider: 'claude' },
       { kind: 'setWork', on: 1 },
       { kind: 'setWork' },
-      { kind: 'show', rect: { ...RECT, x: -1 } },
-      { kind: 'show', rect: { ...RECT, url: 'http://127.0.0.1' } },
-      { kind: 'show', rect: { ...RECT, width: Number.POSITIVE_INFINITY } }
+      { kind: 'open', url: 'http://127.0.0.1' },
+      { kind: 'show' },
+      { kind: 'hide' }
     ]) {
       await expect(call(value)).rejects.toThrow('matrix_work_request_invalid')
     }
