@@ -7894,6 +7894,11 @@ body:has(.atum-shell) .atum-assistant-card-compact[data-slot='dialog-content'] {
   color: var(--atum-ink-faint);
 }
 
+/* The About editor's lines sit flush with its fields. */
+[data-assistant-card-about-editor] .atum-settings-section-foot {
+  padding-inline: 0;
+}
+
 /* The handle under the name: Body in ink-3, a tooltip says what it is for. */
 .atum-card-handle {
   margin-top: 0.125rem;
@@ -7930,7 +7935,7 @@ textarea.atum-input.atum-card-field {
   resize: none;
 }
 
-body:has(.atum-shell) .atum-assistant-card textarea.atum-input.atum-card-field:focus {
+body:has(.atum-shell) :is(.atum-assistant-card, [data-assistant-card-about-editor]) textarea.atum-input.atum-card-field:focus {
   box-shadow: var(--atum-glass-edge);
 }
 

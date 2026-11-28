@@ -32,13 +32,13 @@ import { SettingsSection } from '../settings-row'
 import { $matrixStoreShelfRequest } from '../store/top-up'
 import { runMatrixCommand } from '../text-document-actions'
 
+import { AboutSection, type PersonaChange } from './about-section'
 import type { AssistantCardControlSlots } from './agent-controls'
 import { BackgroundSweepRow } from './background-sweep-row'
 import { CardHandle, CardMenu, type CardPhotoActions, useAgentHandle } from './card-menu'
 import { type AssistantCardCopy, useAssistantCardCopy } from './copy'
 import { ModelDestinationsRow } from './model-destinations-row'
 import { InlineNameField } from './name-field'
-import { type PersonaChange, PersonaFields } from './persona-fields'
 import type { PreparedPhoto } from './photo'
 import { PhotoCropDialog } from './photo-crop'
 import { RoutinesRow } from './routines-panel'
@@ -497,36 +497,31 @@ export function AssistantCard({
         {offline && <p className="atum-card-caption text-center">{copy.offline}</p>}
         {lead}
         <CardStateNotice agent={agent} band={Boolean(band)} copy={copy} paused={controls?.paused} status={status} />
-        <section className="atum-card-section" data-assistant-card-section="about">
-          <div className="atum-settings-section-head">
-            <h3 className="ak-section atum-settings-section-title">{copy.sectionAbout}</h3>
-          </div>
-          {loadFailed ? (
-            <div className="atum-settings-group">
-              <div className="atum-settings-row atum-settings-row-quiet">
-                <span className="atum-settings-row-text atum-settings-row-title">{copy.loadFailed(name)}</span>
-                <Button onClick={() => setLoadAttempt(value => value + 1)} size="inline" variant="textStrong">
-                  {copy.retry}
-                </Button>
+        <AboutSection
+          disabled={!card || !ready}
+          failed={
+            loadFailed ? (
+              <div className="atum-settings-group">
+                <div className="atum-settings-row atum-settings-row-quiet">
+                  <span className="atum-settings-row-text atum-settings-row-title">{copy.loadFailed(name)}</span>
+                  <Button onClick={() => setLoadAttempt(value => value + 1)} size="inline" variant="textStrong">
+                    {copy.retry}
+                  </Button>
+                </div>
               </div>
-            </div>
-          ) : (
-            <PersonaFields
-              disabled={!card || !ready}
-              name={name}
-              note={
-                note && note.field !== 'name' && note.field !== 'checkIns'
-                  ? { field: note.field, node: <CardNote copy={copy} note={note} onUndo={() => setNote(undefined)} /> }
-                  : undefined
-              }
-              onSave={change => savePersona(change)}
-              persona={persona ?? parsePersona('')}
-              rejected={band?.kind === 'elsewhere' && band.field ? band : undefined}
-            />
-          )}
-          <p className="atum-settings-section-foot">{copy.footnote}</p>
-          {longPersona && <p className="atum-settings-section-foot" role="status">{copy.longPersona}</p>}
-        </section>
+            ) : undefined
+          }
+          longPersona={longPersona}
+          name={name}
+          note={
+            note && note.field !== 'name' && note.field !== 'checkIns'
+              ? { field: note.field, node: <CardNote copy={copy} note={note} onUndo={() => setNote(undefined)} /> }
+              : undefined
+          }
+          onSave={change => savePersona(change)}
+          persona={persona ?? parsePersona('')}
+          rejected={band?.kind === 'elsewhere' && band.field ? band : undefined}
+        />
         <CardSections
           agent={agent}
           card={card}
