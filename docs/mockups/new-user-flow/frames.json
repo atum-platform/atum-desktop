@@ -2,6 +2,7 @@
   {
     "id": "01-welcome-story",
     "n": 1,
+    "no": "01",
     "title": "Before sign-in",
     "at": "signup",
     "caption": "First launch on this Mac: the welcome story plays once.",
@@ -11,6 +12,7 @@
   {
     "id": "02-sign-in",
     "n": 2,
+    "no": "02",
     "title": "Sign in",
     "at": "signup",
     "caption": "The story ends on two choices. Each opens the browser.",
@@ -20,6 +22,7 @@
   {
     "id": "02-sign-in",
     "n": 2,
+    "no": "02",
     "title": "Sign in",
     "at": "signup",
     "caption": "The story ends on two choices. Each opens the browser.",
@@ -29,6 +32,7 @@
   {
     "id": "03-sign-up-captcha",
     "n": 3,
+    "no": "03",
     "title": "Sign up with email",
     "at": "signup",
     "caption": "Email sign-up in the browser checks for a human (Turnstile) before the account exists.",
@@ -38,6 +42,7 @@
   {
     "id": "04-launch",
     "n": 4,
+    "no": "04",
     "title": "Launch screen",
     "at": "signup",
     "caption": "Account created. While this shows (\u22482.6 s) Atum reads this Mac\u2019s AI plans and picks the best one.",
@@ -47,6 +52,7 @@
   {
     "id": "04-launch",
     "n": 4,
+    "no": "04",
     "title": "Launch screen",
     "at": "signup",
     "caption": "Account created. While this shows (\u22482.6 s) Atum reads this Mac\u2019s AI plans and picks the best one.",
@@ -56,6 +62,7 @@
   {
     "id": "05-writing",
     "n": 5,
+    "no": "05",
     "title": "Nova is writing",
     "at": "t0",
     "caption": "The chat opens and the welcome request goes out. The chip already shows the plan Atum picked.",
@@ -65,6 +72,7 @@
   {
     "id": "06-retrying",
     "n": 6,
+    "no": "06",
     "title": "Taking longer",
     "at": "t0",
     "caption": "No welcome after 20 s: Atum asks once more. No ready-made greeting stands in.",
@@ -74,6 +82,7 @@
   {
     "id": "07-quiet-state",
     "n": 7,
+    "no": "07",
     "title": "Still no answer",
     "at": "t0",
     "caption": "The retry also went unanswered: one quiet line and Try again. Connections still work.",
@@ -81,89 +90,139 @@
     "png": "07-quiet-state-light.png"
   },
   {
-    "id": "08-welcome",
+    "id": "08a-welcome-asks",
     "n": 8,
-    "title": "The welcome",
+    "no": "08a",
+    "title": "The welcome asks",
     "at": "t6",
-    "caption": "Nova\u2019s own welcome arrives. This starts the 48-hour clock. One Connections list follows it.",
+    "caption": "Atum already connected what needs no prompt. Nova\u2019s own welcome names it and asks for the rest. Starts the 48-hour clock.",
     "theme": "light",
-    "png": "08-welcome-light.png"
+    "png": "08a-welcome-asks-light.png"
   },
   {
-    "id": "08-welcome",
+    "id": "08a-welcome-asks",
     "n": 8,
-    "title": "The welcome",
+    "no": "08a",
+    "title": "The welcome asks",
     "at": "t6",
-    "caption": "Nova\u2019s own welcome arrives. This starts the 48-hour clock. One Connections list follows it.",
+    "caption": "Atum already connected what needs no prompt. Nova\u2019s own welcome names it and asks for the rest. Starts the 48-hour clock.",
     "theme": "dark",
-    "png": "08-welcome-dark.png"
+    "png": "08a-welcome-asks-dark.png"
   },
   {
-    "id": "09-connect-google",
+    "id": "08b-sure-folders",
     "n": 9,
-    "title": "Connect Google",
-    "at": "t2m",
-    "caption": "One browser trip per provider: Google gives Nova mail, calendar and Drive.",
+    "no": "08b",
+    "title": "Sure: folders",
+    "at": "t6",
+    "caption": "Sure runs the rest in turn, each as the native macOS prompt only. First, one prompt per folder.",
     "theme": "light",
-    "png": "09-connect-google-light.png"
+    "png": "08b-sure-folders-light.png"
   },
   {
-    "id": "10-mac-folders",
+    "id": "08b-sure-folders",
+    "n": 9,
+    "no": "08b",
+    "title": "Sure: folders",
+    "at": "t6",
+    "caption": "Sure runs the rest in turn, each as the native macOS prompt only. First, one prompt per folder.",
+    "theme": "dark",
+    "png": "08b-sure-folders-dark.png"
+  },
+  {
+    "id": "08c-sure-full-disk",
     "n": 10,
-    "title": "This Mac: folders",
+    "no": "08c",
+    "title": "Sure: Messages",
     "at": "t2m",
-    "caption": "Folders \u2192 Connect. macOS asks for each folder in turn, from this row only.",
+    "caption": "Messages needs Full Disk Access, which macOS grants only in this pane. Nova already reports what it learned.",
     "theme": "light",
-    "png": "10-mac-folders-light.png"
+    "png": "08c-sure-full-disk-light.png"
   },
   {
-    "id": "11-mac-reach",
+    "id": "08d-sure-this-mac",
     "n": 11,
-    "title": "This Mac: use the Mac",
+    "no": "08d",
+    "title": "Sure: this Mac",
     "at": "t2m",
-    "caption": "Use this Mac \u2192 Connect. One password prompt turns on Remote Login. Messages waits on Full Disk Access.",
+    "caption": "One password prompt turns on Remote Login. A denied or skipped step settles quietly and the next one runs.",
     "theme": "light",
-    "png": "11-mac-reach-light.png"
+    "png": "08d-sure-this-mac-light.png"
   },
   {
-    "id": "12-connections-settled",
+    "id": "08e-google-tap",
     "n": 12,
-    "title": "Everything answered",
+    "no": "08e",
+    "title": "Google, last",
     "at": "t2m",
-    "caption": "Every row is connected or skipped. The list stays in the chat as a past item.",
+    "caption": "Google\u2019s sign-in is the only manual step, so it comes last as one tap.",
     "theme": "light",
-    "png": "12-connections-settled-light.png"
+    "png": "08e-google-tap-light.png"
   },
   {
-    "id": "12-connections-settled",
+    "id": "08e-google-tap",
     "n": 12,
-    "title": "Everything answered",
+    "no": "08e",
+    "title": "Google, last",
     "at": "t2m",
-    "caption": "Every row is connected or skipped. The list stays in the chat as a past item.",
+    "caption": "Google\u2019s sign-in is the only manual step, so it comes last as one tap.",
     "theme": "dark",
-    "png": "12-connections-settled-dark.png"
+    "png": "08e-google-tap-dark.png"
   },
   {
-    "id": "13-first-learning",
+    "id": "08f-google-browser",
     "n": 13,
-    "title": "First learning",
+    "no": "08f",
+    "title": "Google in the browser",
     "at": "t2m",
-    "caption": "The first Connect starts learning. Nova reports what it found on the Mac and in chats.",
+    "caption": "One browser trip covers mail, calendar and Drive.",
     "theme": "light",
-    "png": "13-first-learning-light.png"
+    "png": "08f-google-browser-light.png"
   },
   {
-    "id": "13-first-learning",
-    "n": 13,
-    "title": "First learning",
+    "id": "08g-all-set",
+    "n": 14,
+    "no": "08g",
+    "title": "All set",
     "at": "t2m",
-    "caption": "The first Connect starts learning. Nova reports what it found on the Mac and in chats.",
+    "caption": "Everything answered: the ask shrinks to one line. Learning started with the first source and keeps going.",
+    "theme": "light",
+    "png": "08g-all-set-light.png"
+  },
+  {
+    "id": "08g-all-set",
+    "n": 14,
+    "no": "08g",
+    "title": "All set",
+    "at": "t2m",
+    "caption": "Everything answered: the ask shrinks to one line. Learning started with the first source and keeps going.",
     "theme": "dark",
-    "png": "13-first-learning-dark.png"
+    "png": "08g-all-set-dark.png"
+  },
+  {
+    "id": "08h-not-now",
+    "n": 15,
+    "no": "08h",
+    "title": "Not now",
+    "at": "t6",
+    "caption": "Not now settles quietly. The way back stays one tap away; nothing blocks the chat.",
+    "theme": "light",
+    "png": "08h-not-now-light.png"
+  },
+  {
+    "id": "08i-choose",
+    "n": 16,
+    "no": "08i",
+    "title": "Choose what to connect",
+    "at": "t6",
+    "caption": "One tap opens the full Connections list, row by row (kept as it was).",
+    "theme": "light",
+    "png": "08i-choose-light.png"
   },
   {
     "id": "14-learning-deeper",
-    "n": 14,
+    "n": 17,
+    "no": "14",
     "title": "Learning goes deeper",
     "at": "t2m",
     "caption": "Google arrived, so the same run reads the calendar and mail too. No second run.",
@@ -172,7 +231,8 @@
   },
   {
     "id": "15-nudge-5",
-    "n": 15,
+    "n": 18,
+    "no": "15",
     "title": "Nudge 1 \u00b7 +5 min",
     "at": "t5m",
     "caption": "Warm-up nudge 1, 5 min after the welcome, built on what Nova has learned.",
@@ -181,7 +241,8 @@
   },
   {
     "id": "15-nudge-5",
-    "n": 15,
+    "n": 18,
+    "no": "15",
     "title": "Nudge 1 \u00b7 +5 min",
     "at": "t5m",
     "caption": "Warm-up nudge 1, 5 min after the welcome, built on what Nova has learned.",
@@ -190,7 +251,8 @@
   },
   {
     "id": "16-nudge-15",
-    "n": 16,
+    "n": 19,
+    "no": "16",
     "title": "Nudge 2 \u00b7 +15 min",
     "at": "t15m",
     "caption": "Nudge 2: nothing worth saying, so it stays silent.",
@@ -199,7 +261,8 @@
   },
   {
     "id": "17-nudge-35",
-    "n": 17,
+    "n": 20,
+    "no": "17",
     "title": "Nudge 3 \u00b7 +35 min",
     "at": "t35m",
     "caption": "Nudge 3 offers the next useful thing.",
@@ -208,7 +271,8 @@
   },
   {
     "id": "18-nudge-60-phone",
-    "n": 18,
+    "n": 21,
+    "no": "18",
     "title": "Nudge 4 \u00b7 +60 min",
     "at": "t60m",
     "caption": "Nudge 4 reaches the phone when the Mac is away.",
@@ -217,7 +281,8 @@
   },
   {
     "id": "19-day1-evening",
-    "n": 19,
+    "n": 22,
+    "no": "19",
     "title": "Day 1 evening",
     "at": "eve",
     "caption": "Day-1 check-ins run hourly in daytime. Most stay silent; this one has something.",
@@ -226,7 +291,8 @@
   },
   {
     "id": "20-morning-brief",
-    "n": 20,
+    "n": 23,
+    "no": "20",
     "title": "Morning brief",
     "at": "brief",
     "caption": "08:00 next day: the morning brief.",
@@ -235,7 +301,8 @@
   },
   {
     "id": "20-morning-brief",
-    "n": 20,
+    "n": 23,
+    "no": "20",
     "title": "Morning brief",
     "at": "brief",
     "caption": "08:00 next day: the morning brief.",
@@ -244,7 +311,8 @@
   },
   {
     "id": "21-morning-brief-phone",
-    "n": 21,
+    "n": 24,
+    "no": "21",
     "title": "Morning brief on the phone",
     "at": "brief",
     "caption": "The same brief, on the phone.",
@@ -253,7 +321,8 @@
   },
   {
     "id": "21-morning-brief-phone",
-    "n": 21,
+    "n": 24,
+    "no": "21",
     "title": "Morning brief on the phone",
     "at": "brief",
     "caption": "The same brief, on the phone.",
@@ -262,7 +331,8 @@
   },
   {
     "id": "22-quiet-suggestion",
-    "n": 22,
+    "n": 25,
+    "no": "22",
     "title": "Quiet suggestion",
     "at": "quiet",
     "caption": "11:30: at most one quiet suggestion a day.",
@@ -271,7 +341,8 @@
   },
   {
     "id": "23-day2-taper",
-    "n": 23,
+    "n": 26,
+    "no": "23",
     "title": "Day 2 taper",
     "at": "day2",
     "caption": "From hour 32, check-ins every 2 hours until hour 48.",
@@ -280,7 +351,8 @@
   },
   {
     "id": "24-steady-48h",
-    "n": 24,
+    "n": 27,
+    "no": "24",
     "title": "Steady state",
     "at": "h48",
     "caption": "From hour 48: the ordinary follow-up sweep (every 2 h, 09:00\u201320:00), the 08:00 brief, 11:30 suggestion.",
@@ -289,7 +361,8 @@
   },
   {
     "id": "24-steady-48h",
-    "n": 24,
+    "n": 27,
+    "no": "24",
     "title": "Steady state",
     "at": "h48",
     "caption": "From hour 48: the ordinary follow-up sweep (every 2 h, 09:00\u201320:00), the 08:00 brief, 11:30 suggestion.",
@@ -298,7 +371,8 @@
   },
   {
     "id": "25-phone-first",
-    "n": 25,
+    "n": 28,
+    "no": "25",
     "title": "Phone first",
     "at": "t0",
     "caption": "Someone who starts on the phone: no welcome request, so their first message starts the clock.",

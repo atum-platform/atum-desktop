@@ -88,6 +88,11 @@ def own_msg(text: str) -> str:
     return f'<div class="msg own"><div class="bubble own">{E(text)}</div></div>'
 
 
+def own_tap(label: str) -> str:
+    """Storyboard note: which button of the ask row the person pressed (nothing is sent to the chat)."""
+    return f'<div class="tap-note">tapped “{E(label)}”</div>'
+
+
 def typing(note: str = "") -> str:
     dots = '<span class="dots"><i></i><i></i><i></i></span>'
     n = f'<div class="typing-note">{E(note)}</div>' if note else ""
@@ -191,9 +196,49 @@ def connections_row(st, **kw) -> str:
 
 
 def connections_summary(text: str) -> str:
+    """Once the ask is answered it stays in the chat as one summary line (the same as the ask row's done state)."""
+    return ask_row("done", text)
+
+
+# ---------------------------------------------------------------- the conversational ask (frames 08a-08i)
+
+def ask_row(state: str = "ask", line: str = "", spin: bool = False, done: bool = False) -> str:
+    """The one inline action row under the agent's own ask. UI chrome only: the agent writes the question.
+
+    ask: Sure (confirm all) · Not now · Choose what to connect. running: the row holds one progress line.
+    google: one tap for the only manual step. done: one summary line. later: only the quiet way back to the list.
+    """
+    choose = '<span class="ask-link">Choose what to connect</span>'
+    if state == "ask":
+        row = '<button class="ak-btn ak-btn--sm ak-btn--primary ask-btn">Sure</button><button class="ak-btn ak-btn--sm ak-btn--plain ask-btn">Not now</button>' + choose
+    elif state == "google":
+        row = (f'<button class="ak-btn ak-btn--sm ak-btn--primary ask-btn">{icon("google-logo", "ak-icon ak-icon--sm")}Connect Google</button>'
+               '<button class="ak-btn ak-btn--sm ak-btn--plain ask-btn">Not now</button>' + choose)
+    elif state == "running":
+        row = f'<span class="ask-progress"><span class="ak-spinner"></span><span>{E(line)}</span></span>' + choose
+        line = ""
+    elif state == "done":
+        mark_ = icon("check-circle", "ak-icon ak-icon--sm")
+        row = f'<span class="ask-progress ok">{mark_}<span>{E(line)}</span></span>' + choose
+        line = ""
+    elif state == "later":
+        row = choose
+    else:
+        raise ValueError(state)
+    sub = f'<div class="ask-line">{E(line)}</div>' if line else ""
+    return f'<div class="msg"><span class="face-gap"></span><div class="msg-col"><div class="ask">{row}</div>{sub}</div></div>'
+
+
+def sys_settings_fda(on: bool = False) -> str:
+    """System Settings › Privacy & Security › Full Disk Access: macOS has no prompt for it, only this pane."""
+    rows = "".join(
+        f'<div class="ss-row">{atum_mark(18) if n == "Atum" else mark(n[0])}<span>{E(n)}</span>'
+        f'<span class="ss-toggle{" is-on" if (on and n == "Atum") or n == "Terminal" else ""}"><i></i></span></div>'
+        for n in ("Atum", "Terminal")
+    )
     return (
-        f'<div class="msg"><span class="face-gap"></span><div class="msg-col"><div class="csummary">'
-        f'{icon("plug", "ak-icon ak-icon--sm")}<span>{E(text)}</span><span class="clink">Settings</span></div></div></div>'
+        '<div class="ss"><div class="ss-bar"><span class="lights"><i></i><i></i><i></i></span><span>Full Disk Access</span></div>'
+        f'<div class="ss-body"><div class="ss-help">Allow the apps below to access data like Mail, Messages and Safari.</div>{rows}</div></div>'
     )
 
 
@@ -281,10 +326,18 @@ PLANS_LAUNCH = {"chatgpt": "ready", "claude": "connect", "antigravity": "connect
 SOURCES_FRESH = {"google": "connect", "folders": "connect", "messages": "connect", "browser": "connect", "location": "ready", "reach": "connect"}
 
 WELCOME = agent_msg(
-    f"Hi, I’m {NAME}. I live in the cloud, so I keep working while your Mac sleeps — and you can call me something else anytime.",
-    "Connect what you’d like me to learn from. I’ll start with whatever you pick and quietly get to know how you work.",
+    f"Hi, I’m {NAME} (call me something else anytime). I’m running on the ChatGPT Plus plan from this Mac, and I’ve already started with your chats and your city.",
+    "To get to know your work, I’d like to read your Documents and Desktop, your Messages and your Google mail and calendar. Shall I connect them?",
     time="09:42",
 )
+
+# The ask row's states for the "Sure" path, in order. Each step is the native macOS prompt only; Google is last.
+CLOUD = f"{NAME} reads these from the cloud."
+P_FOLDERS = "Reading Documents and Desktop… · Messages next"
+P_FDA = "Allow Full Disk Access in System Settings · this Mac next"
+P_REACH = "Enter your Mac password · Google next"
+SO_FAR = "Connected Documents, Desktop, Messages and this Mac"
+DONE_LINE = "Connected Google, Documents, Desktop, Messages and this Mac"
 
 LEARN_1 = agent_msg(
     "First look at your Documents and recent chats: you’re getting a product launch ready for mid-December, and most of your messages go to the design team.",
@@ -311,7 +364,7 @@ ALL_DONE = {"chatgpt": "ready", "claude": "connected", "antigravity": "skipped",
             "google": "connected", "folders": "connected", "messages": "connected", "browser": "skipped",
             "location": "ready", "reach": "connected"}
 
-SUMMARY = "Connected ChatGPT, Claude, Google and 4 Mac sources"
+SUMMARY = DONE_LINE
 
 
 def f_story() -> str:
@@ -361,12 +414,39 @@ def f_quiet() -> str:
 
 
 def f_welcome() -> str:
-    return window(WELCOME + connections_row({**PLANS_LAUNCH, **SOURCES_FRESH}), chip="GPT-6.2 Sol")
+    """08a: the automatic pass already ran (the plan Atum picked, chats, city); the agent's own welcome asks for the rest."""
+    return window(WELCOME + ask_row("ask", CLOUD), chip="GPT-6.2 Sol")
 
 
-def f_google() -> str:
-    st = {**PLANS_LAUNCH, **SOURCES_FRESH, "google": "connecting"}
-    win = window(WELCOME + connections_row(st, notes={"google": "Finish in your browser"}), chip="GPT-6.2 Sol")
+def f_sure_folders() -> str:
+    alert = mac_alert(
+        "“Atum” would like to access files in your Documents folder.",
+        f"{NAME} reads files you keep here to learn about your work.",
+        [("Don’t Allow", False), ("Allow", True)],
+    )
+    return window(WELCOME + own_tap("Sure") + ask_row("running", P_FOLDERS), chip="GPT-6.2 Sol", overlay=f'<div class="sys-scrim">{alert}</div>')
+
+
+def f_sure_fda() -> str:
+    overlay = f'<div class="sys-scrim right">{sys_settings_fda()}</div>'
+    return window(WELCOME + own_tap("Sure") + ask_row("running", P_FDA) + LEARN_1, chip="GPT-6.2 Sol", overlay=overlay)
+
+
+def f_sure_reach() -> str:
+    alert = mac_alert(
+        "Atum wants to turn on Remote Login.",
+        f"So {NAME} can use this Mac’s apps and files. Enter your password to allow this.",
+        [("Cancel", False), ("Allow", True)], ic="lock-simple", field=True,
+    )
+    return window(WELCOME + own_tap("Sure") + ask_row("running", P_REACH) + LEARN_1, chip="GPT-6.2 Sol", overlay=f'<div class="sys-scrim">{alert}</div>')
+
+
+def f_google_tap() -> str:
+    return window(WELCOME + own_tap("Sure") + ask_row("google", SO_FAR) + LEARN_1, chip="GPT-6.2 Sol")
+
+
+def f_google_browser() -> str:
+    win = window(WELCOME + own_tap("Sure") + ask_row("running", "Finish in your browser") + LEARN_1, chip="GPT-6.2 Sol")
     page = (
         f'<div class="consent">{icon("google-logo", "ak-icon ak-icon--xl")}<h2>Sign in with Google</h2>'
         '<p>to continue to <b>Atum</b></p><div class="acct">'
@@ -377,36 +457,18 @@ def f_google() -> str:
     return f'<div class="duo">{win}{browser("accounts.google.com", page, 400, 560)}</div>'
 
 
-def f_folders() -> str:
-    st = {**PLANS_LAUNCH, **SOURCES_FRESH, "claude": "connected", "google": "connected", "folders": "connecting"}
-    alert = mac_alert(
-        "“Atum” would like to access files in your Documents folder.",
-        "Nova reads files you keep here to learn about your work.",
-        [("Don’t Allow", False), ("Allow", True)],
-    )
-    overlay = f'<div class="sys-scrim">{alert}</div>'
-    return window(WELCOME + connections_row(st, notes={"folders": "Documents · 2 of 3"}, tint=("claude", "google")), chip="Claude Sonnet 5.5", overlay=overlay)
+def f_all_set() -> str:
+    return window(WELCOME + own_tap("Sure") + ask_row("done", DONE_LINE) + LEARN_1 + learning_line("Learning from 6 sources"))
 
 
-def f_reach() -> str:
-    st = {**PLANS_LAUNCH, **SOURCES_FRESH, "claude": "connected", "antigravity": "skipped", "google": "connected",
-          "folders": "connected", "messages": "settings", "browser": "skipped", "reach": "connecting"}
-    alert = mac_alert(
-        "Atum wants to turn on Remote Login.",
-        f"So {NAME} can use this Mac’s apps and files. Enter your password to allow this.",
-        [("Cancel", False), ("Allow", True)], ic="lock-simple", field=True,
-    )
-    overlay = f'<div class="sys-scrim">{alert}</div>'
-    return window(WELCOME + connections_row(st, notes={"messages": "Allow Full Disk Access", "reach": "Enter your Mac password"}), overlay=overlay)
+def f_not_now() -> str:
+    reply = agent_msg("No problem. I’ll learn from our chats for now. What would you like to tackle first?", time="09:42")
+    return window(WELCOME + own_tap("Not now") + ask_row("later") + reply, chip="GPT-6.2 Sol")
 
 
-def f_settled() -> str:
-    return window(WELCOME + connections_row(ALL_DONE, foot=False, tint=("messages", "reach")) + learning_line("Learning from 6 sources"))
-
-
-def f_learn1() -> str:
-    st = {**PLANS_LAUNCH, **SOURCES_FRESH, "folders": "connected", "messages": "connected"}
-    return window(WELCOME + connections_row(st) + LEARN_1 + learning_line("Learning from Documents and Messages"), chip="GPT-6.2 Sol")
+def f_choose() -> str:
+    st = {**PLANS_LAUNCH, **SOURCES_FRESH, "location": "ready"}
+    return window(WELCOME + connections_row(st), chip="GPT-6.2 Sol")
 
 
 def f_learn2() -> str:
@@ -497,12 +559,15 @@ FRAMES: list[tuple[str, str, str, str, object, tuple[str, ...], int]] = [
     ("05-writing", "Nova is writing", "t0", "The chat opens and the welcome request goes out. The chip already shows the plan Atum picked.", f_writing, ("light",), 1000),
     ("06-retrying", "Taking longer", "t0", "No welcome after 20 s: Atum asks once more. No ready-made greeting stands in.", f_retrying, ("light",), 1000),
     ("07-quiet-state", "Still no answer", "t0", "The retry also went unanswered: one quiet line and Try again. Connections still work.", f_quiet, ("light",), 1000),
-    ("08-welcome", "The welcome", "t6", "Nova’s own welcome arrives. This starts the 48-hour clock. One Connections list follows it.", f_welcome, ("light", "dark"), 1000),
-    ("09-connect-google", "Connect Google", "t2m", "One browser trip per provider: Google gives Nova mail, calendar and Drive.", f_google, ("light",), 1000),
-    ("10-mac-folders", "This Mac: folders", "t2m", "Folders → Connect. macOS asks for each folder in turn, from this row only.", f_folders, ("light",), 1000),
-    ("11-mac-reach", "This Mac: use the Mac", "t2m", "Use this Mac → Connect. One password prompt turns on Remote Login. Messages waits on Full Disk Access.", f_reach, ("light",), 1000),
-    ("12-connections-settled", "Everything answered", "t2m", "Every row is connected or skipped. The list stays in the chat as a past item.", f_settled, ("light", "dark"), 1000),
-    ("13-first-learning", "First learning", "t2m", "The first Connect starts learning. Nova reports what it found on the Mac and in chats.", f_learn1, ("light", "dark"), 1000),
+    ("08a-welcome-asks", "The welcome asks", "t6", "Atum already connected what needs no prompt. Nova’s own welcome names it and asks for the rest. Starts the 48-hour clock.", f_welcome, ("light", "dark"), 1000),
+    ("08b-sure-folders", "Sure: folders", "t6", "Sure runs the rest in turn, each as the native macOS prompt only. First, one prompt per folder.", f_sure_folders, ("light", "dark"), 1000),
+    ("08c-sure-full-disk", "Sure: Messages", "t2m", "Messages needs Full Disk Access, which macOS grants only in this pane. Nova already reports what it learned.", f_sure_fda, ("light",), 1000),
+    ("08d-sure-this-mac", "Sure: this Mac", "t2m", "One password prompt turns on Remote Login. A denied or skipped step settles quietly and the next one runs.", f_sure_reach, ("light",), 1000),
+    ("08e-google-tap", "Google, last", "t2m", "Google’s sign-in is the only manual step, so it comes last as one tap.", f_google_tap, ("light", "dark"), 1000),
+    ("08f-google-browser", "Google in the browser", "t2m", "One browser trip covers mail, calendar and Drive.", f_google_browser, ("light",), 1000),
+    ("08g-all-set", "All set", "t2m", "Everything answered: the ask shrinks to one line. Learning started with the first source and keeps going.", f_all_set, ("light", "dark"), 1000),
+    ("08h-not-now", "Not now", "t6", "Not now settles quietly. The way back stays one tap away; nothing blocks the chat.", f_not_now, ("light",), 1000),
+    ("08i-choose", "Choose what to connect", "t6", "One tap opens the full Connections list, row by row (kept as it was).", f_choose, ("light",), 1000),
     ("14-learning-deeper", "Learning goes deeper", "t2m", "Google arrived, so the same run reads the calendar and mail too. No second run.", f_learn2, ("light",), 1000),
     ("15-nudge-5", "Nudge 1 · +5 min", "t5m", "Warm-up nudge 1, 5 min after the welcome, built on what Nova has learned.", f_nudge5, ("light", "dark"), 1000),
     ("16-nudge-15", "Nudge 2 · +15 min", "t15m", "Nudge 2: nothing worth saying, so it stays silent.", f_nudge15, ("light",), 1000),
@@ -606,6 +671,26 @@ body { width: %(w)spx; background: var(--ak-ground); font: var(--ak-t-body); col
 .csummary { display: inline-flex; align-items: center; gap: 8px; font: var(--ak-t-callout); color: var(--ak-ink-3); padding: 6px 0; }
 .clink { color: var(--ak-ink-2); font-weight: 600; }
 
+/* the ask row */
+.ask { display: flex; align-items: center; gap: 8px; min-height: 30px; max-width: 520px; }
+.ask-btn { height: 28px; padding: 0 14px; display: inline-flex; align-items: center; gap: 6px; }
+.ask-link { margin-left: auto; font: var(--ak-t-callout); font-weight: 600; color: var(--ak-ink-2); padding: 0 4px; }
+.ask-progress { display: inline-flex; align-items: center; gap: 8px; font: var(--ak-t-callout); color: var(--ak-ink-2); min-width: 0; }
+.ask-progress .ak-spinner { width: 12px; height: 12px; border-width: 1.5px; flex: none; }
+.ask-progress.ok .ak-icon { color: var(--ak-ok); flex: none; }
+.ask-line { font: var(--ak-t-callout); color: var(--ak-ink-3); padding-left: 2px; }
+.tap-note { align-self: flex-end; font: italic var(--ak-t-caption); color: var(--ak-ink-3); padding: 2px 10px; border-radius: var(--ak-r-full); border: 1px dashed var(--ak-ink-4); }
+.sys-scrim.right { justify-content: flex-end; padding: 60px 40px 0 0; }
+.ss { width: 320px; border-radius: 12px; overflow: hidden; background: var(--ak-raised); box-shadow: var(--ak-shadow-3), inset 0 0 0 .5px var(--ak-line-2); align-self: flex-start; }
+.ss-bar { height: 36px; display: flex; align-items: center; gap: 14px; padding: 0 12px; background: var(--ak-chrome); font: 700 13px/1 var(--ak-font); }
+.ss-body { padding: 10px 14px 14px; display: flex; flex-direction: column; gap: 6px; }
+.ss-help { font: 400 11px/15px var(--ak-font); color: var(--ak-ink-2); margin-bottom: 4px; }
+.ss-row { display: flex; align-items: center; gap: 10px; height: 34px; padding: 0 8px; border-radius: 8px; background: var(--ak-fill-quiet); font: 500 13px/1 var(--ak-font); }
+.ss-row span:nth-child(2) { flex: 1; }
+.ss-toggle { width: 30px; height: 18px; border-radius: 9px; background: var(--ak-fill-press); position: relative; }
+.ss-toggle i { position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%%; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.25); }
+.ss-toggle.is-on { background: #2a6ff0; } .ss-toggle.is-on i { left: 14px; }
+
 /* system UI */
 .sys-scrim { position: absolute; inset: 0; display: flex; align-items: flex-start; justify-content: center; padding-top: 80px; background: rgba(0,0,0,.08); }
 .mac-alert { width: 260px; border-radius: 14px; background: var(--ak-raised); box-shadow: var(--ak-shadow-3), inset 0 0 0 .5px var(--ak-line-2); padding: 18px 16px 14px; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 6px; }
@@ -672,12 +757,17 @@ body { width: %(w)spx; background: var(--ak-ground); font: var(--ak-t-body); col
 """
 
 
+def label(fid: str) -> str:
+    """The frame's number as the storyboard says it: the id's prefix ("08a")."""
+    return fid.split("-", 1)[0]
+
+
 def page(theme: str, n: int, fid: str, title: str, at: str, caption: str, body: str) -> str:
     return (
         f'<!doctype html><html class="ak-{theme}"><head><meta charset="utf-8">'
         f'<link rel="stylesheet" href="{KIT_CSS.as_uri()}"><style>{CSS % {"w": CANVAS_W}}</style></head>'
         f'<body class="ak-{theme}"><div class="frame">'
-        f'<div class="f-head"><span class="f-no">{n:02d}</span><h1 class="f-title">{E(title)}</h1></div>'
+        f'<div class="f-head"><span class="f-no">{label(fid)}</span><h1 class="f-title">{E(title)}</h1></div>'
         f'<p class="f-cap">{E(caption)}</p>{strip(at)}<div class="stage">{body}</div></div></body></html>'
     )
 
@@ -711,7 +801,7 @@ def index_page() -> str:
         )
         dark = "" if "dark" in themes else " no-dark"
         cards.append(
-            f'<section class="card{dark}" id="{fid}"><header><span class="n">{n:02d}</span><h2>{E(title)}</h2>'
+            f'<section class="card{dark}" id="{fid}"><header><span class="n">{label(fid)}</span><h2>{E(title)}</h2>'
             f'<span class="at">{E(clock)}</span></header><p>{E(caption)}</p>{imgs}</section>'
         )
     return (
@@ -749,7 +839,7 @@ def main() -> int:
         body = build()
         for theme in themes:
             name = f"{fid}-{theme}"
-            manifest.append({"id": fid, "n": n, "title": title, "at": at, "caption": caption, "theme": theme, "png": f"{name}.png"})
+            manifest.append({"id": fid, "n": n, "no": label(fid), "title": title, "at": at, "caption": caption, "theme": theme, "png": f"{name}.png"})
             if only and fid not in only:
                 continue
             src = work / f"{name}.html"
