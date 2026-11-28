@@ -139,6 +139,18 @@ afterEach(() => {
 })
 
 describe('MatrixGoogleDisclosure', () => {
+  it('warns about pausing Atum Free before offering the Google connect action', () => {
+    render(
+      <I18nProvider configClient={null} initialLocale="en">
+        <MatrixGoogleDisclosure onContinue={vi.fn()} usesAtumFree />
+      </I18nProvider>
+    )
+
+    const warning = screen.getByText('Connecting Google pauses any assistant using Atum Free.')
+    const connect = screen.getByRole('button', { name: 'Connect Google' })
+    expect(warning.compareDocumentPosition(connect) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
   it.each([
     ['en', 'Connect Google', 'If Google warns you, choose Advanced → Continue.'],
     ['vi', 'Kết nối Google', 'Nếu Google cảnh báo, chọn Nâng cao → Tiếp tục.'],
@@ -155,6 +167,7 @@ describe('MatrixGoogleDisclosure', () => {
     expect(screen.getAllByRole('button')).toHaveLength(1)
     expect(screen.getByRole('button', { name: action })).toBeTruthy()
     expect(screen.getByText(warning)).toBeTruthy()
+    expect(screen.queryByText('Connecting Google pauses any assistant using Atum Free.')).toBeNull()
     expect(screen.queryByRole('list')).toBeNull()
   })
 })

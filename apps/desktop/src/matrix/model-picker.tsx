@@ -1057,7 +1057,7 @@ export function MatrixModelPicker({
         },
         subscription: true,
         disabled: !freeEligible,
-        reason: !freeEligible ? 'Atum Free requires an agent without a Google source.'
+        reason: !freeEligible ? 'Atum Free works only on accounts without Google connected.'
           : free.state === 'disconnected' ? 'Connect OpenRouter' : 'Uses your OpenRouter account'
       }))
     : []

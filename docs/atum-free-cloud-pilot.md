@@ -8,10 +8,14 @@ Connections displays disconnect and the provider's key management link.
 
 The picker preserves an existing choice if consent is canceled or fails.
 Reconnecting a saved Free choice keeps the selected model.
-Ineligible agents show a reason in the Free list. The owner can accept the
-pilot on one eligible cloud agent by completing consent, checking the
+The picker explains the account-level Google restriction. Google connect
+offers warn when any assistant has a saved Atum Free choice. For acceptance,
+use the designated test account with no Google connection. After the pilot
+operator allowlists that account, use one eligible cloud agent to complete consent, check the
 one-cent key limit, running a tool turn with the Mac off, and checking both
-OpenRouter Activity and Atum's managed usage.
+OpenRouter Activity and Atum's managed usage. The OAuth callback advertises
+`localhost` and the listener binds to loopback. Confirm the live OAuth
+redirect and OpenRouter's daily-limit response during acceptance.
 
 Focused tests cover the exchange, status parser, destination choice, and
 the eligible and ineligible picker paths. The pilot uses loopback directly.

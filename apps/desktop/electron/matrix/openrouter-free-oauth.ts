@@ -33,7 +33,7 @@ export async function authorizeOpenRouterFree({
     response.setHeader('content-type', 'text/html; charset=utf-8')
     response.setHeader('cache-control', 'no-store')
     response.setHeader('referrer-policy', 'no-referrer')
-    const url = new URL('http://127.0.0.1' + (request.url ?? '/'))
+    const url = new URL('http://localhost' + (request.url ?? '/'))
 
     if (request.method !== 'GET' || url.pathname !== path) {
       response.writeHead(400).end(atumOAuthCompletionHtml('invalid-response'))
@@ -74,7 +74,7 @@ export async function authorizeOpenRouterFree({
 
     const url = new URL('https://openrouter.ai/auth')
     url.search = new URLSearchParams({
-      callback_url: `http://127.0.0.1:${address.port}${path}`,
+      callback_url: `http://localhost:${address.port}${path}`,
       code_challenge: createHash('sha256').update(verifier).digest('base64url'),
       code_challenge_method: 'S256',
       key_label: 'Atum Free',

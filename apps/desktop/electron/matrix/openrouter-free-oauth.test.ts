@@ -24,7 +24,7 @@ describe('Atum Free authorization', () => {
         expect(auth.searchParams.get('code_challenge_method')).toBe('S256')
         challenge = auth.searchParams.get('code_challenge')
         const callback = new URL(auth.searchParams.get('callback_url')!)
-        expect(callback.hostname).toBe('127.0.0.1')
+        expect(callback.hostname).toBe('localhost')
         callback.searchParams.set('code', 'offline-code')
         const invalid = await fetch(callback)
         expect(invalid.status).toBe(400)

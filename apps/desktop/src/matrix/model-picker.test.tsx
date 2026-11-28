@@ -1356,7 +1356,7 @@ describe('account subscriptions in the model picker', () => {
       fireEvent.click(within(card).getByRole('button', { name: 'Connect OpenRouter' }))
       await waitFor(() => expect(writeSubscription).toHaveBeenCalledWith(agentPrincipal, 'openrouter_free', model, 'medium'))
     } else {
-      expect(option.textContent).toContain('agent without a Google source')
+      expect(option.textContent).toContain('Atum Free works only on accounts without Google connected.')
       expect(connectAtumFree).not.toHaveBeenCalled()
     }
   })
