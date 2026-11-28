@@ -6,7 +6,7 @@ import path from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { promisify } from 'node:util'
 
-import { BrowserWindow, session } from 'electron'
+import { BrowserWindow, type NativeImage, session } from 'electron'
 
 import { Serial } from '../work/session/serial'
 
@@ -24,7 +24,7 @@ async function captureHtml(file: string, width: number, height: number, signal: 
     width,
     height,
     webPreferences: {
-      session: isolated, offscreen: true, javascript: false, sandbox: true,
+      session: isolated, offscreen: { deviceScaleFactor: 1 }, javascript: false, sandbox: true,
       contextIsolation: true, nodeIntegration: false, backgroundThrottling: false
     }
   })
@@ -50,8 +50,11 @@ async function captureHtml(file: string, width: number, height: number, signal: 
     if (!cssContentSize || cssContentSize.width > width || cssContentSize.height > height) {return null}
     const paint = once(contents, 'paint', { signal })
     contents.invalidate()
-    await paint
-    const image = await contents.capturePage({ x: 0, y: 0, width, height }, { stayHidden: true })
+    const [, , painted] = await paint as [unknown, unknown, NativeImage]
+    // Electron can reject the compositor copy after a valid offscreen paint.
+    const captured = await contents.capturePage({ x: 0, y: 0, width, height }, { stayHidden: true }).catch(() => painted)
+    signal.throwIfAborted()
+    const image = captured.isEmpty() ? painted : captured
 
     return blocked || image.isEmpty() ? null : image.resize({ width, height }).toPNG()
   } finally {
