@@ -1350,7 +1350,9 @@ it('a cloud agent gets every question through the room, never runs one here, and
   // No "answer here" offer, however long the cloud takes: its status outbox always answers. The
   // view says where it went, so its line names the cloud, never "your other Mac".
   await settle(MATRIX_LOCAL_TURN.handoffQuietMs * 2)
-  expect(engine.view(ROOM, roomWith(false, turnId))[0]).toMatchObject({ state: 'handed_off', route: 'cloud' })
+  expect(engine.view(ROOM, roomWith(false, turnId))[0]).toMatchObject({
+    state: 'handed_off', route: 'cloud', questionEventId: '$question'
+  })
   expect(engine.view(ROOM, roomWith(false, turnId))[0]?.notice).toBeUndefined()
   expect(() => engine.answerHere(turnId)).toThrow('matrix_turn_unavailable')
 

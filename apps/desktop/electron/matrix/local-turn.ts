@@ -730,7 +730,7 @@ export class MatrixLocalTurns {
     const present = new Map<string, { question: boolean; answer: boolean }>()
 
     for (const message of messages) {
-      if (message.turn && !message.pending && !message.failed) {
+      if (message.turn && !message.pending && !message.failed && !message.interim && !message.progress) {
         const entry = present.get(message.turn) ?? { question: false, answer: false }
 
         if (message.sender === scope.human.userId) {
@@ -746,7 +746,7 @@ export class MatrixLocalTurns {
     // The other Mac's answer to a handed-off question: a reply to that question event.
     const repliedTo = new Set(
       messages
-        .filter(message => message.sender === scope.agentUserId && !message.pending && !message.failed)
+        .filter(message => message.sender === scope.agentUserId && !message.pending && !message.failed && !message.interim && !message.progress)
         .map(message => message.resultFor)
         .filter((value): value is string => typeof value === 'string')
     )
@@ -782,6 +782,7 @@ export class MatrixLocalTurns {
         state: turn.state,
         ...(turn.reply ? { replyTo: turn.reply.eventId } : {}),
         ...(turn.route === 'cloud' ? { route: 'cloud' as const } : {}),
+        ...(turn.route === 'cloud' && turn.questionEventId ? { questionEventId: turn.questionEventId } : {}),
         // A record from before `times.notSent` failed when its wait ran out (LEGACY_WAIT_LIMIT_MS).
         ...(turn.state === 'not_sent'
           ? { failedAt: turn.times.notSent ?? turn.waitingSince + LEGACY_WAIT_LIMIT_MS }

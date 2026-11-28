@@ -1217,6 +1217,8 @@ export interface MatrixLocalTurnView {
   createdAt: number
   state: MatrixLocalTurnState
   synced: { question: boolean; answer: boolean }
+  /** The cloud question's confirmed Matrix event, even before it is in the visible timeline. */
+  questionEventId?: string
   /** The answer, shown until its room event arrives (the chat keeps working without the chat server). */
   answer?: string
   notice?: MatrixLocalTurnNotice
