@@ -12558,11 +12558,13 @@ describe("Home's chat (launch night, second wave)", () => {
     expect(window.document.querySelector('[data-matrix-greeting]')).toBeNull()
     expect(screen.queryByRole('button', { name: 'Plan a trip' })).toBeNull()
 
-    // There is no checklist: one Connections list owns the happy path, one Connect per row.
+    // There is no checklist: the welcome's own ask is answered by one action row; the Connections list is one tap away.
     expect(card.querySelector('[data-matrix-first-run-checklist]')).toBeNull()
     expect(card.querySelector('[data-checklist-row]')).toBeNull()
     expect(card.querySelectorAll('[data-atum-first-run-connections]')).toHaveLength(1)
-    expect(await within(card).findByRole('button', { name: 'Skip the rest' })).toBeTruthy()
+    expect(await within(card).findByRole('button', { name: 'Sure' })).toBeTruthy()
+    expect(within(card).getByRole('button', { name: 'Not now' })).toBeTruthy()
+    fireEvent.click(within(card).getByRole('button', { name: 'Choose what to connect' }))
     await waitFor(() => expect(card.querySelector('[data-atum-ask="google"]')).not.toBeNull())
     expect(card.textContent).not.toContain('If Google warns you')
     expect(bridge.assistants.read).not.toHaveBeenCalled()
@@ -12635,14 +12637,17 @@ describe("Home's chat (launch night, second wave)", () => {
       expect(window.document.querySelector('[data-matrix-greeting]')).toBeNull()
       expect(card.querySelector('[data-matrix-first-run-checklist]')).toBeNull()
       expect(card.querySelector('[data-checklist-row]')).toBeNull()
-      await waitFor(() => expect(card.querySelector('[data-atum-ask="google"]')).not.toBeNull())
+      expect(await within(card).findByRole('button', { name: 'Sure' })).toBeTruthy()
       expect(nudge()).toBeNull()
 
-      // Skip the rest with nothing connected declines first learning, as Not now did.
-      fireEvent.click(within(card).getByRole('button', { name: 'Skip the rest' }))
-      await waitFor(() => expect(firstRun.decline).toHaveBeenCalledOnce())
-      expect(within(card).queryByRole('button', { name: 'Skip the rest' })).toBeNull()
-      expect(firstRun.allow).not.toHaveBeenCalled()
+      // Team spaces need no prompt, so Atum connected them before asking. Not now asks nothing more and learning starts on
+      // what is connected (an older bridge's allow), rather than being declined.
+      await waitFor(() => expect(bridge.agentSources!.set).toHaveBeenCalledExactlyOnceWith('team_spaces', true))
+      fireEvent.click(within(card).getByRole('button', { name: 'Not now' }))
+      await waitFor(() => expect(firstRun.allow).toHaveBeenCalledOnce())
+      expect(within(card).queryByRole('button', { name: 'Not now' })).toBeNull()
+      expect(within(card).getByRole('button', { name: 'Choose what to connect' })).toBeTruthy()
+      expect(firstRun.decline).not.toHaveBeenCalled()
 
       emit({ ...greeted(cloudFresh), firstRunOpen: undefined, firstRunMarker: 'answered', firstRunWelcome: 'dismissed' })
       await waitFor(() => expect(welcome()).toBeNull())
@@ -12830,18 +12835,22 @@ describe("Home's chat (launch night, second wave)", () => {
       expect(welcome()).toBeNull()
     })
 
-    it('skips the rest of the list and records the legacy dismissal on an older bridge', async () => {
+    it('Not now records the legacy dismissal on an older bridge when nothing could connect by itself', async () => {
       const { bridge } = open(greeted(cloudAccount))
-      await waitFor(() => expect(within(welcome()!).getByRole('button', { name: 'Skip the rest' })).toBeTruthy())
+      // Nothing promptless here: the team spaces switch is refused, so nothing is connected when Not now comes.
+      vi.mocked(bridge.agentSources!.set).mockRejectedValue(new Error('refused'))
+      await waitFor(() => expect(within(welcome()!).getByRole('button', { name: 'Not now' })).toBeTruthy())
 
-      fireEvent.click(within(welcome()!).getByRole('button', { name: 'Skip the rest' }))
+      fireEvent.click(within(welcome()!).getByRole('button', { name: 'Not now' }))
       await waitFor(() => expect(bridge.firstRun!.decline).toHaveBeenCalledOnce())
-      await waitFor(() => expect(within(welcome()!).queryByRole('button', { name: 'Skip the rest' })).toBeNull())
+      await waitFor(() => expect(within(welcome()!).queryByRole('button', { name: 'Not now' })).toBeNull())
       expect(bridge.firstRun!.finish).not.toHaveBeenCalled()
+      expect(bridge.firstRun!.allow).not.toHaveBeenCalled()
     })
 
     it('keeps the registry row when Google becomes connected', async () => {
       const { emit } = open(greeted(cloudAccount))
+      fireEvent.click(await within(await waitFor(() => welcome()!)).findByRole('button', { name: 'Choose what to connect' }))
       await waitFor(() => expect(welcome()!.querySelector('[data-atum-ask="google"]')).not.toBeNull())
 
       emit({
@@ -12899,6 +12908,7 @@ describe("Home's chat (launch night, second wave)", () => {
 
     expect(card.querySelector('[data-matrix-first-run-checklist]')).toBeNull()
     expect(card.querySelector('[data-checklist-row]')).toBeNull()
+    fireEvent.click(await within(card).findByRole('button', { name: 'Choose what to connect' }))
     await waitFor(() => expect(card.querySelector('[data-atum-ask="messages"]')).not.toBeNull())
     expect(within(card.querySelector<HTMLElement>('[data-atum-ask="messages"]')!).getByRole('button', { name: 'Connect' })).toBeTruthy()
     expect(bridge.enrollHermes).not.toHaveBeenCalled()

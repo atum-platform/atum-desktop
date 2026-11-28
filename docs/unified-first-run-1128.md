@@ -51,6 +51,43 @@ connected; the starter-grant line leaves the first chat.
   person writes, and at the start of the primary assistant's chat. It is the same list everywhere. Outside the
   card it admits learning only while the account's welcome is still open (`firstRunOpen`).
 
+## Round 2: the conversational ask (owner review, 2026-11-28)
+
+Owner, verbatim: "the first run flow - should it be a little more natural conversation like we used to have? And
+should everything be tried automatically first (user just clicks confirms) before asking user to manually start the
+connection process? The rest ok". Storyboard frames 08a–08i (branch `docs/new-user-flow-mockups`).
+
+- **Automatic first.** As soon as the list mounts (hidden while the welcome is written, so the welcome can name it),
+  `useFirstRunSources().autoConnect()` connects every row that needs no action from the person
+  (`firstRunAutoConnectable`): location and Atum's own chats always; folders, Messages and Google once this Mac
+  already granted them; another source when it already works. Never the browser import (it moves sign-ins off the
+  Mac behind Touch ID). It runs once per window (`claimFirstRunAutoPass`) and only while the first run is open.
+  The AI plans were already auto-picked on the launch screen.
+- **Learning waits for the answer.** The automatic pass does not admit first learning: `firstRun.start` closes the
+  welcome, which would happen before the welcome arrives. Sure, Not now, or any Connect admits it on what is
+  connected. Not now (and Skip the rest) with something connected starts learning on it; with nothing connected it
+  declines, as before.
+- **One action row under the agent's own ask** (`FirstRunConnections presentation="ask"`): Sure, a quiet Not now,
+  and Choose what to connect, which opens the same list as before (kept, row by row). The line under it is the cloud
+  disclosure. The agent writes the question; the row is UI chrome.
+- **Sure runs the rest in order** (`runFirstRunSure` in `first-run-controller.ts`): folders (one macOS prompt per
+  folder) → Messages (the Full Disk Access pane; the step settles on the grant or when the person comes back to
+  Atum) → this Mac (one Remote Login password prompt, or the promptless setup). Each step settles before the next
+  starts; a denied or left step settles quietly. Progress is one line in the row's place ("Reading Documents and
+  Desktop… · Messages next"). Google's browser sign-in comes last as one tap (Connect Google, with a quiet Not
+  now). Done leaves one summary line ("Connected Google, Documents and Messages").
+- **Why the state lives in the controller:** the first connected source admits learning, which closes the welcome
+  card, so the list moves from the card to under the welcome message mid-run. The ask state is a nanostore
+  (`$firstRunAsk`) and the runner talks to whichever list is mounted (`registerFirstRunAskRunner`), waiting up to 5 s
+  for it to come back.
+- **Under an old welcome** (a later session, welcome already closed) the plain list shows, never a second Sure
+  (`firstRunEffectivePresentation`). With no welcome at all (the quiet state) the card shows the list directly: a
+  bare Sure would answer nothing.
+- `useMatrixNativeMac().run` now returns a promise that settles when main answers, and an owner action queues behind
+  a focus refresh instead of being dropped (the window regains focus right after each macOS prompt).
+
+Kept out of Sure on purpose: the other AI plans (each is its own browser sign-in) and the browser import.
+
 ## Decisions taken without the owner (UI/UX authority)
 
 - Antigravity stays its own plan row. Nothing today lets the Google connection sign Antigravity in, so "one trip
@@ -72,6 +109,12 @@ See the check table in the hand-off message: typecheck (all three tsconfigs and 
 every touched file, the focused vitest set, the whole `app.test.tsx`, and the broader UI suites.
 
 ## Pending (other slices)
+
+- atum-app (cloud controller, `packages/cloud-controller/hermes-plugin/work_provider.py`): the welcome guidance still
+  says "Point to the Connections list below". For the conversational ask it must (1) give the agent the account's
+  connected sources and the ones it may still ask for, as data in `_greeting_prompt`'s facts, and (2) ask it to name
+  what it already has and end with one question asking to connect the rest. Until then the welcome reads slightly
+  off against the Sure / Not now row, but nothing breaks.
 
 - B, C (app): learning without the Google gate; warm-ups anchored to the welcome or first owner message. Until
   C ships, the cloud still times nudges from activation.

@@ -190,7 +190,7 @@ export function MatrixYourMacsSection({
                   <Button
                     data-matrix-mac-action={`native-${reach.action.run}`}
                     disabled={native.busy}
-                    onClick={() => native.run(reach.action.run)}
+                    onClick={() => void native.run(reach.action.run)}
                     size="sm"
                     variant="secondary"
                   >
@@ -202,7 +202,7 @@ export function MatrixYourMacsSection({
                     <Button
                       data-matrix-mac-action={`native-${reset.run}`}
                       disabled={native.busy}
-                      onClick={() => native.run(reset.run)}
+                      onClick={() => void native.run(reset.run)}
                       size="sm"
                       variant="ghost"
                     >
@@ -234,7 +234,7 @@ export function MatrixYourMacsSection({
                     <Button
                       data-matrix-mac-action="native-disconnect"
                       disabled={native.busy}
-                      onClick={() => native.run('disconnect')}
+                      onClick={() => void native.run('disconnect')}
                       size="sm"
                       variant="ghost"
                     >

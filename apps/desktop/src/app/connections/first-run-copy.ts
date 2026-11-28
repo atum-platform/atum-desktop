@@ -54,6 +54,21 @@ export interface FirstRunConnectionsWords {
   macReachLine: string
   macReachPassword: string
   fullDiskLine: string
+  /** The ask row under the agent's own welcome (UI chrome; the agent writes the question). */
+  ask: {
+    sure: string
+    notNow: string
+    choose: string
+    connectGoogle: string
+    /** Progress while macOS asks for the folders, with their names joined for the locale. */
+    reading(list: string): string
+    fullDisk: string
+    /** The step after this one, after a middle dot. */
+    next(name: string): string
+    thisMac: string
+    /** The one summary line once the ask is answered. */
+    connected(list: string): string
+  }
 }
 
 const en: FirstRunConnectionsWords = {
@@ -84,7 +99,18 @@ const en: FirstRunConnectionsWords = {
   macReach: name => `Let ${name} use this Mac`,
   macReachLine: 'Apps, files and terminal',
   macReachPassword: 'Enter your Mac password',
-  fullDiskLine: 'Allow Full Disk Access'
+  fullDiskLine: 'Allow Full Disk Access',
+  ask: {
+    sure: 'Sure',
+    notNow: 'Not now',
+    choose: 'Choose what to connect',
+    connectGoogle: 'Connect Google',
+    reading: list => `Reading ${list}…`,
+    fullDisk: 'Allow Full Disk Access in System Settings',
+    next: name => `${name} next`,
+    thisMac: 'this Mac',
+    connected: list => `Connected ${list}`
+  }
 }
 
 const vi: FirstRunConnectionsWords = {
@@ -115,7 +141,18 @@ const vi: FirstRunConnectionsWords = {
   macReach: name => `Cho ${name} dùng máy Mac này`,
   macReachLine: 'Ứng dụng, tệp và terminal',
   macReachPassword: 'Nhập mật khẩu máy Mac',
-  fullDiskLine: 'Cho phép Toàn quyền truy cập ổ đĩa'
+  fullDiskLine: 'Cho phép Toàn quyền truy cập ổ đĩa',
+  ask: {
+    sure: 'Đồng ý',
+    notNow: 'Để sau',
+    choose: 'Chọn mục để kết nối',
+    connectGoogle: 'Kết nối Google',
+    reading: list => `Đang đọc ${list}…`,
+    fullDisk: 'Cho phép Toàn quyền truy cập ổ đĩa trong Cài đặt',
+    next: name => `Tiếp theo: ${name}`,
+    thisMac: 'máy Mac này',
+    connected: list => `Đã kết nối ${list}`
+  }
 }
 
 const ja: FirstRunConnectionsWords = {
@@ -146,7 +183,18 @@ const ja: FirstRunConnectionsWords = {
   macReach: name => `${name}にこの Mac を使わせる`,
   macReachLine: 'アプリ、ファイル、ターミナル',
   macReachPassword: 'Mac のパスワードを入力',
-  fullDiskLine: 'フルディスクアクセスを許可'
+  fullDiskLine: 'フルディスクアクセスを許可',
+  ask: {
+    sure: 'はい',
+    notNow: 'あとで',
+    choose: '接続するものを選ぶ',
+    connectGoogle: 'Google を接続',
+    reading: list => `${list}を読み取り中…`,
+    fullDisk: 'システム設定でフルディスクアクセスを許可',
+    next: name => `次は${name}`,
+    thisMac: 'この Mac',
+    connected: list => `${list}を接続しました`
+  }
 }
 
 const zh: FirstRunConnectionsWords = {
@@ -177,7 +225,18 @@ const zh: FirstRunConnectionsWords = {
   macReach: name => `让 ${name} 使用这台 Mac`,
   macReachLine: '应用、文件和终端',
   macReachPassword: '输入 Mac 密码',
-  fullDiskLine: '允许完全磁盘访问'
+  fullDiskLine: '允许完全磁盘访问',
+  ask: {
+    sure: '好的',
+    notNow: '以后再说',
+    choose: '选择要连接的内容',
+    connectGoogle: '连接 Google',
+    reading: list => `正在读取${list}…`,
+    fullDisk: '在系统设置中允许完全磁盘访问',
+    next: name => `接下来：${name}`,
+    thisMac: '这台 Mac',
+    connected: list => `已连接${list}`
+  }
 }
 
 const zhHant: FirstRunConnectionsWords = {
@@ -208,7 +267,18 @@ const zhHant: FirstRunConnectionsWords = {
   macReach: name => `讓 ${name} 使用這台 Mac`,
   macReachLine: '應用程式、檔案和終端機',
   macReachPassword: '輸入 Mac 密碼',
-  fullDiskLine: '允許完整磁碟取用權限'
+  fullDiskLine: '允許完整磁碟取用權限',
+  ask: {
+    sure: '好的',
+    notNow: '之後再說',
+    choose: '選擇要連線的內容',
+    connectGoogle: '連線 Google',
+    reading: list => `正在讀取${list}…`,
+    fullDisk: '在系統設定中允許完整磁碟取用權限',
+    next: name => `接下來：${name}`,
+    thisMac: '這台 Mac',
+    connected: list => `已連線${list}`
+  }
 }
 
 export const FIRST_RUN_CONNECTIONS_COPY: Record<Locale, FirstRunConnectionsWords> = { en, vi, ja, zh, 'zh-hant': zhHant }

@@ -1,6 +1,6 @@
 import { AtumAssistantAvatar } from '@/app/atum/assistant-avatar'
-import { FirstRunConnections } from '@/app/connections/first-run-connections'
-import { firstRunStage, useFirstRunGreetingPhase } from '@/app/connections/first-run-controller'
+import { FirstRunConnections, type FirstRunPresentation } from '@/app/connections/first-run-connections'
+import { type FirstRunStage, firstRunStage, useFirstRunGreetingPhase } from '@/app/connections/first-run-controller'
 import { firstRunConnectionsCopy } from '@/app/connections/first-run-copy'
 import { MarkdownContent } from '@/components/assistant-ui/markdown-surface'
 import { Button } from '@/components/ui/button'
@@ -40,12 +40,27 @@ function TypingBubble({ label }: { label: string }) {
 }
 
 /**
- * The assistant's first real chat presentation (storyboard docs/mockups/new-user-flow/, frames 05–08): its own welcome, then the
- * one Connections list. The first-run controller (first-run-controller.ts) sequences it:
+ * Pure: how the welcome card draws the Connections list. Hidden while the welcome is written (Atum already connects what needs
+ * no prompt, so the welcome can name it); under the assistant's own ask, the one action row; with no welcome at all, or after a
+ * skip, the full list (a bare Sure would answer nothing).
+ */
+export function firstRunPresentation(stage: FirstRunStage, skipped: boolean): FirstRunPresentation {
+  if (!stage.connections) {
+    return 'hidden'
+  }
+
+  return stage.greeting === 'generated' && !skipped ? 'ask' : 'list'
+}
+
+/**
+ * The assistant's first real chat presentation (storyboard docs/mockups/new-user-flow/, frames 05–08i): its own welcome, which
+ * asks in its own words, then one action row (Sure, Not now, Choose what to connect). The first-run controller
+ * (first-run-controller.ts) sequences it:
  * - while the welcome is written: a typing bubble;
  * - no welcome after the wait: the request goes once more, with "Taking a little longer…" under the bubble;
  * - still nothing: one quiet line and Try again. No ready-made greeting ever stands in (owner rule: no canned agent text);
- * - the Connections list follows the welcome, or the quiet line, so nobody is stuck behind a silent assistant.
+ * - the list is mounted hidden from the start, so Atum connects what needs no prompt before the welcome arrives;
+ * - the action row follows the welcome; with no welcome (the quiet line) the full list shows, so nobody is stuck.
  *
  * The welcome invites the person to rename the assistant; they answer in the chat and it renames itself
  * (electron/matrix/first-run-naming.ts). After a skip the welcome stays with the same list under it.
@@ -116,17 +131,16 @@ export function MatrixFirstRunCard({
             )}
           </div>
         )}
-        {stage.connections && (
-          <FirstRunConnections
-            assistantName={name}
-            className="max-w-[32.5rem]"
-            googleAssistant={snapshot.googleAssistant}
-            // The welcome's own list admits first learning (a skipped welcome already said Not now).
-            learningOffered={!skipped}
-            roomId={roomId}
-            trackOpen
-          />
-        )}
+        <FirstRunConnections
+          assistantName={name}
+          className="max-w-[32.5rem]"
+          googleAssistant={snapshot.googleAssistant}
+          // The welcome's own list admits first learning (a skipped welcome already said Not now).
+          learningOffered={!skipped}
+          presentation={firstRunPresentation(stage, skipped)}
+          roomId={roomId}
+          trackOpen
+        />
       </div>
     </div>
   )

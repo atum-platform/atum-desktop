@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, renderHook, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { I18nProvider } from '@/i18n'
@@ -8,6 +8,7 @@ import type { MatrixNativeMacBridge, MatrixNativeSshStatus, MatrixNativeSshView 
 import { matrixNativeMacCopy } from '../../shared/matrix-native-mac-copy'
 
 import { MatrixYourMacsSection } from './mac-reach-rows'
+import { useMatrixNativeMac } from './native-mac-reach'
 
 const SETTINGS = 'x-apple.systempreferences:test'
 const words = matrixNativeMacCopy.en.mac
@@ -189,5 +190,50 @@ describe("this Mac's native reach in Your Macs", () => {
 
     expect(thisRow().hasAttribute('data-matrix-mac-native')).toBe(false)
     expect(within(thisRow()).queryByRole('button')).toBeNull()
+  })
+})
+
+describe('useMatrixNativeMac actions', () => {
+  it('an owner action queues behind a focus refresh instead of being dropped, and settles when main answers', async () => {
+    const calls: string[] = []
+    let finishRefresh: (() => void) | undefined
+
+    const ssh = vi.fn((action: string) => {
+      calls.push(action)
+
+      if (action === 'refresh') {
+        return new Promise<MatrixNativeSshView>(resolve => {
+          finishRefresh = () => resolve({ status: 'needs_remote_login', settingsUrl: 'x' } as MatrixNativeSshView)
+        })
+      }
+
+      return Promise.resolve({ status: action === 'enable_remote_login' ? 'connected' : 'needs_remote_login', settingsUrl: 'x' } as MatrixNativeSshView)
+    })
+
+    const bridge = { ssh, confirmCommand: vi.fn() } as unknown as MatrixNativeMacBridge
+    const { result } = renderHook(() => useMatrixNativeMac(true, bridge))
+
+    await waitFor(() => expect(calls).toContain('status'))
+    // The window regains focus after a macOS prompt: a quiet refresh is in flight.
+    act(() => void window.dispatchEvent(new Event('focus')))
+    await waitFor(() => expect(calls).toContain('refresh'))
+
+    let settled = false
+
+    const done = result.current.run('enable_remote_login').then(() => {
+      settled = true
+    })
+
+    expect(calls).not.toContain('enable_remote_login')
+    await act(async () => finishRefresh!())
+    await act(async () => done)
+
+    expect(calls.at(-1)).toBe('enable_remote_login')
+    expect(settled).toBe(true)
+    expect(result.current.view?.status).toBe('connected')
+
+    // A second press while one runs shares it rather than starting twice.
+    await act(async () => Promise.all([result.current.run('connect'), result.current.run('connect')]))
+    expect(calls.filter(call => call === 'connect')).toHaveLength(1)
   })
 })

@@ -2,7 +2,7 @@ import { useStore } from '@nanostores/react'
 import { type ReactNode, useEffect, useRef, useState } from 'react'
 
 import { useI18n } from '@/i18n'
-import { Check, Laptop } from '@/lib/icons'
+import { Check, CheckCircle2, Laptop } from '@/lib/icons'
 import { cn } from '@/lib/utils'
 import { type FirstRunRowNote, type FirstRunRowState, type FirstRunSourceRow, type FirstRunSourcesBridge, isFirstRunAccountRow, useFirstRunSources } from '@/matrix/first-run-sources'
 import { MatrixKnowledgeSourceIcon } from '@/matrix/knowledge-sources-settings'
@@ -18,7 +18,19 @@ import type { MatrixGoogleAssistantAccess } from '../../../shared/matrix-google-
 import { matrixKnowledgeSourcesCopy } from '../../../shared/matrix-knowledge-sources-copy'
 import type { MatrixNativeMacBridge, MatrixNativeSshAction, MatrixNativeSshView } from '../../../shared/matrix-native-mac'
 
-import { $firstRunListOpen } from './first-run-controller'
+import {
+  $firstRunAsk,
+  $firstRunListOpen,
+  claimFirstRunAutoPass,
+  firstRunAskOpen,
+  type FirstRunAskState,
+  firstRunChoose,
+  firstRunNotNow,
+  type FirstRunSureStep,
+  registerFirstRunAskRunner,
+  runFirstRunGoogle,
+  runFirstRunSure
+} from './first-run-controller'
 import { FIRST_RUN_PROVIDER_NAMES, firstRunConnectionsCopy, type FirstRunConnectionsWords } from './first-run-copy'
 import { $firstRunJustReady, $firstRunLabels, $firstRunOpenCodeGo, requestFirstRunRepick } from './first-run-store'
 import { $accountConnectProgress, type AccountConnectProgress, continueAccountConnect } from './store'
@@ -111,6 +123,49 @@ export function firstRunMacReachRow(
     default:
       return { state: skipped ? 'skipped' : 'connect', note: 'unavailable', action: 'connect' }
   }
+}
+
+/** Pure: the steps Sure may still run, from the rows (Remote Login only as its own native prompt or a promptless setup). */
+export function firstRunPendingSteps(
+  rows: readonly Pick<FirstRunSourceRow, 'kind' | 'state'>[],
+  macRow: FirstRunMacReachRow | null
+): FirstRunSureStep[] {
+  const open = (kind: FirstRunSourceRow['kind']) => rows.some(row => row.kind === kind && row.state === 'connect')
+
+  return [
+    ...(open('folders') ? (['folders'] as const) : []),
+    ...(open('messages') ? (['messages'] as const) : []),
+    ...(macRow?.state === 'connect' && (macRow.action === 'enable_remote_login' || macRow.action === 'connect') ? (['mac-reach'] as const) : []),
+    ...(open('google') ? (['google'] as const) : [])
+  ]
+}
+
+/** Names joined the way the locale joins a list ("Documents, Desktop and Messages": Atum's English has no serial comma). */
+export function firstRunJoin(locale: string, names: readonly string[]): string {
+  try {
+    return new Intl.ListFormat(locale === 'en' ? 'en-GB' : locale, { style: 'long', type: 'conjunction' }).format(names)
+  } catch {
+    return names.join(', ')
+  }
+}
+
+/** Pure: the one progress line while Sure runs ("Reading Documents and Desktop… · Messages next"). */
+export function firstRunProgressLine(
+  input: { step: FirstRunSureStep; next?: FirstRunSureStep; folders: readonly string[]; macAction?: MatrixNativeSshAction },
+  copy: FirstRunConnectionsWords,
+  names: Record<FirstRunSureStep, string>,
+  locale: string
+): string {
+  const now =
+    input.step === 'folders'
+      ? copy.ask.reading(input.folders.length ? firstRunJoin(locale, input.folders) : names.folders)
+      : input.step === 'messages'
+        ? copy.ask.fullDisk
+        : input.step === 'mac-reach'
+          ? input.macAction === 'enable_remote_login' ? copy.macReachPassword : copy.connecting
+          : copy.finishInBrowser
+
+  return input.next ? `${now} · ${copy.ask.next(names[input.next])}` : now
 }
 
 function planState(row: FirstRunRow, justReady: boolean, skipped: boolean): FirstRunRowState {
@@ -229,8 +284,100 @@ function Group({ children, label }: { children: ReactNode; label: string }) {
   )
 }
 
+const ASK_BUTTON = 'ak-btn ak-btn--sm h-7 shrink-0 rounded-[0.5rem] px-3.5 text-[0.8125rem] font-medium'
+const ASK_LINE = 'min-w-0 truncate text-[0.8125rem] leading-[1.125rem] text-(--atum-ink-muted)'
+
 /**
- * The one Connections list (owner 2026-11-28; storyboard docs/mockups/new-user-flow/, frames 08–12). One data-driven list in
+ * The one action row under the assistant's own ask (storyboard frames 08a–08h). UI chrome only: the assistant writes the
+ * question in its welcome; this row answers it. One action and at most one line per state.
+ */
+function AskRow({
+  copy,
+  line,
+  progress,
+  state,
+  summary
+}: {
+  copy: FirstRunConnectionsWords
+  /** The quiet line under the row (the cloud disclosure, or what is connected so far). */
+  line?: string
+  progress?: string
+  state: FirstRunAskState
+  summary?: string
+}) {
+  const choose = (
+    <button
+      className="ak-btn ak-btn--sm ak-btn--plain ms-auto h-7 shrink-0 px-2 text-[0.8125rem] font-semibold"
+      data-atum-first-run-choose
+      onClick={firstRunChoose}
+      type="button"
+    >
+      {copy.ask.choose}
+    </button>
+  )
+
+  const phase = state.phase === 'done' && !summary ? 'later' : state.phase
+
+  return (
+    <div className="flex w-full flex-col gap-1" data-atum-first-run-ask={phase}>
+      <div className="flex min-h-7 w-full items-center gap-(--ak-s2)">
+        {phase === 'ask' && (
+          <>
+            <button className={cn(ASK_BUTTON, 'ak-btn--primary')} data-atum-first-run-sure onClick={() => void runFirstRunSure()} type="button">
+              {copy.ask.sure}
+            </button>
+            <button className={cn(ASK_BUTTON, 'ak-btn--plain')} data-atum-first-run-not-now onClick={() => void firstRunNotNow()} type="button">
+              {copy.ask.notNow}
+            </button>
+          </>
+        )}
+        {phase === 'google' && (
+          <>
+            <button className={cn(ASK_BUTTON, 'ak-btn--primary')} data-atum-first-run-google onClick={() => void runFirstRunGoogle()} type="button">
+              {copy.ask.connectGoogle}
+            </button>
+            <button className={cn(ASK_BUTTON, 'ak-btn--plain')} data-atum-first-run-not-now onClick={() => void firstRunNotNow()} type="button">
+              {copy.ask.notNow}
+            </button>
+          </>
+        )}
+        {phase === 'running' && (
+          <span className="flex min-w-0 items-center gap-(--ak-s2)" role="status">
+            <span aria-hidden className="ak-spinner size-3 shrink-0" />
+            <span className={ASK_LINE}>{progress}</span>
+          </span>
+        )}
+        {phase === 'done' && (
+          <span className="flex min-w-0 items-center gap-(--ak-s2)" data-atum-first-run-summary>
+            <CheckCircle2 aria-hidden className="size-3.5 shrink-0 text-(--ak-ok)" />
+            <span className={ASK_LINE}>{summary}</span>
+          </span>
+        )}
+        {choose}
+      </div>
+      {(phase === 'ask' || phase === 'google') && line && <span className={cn(ASK_LINE, 'px-0.5 text-[0.75rem]')}>{line}</span>}
+    </div>
+  )
+}
+
+/** Where the list is drawn: the full list, the ask row (the first run's welcome), or hidden while the welcome is written. */
+export type FirstRunPresentation = 'list' | 'ask' | 'hidden'
+
+/**
+ * Pure: the ask row belongs to an open first run. Under an old welcome (the welcome closed in an earlier session) the plain list
+ * shows instead; an ask answered in this window keeps its row while it runs, even though its first source closed the welcome.
+ */
+export function firstRunEffectivePresentation(
+  presentation: FirstRunPresentation,
+  learningOffered: boolean,
+  phase: FirstRunAskState['phase']
+): FirstRunPresentation {
+  return presentation === 'ask' && !learningOffered && phase === 'ask' ? 'list' : presentation
+}
+
+/**
+ * The one Connections list (owner 2026-11-28; storyboard docs/mockups/new-user-flow/, frames 08a–08i: the first run shows it as
+ * the ask row, `presentation="ask"`, and as this list behind Choose what to connect). One data-driven list in
  * T3's Agents-row style under the assistant's welcome, in three groups:
  * - AI plans: ChatGPT, Claude, Antigravity, OpenCode (Ready ones first). Connect opens the provider's own sign-in in the browser
  *   (the existing native path, `continueAccountConnect`), or the OpenCode Go key sheet; the default re-picks (first-run-store.ts).
@@ -251,6 +398,7 @@ export function FirstRunConnections({
   googleAssistant,
   learningOffered = false,
   nativeMac = typeof window === 'undefined' ? undefined : window.atumMatrix?.nativeMac,
+  presentation: requested = 'list',
   roomId,
   trackOpen = false
 }: {
@@ -263,6 +411,11 @@ export function FirstRunConnections({
   /** The first run still waits on the person's yes: the first Connect admits first learning, Skip the rest declines it. */
   learningOffered?: boolean
   nativeMac?: MatrixNativeMacBridge
+  /**
+   * `ask` and `hidden` are the first run's: Atum connects what needs no prompt as soon as the list mounts (hidden while the
+   * welcome is written, so the welcome can name it), and the welcome's ask row runs the rest. `list` is the plain list.
+   */
+  presentation?: FirstRunPresentation
   roomId?: string
   /** The first chat's own list: while rows are open, other first-chat notices wait (first-run-controller.ts). */
   trackOpen?: boolean
@@ -285,7 +438,13 @@ export function FirstRunConnections({
   const planStates = plans.map(row => planState(row, justReady.has(row.provider), skipped.has(row.provider)))
   const accountRows = sources.rows.filter(isFirstRunAccountRow)
   const macRows = sources.rows.filter(row => !isFirstRunAccountRow(row))
-  const open = planStates.includes('connect') || sources.rows.some(row => row.state === 'connect') || macRow?.state === 'connect'
+  const listOpen = planStates.includes('connect') || sources.rows.some(row => row.state === 'connect') || macRow?.state === 'connect'
+  const ask = useStore($firstRunAsk)
+  const presentation = firstRunEffectivePresentation(requested, learningOffered, ask.phase)
+  const firstRun = presentation !== 'list'
+  const asking = presentation === 'ask' && !ask.choosing
+  const open = asking ? firstRunAskOpen(ask) : presentation === 'hidden' ? false : listOpen
+  const pending = firstRunPendingSteps(sources.rows, macRow)
 
   useEffect(() => {
     if (!trackOpen) {
@@ -300,7 +459,7 @@ export function FirstRunConnections({
   // For a new account this list is the disclosure (its foot says the assistant reads from the cloud): a second on screen in a
   // focused window counts as presented, never as accepted.
   useNoticePresented(
-    sources.rows.length > 0 && Boolean(bridge?.agentSources?.presented),
+    presentation !== 'hidden' && sources.rows.length > 0 && Boolean(bridge?.agentSources?.presented),
     () => void bridge?.agentSources?.presented?.().catch(() => undefined),
     list
   )
@@ -347,7 +506,92 @@ export function FirstRunConnections({
       ...plans.filter((_, index) => planStates[index] === 'connect').map(row => row.provider),
       ...(macRow?.state === 'connect' ? ['mac-reach'] : [])
     ]))
-    void sources.skipRest()
+
+    return sources.skipRest()
+  }
+
+  // The ask's runner reads this render's rows (first-run-controller.ts runs Sure even while the list moves).
+  const latest = useRef({ pending, sources, mac, macRow, skipRest })
+  latest.current = { pending, sources, mac, macRow, skipRest }
+
+  useEffect(() => {
+    if (!firstRun) {
+      return
+    }
+
+    return registerFirstRunAskRunner({
+      pending: () => latest.current.pending,
+      run: async step => {
+        const { mac: reach, macRow: reachRow, sources: now } = latest.current
+
+        if (step === 'mac-reach') {
+          if (reachRow?.action === 'enable_remote_login' || reachRow?.action === 'connect') {
+            await reach.run(reachRow.action)
+          }
+
+          return
+        }
+
+        const kind = step === 'folders' ? 'folders' : step === 'messages' ? 'messages' : 'google'
+        const row = now.rows.find(item => item.kind === kind && item.state === 'connect')
+
+        if (row) {
+          await now.connect(row.gate)
+        }
+      },
+      admitLearning: () => latest.current.sources.admitLearning(),
+      notNow: () => latest.current.skipRest()
+    })
+  }, [firstRun])
+
+  // Automatic first: whatever needs no prompt connects as soon as the facts are read, once per window, while the first run is
+  // open (a dismissed welcome already said Not now).
+  useEffect(() => {
+    if (firstRun && learningOffered && sources.settled && claimFirstRunAutoPass()) {
+      void sources.autoConnect()
+    }
+  }, [firstRun, learningOffered, sources])
+
+  if (presentation === 'hidden') {
+    return null
+  }
+
+  if (asking) {
+    const stepNames: Record<FirstRunSureStep, string> = {
+      folders: sourceCopy.names.folders,
+      messages: sourceCopy.names.messages,
+      'mac-reach': copy.ask.thisMac,
+      google: sourceCopy.names.google
+    }
+
+    const folderNames = (sources.rows.find(row => row.kind === 'folders')?.folders ?? []).map(
+      folder => folder.name ?? sourceCopy.folderAccess.names[folder.kind as keyof typeof sourceCopy.folderAccess.names] ?? folder.kind
+    )
+
+    const connectedNames = [
+      ...sources.rows
+        .filter(row => row.state === 'connected')
+        .flatMap(row => (row.kind === 'folders' && folderNames.length ? folderNames : [row.label ?? sourceCopy.names[row.kind]])),
+      ...(ask.ran.includes('mac-reach') && macRow?.state === 'ready' ? [copy.ask.thisMac] : [])
+    ]
+
+    const summary = connectedNames.length ? copy.ask.connected(firstRunJoin(locale, connectedNames)) : undefined
+
+    return (
+      <section aria-label={copy.header} className={cn('w-full text-start', className)} data-atum-first-run-connections="ask" ref={list}>
+        <AskRow
+          copy={copy}
+          line={ask.phase === 'google' ? summary : sources.rows.length > 0 ? copy.cloudLine(assistantName) : undefined}
+          progress={
+            ask.step
+              ? firstRunProgressLine({ step: ask.step, next: ask.next, folders: folderNames, macAction: macRow?.action }, copy, stepNames, locale)
+              : undefined
+          }
+          state={ask}
+          summary={summary}
+        />
+      </section>
+    )
   }
 
   return (
@@ -387,7 +631,7 @@ export function FirstRunConnections({
               }
               mark={<span className="ak-appicon ak-appicon--sm flex items-center justify-center"><Laptop aria-hidden className="size-3.5" /></span>}
               name={copy.macReach(assistantName)}
-              onAction={macRow.action ? () => mac.run(macRow.action!) : undefined}
+              onAction={macRow.action ? () => void mac.run(macRow.action!) : undefined}
               state={macRow.state}
             />
           )}
@@ -399,7 +643,7 @@ export function FirstRunConnections({
             {sources.failed ? copy.failed : sources.rows.length > 0 ? copy.cloudLine(assistantName) : null}
           </span>
           {open && (
-            <button className="ak-btn ak-btn--sm ak-btn--plain h-6 shrink-0 px-2.5 text-[0.75rem]" data-atum-first-run-skip onClick={skipRest} type="button">
+            <button className="ak-btn ak-btn--sm ak-btn--plain h-6 shrink-0 px-2.5 text-[0.75rem]" data-atum-first-run-skip onClick={() => void skipRest()} type="button">
               {copy.skipRest}
             </button>
           )}

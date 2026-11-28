@@ -11,7 +11,7 @@ import {
 import { type MatrixGoogleAssistantAccess, matrixGoogleConnectOffered } from '../../shared/matrix-google-tools'
 import type { MatrixPermissionsSnapshot } from '../../shared/matrix-permissions'
 
-import { type MatrixKnowledgeSourceKind, projectMatrixKnowledgeSourceRows } from './knowledge-source-projection'
+import { type MatrixKnowledgeSourceKind, type MatrixKnowledgeSourceRow, projectMatrixKnowledgeSourceRows } from './knowledge-source-projection'
 
 export type FirstRunSourcesBridge = Pick<
   MatrixUiBridge,
@@ -35,6 +35,50 @@ export interface FirstRunSourceRow {
   folders?: { kind: string; name?: string }[]
   state: FirstRunRowState
   note?: FirstRunRowNote
+  /** Where the source works today (from the descriptor), for the automatic pass. */
+  status?: MatrixKnowledgeSourceRow['status']
+}
+
+/** What this Mac already granted, for the automatic pass. */
+export interface FirstRunAutoFacts {
+  /** Every folder the account shares is already allowed by macOS (no prompt left). */
+  foldersGranted: boolean
+  fullDisk: boolean
+  googleConnected: boolean
+}
+
+/**
+ * Pure: may this row connect with no action from the person (owner 2026-11-28: "everything tried automatically first")?
+ * Only when macOS or the browser would ask nothing: folders, Messages and Google once already granted; location (city only) and
+ * Atum's own chats always; another source when it already works. Never the browser import: it moves sign-ins off this Mac behind
+ * Touch ID, so it stays the person's own choice in the list.
+ */
+export function firstRunAutoConnectable(row: Pick<FirstRunSourceRow, 'kind' | 'status' | 'state'>, facts: FirstRunAutoFacts): boolean {
+  if (row.state !== 'connect') {
+    return false
+  }
+
+  switch (row.kind) {
+    case 'folders':
+      return facts.foldersGranted
+
+    case 'messages':
+      return facts.fullDisk
+
+    case 'google':
+      return facts.googleConnected
+
+    case 'browser':
+      return false
+
+    case 'location':
+
+    case 'teamSpaces':
+      return true
+
+    default:
+      return row.status === 'ready'
+  }
 }
 
 type Step = 'working' | 'done' | 'denied' | 'unavailable' | 'settings' | 'restart'
@@ -89,6 +133,11 @@ export function useFirstRunSources({
   const settingsOpened = useRef(false)
   const leftForSettings = useRef(false)
   const initiallyOn = useRef<Set<string> | null>(null)
+  /** Sources connected while this list is up, the automatic pass included (it does not admit learning by itself). */
+  const connectedHere = useRef(0)
+  /** Settles the Messages step once the person has answered Full Disk Access (granted, refused, or back in Atum). */
+  const fullDiskSettle = useRef<(() => void) | null>(null)
+  const [folderSettled, setFolderSettled] = useState(false)
   const [view, setView] = useState<MatrixAgentSourcesView | null>(null)
   const [readFailed, setReadFailed] = useState(false)
   const [failed, setFailed] = useState(false)
@@ -129,17 +178,23 @@ export function useFirstRunSources({
       void read()
     }
 
-    void bridge?.folderAccess?.read().then(
+    void (bridge?.folderAccess?.read() ?? Promise.resolve(null)).then(
       next => {
-        if (live.current && next.platform === 'macos') {
+        if (live.current && next?.platform === 'macos') {
           setFolderView(next)
         }
       },
       () => undefined
-    )
+    ).finally(() => {
+      if (live.current) {
+        setFolderSettled(true)
+      }
+    })
 
     return () => {
       live.current = false
+      fullDiskSettle.current?.()
+      fullDiskSettle.current = null
     }
   }, [bridge?.agentSources, bridge?.folderAccess, read])
 
@@ -172,7 +227,8 @@ export function useFirstRunSources({
     }
   }, [bridge?.firstRun, bridge?.ownerLocation, learningOffered, locale, projected, roomId])
 
-  const setGate = useCallback(async (gate: MatrixAgentSourceGate) => {
+  /** `admit: false` (the automatic pass) connects without starting first learning: that would close the welcome before it arrives. */
+  const setGate = useCallback(async (gate: MatrixAgentSourceGate, admit = true) => {
     if (!bridge?.agentSources) {
       return false
     }
@@ -184,8 +240,12 @@ export function useFirstRunSources({
         setView(next)
       }
 
+      connectedHere.current += 1
       step(gate, 'done')
-      await startLearning()
+
+      if (admit) {
+        await startLearning()
+      }
 
       return true
     } catch {
@@ -251,10 +311,17 @@ export function useFirstRunSources({
 
         if (!fullDiskGranted(permission)) {
           if (fullDiskAskable(permission) && bridge.permissions) {
+            // macOS has no prompt for Full Disk Access, only its System Settings pane. The step settles when the person
+            // answers there (the grant finishes the row) or comes back to Atum, so the next step never opens over it.
+            const answered = new Promise<void>(resolve => {
+              fullDiskSettle.current = resolve
+            })
+
             setWaitingFullDisk(gate)
             await bridge.permissions.openSettings('fullDisk')
             settingsOpened.current = true
             step(gate, 'settings')
+            await answered
           } else {
             step(gate, 'unavailable')
           }
@@ -265,6 +332,7 @@ export function useFirstRunSources({
 
       await setGate(gate)
     } catch {
+      fullDiskSettle.current = null
       step(gate, undefined)
 
       if (live.current) {
@@ -272,6 +340,11 @@ export function useFirstRunSources({
       }
     }
   }, [bridge, browserImport, folderView, googleAssistant, projected, setGate, step, steps])
+
+  const settleFullDisk = useCallback(() => {
+    fullDiskSettle.current?.()
+    fullDiskSettle.current = null
+  }, [])
 
   // Full Disk Access is granted in System Settings: the waiting row finishes by itself, or asks for a restart.
   const takePermission = useCallback((next: MatrixPermissionsSnapshot) => {
@@ -283,12 +356,13 @@ export function useFirstRunSources({
       const gate = waitingFullDisk
       setWaitingFullDisk(null)
       step(gate, 'working')
-      void setGate(gate)
+      void setGate(gate).finally(settleFullDisk)
     } else if (!fullDiskAskable(next)) {
       step(waitingFullDisk, 'unavailable')
       setWaitingFullDisk(null)
+      settleFullDisk()
     }
-  }, [setGate, step, waitingFullDisk])
+  }, [setGate, settleFullDisk, step, waitingFullDisk])
 
   useEffect(() => {
     if (!bridge?.permissions || !waitingFullDisk) {
@@ -313,8 +387,12 @@ export function useFirstRunSources({
 
         if (next.platform === 'macos' && next.permissions.fullDisk === 'not-granted') {
           step(waitingFullDisk, 'restart')
+          settleFullDisk()
         }
-      }, () => setFailed(true))
+      }, () => {
+        setFailed(true)
+        settleFullDisk()
+      })
     }
 
     window.addEventListener('blur', blur)
@@ -325,7 +403,7 @@ export function useFirstRunSources({
       window.removeEventListener('blur', blur)
       window.removeEventListener('focus', focus)
     }
-  }, [bridge?.permissions, step, takePermission, waitingFullDisk])
+  }, [bridge?.permissions, settleFullDisk, step, takePermission, waitingFullDisk])
 
   const openFullDiskSettings = useCallback(async () => {
     if (!bridge?.permissions) {
@@ -393,15 +471,33 @@ export function useFirstRunSources({
           ...(row.kind === 'folders' && folders?.length ? { folders } : {}),
           ...(row.kind === 'messages' && (state === 'settings' || state === 'restart') ? { note: 'fullDisk' as const } : {}),
           ...(note ? { note } : {}),
+          status: row.status,
           state
         }
       })
   }, [folderView, projected, skipped, steps])
 
-  /** Marks every open row skipped; with nothing connected, first learning is declined ("Not now"). */
+  /** Admits first learning on what is connected here (the automatic pass waits for the person's answer to the ask). */
+  const admitLearning = useCallback(async () => {
+    if (connectedHere.current > 0) {
+      await startLearning()
+    }
+  }, [startLearning])
+
+  /**
+   * Marks every open row skipped. First learning then starts on whatever is connected; with nothing connected it is declined
+   * ("Not now").
+   */
   const skipRest = useCallback(async () => {
     setSkipped(new Set(rows.filter(row => row.state === 'connect').map(row => row.gate)))
     setWaitingFullDisk(null)
+    settleFullDisk()
+
+    if (connectedHere.current > 0) {
+      await startLearning()
+
+      return
+    }
 
     if (!learningStarted.current && learningOffered && bridge?.firstRun) {
       learningStarted.current = true
@@ -416,14 +512,43 @@ export function useFirstRunSources({
         }
       }
     }
-  }, [bridge?.firstRun, learningOffered, rows])
+  }, [bridge?.firstRun, learningOffered, rows, settleFullDisk, startLearning])
+
+  /**
+   * The automatic pass: connects every open row that needs no action from the person (`firstRunAutoConnectable`), without
+   * admitting first learning. The assistant's welcome then names what it found; the person's answer to the ask admits learning.
+   */
+  const autoConnect = useCallback(async () => {
+    if (!bridge?.agentSources) {
+      return
+    }
+
+    const permission = (await bridge.permissions?.status().catch(() => null)) ?? null
+    const shared = folderView?.folders.filter(folder => folder.shared) ?? []
+
+    const facts: FirstRunAutoFacts = {
+      foldersGranted: shared.length > 0 && shared.every(folder => folder.mac === 'granted'),
+      fullDisk: fullDiskGranted(permission),
+      googleConnected: googleAssistant?.state === 'ready'
+    }
+
+    for (const row of rows) {
+      if (live.current && firstRunAutoConnectable(row, facts)) {
+        await setGate(row.gate, false)
+      }
+    }
+  }, [bridge?.agentSources, bridge?.permissions, folderView, googleAssistant?.state, rows, setGate])
 
   return {
     rows,
     loading: Boolean(bridge?.agentSources) && !view && !readFailed,
+    /** The rows and this Mac's folder facts are read: the automatic pass can decide. */
+    settled: (!bridge?.agentSources || Boolean(view) || readFailed) && (!bridge?.folderAccess || folderSettled),
     readFailed,
     failed,
     connect,
+    autoConnect,
+    admitLearning,
     openFullDiskSettings,
     relaunch,
     skipRest,

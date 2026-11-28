@@ -1683,7 +1683,7 @@ function MatrixEventMessageBubble() {
         <WorkRelayMessageLine chrome={message.relayTurn} className={underText} plan={workRelayNoticePlan(message.answeredByFallback?.plan)} />
       )}
       {action?.firstRunGreetingReplyId === message.id && !message.own && (
-        <FirstRunConnections className="mt-(--ak-s2) max-w-[32.5rem]" {...action.firstRunConnections} />
+        <FirstRunConnections className="mt-(--ak-s2) max-w-[32.5rem]" presentation="ask" trackOpen {...action.firstRunConnections} />
       )}
       {savedScope && saved && (
         <Tip label={savedCopy.marker}>
