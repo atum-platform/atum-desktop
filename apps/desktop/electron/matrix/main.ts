@@ -823,6 +823,7 @@ import { logNotesSelfOpenFailures } from './notes-self-log'
 import { createMatrixNotifications } from './notifications'
 import { MatrixOfficialAccountsController } from './official-accounts'
 import { createMatrixOpenSourceNotices, MATRIX_NOTICES_DIRECTORY } from './open-source-notices'
+import { authorizeOpenRouterFree } from './openrouter-free-oauth'
 import {
   nodeOperatorFiles,
   OPERATOR_MOVE_TICK_MS,
@@ -900,7 +901,6 @@ import {
   matrixSubscriptionsWithProviderConnections,
   requestMatrixProviderConnections
 } from './provider-connections'
-import { authorizeOpenRouterFree } from './openrouter-free-oauth'
 import { createMatrixQuitHandler } from './quit'
 import {
   MATRIX_READINESS_TIMINGS,
