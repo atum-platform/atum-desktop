@@ -8,3 +8,4 @@
 - #168 merged cleanly.
 - #169: `agent-controls.tsx` uses the card's shared schedule read and includes the host-wide pause flag in both the notice and switch.
 - #170 merged cleanly.
+- #171 merged cleanly.

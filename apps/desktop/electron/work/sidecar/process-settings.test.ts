@@ -87,7 +87,8 @@ actual.run = run
 actual.Children.stop = lambda self: None
 actual.main()
 `)
-      const blocked = (driver: string) => ({ driver, enabled: false, config: { binaryPath: '/usr/bin/false' } })
+      // A stub the person re-enabled in Settings still points at /usr/bin/false.
+      const blocked = (driver: string) => ({ driver, enabled: true, config: { binaryPath: '/usr/bin/false' } })
       await writeFile(settingsPath, JSON.stringify({
         providerInstances: { codex: { driver: 'codex', enabled: true, config: { setupMode: 'managed' } }, claudeAgent: blocked('claudeAgent') }
       }))
