@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 
-import { ACCOUNT_CONNECTIONS_FIXTURE, ACCOUNT_CONNECTIONS_PROFILE } from '../../../shared/account-connections'
+import { ACCOUNT_CONNECTIONS_FIXTURE, ACCOUNT_CONNECTIONS_PROFILE, parseAccountConnectionsView } from '../../../shared/account-connections'
 import { accountPickerPlans, accountPlanRow } from '../../../src/app/connections/view'
 
 import { readAccountConnections } from './account-connections'
@@ -68,6 +68,14 @@ describe('readAccountConnections', () => {
     })
 
     expect(accountPlanRow(view, 'codex')).toMatchObject({ here: false, state: 'connected' })
+  })
+
+  it('shows a native plan on this Mac before device enrollment', async () => {
+    const { deps: d } = deps(json({ profile: ACCOUNT_CONNECTIONS_PROFILE, connections: ACCOUNT_CONNECTIONS_FIXTURE.connections }))
+    const view = parseAccountConnectionsView(await readAccountConnections({ ...d, thisDevice: () => undefined }))
+
+    expect(accountPlanRow(view, 'codex')).toMatchObject({ here: true, state: 'connected' })
+    expect(view?.thisDevice).toBeUndefined()
   })
 
   it.each([

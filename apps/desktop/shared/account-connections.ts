@@ -83,6 +83,8 @@ export interface AccountConnectionsView {
   source: 'account' | 'this_mac'
   /** This Mac's device-service id, when it has one, so a row can say "This Mac". */
   thisDevice?: string
+  /** Native plans found while this Mac is still enrolling. */
+  localPlans?: AccountPlan[]
   connections: AccountConnection[]
 }
 
@@ -101,13 +103,14 @@ export function parseAccountConnectionsView(value: unknown): AccountConnectionsV
   const row = value as Record<string, unknown>
   const source = row.source === 'account' || row.source === 'this_mac' ? row.source : null
   const thisDevice = row.thisDevice === undefined ? undefined : uuid.safeParse(row.thisDevice).data
+  const localPlans = row.localPlans === undefined ? undefined : z.array(plan).safeParse(row.localPlans).data
   const registry = parseAccountConnections({ profile: ACCOUNT_CONNECTIONS_PROFILE, connections: row.connections })
 
-  if (!source || !registry || (row.thisDevice !== undefined && !thisDevice)) {
+  if (!source || !registry || (row.thisDevice !== undefined && !thisDevice) || (row.localPlans !== undefined && !localPlans)) {
     return null
   }
 
-  return { source, ...(thisDevice ? { thisDevice } : {}), connections: registry.connections }
+  return { source, ...(thisDevice ? { thisDevice } : {}), ...(localPlans ? { localPlans } : {}), connections: registry.connections }
 }
 
 /** One plan as this Mac's native status reports it (C3's capability projection). */
@@ -146,7 +149,13 @@ export function localAccountConnections(input: {
     }
   })
 
-  return { source: 'this_mac', ...(input.thisDevice ? { thisDevice: input.thisDevice } : {}), connections }
+  const localPlans = ACCOUNT_PLANS.filter(id => input.capabilities[id]?.state === 'connected')
+
+  return {
+    source: 'this_mac',
+    ...(input.thisDevice ? { thisDevice: input.thisDevice } : localPlans.length ? { localPlans } : {}),
+    connections
+  }
 }
 
 /** A typed example of the contract, for tests and the playground (no real device or account). */
