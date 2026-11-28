@@ -117,6 +117,9 @@ export function AccountSubscriptionsSection({
   const rows = accountPlanRows(view)
   const opencode = useMatrixSubscriptions(scopeKey)
   const opencodeConnected = subscriptionProviderStatus(opencode.status, 'opencode-go')?.connected === true
+  const free = opencode.status?.atumFree
+  const [freeBusy, setFreeBusy] = useState(false)
+  const [freeError, setFreeError] = useState(false)
   const [keyDialog, setKeyDialog] = useState<'connect' | 'manage' | null>(null)
   const firstRun = firstRunConnectionsCopy(locale)
   const labels = useStore($firstRunLabels)
@@ -203,6 +206,43 @@ export function AccountSubscriptionsSection({
         lead={<ProviderMark provider={{ id: 'opencode-go', label: 'OpenCode Go' }} size="sm" />}
         title="OpenCode Go"
       />
+      {free && (
+        <SettingsRow
+          title="Atum Free"
+          data-atum-connection="openrouter_free"
+          data-atum-connection-state={free.state}
+          lead={<ProviderMark provider={{ id: 'openrouter', label: 'OpenRouter' }} size="sm" />}
+          help={freeError ? 'Could not disconnect OpenRouter. Try again.'
+            : free.state === 'connected' ? 'Uses your OpenRouter account' : 'Connect from a cloud agent’s model picker'}
+          control={(
+            <div className="flex gap-2">
+              {free.keyHash && (
+                <button className="ak-btn ak-btn--sm ak-btn--plain" type="button"
+                  onClick={() => void window.atumMatrix.openLink(`https://openrouter.ai/keys/${free.keyHash}`)}>
+                  Manage key in OpenRouter
+                </button>
+              )}
+              {free.state === 'connected' && (
+                <button className="ak-btn ak-btn--sm ak-btn--plain" disabled={freeBusy} type="button"
+                  onClick={async () => {
+                    setFreeBusy(true)
+                    setFreeError(false)
+                    try {
+                      if (await opencode.bridge?.disconnectAtumFree?.()) await opencode.reload()
+                      else setFreeError(true)
+                    } catch {
+                      setFreeError(true)
+                    } finally {
+                      setFreeBusy(false)
+                    }
+                  }}>
+                  Disconnect OpenRouter
+                </button>
+              )}
+            </div>
+          )}
+        />
+      )}
       <SettingsRow
         control={
           <Switch

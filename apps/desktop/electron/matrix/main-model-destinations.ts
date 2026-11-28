@@ -5,7 +5,7 @@ import {
   type MatrixModelDestinations,
   parseMatrixDailyProtons
 } from './model-destinations'
-import { MATRIX_PROVIDER_MODEL_ID_PATTERN } from './provider-connections'
+import { MATRIX_FREE_MODEL_PATTERN, MATRIX_PROVIDER_MODEL_ID_PATTERN } from './provider-connections'
 
 /** The `matrix:ui` `modelDestinations` request, narrowed to the fields its handler reads. */
 export interface MatrixModelDestinationsIpcRequest {
@@ -90,9 +90,9 @@ export async function handleMatrixModelDestinationsRequest(
 
   if (
     request.action === 'writeSubscription' &&
-    (request.source === 'opencode_go' || request.source === 'chatgpt_plan') &&
+    (request.source === 'opencode_go' || request.source === 'chatgpt_plan' || request.source === 'openrouter_free') &&
     typeof request.model === 'string' &&
-    MATRIX_PROVIDER_MODEL_ID_PATTERN.test(request.model) &&
+    (request.source === 'openrouter_free' ? MATRIX_FREE_MODEL_PATTERN : MATRIX_PROVIDER_MODEL_ID_PATTERN).test(request.model) &&
     (request.effort === 'low' || request.effort === 'medium' || request.effort === 'high')
   ) {
     const saved = await destinations.writeSubscription(principal, request.source, request.model,

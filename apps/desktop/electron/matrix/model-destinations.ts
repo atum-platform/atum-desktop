@@ -91,7 +91,7 @@ interface MacOwnKeyDestinationChoice {
 /** `atum.model-choice/1.4`: one cloud model from the account-wide OpenCode Go connection. */
 interface CloudSubscriptionDestinationChoice {
   destination: 'cloud'
-  source: 'opencode_go' | 'chatgpt_plan'
+  source: 'opencode_go' | 'chatgpt_plan' | 'openrouter_free'
   model: string
   effort: MatrixManagedEffort
 }
@@ -213,8 +213,10 @@ export function parseMatrixDestinationChoice(value: unknown): MatrixDestinationC
     return { destination, source: 'atum', model, effort }
   }
 
-  if (value.source === 'opencode_go' || (value.source === 'chatgpt_plan' && destination === 'cloud')) {
-    const model = modelRef(value.model)
+  if (value.source === 'opencode_go' || value.source === 'openrouter_free' || (value.source === 'chatgpt_plan' && destination === 'cloud')) {
+    const model = value.source === 'openrouter_free'
+      ? typeof value.model === 'string' && /^[A-Za-z0-9][A-Za-z0-9._/-]{0,199}:free$/u.test(value.model) ? value.model : undefined
+      : modelRef(value.model)
     const effort = managedEffort(value.effort)
 
     if (destination !== 'cloud' || !model || !effort || !exact(value, ['destination', 'source', 'model', 'effort'])) {
@@ -341,11 +343,11 @@ export function parseMatrixModelDestinationSnapshot(
   }
 
   const subscription = choices.find(choice => choice.destination === 'cloud' &&
-    (choice.source === 'opencode_go' || choice.source === 'chatgpt_plan'))
+    (choice.source === 'opencode_go' || choice.source === 'chatgpt_plan' || choice.source === 'openrouter_free'))
 
   // The platform states 1.4 exactly while the agent has a subscription choice; the two must
   // never drift apart, or an older reader would silently ignore a live source.
-  if ((subscription?.source === 'opencode_go') !== (value.profile === MATRIX_MODEL_DESTINATIONS_PROFILE_14) ||
+  if ((subscription?.source === 'opencode_go' || subscription?.source === 'openrouter_free') !== (value.profile === MATRIX_MODEL_DESTINATIONS_PROFILE_14) ||
       (subscription?.source === 'chatgpt_plan') !== (value.profile === MATRIX_MODEL_DESTINATIONS_PROFILE_15) ||
       (!subscription && value.profile !== MATRIX_MODEL_DESTINATIONS_PROFILE)) {
     return undefined
@@ -457,7 +459,7 @@ export function parseMatrixModelDestinationsWrite(
 
   const choice = parseMatrixDestinationChoice(value.choice)
 
-  if (!choice || (choice.source === 'opencode_go') !== (value.profile === MATRIX_MODEL_DESTINATIONS_PROFILE_14) ||
+  if (!choice || (choice.source === 'opencode_go' || choice.source === 'openrouter_free') !== (value.profile === MATRIX_MODEL_DESTINATIONS_PROFILE_14) ||
       (choice.source === 'chatgpt_plan') !== (value.profile === MATRIX_MODEL_DESTINATIONS_PROFILE_15)) {
     return undefined
   }
@@ -519,7 +521,7 @@ export function matrixModelDestinationWrite(
  */
 export function matrixSubscriptionDestinationWrite(
   snapshot: MatrixModelDestinationSnapshot,
-  source: 'opencode_go' | 'chatgpt_plan',
+  source: 'opencode_go' | 'chatgpt_plan' | 'openrouter_free',
   model: string,
   effort: MatrixManagedEffort,
   requestId = randomUUID()
@@ -588,7 +590,7 @@ export function matrixModelDestinationsView(
         ? {
             external: {
               source: choice.source,
-              providerLabel: choice.source === 'chatgpt_plan' ? 'ChatGPT' : choice.source === 'opencode_go' ? 'OpenCode Go' : 'API connection',
+              providerLabel: choice.source === 'chatgpt_plan' ? 'ChatGPT' : choice.source === 'opencode_go' ? 'OpenCode Go' : choice.source === 'openrouter_free' ? 'Atum Free' : 'API connection',
               model: choice.model,
               modelLabel: choice.model
                 .split(/[-_/]+/u)
@@ -1020,7 +1022,7 @@ export class MatrixModelDestinations {
    * The server accepts only a connected OpenCode Go connection and a served model; a refusal
    * changes nothing and never becomes an Atum choice.
    */
-  async writeSubscription(agentPrincipal: string, source: 'opencode_go' | 'chatgpt_plan', model: string,
+  async writeSubscription(agentPrincipal: string, source: 'opencode_go' | 'chatgpt_plan' | 'openrouter_free', model: string,
     effort: MatrixManagedEffort): Promise<boolean> {
     return this.choose(agentPrincipal, snapshot => matrixSubscriptionDestinationWrite(snapshot, source, model, effort))
   }

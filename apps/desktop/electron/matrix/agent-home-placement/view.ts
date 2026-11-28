@@ -172,7 +172,7 @@ function offerEfforts(
 
 /** A cloud destination's saved plan choice (`atum.model-choice/1.4`): the current model as itself. */
 export interface CloudHomeSavedPlanChoice {
-  source: 'chatgpt_plan' | 'opencode_go'
+  source: 'chatgpt_plan' | 'opencode_go' | 'openrouter_free'
   model: string
   modelLabel: string
   providerLabel: string
