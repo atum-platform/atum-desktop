@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-import { WORK_RELAY_PLANS } from '../../../shared/matrix-work-relay'
+import { WORK_RELAY_EFFORTS, WORK_RELAY_PLANS } from '../../../shared/matrix-work-relay'
 import { ACCOUNT_PLAN_PROVIDERS, type AccountPlanProvider } from '../plan-providers'
 
 const uuid = z.uuid()
@@ -9,7 +9,10 @@ const positive = safe.positive()
 
 export const WorkRelaySelectionSchema = z.object({
   provider: z.literal('atum-work'), plan: z.enum(WORK_RELAY_PLANS),
-  model: z.string().min(1).max(200), revision: positive
+  model: z.string().min(1).max(200),
+  // Read when the platform keeps a thinking level with the plan selection; absent is the model's default.
+  effort: z.enum(WORK_RELAY_EFFORTS).optional(),
+  revision: positive
 }).strict()
 
 export const WorkSubscriptionReportReplySchema = z

@@ -1,7 +1,8 @@
 import { type AccountConnectionsView } from './account-connections'
 import type { FirstRunLabels } from './first-run-labels'
 import { WORK_RELAY_PLANS, type WorkRelayPlan } from './matrix-work-relay'
-import type { WorkRelayLimit, WorkRelaySelection } from './matrix-work-relay'
+import { WORK_RELAY_EFFORTS } from './matrix-work-relay'
+import type { WorkRelayEffort, WorkRelayLimit, WorkRelayMachine, WorkRelaySelection } from './matrix-work-relay'
 
 /**
  * The Work surface (self-work slice A, lane DW): what the Matrix window may know about Work on this Mac.
@@ -68,6 +69,16 @@ export interface WorkAgentPlans {
     models?: readonly { id: string; displayName: string }[]
   }>>
   selection: WorkRelaySelection | null
+  /**
+   * The owner's Macs that report each plan, so a plan row can show which Mac serves it (dimmed
+   * while that Mac is off). Absent when the account read failed: the rows then show no Macs.
+   */
+  machines?: Partial<Record<WorkRelayPlan, readonly WorkRelayMachine[]>>
+  /**
+   * The thinking levels the platform keeps with a plan selection. Absent until the platform's
+   * selection carries a level: the picker then offers no thinking column for plan models.
+   */
+  efforts?: readonly WorkRelayEffort[]
 }
 
 export interface MatrixWorkProjection {
@@ -148,7 +159,7 @@ export type MatrixWorkRequest =
   | { kind: 'runCommand'; command: WorkBandCommand }
   | { kind: 'setSurfaceMode'; projectId: string; mode: 'work' | 'code' }
   | { kind: 'readAgentPlans'; principal: string }
-  | { kind: 'selectRelay'; principal: string; model: string; plan?: WorkRelayPlan }
+  | { kind: 'selectRelay'; principal: string; model: string; plan?: WorkRelayPlan; effort?: WorkRelayEffort }
   | { kind: 'read' }
   | { kind: 'open' }
   | { kind: 'retry' }
@@ -176,7 +187,7 @@ export interface MatrixWorkBridge {
   getAttention?(): Promise<WorkAttentionSnapshot | null>
   onAttentionChanged?(listener: (snapshot: WorkAttentionSnapshot | null) => void): () => void
   readAgentPlans?(principal: string): Promise<WorkAgentPlans | null>
-  selectRelay?(principal: string, model: string, plan?: WorkRelayPlan): Promise<WorkRelaySelection>
+  selectRelay?(principal: string, model: string, plan?: WorkRelayPlan, effort?: WorkRelayEffort): Promise<WorkRelaySelection>
   /** Null: Work is not available for this account on this build, so the rail has no Work entry. */
   read(): Promise<MatrixWorkProjection | null>
   /** Start Work immediately, without waiting for background prewarm. */
@@ -261,8 +272,12 @@ export function parseMatrixWorkRequest(value: unknown): MatrixWorkRequest | null
     case 'selectRelay': {
       if (row.plan !== undefined && !relayPlan) {return null}
 
-      return keys.length === ('plan' in row ? 4 : 3) && typeof row.principal === 'string' && UUID.test(row.principal) && typeof row.model === 'string' && row.model.length > 0 && row.model.length <= 200
-        ? { kind: 'selectRelay', principal: row.principal, model: row.model, ...(relayPlan ? { plan: relayPlan } : {}) } : null
+      const effort = WORK_RELAY_EFFORTS.find(each => each === row.effort)
+
+      if (row.effort !== undefined && !effort) {return null}
+
+      return keys.length === 3 + ('plan' in row ? 1 : 0) + ('effort' in row ? 1 : 0) && typeof row.principal === 'string' && UUID.test(row.principal) && typeof row.model === 'string' && row.model.length > 0 && row.model.length <= 200
+        ? { kind: 'selectRelay', principal: row.principal, model: row.model, ...(relayPlan ? { plan: relayPlan } : {}), ...(effort ? { effort } : {}) } : null
     }
 
     case 'read':

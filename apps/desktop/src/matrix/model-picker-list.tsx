@@ -11,7 +11,9 @@ import { cn } from '@/lib/utils'
 import { matrixModelDisplayName } from '../../shared/matrix-model-display-name'
 import type { MatrixModelRoute } from '../../shared/matrix-models'
 import { type MatrixShelfModelView, matrixShelfProtonsLabel } from '../../shared/matrix-shelf-models'
+import type { WorkRelayMachine } from '../../shared/matrix-work-relay'
 
+import { MachineIcons } from './machine-icon'
 import { useModelPickerCopy } from './model-picker-copy'
 import { ProviderMark } from './model-picker-provider-mark'
 import type { PickerRoute, PickerSection } from './model-picker-sections'
@@ -80,6 +82,7 @@ function PickerRowView({
     shelf?.costly ? words.shelfCostly : undefined,
     ...facts,
     picked.reason,
+    picked.machines?.length ? pickerMachinesLine(picked.machines, words) : undefined,
     current ? words.current : undefined
   ]
     .filter(Boolean)
@@ -157,6 +160,8 @@ function PickerRowView({
                 </span>
               )
             )}
+            {/* The Macs a plan model answers through, after its name, as T3 marks a thread's machine. */}
+            {picked.machines?.length ? <MachineIcons className="ms-auto self-center" machines={picked.machines} /> : null}
           </span>
         </RowButton>
 
@@ -194,6 +199,31 @@ function PickerRowView({
       </li>
     </Tip>
   )
+}
+
+/** "MacBook Air is on · Mac mini is off": a plan row's Macs in words, for its label and tooltip. */
+export function pickerMachinesLine(
+  machines: readonly WorkRelayMachine[],
+  words: Pick<ReturnType<typeof useModelPickerCopy>, 'machineOn' | 'machineOff' | 'aMac'>
+): string {
+  return machines
+    .map(machine => (machine.online ? words.machineOn : words.machineOff)(machine.name || words.aMac))
+    .join(' · ')
+}
+
+/** The row's one line, then its Macs: a sentence is followed by a space, a short phrase by a dot. */
+function withMachines(
+  line: string,
+  machines: readonly WorkRelayMachine[] | undefined,
+  words: Pick<ReturnType<typeof useModelPickerCopy>, 'machineOn' | 'machineOff' | 'aMac'>
+): string {
+  if (!machines?.length) {
+    return line
+  }
+
+  const macs = pickerMachinesLine(machines, words)
+
+  return line ? `${line}${/[.!?。！？]$/u.test(line) ? ' ' : ' · '}${macs}` : macs
 }
 
 /** A row's mark, and the composer chip's for the current row: Atum's own, a model maker's on the
@@ -247,6 +277,7 @@ export function ModelPickerList({
   onChoose,
   onToggleFavorite
 }: ModelPickerListProps) {
+  const words = useModelPickerCopy()
   const rendered = sections.flatMap(section => [...section.rows])
   const rovingId = (rendered.find(each => isCurrent(each.route)) ?? rendered.find(each => !each.disabled))?.route.id
   const starIds = new Set(favorites)
@@ -286,7 +317,7 @@ export function ModelPickerList({
                   picked={picked}
                   roving={picked.route.id === rovingId}
                   shortcut={shortcut}
-                  tooltip={picked.hint ?? picked.reason ?? tooltip(picked.route)}
+                  tooltip={withMachines(picked.hint ?? picked.reason ?? tooltip(picked.route), picked.machines, words)}
                 />
               )
             })}

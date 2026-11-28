@@ -18,6 +18,7 @@ export const PLAYGROUND_RELAY_GALLERY = [
   'picker-connect',
   'picker-allow',
   'picker-google',
+  'picker-macs',
   'chip-limit',
   'chip-fallback',
   'settings-usage',
@@ -27,6 +28,7 @@ type GalleryState = (typeof PLAYGROUND_RELAY_GALLERY)[number]
 
 const AGENT = '00000000-0000-4000-8000-00000000c0de'
 const MAC = '00000000-0000-4000-8000-0000000000a1'
+const MINI = '00000000-0000-4000-8000-0000000000a2'
 
 const ROOM: MatrixRoom = { id: '!rin:atum.invalid', name: 'Rin', membership: 'join', encrypted: false, assistant: true }
 
@@ -35,6 +37,8 @@ const PICKER_VIEWS: Record<Extract<GalleryState, `picker-${string}` | `chip-${st
   'picker-connect': { plan: 'codex', rows: 'greyed', greyed: 'connect', fix: 'connect' },
   'picker-allow': { plan: 'codex', rows: 'greyed', greyed: 'allow', fix: 'allow' },
   'picker-google': { plan: 'codex', rows: 'greyed', greyed: 'google' },
+  // Two of the owner's Macs serve the plan, one of them off; the plan keeps a thinking level.
+  'picker-macs': { plan: 'codex', rows: 'selectable', currentModel: 'gpt-6.1-sol' },
   'chip-limit': { plan: 'codex', rows: 'selectable', currentModel: 'gpt-6.1-sol', chip: { kind: 'limit', resetsAt: Date.now() + 95 * 60_000 } },
   'chip-fallback': { plan: 'codex', rows: 'selectable', currentModel: 'gpt-6.1-sol', chip: { kind: 'fallback', reason: 'mac_off' } }
 }
@@ -98,7 +102,17 @@ function RelayPicker({ state }: { state: keyof typeof PICKER_VIEWS }) {
     models: [
       { id: 'gpt-6.1-sol', displayName: 'GPT-6.1 Sol' },
       { id: 'gpt-6-luna', displayName: 'GPT-6 Luna' }
-    ]
+    ],
+    ...(state === 'picker-macs'
+      ? {
+          machines: [
+            { id: MAC, name: 'MacBook Air', kind: 'laptop' as const, online: true },
+            { id: MINI, name: 'Mac mini', kind: 'mac-mini' as const, online: false }
+          ],
+          efforts: ['low', 'medium', 'high'] as const,
+          effort: 'high' as const
+        }
+      : {})
   }
 
   return ready ? (

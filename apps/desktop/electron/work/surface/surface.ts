@@ -12,7 +12,7 @@ import type {
   WorkSidebarSnapshot,
   WorkSurfaceModeSnapshot
 } from '../../../shared/matrix-work'
-import type { WorkRelayPlan, WorkRelaySelection } from '../../../shared/matrix-work-relay'
+import type { WorkRelayEffort, WorkRelayPlan, WorkRelaySelection } from '../../../shared/matrix-work-relay'
 import type { OwnerViewPort } from '../session/pairing'
 import type { OpenOwnerView } from '../session/session'
 import type { WorkAccess } from '../sidecar/host'
@@ -25,7 +25,7 @@ import { projectWorkConsent, workPlanConnectPath } from './projection'
 export interface WorkSurfaceParts {
   relay?: {
     readPlans(principal: string): Promise<WorkAgentPlans | null>
-    select(principal: string, model: string, plan?: WorkRelayPlan): Promise<WorkRelaySelection>
+    select(principal: string, model: string, plan?: WorkRelayPlan, effort?: WorkRelayEffort): Promise<WorkRelaySelection>
   }
   session: { openOwnerView(createView: (incarnation: WorkIncarnation) => Promise<OwnerViewPort>, signal: AbortSignal): Promise<OpenOwnerView> }
   /** S's per-account Work off marker (§8.5). Off: nothing starts, the page says so. */
@@ -163,10 +163,10 @@ export class WorkSurface {
     return generation === this.generation ? plans ?? null : null
   }
 
-  async selectRelay(principal: string, model: string, plan?: WorkRelayPlan): Promise<WorkRelaySelection> {
+  async selectRelay(principal: string, model: string, plan?: WorkRelayPlan, effort?: WorkRelayEffort): Promise<WorkRelaySelection> {
     if (!this.parts?.relay) {throw new Error('work_relay_unavailable')}
 
-    return this.parts.relay.select(principal, model, plan)
+    return this.parts.relay.select(principal, model, plan, effort)
   }
 
   async retry(): Promise<void> {
