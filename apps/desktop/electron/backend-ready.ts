@@ -93,7 +93,7 @@ function waitForDashboardPort(child: BackendProcess, timeoutMs = resolvePortAnno
 
     function onExit(code: number | null, signal: string | null) {
       cleanup()
-      reject(new Error(`Hermes backend: exited before port announcement (${signal || code})`))
+      reject(new Error(`Atum backend: exited before port announcement (${signal || code})`))
     }
 
     function onError(err: Error) {
@@ -103,7 +103,7 @@ function waitForDashboardPort(child: BackendProcess, timeoutMs = resolvePortAnno
 
     const timer = setTimeout(() => {
       cleanup()
-      reject(new Error(`Timed out waiting for Hermes backend port announcement (${timeoutMs}ms)`))
+      reject(new Error(`Timed out waiting for Atum backend port announcement (${timeoutMs}ms)`))
     }, timeoutMs)
 
     child.stdout?.on('data', onData)
@@ -159,7 +159,7 @@ function waitForDashboardReadyFile(readyFile: fs.PathOrFileDescriptor, child: Ba
 
     function onExit(code: number | null, signal: string | null) {
       cleanup()
-      reject(new Error(`Hermes backend: exited before port announcement (${signal || code})`))
+      reject(new Error(`Atum backend: exited before port announcement (${signal || code})`))
     }
 
     function onError(err: Error) {
@@ -169,7 +169,7 @@ function waitForDashboardReadyFile(readyFile: fs.PathOrFileDescriptor, child: Ba
 
     const timer = setTimeout(() => {
       cleanup()
-      reject(new Error(`Timed out waiting for Hermes backend port announcement (${timeoutMs}ms)`))
+      reject(new Error(`Timed out waiting for Atum backend port announcement (${timeoutMs}ms)`))
     }, timeoutMs)
 
     child.on('exit', onExit)

@@ -64,6 +64,7 @@ const COPY_MODULES: ReadonlyArray<readonly [string, () => Promise<Record<string,
   ['src/i18n/ja', () => import('./ja')],
   ['src/i18n/zh', () => import('./zh')],
   ['src/i18n/zh-hant', () => import('./zh-hant')],
+  ['src/matrix-pages/providers-copy', () => import('../matrix-pages/providers-copy')],
   ['src/matrix/account-step-copy', () => import('../matrix/account-step-copy')],
   ['src/matrix/agent-content-copy', () => import('../matrix/agent-content-copy')],
   ['src/matrix/app-copy', () => import('../matrix/app-copy')],
@@ -111,7 +112,7 @@ const COPY_MODULES: ReadonlyArray<readonly [string, () => Promise<Record<string,
 ]
 
 const LOCALES: readonly Locale[] = ['en', 'vi', 'ja', 'zh', 'zh-hant']
-const PRODUCT_NAME = /\b(?:Hermes|Matrix)\b/u
+const PRODUCT_NAME = /(?<![a-z0-9_])(?:hermes|nous|t3|matrix)(?![a-z0-9_])|t3code|nousresearch|hermes_home/iu
 
 /**
  * The narrow, reviewed technical exceptions: whole values that legitimately name the third-party
@@ -119,6 +120,7 @@ const PRODUCT_NAME = /\b(?:Hermes|Matrix)\b/u
  * MATRIX_ACCESS_TOKEN), not the internal candidate codename. Everything else must be Atum.
  */
 const TECHNICAL_EXCEPTIONS = new Map<string, string>([
+  ['https://matrix.org', 'Example homeserver for the third-party Matrix protocol'],
   ['Allowed Matrix user IDs', 'The third-party Matrix protocol the MATRIX_ALLOWED_USERS setting configures'],
   ['許可する Matrix ユーザー ID', 'The third-party Matrix protocol the MATRIX_ALLOWED_USERS setting configures'],
   ['允许的 Matrix 用户 ID', 'The third-party Matrix protocol the MATRIX_ALLOWED_USERS setting configures'],
@@ -268,7 +270,7 @@ const scanner = createBrandCopyScanner({
   }
 })
 
-it('keeps Hermes and Matrix out of every user-visible copy value', async () => {
+it('keeps legacy product names out of the registered copy values', async () => {
   const modules = await Promise.all(COPY_MODULES.map(async ([file, load]) => [file, await load()] as const))
 
   for (const [file, exports] of modules) {

@@ -118,6 +118,8 @@ describe('sshFailureMessage', () => {
     expect(sshFailureMessage(ssh, 'SSH authentication failed', copy)).toBe('localized auth')
     expect(sshFailureMessage(ssh, 'unexpected failure', copy)).toBe('localized unknown')
     expect(sshFailureMessage(config(), 'raw remote error', copy)).toBe('raw remote error')
+    expect(sshFailureMessage(config(), 'Could not start /opt/agent/.hermes/bin/hermes', copy, 'safe recovery')).toBe('safe recovery')
+    expect(sshFailureMessage(ssh, 'SSH authentication failed for /opt/.hermes', copy)).toBe('localized auth')
   })
 })
 

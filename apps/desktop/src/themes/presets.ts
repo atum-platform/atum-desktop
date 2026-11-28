@@ -107,8 +107,8 @@ export const atumTheme: DesktopTheme = {
  */
 export const nousTheme: DesktopTheme = {
   name: 'nous',
-  label: 'Nous',
-  description: 'Glass neutrals with Nous blue accents',
+  label: 'Glass',
+  description: 'Glass neutrals with blue accents',
   colors: {
     background: '#F8FAFF',
     foreground: '#17171A',

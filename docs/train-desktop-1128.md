@@ -14,3 +14,4 @@
 - #174 merged cleanly.
 - #175: Kept live native label caching and added separate local setup RPCs in `main-work.ts`. Combined design-helper PATH discovery with the local free-plan shim in `process.ts`, and kept both effort and setup types in `surface.ts`.
 - #176 merged cleanly.
+- #177 merged cleanly.

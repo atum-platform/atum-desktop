@@ -201,8 +201,8 @@ export function deriveBillingView(
     return {
       notice: {
         action: { label: 'Open portal ↗', url: billing.portal_url ?? subscription?.portal_url ?? FALLBACK_PORTAL_URL },
-        message: 'Run /portal in the TUI or open the Nous portal to connect your account.',
-        title: 'Connect your Nous account'
+        message: 'Open the provider portal to connect your account.',
+        title: 'Connect your provider account'
       },
       status: 'logged_out',
       summary: emptySummary(),

@@ -133,7 +133,7 @@ export function AboutSettings() {
   let statusTone: 'idle' | 'available' | 'error' = 'idle'
 
   if (!supported) {
-    statusLine = status?.message ?? a.cantUpdate
+    statusLine = a.cantUpdate
     statusTone = 'error'
   } else if (status?.error) {
     statusLine = a.cantReach

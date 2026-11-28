@@ -3,7 +3,7 @@ import { type Locale, useI18n } from '@/i18n'
 import type { MatrixConnectedModelProblem, MatrixEffort } from '../../shared/matrix-models'
 import type { MatrixShelfRetention } from '../../shared/matrix-shelf-models'
 
-import labels from './model-picker-labels.json'
+import { taglines, thinking } from './model-picker-labels.json'
 
 /**
  * The model picker's words. Vietnamese first: short, warm, no "reasoning", "provider" or
@@ -135,8 +135,6 @@ interface ModelPickerCopy {
  * line-up taglines. Work's picker (atum-work) reads a byte-identical copy of the same file.
  */
 function pickerLabels(locale: Locale): Pick<ModelPickerCopy, 'effort' | 'efforts' | 'taglines'> {
-  const { thinking, taglines } = labels
-
   return {
     effort: thinking.heading[locale],
     efforts: {
