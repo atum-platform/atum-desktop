@@ -30,7 +30,7 @@ import { isPlaygroundView, PlaygroundGallery } from './gallery'
 import { playgroundLinkPreviewMode, playgroundLinkPreviews, withPlaygroundLinkPreviews } from './link-preview-fixtures'
 import { playgroundDocumentPreview, playgroundPlaceBridges, playgroundPlaces, withPlaygroundPlaces } from './places-fixtures'
 import { playgroundRelayMode, withPlaygroundRelay } from './relay-fixtures'
-import { playgroundRoutines, playgroundRoutinesMode } from './routine-fixtures'
+import { playgroundBackgroundSweep, playgroundRoutines, playgroundRoutinesMode } from './routine-fixtures'
 import {
   playgroundGoogleConnections,
   playgroundLoginStartup,
@@ -168,6 +168,8 @@ window.atumMatrix = {
   }),
   // Every card's scheduled tasks (?routines=empty|conflict|legacy|unknown).
   routines: playgroundRoutines(playgroundRoutinesMode(params)),
+  // The built-in follow-up sweep, on, first in each card's Routines list (agent card revamp).
+  backgroundSweep: playgroundBackgroundSweep(),
   ...(googleConnections ? { googleConnections } : {}),
   ...(subscriptionsMode ? { subscriptions: playgroundSubscriptions(subscriptionsMode) } : {}),
   // The assistant card's per-destination model rows read the fixture's offer; picks save locally.
