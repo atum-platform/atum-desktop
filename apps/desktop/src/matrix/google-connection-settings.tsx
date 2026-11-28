@@ -2,17 +2,15 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
-import { NoticeBand } from '@/components/ui/error-state'
 import { Switch } from '@/components/ui/switch'
 import { Tip } from '@/components/ui/tooltip'
 import { type Locale, useI18n } from '@/i18n'
-import { RefreshCw, X } from '@/lib/icons'
+import { RefreshCw } from '@/lib/icons'
 import { cn } from '@/lib/utils'
 
 import type { MatrixIdentity } from '../../shared/matrix'
 import type {
   MatrixGoogleConnectionBridge,
-  MatrixGoogleConnectionContext,
   MatrixGoogleConnectionError,
   MatrixGoogleConnectionResult,
   MatrixGoogleConnectionSource,
@@ -53,7 +51,6 @@ interface GoogleConnectionsCopy {
   allow: string
   /** Until Google finishes reviewing Atum, people see its unverified-app screen. */
   disclosureWarning: string
-  dismiss: string
   /** The assistant line (MatrixSnapshot.googleAssistant). */
   assistant: {
     ready: string
@@ -91,7 +88,6 @@ const copy: Record<Locale, GoogleConnectionsCopy> = {
     notShared: services => `Not shared: ${services}`,
     allow: 'Allow',
     disclosureWarning: 'If Google warns you, choose Advanced → Continue.',
-    dismiss: 'Dismiss',
     assistant: {
       ready: 'Your assistant uses shared Google data with approval.',
       connect: 'Connect Google for calendar, email and files.',
@@ -126,7 +122,6 @@ const copy: Record<Locale, GoogleConnectionsCopy> = {
     notShared: services => `Chưa chia sẻ: ${services}`,
     allow: 'Cho phép',
     disclosureWarning: 'Nếu Google cảnh báo, chọn Nâng cao → Tiếp tục.',
-    dismiss: 'Đóng',
     assistant: {
       ready: 'Trợ lý dùng dữ liệu Google khi bạn đồng ý.',
       connect: 'Kết nối Google cho lịch, email và tệp.',
@@ -161,7 +156,6 @@ const copy: Record<Locale, GoogleConnectionsCopy> = {
     notShared: services => `未共享：${services}`,
     allow: '允许',
     disclosureWarning: '如果 Google 发出警告，请选择“高级”→“继续”。',
-    dismiss: '关闭',
     assistant: {
       ready: '助手经你同意后使用 Google 数据。',
       connect: '连接 Google 日历、邮件和文件。',
@@ -196,7 +190,6 @@ const copy: Record<Locale, GoogleConnectionsCopy> = {
     notShared: services => `未分享：${services}`,
     allow: '允許',
     disclosureWarning: '如果 Google 顯示警告，請選擇「進階」→「繼續」。',
-    dismiss: '關閉',
     assistant: {
       ready: '助理經你同意後使用 Google 資料。',
       connect: '連接 Google 日曆、郵件和檔案。',
@@ -231,7 +224,6 @@ const copy: Record<Locale, GoogleConnectionsCopy> = {
     notShared: services => `共有していません：${services}`,
     allow: '許可',
     disclosureWarning: 'Google の警告が出たら、「詳細」→「続行」を選んでください。',
-    dismiss: '閉じる',
     assistant: {
       ready: '承認した Google データをアシスタントが使います。',
       connect: 'Google の予定、メール、ファイルに接続します。',
@@ -246,13 +238,6 @@ const copy: Record<Locale, GoogleConnectionsCopy> = {
 
 export function matrixGoogleDisclosureWarning(locale: Locale): string {
   return copy[locale].disclosureWarning
-}
-
-/** Session-scoped: switching chats must not resurrect a chip the person dismissed. */
-const dismissedNudgeScopes = new Set<string>()
-
-export function resetMatrixGoogleNudgeDismissals(): void {
-  dismissedNudgeScopes.clear()
 }
 
 type ViewState = 'error' | 'idle' | 'loading' | 'ready' | 'unavailable'
@@ -333,115 +318,6 @@ export function MatrixGoogleDisclosure({
       <p className="atum-settings-row-help" data-matrix-google-warning>
         {text.disclosureWarning}
       </p>
-    </div>
-  )
-}
-
-/**
- * The same compact Google chip for first run and a conversation-time offer. One click starts
- * Google's own consent flow. The unverified-app hint is a tooltip, never another line to read.
- */
-export function MatrixGoogleConnectNudge({
-  access,
-  bridge = defaultBridge(),
-  context,
-  placement = 'conversation',
-  scope = 'default'
-}: {
-  access: MatrixGoogleAssistantAccess | undefined
-  bridge?: MatrixGoogleConnectionBridge
-  context?: MatrixGoogleConnectionContext
-  placement?: 'conversation' | 'greeting'
-  scope?: string
-}) {
-  const { locale } = useI18n()
-  const text = copy[locale]
-  const live = useRef(true)
-  const [pending, setPending] = useState(false)
-  const [failed, setFailed] = useState(false)
-  const [dismissed, setDismissed] = useState(() => dismissedNudgeScopes.has(scope))
-
-  useEffect(() => {
-    live.current = true
-
-    return () => {
-      live.current = false
-    }
-  }, [])
-
-  useEffect(() => {
-    setDismissed(dismissedNudgeScopes.has(scope))
-  }, [scope])
-
-  const dismiss = () => {
-    dismissedNudgeScopes.add(scope)
-    setDismissed(true)
-  }
-
-  if (!bridge || dismissed || !matrixGoogleConnectOffered(access)) {
-    return null
-  }
-
-  const connect = () => {
-    setPending(true)
-    setFailed(false)
-    const request = context ? bridge.connect('google', context) : bridge.connect('google')
-
-    void request
-      .then(result => {
-        if (!live.current) {
-          return
-        }
-
-        if (result.status?.sources.some(source => source.state === 'connected' && source.enabled)) {
-          dismiss()
-        } else if (result.error === 'cancelled' || result.error === 'denied') {
-          dismiss()
-        } else if (result.error) {
-          setFailed(true)
-        }
-      })
-      .catch(() => live.current && setFailed(true))
-      .finally(() => live.current && setPending(false))
-  }
-
-  return (
-    <div
-      className={
-        placement === 'greeting' ? 'mt-4 flex w-full flex-col items-start' : 'mx-auto mb-2 w-full max-w-[47rem] px-4'
-      }
-      data-matrix-google-nudge
-      data-placement={placement}
-    >
-      <div className="inline-flex h-8 items-center overflow-hidden rounded-full border border-(--atum-line) text-(length:--atum-t-control) text-(--atum-ink-soft)">
-        <Tip label={text.disclosureWarning}>
-          <button
-            aria-busy={pending || undefined}
-            className="h-full px-3.5 transition-colors duration-150 hover:bg-(--atum-hover) hover:text-(--atum-ink) focus-visible:bg-(--atum-hover) focus-visible:text-(--atum-ink) disabled:pointer-events-none disabled:opacity-50"
-            disabled={pending}
-            onClick={connect}
-            type="button"
-          >
-            {pending ? text.connecting : text.connect}
-          </button>
-        </Tip>
-        <Tip label={text.dismiss}>
-          <button
-            aria-label={text.dismiss}
-            className="grid h-full w-7 place-items-center border-s border-(--atum-line) transition-colors duration-150 hover:bg-(--atum-hover) hover:text-(--atum-ink) focus-visible:bg-(--atum-hover) focus-visible:text-(--atum-ink) disabled:pointer-events-none disabled:opacity-50"
-            disabled={pending}
-            onClick={dismiss}
-            type="button"
-          >
-            <X aria-hidden className="size-3" />
-          </button>
-        </Tip>
-      </div>
-      {failed && (
-        <NoticeBand className="mt-2" role="status" tone="failure">
-          {text.actionFailed}
-        </NoticeBand>
-      )}
     </div>
   )
 }
@@ -842,6 +718,7 @@ export function MatrixGoogleConnectionSettings({
               />
               {sources.map(source => {
                 const kind = text.sources[source.kind]
+
                 // Gmail, Drive and the main calendar are the account itself (named above);
                 // any other calendar shows its own name under the word Calendar.
                 const ownName =

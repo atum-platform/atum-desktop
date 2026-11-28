@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest'
 
 import type { MatrixRoom, MatrixSnapshot } from '../../shared/matrix'
 import { MATRIX_ASSISTANT_ROOM_TYPE } from '../../shared/matrix-assistant-room'
-import { matrixFirstRunCopy } from '../../shared/matrix-first-run-copy'
 
 import { matrixFirstRunNamingContext, matrixFirstRunNamingForIncoming, matrixFirstRunNamingNote } from './first-run-naming'
 import { MATRIX_TURN_CONTEXT_MAX, matrixTurnPrompt } from './local-turn'
@@ -160,11 +159,10 @@ describe('whose message gets it', () => {
   })
 
   it('is asked only where the welcome is drawn: the same rule as the window', async () => {
-    // The window and main share one predicate; the welcome the note speaks of is the card's copy.
+    // The window and main share one predicate; the welcome the note speaks of is the assistant's own.
     const { matrixFirstRunPlace } = await import('../../shared/matrix-first-run-place')
 
     expect(matrixFirstRunPlace(fresh, ROOM)).toBe(true)
-    expect(matrixFirstRunCopy('en').greeting('Minh', 'Atum Bot')).toContain('You can rename me anytime')
     expect(first()).toBeDefined()
     expect(first({ snapshot: { ...fresh, rooms: [] } })).toBeUndefined()
   })

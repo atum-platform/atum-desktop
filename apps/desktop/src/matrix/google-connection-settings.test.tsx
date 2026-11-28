@@ -15,9 +15,7 @@ import type { MatrixGoogleAssistantAccess } from '../../shared/matrix-google-too
 
 import {
   MatrixGoogleConnectionSettings,
-  MatrixGoogleConnectNudge,
-  MatrixGoogleDisclosure,
-  resetMatrixGoogleNudgeDismissals
+  MatrixGoogleDisclosure
 } from './google-connection-settings'
 
 const firstIdentity: MatrixIdentity = { userId: '@one:atum.test', deviceId: 'ONE' }
@@ -135,7 +133,6 @@ function renderSettings(
 
 afterEach(() => {
   cleanup()
-  resetMatrixGoogleNudgeDismissals()
 })
 
 describe('MatrixGoogleDisclosure', () => {
@@ -157,86 +154,6 @@ describe('MatrixGoogleDisclosure', () => {
     expect(screen.getByText(warning)).toBeTruthy()
     expect(screen.queryByRole('list')).toBeNull()
   })
-})
-
-describe('MatrixGoogleConnectNudge', () => {
-  it('starts Google directly from one enabled action', async () => {
-    const google = bridge(connected({ sources: [] }))
-    render(
-      <I18nProvider configClient={null} initialLocale="en">
-        <MatrixGoogleConnectNudge access={{ state: 'connect' }} bridge={google} />
-      </I18nProvider>
-    )
-
-    const button = screen.getByRole('button', { name: 'Connect Google' }) as HTMLButtonElement
-    expect(button.disabled).toBe(false)
-    fireEvent.click(button)
-    await waitFor(() => expect(google.connect).toHaveBeenCalledExactlyOnceWith('google'))
-  })
-
-  it.each([
-    ['vi', 'Kết nối Google', 'Nếu Google cảnh báo, chọn Nâng cao → Tiếp tục.'],
-    ['en', 'Connect Google', 'If Google warns you, choose Advanced → Continue.']
-  ] as const)('keeps the %s nudge to one action with its warning in a tooltip', async (locale, connect, warning) => {
-    render(
-      <I18nProvider configClient={null} initialLocale={locale}>
-        <MatrixGoogleConnectNudge access={{ state: 'connect' }} bridge={bridge()} />
-      </I18nProvider>
-    )
-
-    const action = screen.getByRole('button', { name: connect })
-    expect(action).toBeTruthy()
-    expect(screen.getAllByRole('button')).toHaveLength(2)
-    expect(screen.queryByText(warning)).toBeNull()
-    fireEvent.pointerMove(action, { pointerType: 'mouse' })
-    expect((await screen.findByRole('tooltip')).textContent).toContain(warning)
-  })
-
-  it('dismisses without starting Google and disappears immediately after a connection', async () => {
-    const google = bridge(connected({ sources: [] }))
-    const view = render(
-      <I18nProvider configClient={null} initialLocale="en">
-        <MatrixGoogleConnectNudge access={{ state: 'connect' }} bridge={google} scope="dismissed" />
-      </I18nProvider>
-    )
-
-    fireEvent.click(screen.getByRole('button', { name: 'Dismiss' }))
-    expect(view.container.querySelector('[data-matrix-google-nudge]')).toBeNull()
-    expect(google.connect).not.toHaveBeenCalled()
-
-    cleanup()
-    render(
-      <I18nProvider configClient={null} initialLocale="en">
-        <MatrixGoogleConnectNudge access={{ state: 'connect' }} bridge={google} scope="dismissed" />
-      </I18nProvider>
-    )
-    expect(screen.queryByRole('button', { name: 'Connect Google' })).toBeNull()
-
-    cleanup()
-    google.connect.mockResolvedValueOnce(result(connected()))
-    render(
-      <I18nProvider configClient={null} initialLocale="en">
-        <MatrixGoogleConnectNudge access={{ state: 'connect' }} bridge={google} scope="connected" />
-      </I18nProvider>
-    )
-    fireEvent.click(screen.getByRole('button', { name: 'Connect Google' }))
-    await waitFor(() => expect(screen.queryByRole('button', { name: 'Connect Google' })).toBeNull())
-  })
-
-  it.each([undefined, { state: 'ready' as const }, { state: 'unavailable' as const }])(
-    'stays out of the way when Google is not connectable (%j)',
-    access => {
-      const { container } = render(
-        <I18nProvider configClient={null} initialLocale="en">
-          <MatrixGoogleConnectNudge access={access} bridge={bridge()} />
-        </I18nProvider>
-      )
-
-      expect(screen.queryByRole('button', { name: /Connect Google/ })).toBeNull()
-      expect(screen.queryAllByRole('img')).toHaveLength(0)
-      expect(container.querySelector('[data-matrix-google-nudge]')).toBeNull()
-    }
-  )
 })
 
 describe('MatrixGoogleConnectionSettings', () => {

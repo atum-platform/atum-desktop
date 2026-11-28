@@ -1,16 +1,16 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
+import { FIRST_RUN_GREETING_RETRY_MS } from '@/app/connections/first-run-controller'
+import { resetFirstRunForTests } from '@/app/connections/first-run-store'
 import { I18nProvider, type Locale } from '@/i18n'
 
 import type { MatrixRoom, MatrixSnapshot, MatrixUiBridge } from '../../shared/matrix'
 import { MATRIX_ASSISTANT_ROOM_TYPE } from '../../shared/matrix-assistant-room'
-import { matrixFirstRunCopy } from '../../shared/matrix-first-run-copy'
 import type { MatrixGoogleConnectionBridge } from '../../shared/matrix-google-connections'
 
 import { MatrixFirstRunCard, matrixFirstRunPlace, MatrixFolderAccessRecovery } from './first-run-card'
-import { resetMatrixGoogleNudgeDismissals } from './google-connection-settings'
 import { AssistantGreeting } from './greeting'
 
 const owner = { userId: '@minh:test', deviceId: 'MAC' }
@@ -95,6 +95,7 @@ function googleBridge(): MatrixGoogleConnectionBridge & { connect: ReturnType<ty
 function bridge(google = googleBridge()) {
   const start = vi.fn(async () => {})
   const decline = vi.fn(async () => {})
+
   let sourceView = {
     gates: { google: false, folders: false, messages: false, browser: false, location: false, team_spaces: false },
     sources: [
@@ -102,10 +103,13 @@ function bridge(google = googleBridge()) {
       { kind: 'mac.files', optOutGate: 'folders', availability: 'unavailable' as const, grantable: true }
     ]
   }
+
   const set = vi.fn(async (gate: keyof typeof sourceView.gates, enabled: boolean) => {
     sourceView = { ...sourceView, gates: { ...sourceView.gates, [gate]: enabled } }
+
     return sourceView
   })
+
   const value = {
     agentSources: { read: vi.fn(async () => sourceView), set },
     googleConnections: google,
@@ -127,22 +131,28 @@ function bridge(google = googleBridge()) {
       watch: vi.fn(() => () => {})
     }
   } as unknown as MatrixUiBridge
+
   window.atumMatrix = value
 
   return { decline, google, set, start, value }
 }
 
-function show(snapshot = base, locale: Locale = 'en', assistantName?: string) {
+const WELCOME = 'Hi, I’m Atum. Connect what you’d like me to learn from.'
+
+function show(snapshot = base, locale: Locale = 'en', props: Partial<Parameters<typeof MatrixFirstRunCard>[0]> = { greeting: WELCOME }) {
   return render(
     <I18nProvider configClient={null} initialLocale={locale}>
-      <MatrixFirstRunCard assistantName={assistantName} roomId="!atum:test" snapshot={snapshot} />
+      <MatrixFirstRunCard roomId="!atum:test" snapshot={snapshot} {...props} />
     </I18nProvider>
   )
 }
 
+const row = (gate: string) => window.document.querySelector<HTMLElement>(`[data-atum-ask="${gate}"]`)
+
 afterEach(() => {
   cleanup()
-  resetMatrixGoogleNudgeDismissals()
+  vi.useRealTimers()
+  resetFirstRunForTests()
   Reflect.deleteProperty(window, 'atumMatrix')
 })
 
@@ -180,97 +190,114 @@ describe('first-run account and conversation fences', () => {
   })
 })
 
-describe('the greeting and inline connect card', () => {
-  it('keeps naming conversational and puts the source checklist inline', async () => {
+describe('the welcome and the one Connections list', () => {
+  it('shows the assistant’s own welcome with one list under it, in three groups, and no form', async () => {
     const { google } = bridge()
     const view = show()
 
-    expect(screen.getByText(/^Hi Minh, I’m Atum\./)).toBeTruthy()
+    expect(screen.getByText(WELCOME)).toBeTruthy()
     expect(view.container.querySelector('input, textarea, form')).toBeNull()
-    expect(view.container.querySelector('[data-matrix-first-run-checklist]')).toBeNull()
-    expect(view.container.querySelector('[data-checklist-row]')).toBeNull()
-    expect(view.container.querySelector('[data-matrix-first-run-connect-card]')).not.toBeNull()
-    expect(screen.getByRole('heading', { name: 'Let me get to know your world' })).toBeTruthy()
-    expect(screen.queryByText('This Mac')).toBeNull()
-    expect(await screen.findByText('Mac folders')).toBeTruthy()
+    expect(view.container.querySelectorAll('[data-atum-first-run-connections]')).toHaveLength(1)
+    await waitFor(() => expect(row('google')).not.toBeNull())
+    expect(screen.getByRole('heading', { name: 'AI plans' })).toBeTruthy()
+    expect(screen.getByRole('heading', { name: 'Accounts' })).toBeTruthy()
+    expect(screen.getByRole('heading', { name: 'This Mac' })).toBeTruthy()
+    expect(row('folders')).not.toBeNull()
+    expect(view.container.querySelector('[data-matrix-google-nudge], [data-matrix-starter-notice]')).toBeNull()
     expect(google.status).not.toHaveBeenCalled()
   })
 
-  it('uses the real assistant name and localized greeting in every locale', () => {
-    for (const locale of ['en', 'vi', 'ja', 'zh', 'zh-hant'] as Locale[]) {
-      bridge()
-      const snapshot = { ...base, agents: [{ ...base.agents![0]!, name: 'Mây' }, base.agents![1]!] }
-      const view = show(snapshot, locale)
-      const greeting = view.container.querySelector('p')!.textContent!
+  it('never stands in a ready-made greeting: a typing bubble, then a retry, then one quiet line', async () => {
+    vi.useFakeTimers()
+    bridge()
+    const resend = vi.fn(async () => {})
+    const view = show(base, 'en', { greetingPending: true, resendGreeting: resend })
 
-      expect(greeting).toBe(matrixFirstRunCopy(locale).greeting('Minh', 'Mây'))
-      cleanup()
-    }
+    expect(view.container.querySelector('[data-matrix-first-run-greeting="pending"]')).not.toBeNull()
+    expect(view.container.querySelector('[data-atum-first-run-connections]')).toBeNull()
+    expect(view.container.textContent).not.toMatch(/Hi Minh|rename me/u)
+
+    act(() => void vi.advanceTimersByTime(FIRST_RUN_GREETING_RETRY_MS))
+    expect(resend).toHaveBeenCalledOnce()
+    expect(screen.getByText('Taking a little longer…')).toBeTruthy()
+
+    act(() => void vi.advanceTimersByTime(FIRST_RUN_GREETING_RETRY_MS))
+    expect(screen.getByText('Atum isn’t answering yet.')).toBeTruthy()
+    // Nobody is stuck behind a silent assistant: the list shows with the quiet line.
+    expect(view.container.querySelector('[data-atum-first-run-connections]')).not.toBeNull()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Try again' }))
+    expect(resend).toHaveBeenCalledTimes(2)
+    expect(screen.getByText('Taking a little longer…')).toBeTruthy()
   })
 
-  it('runs the approved registry-fed Continue sequence', async () => {
+  it('a welcome that arrives late replaces the waiting state', () => {
+    vi.useFakeTimers()
+    bridge()
+    const resend = vi.fn(async () => {})
+    const view = show(base, 'en', { greetingPending: true, resendGreeting: resend })
+
+    act(() => void vi.advanceTimersByTime(FIRST_RUN_GREETING_RETRY_MS * 2))
+    view.rerender(
+      <I18nProvider configClient={null} initialLocale="en">
+        <MatrixFirstRunCard greeting={WELCOME} roomId="!atum:test" snapshot={base} />
+      </I18nProvider>
+    )
+
+    expect(screen.getByText(WELCOME)).toBeTruthy()
+    expect(screen.queryByText('Atum isn’t answering yet.')).toBeNull()
+  })
+
+  it('Google is one browser trip from its own row, and the first connected source admits first learning once', async () => {
     const { google, set, start } = bridge()
     show()
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Continue' }))
+    await waitFor(() => expect(row('google')).not.toBeNull())
+    fireEvent.click(within(row('google')!).getByRole('button', { name: 'Connect' }))
     await waitFor(() => expect(google.connect).toHaveBeenCalledExactlyOnceWith('google'))
-    await waitFor(() => expect(set).toHaveBeenCalledTimes(2))
-    await waitFor(() =>
-      expect(start).toHaveBeenCalledExactlyOnceWith({ locale: 'en', ending: 'done', roomId: '!atum:test' })
-    )
+    await waitFor(() => expect(set).toHaveBeenCalledExactlyOnceWith('google', true))
+    await waitFor(() => expect(start).toHaveBeenCalledExactlyOnceWith({ locale: 'en', ending: 'done', roomId: '!atum:test' }))
+    await waitFor(() => expect(row('google')!.dataset.atumFirstRunState).toBe('connected'))
+
+    fireEvent.click(within(row('folders')!).getByRole('button', { name: 'Connect' }))
+    await waitFor(() => expect(set).toHaveBeenCalledWith('folders', true))
+    expect(start).toHaveBeenCalledOnce()
+    expect(google.connect).toHaveBeenCalledOnce()
   })
 
-  it('settles without learning and keeps the greeting usable on Not now', async () => {
+  it('Skip the rest marks the open rows skipped and declines learning when nothing was connected', async () => {
     const { decline, set, start } = bridge()
     show()
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Not now' }))
+    await waitFor(() => expect(row('google')).not.toBeNull())
+    fireEvent.click(screen.getByRole('button', { name: 'Skip the rest' }))
     await waitFor(() => expect(decline).toHaveBeenCalledOnce())
     expect(start).not.toHaveBeenCalled()
     expect(set).not.toHaveBeenCalled()
-    expect(screen.queryByRole('heading', { name: 'Let me get to know your world' })).toBeNull()
-    expect(screen.getByText(/^Hi Minh, I’m Atum\./)).toBeTruthy()
+    expect(row('google')!.dataset.atumFirstRunState).toBe('skipped')
+    expect(screen.queryByRole('button', { name: 'Skip the rest' })).toBeNull()
+    // A skipped row can still be connected from the list.
+    expect(within(row('google')!).getByRole('button', { name: 'Connect' })).toBeTruthy()
+    expect(screen.getByText(WELCOME)).toBeTruthy()
   })
 
-  it('keeps the registry row when Google is already connected', async () => {
-    bridge()
-    render(
-      <I18nProvider configClient={null} initialLocale="en">
-        <MatrixFirstRunCard
-          snapshot={{
-            ...base,
-            googleAssistant: {
-              state: 'ready',
-              services: { gmail: true, send: true, calendar: true, drive: true }
-            }
-          }}
-        />
-      </I18nProvider>
-    )
-    await screen.findByText('Google')
-    expect(window.document.querySelector('[data-atum-ask="google"]')).not.toBeNull()
-    expect(screen.getByRole('heading', { name: 'Let me get to know your world' })).toBeTruthy()
-    expect(screen.getByRole('button', { name: 'Not now' })).toBeTruthy()
+  it('connects an already-signed-in Google account without another browser trip', async () => {
+    const { google, set } = bridge()
+    show({ ...base, googleAssistant: { state: 'ready', services: { gmail: true, send: true, calendar: true, drive: true } } })
+
+    await waitFor(() => expect(row('google')).not.toBeNull())
+    fireEvent.click(within(row('google')!).getByRole('button', { name: 'Connect' }))
+    await waitFor(() => expect(set).toHaveBeenCalledExactlyOnceWith('google', true))
+    expect(google.connect).not.toHaveBeenCalled()
   })
 
-  it('keeps the registry row visible when connecting would not help yet', async () => {
+  it('keeps the same list after a skip, with no separate Google chip', async () => {
     bridge()
-    show({ ...base, googleAssistant: { state: 'unavailable', reason: 'route' } })
-    await screen.findByRole('heading', { name: 'Let me get to know your world' })
-    expect(window.document.querySelector('[data-atum-ask="google"]')).not.toBeNull()
-  })
+    show(base, 'en', { greeting: WELCOME, skipped: true })
 
-  it('replaces the initial card with the small chip after skip', () => {
-    bridge()
-    render(
-      <I18nProvider configClient={null} initialLocale="en">
-        <MatrixFirstRunCard roomId="!atum:test" skipped snapshot={base} />
-      </I18nProvider>
-    )
-
-    expect(window.document.querySelector('[data-matrix-first-run-connect-card]')).toBeNull()
-    expect(window.document.querySelector('[data-matrix-google-nudge][data-placement="greeting"]')).not.toBeNull()
-    expect(screen.getByRole('button', { name: 'Connect Google' })).toBeTruthy()
+    await waitFor(() => expect(row('google')).not.toBeNull())
+    expect(window.document.querySelector('[data-matrix-first-run="skipped"]')).not.toBeNull()
+    expect(window.document.querySelector('[data-matrix-google-nudge]')).toBeNull()
   })
 })
 

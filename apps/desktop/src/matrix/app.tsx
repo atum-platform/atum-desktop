@@ -38,6 +38,7 @@ import {
 import { ComposerSurface } from '@/app/chat/composer/composer-surface'
 import { AccountConnectSheet } from '@/app/connections/connect-sheet'
 import { FirstRunConnections } from '@/app/connections/first-run-connections'
+import { $firstRunListOpen, firstRunHoldsNotices } from '@/app/connections/first-run-controller'
 import { useFirstRunAutoPick } from '@/app/connections/use-first-run-auto-pick'
 import { workCopy } from '@/app/work/copy'
 import { WorkRelayMessageLine } from '@/app/work/relay-chrome'
@@ -340,7 +341,6 @@ import { $founderDraftOpen, closeFounderDraft, useFounderChatRequests } from './
 import { FounderHeaderIdentity } from './founder/header-identity'
 import { FounderIntroCard } from './founder/intro-card'
 import { isFounderRoom } from './founder/roster-founder'
-import { MatrixGoogleConnectNudge } from './google-connection-settings'
 import { MatrixGoogleWriteProposals } from './google-write-card'
 import { AssistantGreeting } from './greeting'
 import {
@@ -495,7 +495,6 @@ import { MatrixSendState } from './send-state'
 import { type MatrixSettingsPane, MatrixSettingsSheet } from './settings-sheet'
 import { MatrixSignIn } from './sign-in'
 import { MatrixStartChatButton } from './start-chat'
-import { MatrixStarterNotice } from './starter-notice'
 import { matrixStartupBlocking, MatrixStartupScreen } from './startup-screen'
 import { MatrixStoreSidebar, useMatrixStoreNavigation } from './store/store-sidebar'
 import { $matrixStoreDraft, MatrixStoreDraftSeed } from './store/store-try'
@@ -660,6 +659,8 @@ const ConversationActions = createContext<{
   latestAnswerId?: string
   /** The assistant's first-run greeting: the Connections block stays right under it in the chat's history. */
   firstRunGreetingReplyId?: string
+  /** What that Connections list needs from the window. */
+  firstRunConnections?: { assistantName: string; googleAssistant?: MatrixSnapshot['googleAssistant']; learningOffered: boolean; roomId?: string }
   /** Your newest message: nothing under it says "Sent" any more, but the composer keeps its
    * starter prompts only until you have written once. */
   latestOwnId?: string
@@ -1682,7 +1683,7 @@ function MatrixEventMessageBubble() {
         <WorkRelayMessageLine chrome={message.relayTurn} className={underText} plan={workRelayNoticePlan(message.answeredByFallback?.plan)} />
       )}
       {action?.firstRunGreetingReplyId === message.id && !message.own && (
-        <FirstRunConnections className="mt-(--ak-s2) max-w-[32.5rem]" />
+        <FirstRunConnections className="mt-(--ak-s2) max-w-[32.5rem]" {...action.firstRunConnections} />
       )}
       {savedScope && saved && (
         <Tip label={savedCopy.marker}>
@@ -5722,6 +5723,7 @@ function Conversation({
   const channelFacts = useCompanyChannelFacts(teamSpaceAccountKey(snapshot.identity), room)
   const captureCard = useCompanyBoardCapture(teamSpaceAccountKey(snapshot.identity), room)
   const companyStatuses = useStore($companyAIStatuses)
+  const firstRunListOpen = useStore($firstRunListOpen)
 
   const companyAI = room?.companyChannel
     ? companyStatuses[companySpaceScope(teamSpaceAccountKey(snapshot.identity), room.companyChannel.companyId)]
@@ -5757,6 +5759,10 @@ function Conversation({
     room.assistant && snapshot.assistantPath !== 'server' && snapshot.readiness && !snapshot.linkedDocument && !cloudRoomAgent(snapshot, room)
   )
 
+  // The route the composer uses for this room: the local turn on this Mac, else the ordinary Matrix send.
+  const sendGreeting = (roomId: string, body: string) =>
+    greetingLocal ? window.atumMatrix.sendTurn(roomId, body) : runMatrixCommand({ kind: 'send', roomId, body })
+
   const firstRunSkippedHere = Boolean(
     room.assistant &&
     assistantEligible &&
@@ -5774,6 +5780,14 @@ function Conversation({
   const assistantName = conversationAgent
     ? matrixRosterAgentName(conversationAgent, t.matrixShell.assistantName)
     : t.matrixShell.assistantName
+  // The one Connections list, wherever it stays in the primary assistant's chat (first-run-connections.tsx).
+  const firstRunConnectionsFacts = {
+    assistantName,
+    googleAssistant: snapshot.googleAssistant,
+    // While the account's welcome is still open, the first Connect admits first learning.
+    learningOffered: snapshot.firstRunOpen === true,
+    roomId: room.id
+  }
 
   // While the agent works on your message the chat shows it typing (its own standard typing
   // notification, or this Mac's turn still being answered), then its answer: no step-by-step.
@@ -5908,6 +5922,7 @@ function Conversation({
               composer,
               latestAnswerId,
               firstRunGreetingReplyId: defaultAssistantChat ? snapshot.firstRunGreetingReplyId : undefined,
+              firstRunConnections: defaultAssistantChat ? firstRunConnectionsFacts : undefined,
               latestOwnId,
               firstUnreadId,
               forward: forwarding.open,
@@ -5921,11 +5936,7 @@ function Conversation({
                 <FirstRunGreetingSender
                   roomId={greetingSend}
                   seed={firstRunGreetingSeed(locale, snapshot.ownProfile?.displayName)}
-                  send={body =>
-                    greetingLocal
-                      ? window.atumMatrix.sendTurn(greetingSend, body)
-                      : runMatrixCommand({ kind: 'send', roomId: greetingSend, body })
-                  }
+                  send={body => sendGreeting(greetingSend, body)}
                 />
               )}
               {appHistory.loading && appHistory.entries.length === 0 && (
@@ -5956,6 +5967,7 @@ function Conversation({
                       greeting={greetingReply?.body}
                       greetingPending={firstRunHere && greetingSeedSent && !greetingReply}
                       key={`${snapshot.identity?.userId ?? ''}:${snapshot.identity?.deviceId ?? ''}:${room.id}`}
+                      resendGreeting={firstRunHere ? () => sendGreeting(room.id, firstRunGreetingSeed(locale, snapshot.ownProfile?.displayName)) : undefined}
                       roomId={room.id}
                       skipped={firstRunSkippedHere}
                       snapshot={snapshot}
@@ -5995,7 +6007,7 @@ function Conversation({
                     <ChannelIntroFor accountKey={teamSpaceAccountKey(snapshot.identity)} room={room} />
                   ) : defaultAssistantChat && snapshot.historyStart && snapshot.roomId === room.id && !snapshot.firstRunGreetingReplyId ? (
                     // The primary assistant's Connections stay at the start of its chat once it has messages (owner 11-27).
-                    <FirstRunConnections />
+                    <FirstRunConnections {...firstRunConnectionsFacts} />
                   ) : undefined
                 }
                 loadEarlier={loadEarlier}
@@ -6069,9 +6081,6 @@ function Conversation({
                 <NoticeBand tone="notice">{conversationCopy.cannotSend}</NoticeBand>
               )}
               {(defaultAssistantChat || firstRunHere) && <MatrixFolderAccessRecovery snapshot={snapshot} />}
-              {defaultAssistantChat && snapshot.firstRunWelcome === 'dismissed' && !firstRunSkippedHere && (
-                <MatrixGoogleConnectNudge access={snapshot.googleAssistant} scope={snapshot.identity?.userId} />
-              )}
               {/* The owner's pending Google writes for this agent chat, read from Shell's list (never
                 from the room) and refreshed on this chat's activity. */}
               {(room.assistant || cloudAgent) && (
@@ -6083,8 +6092,8 @@ function Conversation({
                 />
               )}
               {/* Cloud assistants read this Mac's sources: said once, above the box, never in the way.
-                The first-run card says it for a new account. */}
-              {room.assistant && !firstRunHere && snapshot.identity && (
+                The first-run Connections list says it for a new account, so this waits until that list is answered. */}
+              {room.assistant && !firstRunHoldsNotices({ firstRunHere, listOpen: firstRunListOpen }) && snapshot.identity && (
                 <MatrixMacSourcesNotice scope={`${snapshot.identity.userId}:${snapshot.identity.deviceId}`} />
               )}
               <MatrixComposer
@@ -6095,11 +6104,6 @@ function Conversation({
                 draftTarget={teamSpaceRoom || notesSelfRoom ? { roomId: room.id } : undefined}
                 fail={fail}
                 key={`${snapshot.identity?.userId ?? ''}:${snapshot.identity?.deviceId ?? ''}:${room.id}`}
-                notice={
-                  latestOwnId ? undefined : (
-                    <MatrixStarterNotice defaultAssistantChat={defaultAssistantChat} locale={locale} snapshot={snapshot} />
-                  )
-                }
                 onAppAction={onAppAction}
                 onBotOutcome={recordAppBotOutcome}
                 onModelSettings={onModelSettings}
