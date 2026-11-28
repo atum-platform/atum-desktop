@@ -2563,8 +2563,10 @@ function MatrixComposer({
   const composerAgentPrincipal = room.agentPrincipal ?? (room.assistant ? primaryAgent(snapshot)?.principal : undefined)
 
   const [richDialog, setRichDialog] = useState<'poll' | 'location'>()
+
   const richAvailable = !attachClosed && !teamSpaceBox && !recipient && !botApiRoom && !threadRootId &&
     !privateCos && !room.appBot && !room.assistant && !notesSelfRoom
+
   const plusAvailability: ComposerPlusAvailability = {
     poll: richAvailable,
     location: richAvailable,
@@ -2589,8 +2591,10 @@ function MatrixComposer({
         return
 
       case 'poll':
+
       case 'location':
         setRichDialog(kind)
+
         return
 
       case 'routines':
@@ -5703,9 +5707,11 @@ function Conversation({
   // The first run: the assistant's generated greeting sits inside the welcome card (with Connections under it), not in the
   // transcript, until the person writes.
   const greetingReplyId = snapshot.firstRunGreetingReplyId
+
   const greetingInCard = Boolean(
     room && greetingReplyId && messages.length === 1 && messages[0]?.id === greetingReplyId && matrixFirstRunPlace(snapshot, room.id)
   )
+
   const transcriptMessages = greetingInCard ? [] : messages
 
   const transcript = useExternalStoreRuntime({
@@ -5752,6 +5758,7 @@ function Conversation({
   // The hidden greeting intent and the assistant's answer to it start the room's dialogue, but not the person's: the
   // welcome (now with the generated greeting) stays until they write (first-run-greeting.ts).
   const greetingSeedSent = firstRunGreetingSent(room.id)
+
   const firstRunHere = Boolean(
     room.assistant &&
     assistantEligible &&
@@ -5759,11 +5766,13 @@ function Conversation({
     (messages.length === 0 || greetingInCard) &&
     matrixFirstRunPlace(snapshot, room.id)
   )
+
   const greetingReply = greetingInCard ? snapshot.messages.find(message => message.id === greetingReplyId) : undefined
 
   // The hidden opening intent goes once, through the route the composer uses for this room: the local turn on this Mac,
   // else the ordinary Matrix send to the cloud-placed assistant (<FirstRunGreetingSender>, below).
   const greetingSend = firstRunHere && !greetingSeedSent && messages.length === 0 ? room.id : null
+
   const greetingLocal = Boolean(
     room.assistant && snapshot.assistantPath !== 'server' && snapshot.readiness && !snapshot.linkedDocument && !cloudRoomAgent(snapshot, room)
   )
@@ -6692,6 +6701,7 @@ function MatrixRoster({
     setSearchScope(scope)
     setQuery('')
   }
+
   const clearQuery = () => {
     resetSearch(searchScope)
     setQuery('')
@@ -6755,10 +6765,12 @@ function MatrixRoster({
     }
 
     const isFile = 'file' in result && result.file
+
     const threadRootId = isFile
       ? (isTeamSpaceRoom(room) ? result.threadRootId : undefined)
       : await runMatrixCommand({ kind: 'selectSearchEvent', scope: searchScope,
         roomId: result.roomId, eventId: result.eventId, threadRootId: result.threadRootId })
+
     const targetThread = typeof threadRootId === 'string' ? threadRootId : undefined
 
     if (targetThread) {onSearchThread(result.roomId, targetThread)}
@@ -7746,6 +7758,7 @@ function MatrixAccountView({
   const signedIn = Boolean(snapshot.identity)
   useEffect(() => window.atumMatrix.onDocumentClose?.(async updating => {
     await prepareMatrixDocumentClose()
+
     if (updating) {checkpointBrowserForUpdate()}
   }), [])
   useEffect(() => {

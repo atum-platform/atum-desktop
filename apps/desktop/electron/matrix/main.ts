@@ -233,8 +233,8 @@ import type {
   MatrixProviderOAuthSession,
   MatrixProviderWriteResult
 } from '../../shared/matrix-provider-settings'
-import { type MatrixRosterMessagePage, matrixRosterSearchRooms } from '../../shared/matrix-roster-search'
 import { matrixHumanVoiceRoom } from '../../shared/matrix-rich-content'
+import { type MatrixRosterMessagePage, matrixRosterSearchRooms } from '../../shared/matrix-roster-search'
 import { matrixRuntimeConfirmationCopy } from '../../shared/matrix-runtime-copy'
 import type {
   MatrixOwnDevices,
@@ -17646,12 +17646,14 @@ async function start() {
   previousUpdateBounds = app.isPackaged ? readUpdateBounds(handoffDirectory) : null
 
   const signedStageEnabled = () => stagedSwapEnabled(path.join(app.getPath('userData'), 'updates.json'))
+
   const canRetireBackup = (journal: Journal) => {
     const previous = readShippedPin(path.join(journal.backup, 'Contents', 'Resources'))
     const current = readShippedPin(process.resourcesPath)
 
     return previous.version === current.version || workHomesReadCurrentPin(app.getPath('userData'), current.version)
   }
+
   const stage = new StagedSwap({
     home: app.getPath('home'),
     id: STAGED_APP_ID,
@@ -17664,6 +17666,7 @@ async function start() {
   })
 
   const updateJournal = app.isPackaged ? readJournal(app.getPath('home'), stage.root) : null
+
   const plannedWork = updateJournal?.target === path.resolve(process.resourcesPath, '..', '..') &&
     updateJournal.toVersion === app.getVersion() && updateJournal.work !== undefined &&
     !markerExists(handoffDirectory, 'shown') ? updateJournal : undefined
@@ -17683,12 +17686,14 @@ async function start() {
     busy: () => isolationBusy() || allAgents().some(each => Boolean(each.invocation)),
     admit: async expectedVersion => {
       admittedUpdateOwner = undefined
+
       if (isolationBusy() || matrixConsumerBrowser.hasActiveDownloads() || !signedStageEnabled()) {
         return 'Wait for local work to finish, then try again.'
       }
 
       const scope = account?.appScope()
       const identity = state.identity
+
       try {
         await stage.assertPrepared(expectedVersion)
       } catch {
@@ -17701,12 +17706,15 @@ async function start() {
         return active?.accountKey === scope?.accountKey && active?.generation === scope?.generation &&
           identity?.userId === state.identity?.userId && identity?.deviceId === state.identity?.deviceId
       }
+
       if (!currentOwner()) {
         return 'The active account changed. Check for updates and try again.'
       }
+
       if (isolationBusy() || matrixConsumerBrowser.hasActiveDownloads()) {
         return 'Wait for local work to finish, then try again.'
       }
+
       admittedUpdateOwner = currentOwner
 
       return null
@@ -17716,11 +17724,13 @@ async function start() {
       install: () => new Promise<void>((resolve, reject) => {
         const currentOwner = admittedUpdateOwner
         admittedUpdateOwner = undefined
+
         if (pendingUpdateSwap || closing || !currentOwner?.()) {
           reject(new Error('Restart is no longer available. Try again.'))
 
           return
         }
+
         updateShutdownSafe = false
         let workUpdate: StagedWorkUpdate | null = null
         pendingUpdateSwap = {
@@ -17729,19 +17739,23 @@ async function start() {
             if (state.terminals?.some(terminal => terminal.open) || !await matrixConsumerBrowser.canRestartForUpdate()) {
               throw new Error('Close active terminal or browser work before restarting.')
             }
+
             workUpdate = await work?.prepareUpdate(stage.preparedResources()) ?? null
           },
           async run() {
             try {
               if (!updateShutdownSafe) {throw new Error('Local services did not finish shutting down.')}
+
               if (ui && !ui.isDestroyed() && !ui.isFullScreen()) {
                 saveUpdateBounds(handoffDirectory, ui.getNormalBounds())
               }
+
               await stage.install({ relaunch: true, work: workUpdate })
               resolve()
               app.exit(0)
             } catch (error) {
               reject(error)
+
               // The closed owners cannot continue in this process. The waiter, when
               // present, owns reopening and recovery of the previous signed bundle.
               if (!stage.waiterRunning) {app.relaunch()}
@@ -19520,13 +19534,16 @@ async function start() {
     requireMatrixCaller(event, ui?.webContents, UI_URL)
     microphoneConsent = undefined
     const owner = hosts.get('human')
+
     const voiceNoteCurrent = () =>
       Boolean(owner && hosts.get('human') === owner && !closing && !anyOperation() &&
         state.state === 'ready' && state.roomId === roomId &&
         state.rooms.some(room => room.id === roomId && room.membership === 'join'))
+
     const isCurrent = mode === 'voiceNote'
       ? voiceNoteCurrent
       : (await bindMatrixVoice(voiceSource, roomId)).isCurrent
+
     if (!isCurrent()) {
       return false
     }
@@ -20713,9 +20730,12 @@ async function start() {
         async refreshMatrixToken(refused) {
           // The SDK may already have rotated the token while Shell's request was in flight.
           const current = account.sdkConfiguration().accessToken
+
           if (current !== refused) {return current}
           const result = await account.confirmSession()
+
           if (!result.ok) {throw new Error('work_mcp_session_unavailable')}
+
           return result.accessToken
         }
       },
@@ -25249,10 +25269,12 @@ async function start() {
 
         if (input.kind === 'rosterMessageSearch') {
           const owner = hosts.get('human')
+
           const scopedRooms = () => new Set(matrixRosterSearchRooms(companyProjection(state).rooms)
             .filter(room => input.scope === 'device' ? room.encrypted :
               !room.encrypted && !room.companyChannel && !room.companyConversation)
             .map(room => room.id))
+
           const allowed = scopedRooms()
 
           if (!owner || state.state !== 'ready') {throw new Error('matrix_roster_search_unavailable')}
@@ -26304,6 +26326,7 @@ async function start() {
 
     if (plannedWork?.work && !work) {throw new Error('work_update_owner_unavailable')}
     await work?.resumeUpdate()
+
     if (app.isPackaged && process.platform === 'darwin') {
       confirmHealthyStart({
         hidden: deviceLaunch === 'login_hidden',
@@ -26318,6 +26341,7 @@ async function start() {
   } catch {
     startupState = undefined
     publish({ ...state, state: 'error', error: 'matrix_vault_unavailable' })
+
     if (plannedWork?.work && !selectedWorkUpdate(app.getPath('userData'), plannedWork)) {app.quit()}
   }
 }
@@ -26387,12 +26411,15 @@ if (stagedRecovery === 'exiting') {
 
         updateDraining = Boolean(pendingUpdateSwap)
         const updateAgents = updateDraining ? allAgents() : []
+
         // Stop claiming before the runtime drain. The existing Mac job lifecycle and outbox own recovery.
         const jobs = updateAgents.map(agent => {
           const lifecycle = macJobs.get(agent)?.lifecycle
           lifecycle?.stop()
+
           return lifecycle?.drained()
         })
+
         const drained = await drainMatrixRuntimes(allAgents(), {
           holdOperations: true,
           reason: 'cancelled',
@@ -26452,6 +26479,7 @@ if (stagedRecovery === 'exiting') {
             timedStop('sdk', () => account ? account.close(stopSdk) : stopSdk()),
             matrixConsumerBrowser.releaseConsumerPartitions()
           ])
+
           updateShutdownSafe = !drained.timedOut && results.every(result => result.status === 'fulfilled')
         } finally {
           matrixConsumerBrowser.dispose()
@@ -26467,6 +26495,7 @@ if (stagedRecovery === 'exiting') {
 
           return 'retry'
         }
+
         if (swap) {
           void swap.run()
 
@@ -26481,6 +26510,7 @@ if (stagedRecovery === 'exiting') {
         prepare: async () => {
           await prepareDocumentClose(Boolean(pendingUpdateSwap))
           await pendingUpdateSwap?.prepare()
+
           if (pendingUpdateSwap && (!pendingUpdateSwap.currentOwner() || isolationBusy() || matrixConsumerBrowser.hasActiveDownloads())) {
             throw new Error('Local work started during restart preparation.')
           }
