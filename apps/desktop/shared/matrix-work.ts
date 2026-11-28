@@ -154,6 +154,8 @@ export function parseWorkAttention(value: unknown): WorkAttentionSnapshot | null
 export const WORK_BAND_COMMANDS = ['sidebar.toggle', 'chat.new', 'chat.newWorktree', 'project.add', 'history.back', 'history.forward', 'rightPanel.toggle'] as const
 export type WorkBandCommand = (typeof WORK_BAND_COMMANDS)[number]
 
+import { isWorkLocalPlan, isWorkLocalPlanAction, type WorkLocalPlan, type WorkLocalPlanAction, type WorkLocalPlanStates } from './work-local-plans'
+
 export type MatrixWorkRequest =
   | { kind: 'getSurfaceMode' }
   | { kind: 'getSidebar' }
@@ -173,6 +175,8 @@ export type MatrixWorkRequest =
   | { kind: 'readConnections' }
   /** First run: this Mac's four connections and their plan names, as T3 reports them (local only). */
   | { kind: 'readPlanLabels' }
+  | { kind: 'readLocalPlans' }
+  | { kind: 'localPlanAction'; plan: WorkLocalPlan; action: WorkLocalPlanAction }
   /** Settings: Work itself on or off for this account on this Mac (§8.5). */
   | { kind: 'setWork'; on: boolean }
 
@@ -203,6 +207,8 @@ export interface MatrixWorkBridge {
   readConnections?(): Promise<AccountConnectionsView | null>
   /** First run: this Mac's four connections (ChatGPT, Claude, Antigravity, OpenCode) and T3's plan names. */
   readPlanLabels?(): Promise<FirstRunLabels>
+  readLocalPlans?(): Promise<WorkLocalPlanStates>
+  localPlanAction?(plan: WorkLocalPlan, action: WorkLocalPlanAction): Promise<string | void>
   /** One tap, every Mac: revoke the platform's account-wide consent record. */
   revokePlanConsent(plan?: WorkRelayPlan): Promise<MatrixWorkPlanConsent>
   /** Turn Work on or off on this Mac. Off stops what runs and refuses to start it; on lets it start again. */
@@ -290,6 +296,7 @@ export function parseMatrixWorkRequest(value: unknown): MatrixWorkRequest | null
 
     case 'readConnections':
 
+    case 'readLocalPlans':
     case 'readPlanLabels':
       return keys.length === 1 ? { kind: row.kind } : null
 
@@ -306,6 +313,10 @@ export function parseMatrixWorkRequest(value: unknown): MatrixWorkRequest | null
       return consent && (row.plan === undefined || relayPlan)
         ? { kind: 'setPlanConsent', consent, ...(relayPlan ? { plan: relayPlan } : {}) } : null
     }
+
+    case 'localPlanAction':
+      return keys.length === 3 && isWorkLocalPlan(row.plan) && isWorkLocalPlanAction(row.plan, row.action)
+        ? { kind: 'localPlanAction', plan: row.plan, action: row.action } : null
 
     case 'setWork':
       return keys.length === 2 && typeof row.on === 'boolean' ? { kind: 'setWork', on: row.on } : null

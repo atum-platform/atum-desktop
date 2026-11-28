@@ -34,6 +34,7 @@ import {
   type WorkSurfaceParts
 } from '../work/surface'
 import { readAccountConnections } from '../work/surface/account-connections'
+import { readLocalPlanStates, setupWorkLocalPlan } from '../work/surface/local-plans'
 import { watchWorkModelDefault } from '../work/surface/model-default'
 import { projectPlanCapabilities, projectPlanLabels } from '../work/surface/plan-capabilities'
 import { type PlanCapabilities, WorkPlanFacts } from '../work/surface/plan-facts'
@@ -820,6 +821,20 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
       }),
       // First run: the four connections and T3's plan names. Local to this Mac; never reported to the account.
       readPlanLabels: async () => currentNativePlans(bound)?.labels ?? {},
+      readLocalPlans: () => readLocalPlanStates(
+        host.current(), bound, deps.sessionFromPartition(partitionFor(bound.key)), () => host.current()
+      ),
+      async setupLocalPlan(plan, action) {
+        const running = host.current()
+
+        if (!running || !host.enabled() || running.accountKey !== bound.key || running.generation !== bound.generation) {
+          throw new Error('work_setup_unavailable')
+        }
+
+        const scope = new AbortController()
+        void running.exited.then(() => scope.abort())
+        return setupWorkLocalPlan(running.origin, deps.sessionFromPartition(partitionFor(bound.key)), plan, action, scope.signal)
+      },
       deviceServiceId: () => deps.deviceServiceId(),
       relay: createOwnerRelay(async () => {
         const deviceServiceId = deps.deviceServiceId()
