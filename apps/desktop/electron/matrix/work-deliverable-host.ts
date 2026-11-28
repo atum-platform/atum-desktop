@@ -11,8 +11,7 @@ import {
   type WorkDeliverableStatus
 } from '../work/sidecar/deliverable-contract'
 
-import { validMacDeliverablePath } from './drive-deliverables-source'
-import type { WorkDeliverableResult, WorkDeliverables, WorkDeliverableScope } from './work-deliverable'
+import { parseWorkDeliverableResult, type WorkDeliverableResult, type WorkDeliverables, type WorkDeliverableScope } from './work-deliverable'
 
 interface WorkDeliverableRecord extends WorkDeliverableId {
   ownerKey: string
@@ -54,17 +53,6 @@ function privateOutputRoot(owner: WorkDeliverableOwner, artifactId: string, valu
 
   if (stat.isDirectory() && stat.uid === process.getuid?.() && (stat.mode & 0o077) === 0 && realpathSync(value) === value) {
     return value
-  }
-}
-
-/** S1 accepts the sidecar's normalized DOCX result. Previews stay in Work's private workspace. */
-function parseResult(value: unknown): WorkDeliverableResult | undefined {
-  if (!value || typeof value !== 'object') {return undefined}
-  const { path: relativePath, format, preview } = value as Partial<WorkDeliverableResult>
-
-  if (format === 'docx' && preview === null && typeof relativePath === 'string' &&
-      validMacDeliverablePath(relativePath) && /\.docx$/iu.test(relativePath)) {
-    return { path: relativePath, format, preview }
   }
 }
 
@@ -112,7 +100,7 @@ export class WorkDeliverableHost {
         return this.serial.run<WorkDeliverableStatus>(async () => {
           if (!current()) {return { state: 'cancelled' }}
           const record = readRecord(owner, id)
-          const result = 'result' in value ? parseResult(value.result) : undefined
+          const result = 'result' in value ? parseWorkDeliverableResult(value.result) : undefined
 
           if (!record || !result || (record.result && record.result.path !== result.path)) {return { state: 'invalid' }}
 
@@ -160,7 +148,8 @@ export class WorkDeliverableHost {
       const record = readRecord(owner, id)
 
       if (!this.receiver || !record?.scope || !record.result) {return false}
-      await this.receiver.open(record.scope, record.result, current)
+      const preview = Boolean(value && typeof value === 'object' && 'asset' in value && value.asset === 'preview')
+      await this.receiver.open(record.scope, record.result, current, preview)
 
       return true
     } catch {

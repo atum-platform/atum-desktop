@@ -44,7 +44,7 @@ export function verifyWorkRuntimeSignatures(appPath) {
   execFileSync('/usr/bin/codesign', ['--verify', '--deep', '--strict', appPath])
   let verified = 0
 
-  for (const root of ['work-runtime', 'runtime/python']) {
+  for (const root of ['work-runtime', 'runtime/python', 'runtime/work-authoring']) {
     let found = false
     for (const path of candidates(join(resources, root))) {
       // Fat Java class files share Mach-O's magic. The native parser distinguishes them.

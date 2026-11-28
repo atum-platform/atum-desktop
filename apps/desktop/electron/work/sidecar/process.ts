@@ -1,5 +1,6 @@
 import { type ChildProcessByStdio, execFile, spawn } from 'node:child_process'
 import { createHmac, randomBytes, randomUUID } from 'node:crypto'
+import { existsSync } from 'node:fs'
 import { mkdir, readFile } from 'node:fs/promises'
 import { homedir, tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -149,6 +150,7 @@ async function startProcess(options: WorkProcessOptions, { continuation, trial }
   } : undefined
   // Keep Node IPC in slot 3 so the desktop control pipes remain on fds 4 and 5.
   const nodeIpc = trial || options.deliverableMessage ? 'ipc' : 'ignore'
+  const designSkill = join(resources, 'runtime', 'work-authoring', 'work-design', 'SKILL.md')
 
   const child = spawn(python, ['-P', '-B', '-X', 'utf8', join(resources, 'work-runtime', 'supervisor.py')], {
     env: environment,
@@ -202,7 +204,8 @@ async function startProcess(options: WorkProcessOptions, { continuation, trial }
       ...workThreadMcpEnvironment(WORK_THREAD_MCP_ORIGINS),
       ...(options.deliverableMessage ? {
         ATUM_WORK_MEMO_PYTHON: python,
-        ATUM_WORK_MEMO_SCRIPT: join(resources, 'runtime', 'work-authoring', 'memo.py')
+        ATUM_WORK_MEMO_SCRIPT: join(resources, 'runtime', 'work-authoring', 'memo.py'),
+        ...(existsSync(designSkill) ? { ATUM_WORK_DESIGN_SKILL: designSkill } : {})
       } : {}),
       ...(credentials.ATUM_WORK_CONNECTOR_URL
       ? { ATUM_WORK_CONNECTOR_URL: credentials.ATUM_WORK_CONNECTOR_URL }
