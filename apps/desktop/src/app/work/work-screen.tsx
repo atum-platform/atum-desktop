@@ -9,7 +9,7 @@ import type { MatrixWorkBridge, MatrixWorkProjection, MatrixWorkViewState } from
 
 import { workCopy, type WorkWords } from './copy'
 import { useWorkViewPlacement } from './use-work-view-placement'
-import { useWorkHistoryArrows, useWorkSidebar, WorkModeSwitch, WorkRightPanelToggle, WorkRosterControls, WorkTitle } from './work-band'
+import { useWorkHistoryArrows, useWorkSidebar, WorkModeSwitch, WorkRightPanelToggle, WorkTitle } from './work-band'
 
 export interface WorkScreenProps {
   bridge: MatrixWorkBridge
@@ -122,7 +122,6 @@ export function WorkScreen({
         windowControls={windowControls}
       >
         <div className="flex min-w-0 items-center gap-3">
-          {projection.view === 'ready' && <WorkRosterControls bridge={bridge} copy={copy} />}
           <WorkTitle copy={copy} />
         </div>
       </AtumMainHeaderSurface>

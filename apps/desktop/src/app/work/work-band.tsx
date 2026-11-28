@@ -1,41 +1,13 @@
 import { useEffect, useState } from 'react'
 
 import { Tip } from '@/components/ui/tooltip'
-import { FolderPlus, GitBranch, LayoutSidebarRight, MessagePlus } from '@/lib/icons'
+import { LayoutSidebarRight } from '@/lib/icons'
 import { setMatrixNavLocal } from '@/matrix/navigation-history'
-import { MatrixPlusMenu } from '@/matrix/plus-menu'
 import { rightPanelToggleCopy } from '@/matrix/right-panel'
 
-import type { MatrixWorkBridge, WorkBandCommand, WorkSidebarSnapshot, WorkSurfaceModeSnapshot } from '../../../shared/matrix-work'
+import type { MatrixWorkBridge, WorkSidebarSnapshot, WorkSurfaceModeSnapshot } from '../../../shared/matrix-work'
 
 import type { WorkWords } from './copy'
-
-/**
- * New, as the plus menu every screen has (layout r2 §4, owner 2026-11-24): T3's own pencil mapped
- * through the host chrome. New thread ⌘N, New thread in a worktree, then Add project; each runs T3's
- * own command in the owner view. Absent bridge: no button.
- */
-export function WorkRosterControls({ bridge, copy }: { bridge: Pick<MatrixWorkBridge, 'runCommand'>; copy: WorkWords }) {
-  if (!bridge.runCommand) {
-    return null
-  }
-
-  const run = (command: WorkBandCommand) => void bridge.runCommand?.(command).catch(() => false)
-
-  return (
-    <div className="flex shrink-0 items-center [-webkit-app-region:no-drag]" data-atum-work-roster-controls>
-      <MatrixPlusMenu
-        items={[
-          { id: 'thread', label: copy.band.newThread, icon: <MessagePlus aria-hidden />, shortcut: '⌘N', onSelect: () => run('chat.new') },
-          { id: 'worktree', label: copy.band.newWorktreeThread, icon: <GitBranch aria-hidden />, onSelect: () => run('chat.newWorktree') },
-          { id: 'project', label: copy.band.addProject, icon: <FolderPlus aria-hidden />, separated: true, onSelect: () => run('project.add') }
-        ]}
-        label={copy.band.newMenu}
-        screen="work"
-      />
-    </div>
-  )
-}
 
 /**
  * The open thread's right panel, toggled from the title bar's right as every screen's panel is (owner
