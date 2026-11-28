@@ -281,6 +281,7 @@ import { EncryptedStore } from '../encrypted-store'
 import { createNativeAppInventory } from '../native-app-inventory'
 import { createNativeAppWindows, nativeAppPresentation, nativeWordAutomationAllowed } from '../native-app-window'
 import { NativeAppsController } from '../native-apps'
+import { quickenNativeTooltips } from '../native-tooltip-delay'
 import { ownedBackgroundChildren } from '../owned-background-children'
 import { createAtumKeepAwake } from '../power-save'
 import { reportBackendExit, reportChildProcessGone, reportRendererGone } from '../process-exit-reports'
@@ -26530,6 +26531,8 @@ if (stagedRecovery === 'exiting') {
   // The local brain runs this app's own executable in its own process group; whatever
   // teardown managed, none may outlive the main process (an installer counts copies).
   installMatrixExitBarrier({ app, process, kill: () => {localBrain?.killNow(); ownedBackgroundChildren.killNow()}, log: line => console.warn(line) })
+  // Rail tips beside the Work view are system tooltips; show them without AppKit's long wait.
+  quickenNativeTooltips(process.platform, systemPreferences)
   void app
     .whenReady()
     .then(start)

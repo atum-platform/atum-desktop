@@ -59,7 +59,7 @@ import { NoticeBand } from '@/components/ui/error-state'
 import { Loader } from '@/components/ui/loader'
 import { SegmentedControl } from '@/components/ui/segmented-control'
 import { Switch } from '@/components/ui/switch'
-import { Tip } from '@/components/ui/tooltip'
+import { Tip, TipNative } from '@/components/ui/tooltip'
 import { useMediaQuery } from '@/hooks/use-media-query'
 import { useI18n } from '@/i18n'
 import { appSurfaceIcon } from '@/lib/atum-app-surface-icons'
@@ -9774,7 +9774,8 @@ function MatrixAccountView({
             </section>
           )}
           navigation={
-            <>
+            // Beside the Work view the rail's tips are the system tooltip: the view paints over any DOM tip.
+            <TipNative native={workOnScreen && work?.view === 'ready'}>
               <AtumNavSwitchSurface
                 ariaLabel={shell.navigation}
                 badges={railBadges}
@@ -9821,7 +9822,7 @@ function MatrixAccountView({
                   snapshot={snapshot}
                 />
               </div>
-            </>
+            </TipNative>
           }
           onCloseRosterDrawer={() => setDrawerOpen(false)}
           roster={driveActive ? driveRoster : roster}

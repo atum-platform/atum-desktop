@@ -1,4 +1,4 @@
-import { Tooltip as TooltipPrimitive } from 'radix-ui'
+import { Slot, Tooltip as TooltipPrimitive } from 'radix-ui'
 import * as React from 'react'
 
 import { useI18n } from '@/i18n'
@@ -152,15 +152,33 @@ function TipSide({ side, children }: { side: TipSideValue; children: React.React
   return <TipSideContext.Provider value={side}>{children}</TipSideContext.Provider>
 }
 
+const TipNativeContext = React.createContext(false)
+
+/**
+ * While `native` is on, every Tip inside with a text label is the system's own tooltip (`title`)
+ * instead of the Kit chip. The rail uses it while the Work view sits beside it (owner 2026-11-28:
+ * "Work … covering tooltips"): a rail tip has no room inside the 52 px rail, so it opens over the
+ * workspace, where a native view paints above every DOM node. Only a system tooltip floats above
+ * that view; detaching the view for each hover would blank Work on every pass across the rail.
+ */
+function TipNative({ native, children }: { native: boolean; children: React.ReactNode }) {
+  return <TipNativeContext.Provider value={native}>{children}</TipNativeContext.Provider>
+}
+
 // Drop-in replacement for native `title=`: wrap any single element. Instant,
 // position-aware, themed. Self-contained (carries its own Provider) so it works
 // anywhere without a provider ancestor. Renders the child untouched when label
 // is falsy. Open state is trigger-hover only — never sticky, never click-blocking.
 function Tip({ label, children, delayDuration = 0, side, ...props }: TipProps) {
   const contextSide = React.useContext(TipSideContext)
+  const native = React.useContext(TipNativeContext)
 
   if (!label) {
     return <>{children}</>
+  }
+
+  if (native && typeof label === 'string') {
+    return <Slot.Root title={label}>{children}</Slot.Root>
   }
 
   return (
@@ -215,4 +233,4 @@ function TipKeybindLabel({ actionId, text }: TipKeybindLabelProps) {
   return <TipHintLabel hint={hint ?? undefined} text={label} />
 }
 
-export { Tip, TipHintLabel, TipKeybindLabel, TipSide, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger }
+export { Tip, TipHintLabel, TipKeybindLabel, TipNative, TipSide, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger }

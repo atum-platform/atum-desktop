@@ -35,7 +35,7 @@ import { openAssistantCard } from './assistant-card/store'
 import { MatrixBrowserImportSettings } from './browser-import-settings'
 import { MatrixCloudDeviceSettings } from './cloud-device-settings'
 import { useMatrixCopy } from './copy'
-import { $matrixFeedbackOpen, MatrixDesktopSettings } from './desktop-settings'
+import { $matrixFeedbackOpen, MatrixDesktopSettings, MatrixUpdateSettings } from './desktop-settings'
 import { MatrixDisplaySettings, MatrixNotificationSettings, useMatrixDisplaySetting } from './display-settings'
 import { AssistantRepair, DomainIdentity } from './domain'
 import { FounderContactUs } from './founder/contact-us'
@@ -762,13 +762,15 @@ function PrivacyPane({ snapshot }: { snapshot: MatrixSnapshot }) {
   )
 }
 
-/** How Atum looks, speaks, notifies and starts on this Mac. */
+/** The version and its update, and how Atum looks, speaks, notifies and starts on this Mac. */
 function GeneralPane({ snapshot }: { snapshot: MatrixSnapshot }) {
   const settings = useMatrixSettingsCopy()
   const { t } = useI18n()
 
   return (
     <div data-matrix-settings-destination="general">
+      {/* The version and its update lead General (owner 2026-11-28), above how Atum looks. */}
+      <MatrixUpdateSettings />
       <SettingsSection title={settings.look}>
         <MatrixDisplaySettings snapshot={snapshot} />
         <SettingsRow
@@ -790,7 +792,7 @@ function GeneralPane({ snapshot }: { snapshot: MatrixSnapshot }) {
   )
 }
 
-/** Help: the version and its update, reaching a person, sharing and feedback, the fine print. */
+/** Help: reaching a person, sharing and feedback, the fine print. The version lives in General. */
 function HelpPane({ onClose, snapshot }: { onClose(): void; snapshot: MatrixSnapshot }) {
   return (
     <div data-matrix-settings-destination="help">
