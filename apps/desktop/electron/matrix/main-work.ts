@@ -27,7 +27,7 @@ import { createKeychainSecretStore } from '../work/sidecar/secret-store'
 import { T3McpWithdrawalError, WorkT3McpPublication } from '../work/sidecar/t3-mcp'
 import { createT3PairingCodes } from '../work/sidecar/t3-mcp-session'
 import {
-  createWorkViewFactory,
+  createWorkGuestHost,
   registerMatrixWorkIpc,
   WorkSurface,
   type WorkSurfaceParts
@@ -44,9 +44,6 @@ import { createOwnerRelay } from '../work/surface/relay'
 import type { WorkDeliverables } from './work-deliverable'
 import { WorkDeliverableHost } from './work-deliverable-host'
 import { MatrixWorkLifecycle, type WorkAccount, workAccountFor } from './work-lifecycle'
-
-/** Atum's panel radius (`--atum-r-panel`, styles.css): Work's native view is rounded to it. */
-export const WORK_VIEW_RADIUS = 14
 
 // The Matrix composition's Work (self-work slice A, lane W). Everything Work needs from the Matrix window is a port
 // here, so this file holds no account logic of its own: it builds the app-wide objects once (host, session,
@@ -87,7 +84,6 @@ export interface MatrixWorkDeps {
   ipcMain: Pick<IpcMain, 'handle'>
   /** Main's own check that a request comes from the Matrix UI frame. */
   requireUi(event: IpcMainInvokeEvent): void
-  zoomFactor(): number
   sessionFromPartition(partition: string): Session
   model: MatrixWorkModelPort
   /** The owner's balance. `GET /v1/models` through the proxy proves catalog access, not that Protons exist. */
@@ -125,6 +121,7 @@ export interface MatrixWorkDeps {
 }
 
 export interface MatrixWork {
+  allowGuestAttach: ReturnType<typeof createWorkGuestHost>['allowAttach']
   prepareUpdate(resources: string): Promise<StagedWorkUpdate | null>
   cancelPreparedUpdate(): void
   resumeUpdate(): Promise<void>
@@ -657,6 +654,14 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
     }
   })
 
+  const guestHost = createWorkGuestHost({
+    contents: () => deps.ui()?.webContents,
+    preload: deps.workPreload,
+    sessionFromPartition: deps.sessionFromPartition,
+    log: (phase, ms) => deps.log(`[atum-work] startup phase=${phase} ms=${ms} at=${Date.now()}`),
+    onBlocked: (kind, origin) => deps.log(`[atum-work] view_blocked ${kind} ${origin}`)
+  })
+
   const surface = new WorkSurface({
     canPrewarm: () => (!deps.plannedUpdate || Boolean(deps.plannedUpdate.work)) && loadavg()[0] < availableParallelism(),
     getSurfaceMode: () => host.getSurfaceMode(),
@@ -664,15 +669,7 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
     getAttention: () => host.attention(),
     runCommand: command => host.runCommand(command),
     setSurfaceMode: (projectId, mode) => host.setSurfaceMode(projectId, mode),
-    createView: createWorkViewFactory({
-      window: () => deps.ui() ?? null,
-      preload: deps.workPreload,
-      zoomFactor: deps.zoomFactor,
-      log: (phase, ms) => deps.log(`[atum-work] startup phase=${phase} ms=${ms} at=${Date.now()}`),
-      // The panel radius (--atum-r-panel): the view sits in the shared panel frame like every screen.
-      radius: WORK_VIEW_RADIUS,
-      onBlocked: (kind, origin) => deps.log(`[atum-work] view_blocked ${kind} ${origin}`)
-    }),
+    createView: guestHost.createView,
     publish: projection => {
       const window = deps.ui()
 
@@ -724,8 +721,8 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
 
     return {
       session: {
-        async openOwnerView(createView) {
-          const outcome = await session.openOwnerView(createView)
+        async openOwnerView(createView, signal) {
+          const outcome = await session.openOwnerView(createView, signal)
 
           // First launch needs the freshly paired owner cookie; the server-ready tick may have preceded it.
           if (outcome.state !== 'failed') {
@@ -855,6 +852,7 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
   })
 
   return {
+    allowGuestAttach: guestHost.allowAttach,
     activate: async () => {
       // keys() drops a key whose account or generation is no longer the signed-in one, and cancels its forwards
       modelKeys.keys()

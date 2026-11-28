@@ -1,4 +1,4 @@
-import { type CSSProperties, type ReactNode, useEffect, useRef, useState } from 'react'
+import { type CSSProperties, type ReactNode, useContext, useEffect, useState } from 'react'
 
 import { AtumMainHeaderSurface } from '@/app/atum/shell-surface'
 import { AccountConnectProgress } from '@/app/connections/connect-sheet'
@@ -8,14 +8,13 @@ import { MatrixGoogleWorkWriteProposals } from '@/matrix/google-write-card'
 import type { MatrixWorkBridge, MatrixWorkProjection, MatrixWorkViewState } from '../../../shared/matrix-work'
 
 import { workCopy, type WorkWords } from './copy'
-import { useWorkViewPlacement } from './use-work-view-placement'
 import { useWorkHistoryArrows, useWorkSidebar, WorkModeSwitch, WorkRightPanelToggle, WorkRosterControls, WorkTitle } from './work-band'
+import { WorkPreviewContext } from './work-preview'
 
 export interface WorkScreenProps {
   bridge: MatrixWorkBridge
   projection: MatrixWorkProjection
-  /** A modal or menu covers the window: the native view leaves until it closes. */
-  obstructed: boolean
+  active: boolean
   /** S's follow-up exposes no Protons action from inside the view, so the title bar carries it. */
   onAddProtons(): void
   windowControls?: ReactNode
@@ -28,7 +27,7 @@ export interface WorkScreenProps {
   owner?: string
 }
 
-/** The body while the owner view is not painted: a Kit state, one line, at most one action. */
+/** The body while the Work guest is starting or unavailable: a Kit state, one line, at most one action. */
 const QUIET: Record<Exclude<MatrixWorkViewState, 'ready'>, { spinner: boolean; retry: boolean }> = {
   starting: { spinner: true, retry: false },
   unavailable: { spinner: false, retry: true },
@@ -64,12 +63,12 @@ function QuietState({ bridge, copy, view }: { bridge: Pick<MatrixWorkBridge, 're
 }
 
 /**
- * The owner’s native Work view and the title bar shared with the Matrix shell.
+ * The owner’s embedded Work view and the title bar shared with the Matrix shell.
  */
 export function WorkScreen({
+  active,
   bridge,
   leadsRow,
-  obstructed,
   onAddProtons,
   owner,
   projection,
@@ -78,61 +77,71 @@ export function WorkScreen({
 }: WorkScreenProps) {
   const { locale } = useI18n()
   const copy = workCopy(locale)
-  const host = useRef<HTMLDivElement>(null)
+  const preview = useContext(WorkPreviewContext)
+  const { guest, view } = projection
 
-  useWorkViewPlacement(bridge, host, projection.view !== 'off' && projection.view !== 'unavailable' && !obstructed)
-  const sidebar = useWorkSidebar(bridge, projection.view === 'ready')
-  useWorkHistoryArrows(bridge, sidebar)
+  useEffect(() => {
+    if (active && view === 'starting') {
+      void bridge.open().catch(() => {})
+    }
+  }, [active, bridge, view])
+
+  const sidebar = useWorkSidebar(bridge, active && view === 'ready')
   // The view fills this section from its left edge, so the list's edge in the view is its edge here.
   const roster = sidebar?.open && sidebar.edge > 0 ? sidebar.edge : undefined
 
   // Coming back to the window re-reads the balance, so "Add Protons" leaves after a top-up.
   useEffect(() => {
+    if (!active) {return}
+
     const refresh = () => void bridge.read().catch(() => null)
     window.addEventListener('focus', refresh)
 
     return () => window.removeEventListener('focus', refresh)
-  }, [bridge])
+  }, [active, bridge])
 
   return (
     <section
-      className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
-      data-atum-work
+      className={active
+        ? 'flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden'
+        : 'pointer-events-none invisible absolute inset-0 flex min-h-0 flex-col overflow-hidden'}
+      data-atum-work={active ? '' : undefined}
       data-atum-work-roster={roster === undefined ? undefined : ''}
-      data-atum-work-view={projection.view}
+      data-atum-work-view={view}
+      inert={!active || undefined}
       style={roster === undefined ? undefined : ({ '--atum-work-roster-edge': `${roster}px` } as CSSProperties)}
     >
-      <AtumMainHeaderSurface
-        actions={
-          <div className="flex min-w-0 items-center gap-1.5">
-            {/* The connect sheet's Finish / Done: above the view, never over T3's sign-in. */}
-            <AccountConnectProgress />
-            {projection.view === 'ready' && projection.protons === 'empty' && (
-              <button className="ak-btn ak-btn--sm" data-atum-work-add-protons onClick={onAddProtons} type="button">
-                {copy.addProtons}
-              </button>
-            )}
-            {/* C, read from the right edge: the panel toggle last, the mode switch before it (layout r1 C). */}
-            <WorkModeSwitch bridge={bridge} copy={copy} ready={projection.view === 'ready'} />
-            {projection.view === 'ready' && <WorkRightPanelToggle bridge={bridge} locale={locale} state={sidebar?.rightPanel} />}
-          </div>
-        }
-        leadsRow={leadsRow ?? false}
-        reserveOverlay={reserveOverlay ?? false}
-        windowControls={windowControls}
-      >
-        <div className="flex min-w-0 items-center gap-3">
-          {projection.view === 'ready' && <WorkRosterControls bridge={bridge} copy={copy} />}
-          <WorkTitle copy={copy} />
-        </div>
-      </AtumMainHeaderSurface>
-      {/* Above the view, never over it: main paints the view natively, so the host shrinks to make room. */}
-      {owner && <MatrixGoogleWorkWriteProposals key={owner} owner={owner} />}
-      {/* The shared panel frame (owner, 2026-11-24/25): the host fills the main column, whose padding
-          already holds the frame's gutter and foot inset, and main rounds the native view to the panel
-          radius (electron-view.ts). Inside, atum-work's `panels` sidebar paints the thread list and the
-          thread as two cards on a transparent ground, so the frame shows between them as between every
-          screen's left panel and main card. While the view is away the quiet state sits on one card. */}
+      {active && (
+        <>
+          <WorkHistory bridge={bridge} sidebar={sidebar} />
+          <AtumMainHeaderSurface
+            actions={
+              <div className="flex min-w-0 items-center gap-1.5">
+                {/* The connect sheet's Finish / Done: above the view, never over T3's sign-in. */}
+                <AccountConnectProgress />
+                {projection.view === 'ready' && projection.protons === 'empty' && (
+                  <button className="ak-btn ak-btn--sm" data-atum-work-add-protons onClick={onAddProtons} type="button">
+                    {copy.addProtons}
+                  </button>
+                )}
+                {/* C, read from the right edge: the panel toggle last, the mode switch before it (layout r1 C). */}
+                <WorkModeSwitch bridge={bridge} copy={copy} ready={projection.view === 'ready'} />
+                {projection.view === 'ready' && <WorkRightPanelToggle bridge={bridge} locale={locale} state={sidebar?.rightPanel} />}
+              </div>
+            }
+            leadsRow={leadsRow ?? false}
+            reserveOverlay={reserveOverlay ?? false}
+            windowControls={windowControls}
+          >
+            <div className="flex min-w-0 items-center gap-3">
+              {projection.view === 'ready' && <WorkRosterControls bridge={bridge} copy={copy} />}
+              <WorkTitle copy={copy} />
+            </div>
+          </AtumMainHeaderSurface>
+          {owner && <MatrixGoogleWorkWriteProposals key={owner} owner={owner} />}
+        </>
+      )}
+      {/* Keep the guest in this slot while other destinations are open, so its session stays live. */}
       <div
         className={
           projection.view === 'ready'
@@ -140,10 +149,25 @@ export function WorkScreen({
             : 'relative min-h-0 flex-1 overflow-hidden rounded-(--atum-r-panel) bg-(--atum-main-bg) shadow-(--atum-main-edge)'
         }
         data-atum-work-host
-        ref={host}
       >
-        {projection.view !== 'ready' && <QuietState bridge={bridge} copy={copy} view={projection.view} />}
+        {guest && (
+          <webview
+            aria-label={copy.title}
+            className={view === 'ready' ? 'absolute inset-0 h-full w-full' : 'invisible absolute inset-0 h-full w-full'}
+            key={guest.src}
+            partition={guest.partition}
+            src={guest.src}
+          />
+        )}
+        {active && view === 'ready' && preview}
+        {active && view !== 'ready' && <QuietState bridge={bridge} copy={copy} view={view} />}
       </div>
     </section>
   )
+}
+
+function WorkHistory({ bridge, sidebar }: { bridge: MatrixWorkBridge; sidebar: ReturnType<typeof useWorkSidebar> }) {
+  useWorkHistoryArrows(bridge, sidebar)
+
+  return null
 }

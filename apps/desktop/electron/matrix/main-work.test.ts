@@ -169,7 +169,6 @@ describe('createMatrixWork', () => {
       ui: () => ({ isDestroyed: () => false }) as never,
       ipcMain: { handle: (channel: string, handler: never) => void handlers.set(channel, handler) },
       requireUi: () => undefined,
-      zoomFactor: () => 1,
       sessionFromPartition: () => ({ clearStorageData: async () => {}, clearCache: async () => {} }) as never,
       model: { baseUrl: () => 'http://127.0.0.1:9/v1', probe: async () => ({ ok: true }) },
       wallet: async () => ({ balances: { available: WORK_MIN_AVAILABLE_MICRO_PROTONS } }),

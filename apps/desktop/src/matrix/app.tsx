@@ -9197,17 +9197,13 @@ function MatrixAccountView({
         />
         <AtumShellFrame
           compact={compact}
-          main={() =>
-            workOnScreen && work && window.atumMatrix.work ? (
+          main={() => [
+            (workOnScreen || work?.guest) && work && window.atumMatrix.work ? (
               <WorkScreen
+                active={workOnScreen}
                 bridge={window.atumMatrix.work}
+                key="work"
                 leadsRow={titleBarLeads}
-                obstructed={
-                  overlaid ||
-                  drawerOpen ||
-                  anyAgentPrompts(snapshot) ||
-                  isMatrixVerificationPending(snapshot.security?.verification)
-                }
                 onAddProtons={openTopUp}
                 owner={snapshot.identity?.userId}
                 projection={work}
@@ -9228,8 +9224,8 @@ function MatrixAccountView({
                   </div>
                 }
               />
-            ) : (
-            <section
+            ) : null,
+            workOnScreen ? null : <section
               // On an app's ground the content card takes the kit theme of the ground's tone
               // (FlowAppLook: a dark ground gets the kit's dark glass and controls); the title band
               // keeps the window's own theme below.
@@ -9243,6 +9239,7 @@ function MatrixAccountView({
               data-atum-look-tokens={conversationLook?.tokens ? true : undefined}
               data-atum-look-tone={conversationLook?.tone}
               inert={workspaceOverFrame || undefined}
+              key="conversation"
               style={conversationLook?.style}
             >
               <AtumMainHeaderSurface
@@ -9753,7 +9750,7 @@ function MatrixAccountView({
                 conversationContent
               )}
             </section>
-          )}
+          ]}
           navigation={
             // Beside the Work view the rail's tips are the system tooltip: the view paints over any DOM tip.
             <TipNative native={workOnScreen && work?.view === 'ready'}>

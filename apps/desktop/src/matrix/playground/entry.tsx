@@ -3,6 +3,7 @@ import '../../styles.css'
 import { StrictMode, useEffect, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 
+import { WorkPreviewContext } from '@/app/work/work-preview'
 import { I18nProvider } from '@/i18n'
 
 import { matrixModelDisplayName } from '../../../shared/matrix-model-display-name'
@@ -322,7 +323,9 @@ function Playground() {
             <PlaygroundGallery view={view} />
           </main>
         ) : (
-          <MatrixApp />
+          <WorkPreviewContext.Provider value={workPreview}>
+            <MatrixApp />
+          </WorkPreviewContext.Provider>
         )}
       </I18nProvider>
       <div
@@ -375,6 +378,15 @@ function Playground() {
     </>
   )
 }
+
+const workView = params.get('workView')
+const workShot = params.get('workShot')
+
+const workPreview = workView ? (
+  <iframe className="absolute inset-0 h-full w-full border-0" src={workView} title="Work" />
+) : workShot ? (
+  <img alt="" className="pointer-events-none absolute inset-0 h-full w-full object-cover object-left-top" src={workShot} />
+) : null
 
 applyMatrixMaterial()
 store.set(initial)

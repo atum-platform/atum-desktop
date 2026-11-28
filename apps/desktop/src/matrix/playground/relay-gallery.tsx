@@ -49,8 +49,7 @@ const CONSENT_OFF: MatrixWorkPlanConsent = {
 
 const workBridge = {
   read: async () => null,
-  place: async () => {},
-  hide: async () => {},
+  open: async () => {},
   retry: async () => {},
   setWork: async () => {},
   openPlanConnect: async () => {},

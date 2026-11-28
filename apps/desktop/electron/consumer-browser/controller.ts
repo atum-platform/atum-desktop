@@ -2,7 +2,7 @@ import { lookup } from 'node:dns/promises'
 import path from 'node:path'
 import { setTimeout as delay } from 'node:timers/promises'
 
-import type { App, BrowserWindow, DownloadItem, IpcMain, IpcMainInvokeEvent, Session, WebContents } from 'electron'
+import type { App, BrowserWindow, DownloadItem, IpcMain, IpcMainInvokeEvent, Session, WebContents, WebPreferences } from 'electron'
 
 import {
   CONSUMER_BROWSER_IPC,
@@ -43,6 +43,8 @@ interface ConsumerBrowserControllerDeps {
    * partitions, never arbitrary, preview, SDK, or legacy app sessions.
    */
   consumerOnly?: boolean
+  /** A main-owned guest outside consumer partitions, with its own attachment and session policy. */
+  allowTrustedGuest?(host: WebContents, preferences: WebPreferences, params: Record<string, unknown>): boolean
   sessionFromPartition: (partition: string) => Session
   /** Test seam for the pinned-address proxy a browser partition is routed through. */
   createEgress?: typeof createConsumerBrowserEgress
@@ -319,6 +321,8 @@ export function createConsumerBrowserController(deps: ConsumerBrowserControllerD
         webPreferences.webSecurity = true
         webPreferences.allowRunningInsecureContent = false
         const partition = typeof params.partition === 'string' ? params.partition : ''
+
+        if (deps.allowTrustedGuest?.(contents, webPreferences, params)) {return}
 
         if (deps.consumerOnly && (!validPartition(partition) || !allowedPartitions.has(partition))) {
           event.preventDefault()
