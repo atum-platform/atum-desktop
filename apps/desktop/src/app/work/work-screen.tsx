@@ -8,7 +8,7 @@ import { MatrixGoogleWorkWriteProposals } from '@/matrix/google-write-card'
 import type { MatrixWorkBridge, MatrixWorkProjection, MatrixWorkViewState } from '../../../shared/matrix-work'
 
 import { workCopy, type WorkWords } from './copy'
-import { useWorkHistoryArrows, useWorkSidebar, WorkModeSwitch, WorkRightPanelToggle, WorkRosterControls, WorkTitle } from './work-band'
+import { useWorkHistoryArrows, useWorkSidebar, WorkModeSwitch, WorkRightPanelToggle, WorkTitle } from './work-band'
 import { WorkPreviewContext } from './work-preview'
 
 export interface WorkScreenProps {
@@ -134,7 +134,6 @@ export function WorkScreen({
             windowControls={windowControls}
           >
             <div className="flex min-w-0 items-center gap-3">
-              {projection.view === 'ready' && <WorkRosterControls bridge={bridge} copy={copy} />}
               <WorkTitle copy={copy} />
             </div>
           </AtumMainHeaderSurface>

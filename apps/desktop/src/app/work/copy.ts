@@ -9,8 +9,8 @@ export interface WorkWords {
   retry: string
   addProtons: string
   settings: { title: string; help: string; failed: string }
-  /** The title band's controls (design spec §1.4, §8.2): the mode switch and the roster column's two buttons. */
-  band: { mode: string; work: string; code: string; toggleSidebar: string; newThread: string; newMenu: string; newWorktreeThread: string; addProject: string }
+  /** The title band's controls (design spec §1.4, §8.2): the mode switch and the list toggle. New lives on the view's list. */
+  band: { mode: string; work: string; code: string; toggleSidebar: string }
 }
 
 const en: WorkWords = {
@@ -29,7 +29,7 @@ const en: WorkWords = {
     help: 'Turn off to stop all Work on this Mac.',
     failed: 'Could not change Work just now.'
   },
-  band: { mode: 'Mode', work: 'Work', code: 'Code', toggleSidebar: 'Show or hide threads', newThread: 'New thread', newMenu: 'New…', newWorktreeThread: 'New thread in a worktree', addProject: 'Add project…' }
+  band: { mode: 'Mode', work: 'Work', code: 'Code', toggleSidebar: 'Show or hide sessions' }
 }
 
 const vi: WorkWords = {
@@ -48,7 +48,7 @@ const vi: WorkWords = {
     help: 'Tắt để dừng mọi việc Work trên máy Mac này.',
     failed: 'Chưa đổi được Work lúc này.'
   },
-  band: { mode: 'Chế độ', work: 'Work', code: 'Code', toggleSidebar: 'Hiện hoặc ẩn danh sách việc', newThread: 'Việc mới', newMenu: 'Tạo mới…', newWorktreeThread: 'Việc mới trong worktree', addProject: 'Thêm dự án…' }
+  band: { mode: 'Chế độ', work: 'Work', code: 'Code', toggleSidebar: 'Hiện hoặc ẩn danh sách việc' }
 }
 
 const words: Record<'en' | 'vi', WorkWords> = { en, vi }

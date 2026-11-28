@@ -179,19 +179,17 @@ describe('WorkScreen: the title band (spec §1.4, §8.2)', () => {
     expect(screen.getByRole('heading', { name: 'Work' }).className).not.toContain('sr-only')
   })
 
-  // T3's pencil is the plus menu every screen has (layout r2 §4): New thread, in a worktree, Add project.
-  it('runs the view\'s own New thread from the plus menu, and not before the view is ready', async () => {
+  // Owner 2026-11-28: the band's plus opened the same menu as the view list's own plus. New lives on
+  // the list (and the home composer), so the band keeps history, the title, the mode and the panel.
+  it('draws no plus in the title band, before or after the view is ready', () => {
     const work = bridge()
     const { rerender } = show({ view: 'starting' }, { work })
 
     expect(screen.queryByRole('button', { name: 'New…' })).toBeNull()
     rerender({ view: 'ready' })
-    const plus = screen.getByRole('button', { name: 'New…' })
-    fireEvent.pointerDown(plus, { button: 0, ctrlKey: false, pointerType: 'mouse' })
-    expect(screen.getByRole('menuitem', { name: /^New thread⌘N$/ })).toBeTruthy()
-    expect(screen.getByRole('menuitem', { name: /Add project/ })).toBeTruthy()
-    fireEvent.click(await screen.findByRole('menuitem', { name: /New thread in a worktree/ }))
-    expect(work.runCommand?.mock.calls).toEqual([['chat.newWorktree']])
+    expect(screen.queryByRole('button', { name: 'New…' })).toBeNull()
+    expect(screen.getByRole('heading', { name: 'Work' })).toBeTruthy()
+    expect(work.runCommand).not.toHaveBeenCalled()
   })
 })
 
