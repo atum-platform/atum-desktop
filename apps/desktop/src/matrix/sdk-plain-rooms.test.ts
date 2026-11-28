@@ -1801,7 +1801,7 @@ describe('standard threads in the owner window', () => {
       replyTo: '$personal-root'
     })
     expect(f.latest().messages[1]).not.toHaveProperty('thread')
-    expect(f.latest().threads).toEqual([])
+    expect(f.latest()).not.toHaveProperty('threads')
     expect(write).not.toHaveBeenCalled()
 
     await f.sdk.command({ kind: 'attend', roomId: room.roomId })

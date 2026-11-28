@@ -243,6 +243,7 @@ import { loadDeviceForVerification } from './sdk-device-verification'
 import { matrixSecurity, recoveryKeyCache } from './security'
 import { matrixStarterOnboarding } from './starter-onboarding'
 import { matrixStoreRuns } from './store-runs'
+import { matrixThreadRoomKind } from './thread-room'
 import { MATRIX_COMPANY_THREADS_MAX, matrixCompanyThreads, matrixRoomTimelineEvents, matrixThreads, readMatrixThread, sendMatrixThreadReply, setMatrixThreadFollow } from './threads'
 import {
   MATRIX_TIMELINE_EVENT_BOUND,
@@ -996,14 +997,15 @@ export async function startMatrixSdk(
     return known === true
   }
 
-  const message = (event: MatrixEvent, ignored: ReadonlySet<string>, room: Room): MatrixMessage | null =>
+  const message = (event: MatrixEvent, ignored: ReadonlySet<string>, room: Room, groupThreads = false): MatrixMessage | null =>
     matrixMessage(
       keyRetry.project(event),
       client.getUserId(),
       ignored,
       room,
       petLive.has(event, room.roomId),
-      plainConfirmed(room)
+      plainConfirmed(room),
+      groupThreads
     )
 
   // Company inbox room caches keep one stable projector across publishes. The explicit revision
@@ -1024,8 +1026,7 @@ export async function startMatrixSdk(
   }
 
   const ensureThreadList = (room: Room) => {
-    if (![MATRIX_COMPANY_CHANNEL_TYPE, MATRIX_COMPANY_CONVERSATION_TYPE].includes(room.getType() ?? '') ||
-      threadRooms.has(room)) {
+    if (threadRooms.has(room)) {
       return
     }
 
@@ -1081,13 +1082,16 @@ export async function startMatrixSdk(
     const ignored = new Set(ignoredUsers)
     activityIgnored = ignored
 
+    const threadKind = room?.getMyMembership() === 'join' ? matrixThreadRoomKind(room) : undefined
+    const showThreads = threadKind === 'team' || threadKind === 'group'
+
     for (const threaded of threadRooms) {
-      if (threaded !== room || threaded.getMyMembership() !== 'join') {
+      if (threaded !== room || !showThreads) {
         forgetThreadRoom(threaded)
       }
     }
 
-    if (room?.getMyMembership() === 'join') {
+    if (room && showThreads) {
       ensureThreadList(room)
     }
 
@@ -1170,14 +1174,11 @@ export async function startMatrixSdk(
           ? matrixRoomTimelineEvents(
               room,
               history.timeline,
-              // Cut the room timeline first: ordinary-room thread events may fill gaps inside
-              // this window, but never move its boundary or displace a pending local echo.
+              // Cut the room window first. Compatibility replies may only fill gaps inside it.
               history.timeline.getEvents().slice(-history.limit)
             )
-              .map(event => message(event, ignored, room))
+              .map(event => message(event, ignored, room, threadKind === 'group'))
               .filter((m): m is MatrixMessage => m !== null)
-              // Team Space replies remain panel rows. Ordinary-room SDK threads were flattened
-              // above and project as normal rich replies because those rooms have no panel.
               .filter(value => value.thread !== true)
               .map(value => {
                 const event = value.own ? room.findEventById(value.id) : undefined
@@ -1186,15 +1187,12 @@ export async function startMatrixSdk(
               })
           : [],
       ...(readMarkerEventId ? { readMarkerEventId } : {}),
-      ...(room?.getMyMembership() === 'join' &&
-      [MATRIX_COMPANY_CHANNEL_TYPE, MATRIX_COMPANY_CONVERSATION_TYPE].includes(room.getType() ?? '')
-        ? { pinnedMessages: matrixPinnedMessages(room, configuration.userId, event => message(event, ignored, room)) }
+      ...(room && threadKind
+        ? { pinnedMessages: matrixPinnedMessages(room, configuration.userId, event => message(event, ignored, room, threadKind === 'group')) }
         : {}),
-      threads:
-        room?.getMyMembership() === 'join' &&
-        [MATRIX_COMPANY_CHANNEL_TYPE, MATRIX_COMPANY_CONVERSATION_TYPE].includes(room.getType() ?? '')
-          ? matrixThreads(room, configuration.userId, event => message(event, ignored, room))
-          : [],
+      ...(room && showThreads
+        ? { threads: matrixThreads(room, configuration.userId, event => message(event, ignored, room, threadKind === 'group')) }
+        : {}),
       // Who came in and who is no longer in, from the channel's own membership events (the same
       // bound as the messages). Only a Team Space channel room has them.
       ...(room && history && room.getType() === MATRIX_COMPANY_CHANNEL_TYPE
@@ -3900,12 +3898,7 @@ export async function startMatrixSdk(
       case 'threadFollow': {
         const room = client.getRoom(command.roomId)
 
-        if (
-          state !== 'ready' ||
-          !room ||
-          room.getMyMembership() !== 'join' ||
-          ![MATRIX_COMPANY_CHANNEL_TYPE, MATRIX_COMPANY_CONVERSATION_TYPE].includes(room.getType() ?? '')
-        ) {
+        if (state !== 'ready' || !room) {
           throw new Error('matrix_thread_unavailable')
         }
 
@@ -3925,12 +3918,7 @@ export async function startMatrixSdk(
       case 'threadRead': {
         const room = client.getRoom(command.roomId)
 
-        if (
-          state !== 'ready' ||
-          !room ||
-          room.getMyMembership() !== 'join' ||
-          ![MATRIX_COMPANY_CHANNEL_TYPE, MATRIX_COMPANY_CONVERSATION_TYPE].includes(room.getType() ?? '')
-        ) {
+        if (state !== 'ready' || !room) {
           throw new Error('matrix_thread_unavailable')
         }
 
@@ -3967,11 +3955,18 @@ export async function startMatrixSdk(
 
         return null
 
-      case 'pinMessage':
-        await changeMatrixMessagePin(client, joinedRoom(command.roomId), command.eventId, command.pinned)
+      case 'pinMessage': {
+        const room = joinedRoom(command.roomId)
+
+        if (!matrixThreadRoomKind(room)) {
+          throw new Error('matrix_pin_forbidden')
+        }
+
+        await changeMatrixMessagePin(client, room, command.eventId, command.pinned)
         snapshot()
 
         return null
+      }
 
       case 'react':
         await reactToMatrixMessage(
