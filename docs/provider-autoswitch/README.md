@@ -6,7 +6,7 @@ when a cut-off run may have done work. The owner's UX rules apply: never show fa
 action; status lives in the composer and model chip, never in agent text; airy; one action and at most one line per state; default
 automatic.
 
-These are static design mockups. The build is `feat/provider-autoswitch-ui` in atum-work. The engine is `feat/provider-autoswitch`
+These are static design mockups. The build is `feat/provider-autoswitch-ui` in atum-work (`1b942b30a9`). The engine is `feat/provider-autoswitch`
 in atum-work. Feasibility research: `_research/provider-autoswitch-1128.md` (owner questions 1–3).
 
 ## Index
@@ -14,7 +14,7 @@ in atum-work. Feasibility research: `_research/provider-autoswitch-1128.md` (own
 | State | Light | Dark | What it shows |
 |---|---|---|---|
 | a. Settings, off (default) | [a-off-light](a-off-light.png) | [a-off-dark](a-off-dark.png) | Settings › Providers. A folded **When a plan runs out** row says "Off" and has a switch. Nothing else |
-| a. Settings, on | [a-on-light](a-on-light.png) | [a-on-dark](a-on-dark.png) | One line, then the connected plans in order. Drag, or use the step buttons. The plan in use says **In use**. A plan that isn't signed in is greyed with one action, **Sign in** |
+| a. Settings, on | [a-on-light](a-on-light.png) | [a-on-dark](a-on-dark.png) | One line, then the connected plans in the order they take over. Drag, or use the step buttons. A plan that isn't signed in is greyed with one action, **Sign in**. The summary reads "ChatGPT → Claude" |
 | b. Session override | [b-override-light](b-override-light.png) | [b-override-dark](b-override-dark.png) | The existing composer model picker. A **For this session** row under Effort: *Switch when out* / *Stay on ChatGPT*. Choosing what the account already does clears the override |
 | c. Switched | [c-switched-light](c-switched-light.png) | [c-switched-dark](c-switched-dark.png) | The chip shows the model that will answer (Claude). Next to it, one quiet line: "ChatGPT is out until 8:37 PM · using Claude". No cost, no warning colour |
 | c. Nothing left | [c-none-left-light](c-none-left-light.png) | [c-none-left-dark](c-none-left-dark.png) | No eligible plan. The existing red chip dot, plus "Plans are out until 8:37 PM". The draft stays in the composer |
@@ -36,6 +36,10 @@ in atum-work. Feasibility research: `_research/provider-autoswitch-1128.md` (own
   dot.
 - **Continue is a deliberate action.** The cut-off run is never re-run automatically. Continue sends one continuation from the settled
   checkpoint on the model in the chip. The engine decides `canContinue`.
+- **No "In use" pill in the list.** The session's own model is the preferred plan. The list is the order of plans that take over,
+  so marking its first row "In use" would mislead.
+- **Before the switching turn, the line says "Claude answers next".** The chip still shows the session's model until the switch
+  happens. After the switch, the line reads "using Claude" (c).
 - **Times come from evidence only.** "until 8:37 PM" appears only when the engine has an `exhaustedUntil`. Otherwise the line reads
   "ChatGPT is out · using Claude".
 

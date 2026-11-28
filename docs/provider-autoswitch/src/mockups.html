@@ -153,15 +153,15 @@
               <div class="row">
                 <span class="text-muted-foreground" style="display:inline-flex">${on ? icon.chevD : icon.chevR}</span>
                 <span class="fold-title">When a plan runs out</span>
-                <span class="sum">${on ? "ChatGPT, then Claude" : "Off"}</span>
+                <span class="sum">${on ? "ChatGPT → Claude" : "Off"}</span>
                 <span style="margin-inline-start:auto" class="switch ${on ? "on" : ""}"><i></i></span>
               </div>
               ${on ? `
               <div style="padding-bottom:14px">
-                <p class="hint" style="margin:0 0 10px">Your next message goes to the next plan in this list, and comes back when yours resets.</p>
+                <p class="hint" style="margin:0 0 10px">Your next message goes to the next plan here, and comes back when yours resets.</p>
                 <div style="padding:0 16px">
                   <ol class="order" aria-label="Plans, preferred first">
-                    ${orderRow(1, icon.chatgpt(14), "ChatGPT", { inUse: true })}
+                    ${orderRow(1, icon.chatgpt(14), "ChatGPT", {})}
                     ${orderRow(2, icon.claude(14), "Claude")}
                     ${orderRow(3, icon.agy(14), "Antigravity", { off: true, last: true, action: "Sign in" })}
                   </ol>
