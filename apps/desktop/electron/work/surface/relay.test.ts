@@ -54,6 +54,7 @@ function ownerRelay(replies: Response[], account: Partial<Record<string, unknown
 
   return {
     relay,
+    fetcher,
     requests: () => fetcher.mock.calls
       .map(([, init]) => JSON.parse(init?.body as string) as { operation: string })
       .filter(body => body.operation !== 'work_subscription_read')
@@ -167,7 +168,7 @@ describe('a thinking level with a plan selection', () => {
   it('offers levels only once the platform advertises them, and writes the chosen level with the model', async () => {
     const saved = { ...codex, effort: 'high', revision: 3 }
 
-    const { relay, requests } = ownerRelay([
+    const { relay, requests, fetcher } = ownerRelay([
       Response.json({ revision: 2, selection: { ...codex, effort: 'low' }, efforts: ['low', 'medium', 'high'] }),
       Response.json({ revision: 2, selection: null }),
       Response.json(saved)
@@ -176,6 +177,7 @@ describe('a thinking level with a plan selection', () => {
     const plans = await relay.readPlans(principal)
 
     expect(plans?.efforts).toEqual(['low', 'medium', 'high'])
+    expect(new Headers(fetcher.mock.calls[0]?.[1]?.headers).get('x-atum-work-selection-effort')).toBe('1')
     expect(plans?.selection).toEqual({ ...codex, effort: 'low', revision: 2 })
     expect(await relay.select(principal, codex.model, 'codex', 'high')).toEqual(saved)
     expect(requests().at(-1)).toEqual({ ...write(2), selection: { ...codex, effort: 'high' } })
