@@ -1455,8 +1455,13 @@ describe('one assistant card, the primary included', () => {
   }
 
   const rowsOf = () =>
-    [...window.document.querySelectorAll<HTMLElement>('[data-assistant-card-rows] > *')].map(row => {
+    [...window.document.querySelectorAll<HTMLElement>('.atum-card-body .atum-settings-group > *')]
+      // The primary's privilege: no Delete. Every other row is the same.
+      .filter(row => !row.hasAttribute('data-assistant-card-delete'))
+      .map(row => {
       const tag = row.tagName.toLowerCase()
+      // Its section too (revamp 2026-11-28): the same row in another section is not the same card.
+      const section = row.closest('[data-assistant-card-section]')?.getAttribute('data-assistant-card-section') ?? 'notice'
 
       const attributes = [
         'data-assistant-card-home',
@@ -1474,7 +1479,7 @@ describe('one assistant card, the primary included', () => {
         .sort()
         .join(',')
 
-      return `${tag}:${row.getAttribute('data-agent-home-row') ?? ''}:${attributes}`
+      return `${section}/${tag}:${row.getAttribute('data-agent-home-row') ?? ''}:${attributes}`
     })
 
   const personaRows = () =>

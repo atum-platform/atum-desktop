@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { type ReactNode, useEffect, useState } from 'react'
 
 import { useI18n } from '@/i18n'
 import { ChevronRight } from '@/lib/icons'
@@ -45,9 +45,14 @@ const SHOW_DAILY_CAP = false
 export function ModelDestinationsRow({
   agent,
   preferenceScope,
-  cloudOnly = AGENT_HOMES_CLOUD_ONLY
+  cloudOnly = AGENT_HOMES_CLOUD_ONLY,
+  glyph,
+  label: rowLabel
 }: {
   agent: MatrixAgentView
+  /** The card's leading glyph and its label for the one cloud row ("Answers with"). */
+  glyph?: ReactNode
+  label?: string
   /** The same account scope the composer uses, so one set of favorites follows the person. */
   preferenceScope?: string
   cloudOnly?: boolean
@@ -405,8 +410,9 @@ export function ModelDestinationsRow({
                 data-assistant-card-model-destination={choice.kind}
                 type="button"
               >
+                {glyph}
                 <span className="atum-settings-row-title shrink-0">
-                  {cloudOnly ? copy.modelPicker : destinationName(locale, choice)}
+                  {cloudOnly ? (rowLabel ?? copy.modelPicker) : destinationName(locale, choice)}
                 </span>
                 <span className="atum-card-row-value ms-auto" title={shown}>
                   {shown}

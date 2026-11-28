@@ -41,6 +41,8 @@ const Bug = phosphorIcon('bug')
 const Building = phosphorIcon('buildings')
 const Bulb = phosphorIcon('lightbulb')
 const Calendar = phosphorIcon('calendar-blank')
+const CalendarCheck = phosphorIcon('calendar-check')
+const Camera = phosphorIcon('camera')
 const ChartLine = phosphorIcon('chart-line')
 const Check = phosphorIcon('check')
 const CheckCircle2 = phosphorIcon('check-circle')
@@ -181,6 +183,7 @@ const PanelBottom = phosphorIcon('rows')
 const PanelLeftIcon = phosphorIcon('sidebar-simple')
 const Paperclip = phosphorIcon('paperclip')
 const Pause = phosphorIcon('pause')
+const PuzzlePiece = phosphorIcon('puzzle-piece')
 const PawPrint = phosphorIcon('paw-print')
 const Pencil = phosphorIcon('pencil-simple')
 const PencilIcon = phosphorIcon('pencil-simple')
@@ -299,6 +302,8 @@ export {
   Building,
   Bulb,
   Calendar,
+  CalendarCheck,
+  Camera,
   ChartLine,
   Check,
   CheckCircle2,
@@ -451,6 +456,7 @@ export {
   Plug,
   Plus,
   Presentation,
+  PuzzlePiece,
   Refresh,
   RefreshCw,
   RefreshCwIcon,

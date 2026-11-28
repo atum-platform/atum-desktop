@@ -7,7 +7,7 @@ import { Switch } from '@/components/ui/switch'
 import { Tip } from '@/components/ui/tooltip'
 import { useI18n } from '@/i18n'
 import { ATUM_AVATAR_ACCEPT } from '@/lib/atum-avatar'
-import { Check, ChevronRight, MessageCircle } from '@/lib/icons'
+import { AlertCircle, CalendarCheck, Check, ChevronRight, MessageCircle, PawPrint, PuzzlePiece, Sparkles } from '@/lib/icons'
 import { cn } from '@/lib/utils'
 
 import contextFileLimits from '../../../../../hermes_cli/data/context-file-limits.json'
@@ -36,6 +36,7 @@ import { SettingsSection } from '../settings-row'
 import { $matrixStoreShelfRequest } from '../store/top-up'
 import { runMatrixCommand } from '../text-document-actions'
 
+import type { AssistantCardControlSlots } from './agent-controls'
 import { BackgroundSweepRow } from './background-sweep-row'
 import { type AssistantCardCopy, useAssistantCardCopy } from './copy'
 import { ModelDestinationsRow } from './model-destinations-row'
@@ -44,6 +45,7 @@ import { type PersonaChange, PersonaFields } from './persona-fields'
 import type { PreparedPhoto } from './photo'
 import { PhotoCropDialog } from './photo-crop'
 import { RoutinesRow } from './routines-panel'
+import { CardNotice, RowGlyph } from './row-glyph'
 import { SkillsRow } from './skills-popover'
 import { setAssistantNameOverride } from './store'
 
@@ -109,8 +111,8 @@ export function AssistantCard({
 }: {
   agent: MatrixAgentView
   compact: boolean
-  /** The panel's live controls for this chat (notifications, devices, Pause), rows under Model. */
-  controls?: ReactNode
+  /** The panel's live controls for this chat, each placed in its section (notifications, devices, Pause). */
+  controls?: AssistantCardControlSlots
   focusName: boolean
   /** What it is doing now, under its name; only while it works or waits (the panel's). */
   lead?: ReactNode
@@ -438,9 +440,6 @@ export function AssistantCard({
           )}
           {agent.title && <p className="atum-card-caption text-center" data-assistant-card-title>{agent.title}</p>}
           {noteLine('name')}
-          <p className="atum-card-privacy" id="assistant-card-privacy">
-            {copy.privacy(name)}
-          </p>
           {placement === 'sheet' && (
             <div className="atum-card-pills">
               <button className="atum-card-pill" data-assistant-card-message onClick={onMessage} type="button">
@@ -473,8 +472,12 @@ export function AssistantCard({
         )}
         {offline && <p className="atum-card-caption text-center">{copy.offline}</p>}
         {lead}
+        <CardStateNotice agent={agent} band={Boolean(band)} copy={copy} paused={controls?.paused} status={status} />
         <AgentHandle agent={agent} name={name} ready={ready} snapshot={snapshot} />
-        <section className="atum-card-section">
+        <section className="atum-card-section" data-assistant-card-section="about">
+          <div className="atum-settings-section-head">
+            <h3 className="ak-section atum-settings-section-title">{copy.sectionAbout}</h3>
+          </div>
           {loadFailed ? (
             <div className="atum-settings-group">
               <div className="atum-settings-row atum-settings-row-quiet">
@@ -501,16 +504,16 @@ export function AssistantCard({
           <p className="atum-settings-section-foot">{copy.footnote}</p>
           {longPersona && <p className="atum-settings-section-foot" role="status">{copy.longPersona}</p>}
         </section>
-        <CardRows
+        <CardSections
           agent={agent}
           card={card}
           controls={controls}
           copy={copy}
           focusRoutines={focusRoutines}
           locale={locale}
+          name={name}
           onClose={onClose}
           snapshot={snapshot}
-          status={status}
         />
         {trail}
         {!primary && (
@@ -733,30 +736,106 @@ function CardAvatar({
   )
 }
 
-/** Card 2: its pet, its skills, its authoritative routines, and whether it still needs setting up. */
-function CardRows({
+/** Whether this assistant is still on a Mac or moving: only then does its home row say anything. */
+function awayFromCloud(agent: MatrixAgentView): boolean {
+  // Cloud-only (AGENT_HOMES_CLOUD_ONLY): every assistant lives in the cloud, so "Lives on: The cloud"
+  // says nothing and the row goes (owner 2026-11-26: "obsolete now"); the Macs it can use are the
+  // panel's Your devices row. Only an assistant still on a Mac, or one moving, keeps it: there it is
+  // the way to the cloud, and the place it answers from is news.
+  const placed = agent.home?.placement
+
+  return agent.home
+    ? agent.home.lives.kind !== 'cloud' ||
+        Boolean(agent.home.move || agent.home.issue) ||
+        (placed !== undefined && placed.current !== 'cloud')
+    : !matrixAgentAnswersInCloud(agent)
+}
+
+/**
+ * The one state notice under the header, in the revamp's priority (2026-11-28): a save failure (the
+ * band, drawn by the card) > not set up > off the cloud or moving > paused. Now (working or waiting)
+ * is not a notice and sits above it.
+ */
+function CardStateNotice({
+  agent,
+  band,
+  copy,
+  paused,
+  status
+}: {
+  agent: MatrixAgentView
+  band: boolean
+  copy: AssistantCardCopy
+  paused?: ReactNode
+  status: ReturnType<typeof agentStatus>
+}) {
+  if (band) {
+    return null
+  }
+
+  // A cloud assistant no Mac runs has nothing to set up here, and where it answers is not said
+  // (0.19.4 Q4). One this Mac runs for it (answering or standing by, `macRole`) has a local runtime
+  // that can be not ready, so it offers the same setup as any local assistant.
+  if (!agent.ready && matrixAgentNeedsLocalSetup(agent)) {
+    return <SetupNotice agent={agent} copy={copy} status={status} />
+  }
+
+  // `agent.home` is main's data boundary for a migrated D1 assistant. Only then does this card show
+  // the authoritative home, its owner-placement readiness, and manual moves.
+  const homeBridge = window.atumMatrix.agentHome
+
+  if (awayFromCloud(agent)) {
+    return (
+      <section className="atum-card-section">
+        <div className="atum-settings-group">
+          {agent.home && homeBridge ? (
+            <MatrixAgentHomeRow
+              agentName={agent.name}
+              agentPrincipal={agent.principal}
+              bridge={homeBridge}
+              view={agent.home}
+            />
+          ) : (
+            <MatrixAgentPlaceRow agent={agent} />
+          )}
+        </div>
+      </section>
+    )
+  }
+
+  return paused ? <div className="atum-card-section">{paused}</div> : null
+}
+
+/**
+ * The card's settings, grouped by what they are about (agent card revamp 2026-11-28): "On its own"
+ * (routines, Pause), "In this chat" (the model that answers, notifications, its pet; the privacy line
+ * at its foot), "Can use" (your devices, its skills). A section with nothing in it is absent. Every
+ * assistant shows the same rows; the primary keeps its privileges, never extra rows.
+ */
+function CardSections({
   agent,
   card,
   controls,
   copy,
   focusRoutines,
   locale,
+  name,
   onClose,
-  snapshot,
-  status
+  snapshot
 }: {
   agent: MatrixAgentView
   card?: MatrixAssistantCard
-  controls?: ReactNode
+  controls?: AssistantCardControlSlots
   copy: AssistantCardCopy
   focusRoutines: boolean
   locale: string
+  name: string
   onClose(): void
   snapshot: MatrixSnapshot
-  status: ReturnType<typeof agentStatus>
 }) {
   const store = Boolean(snapshot.apps)
   const pet = useAgentPetName(agent, snapshot)
+  const homeBridge = window.atumMatrix.agentHome
 
   const openShelf = (shelf: 'pets' | 'skills') => {
     $matrixStoreShelfRequest.set(shelf)
@@ -774,75 +853,33 @@ function CardRows({
     }
   }
 
-  const rows: ReactNode[] = []
-  // `agent.home` is main's data boundary for a migrated D1 assistant. Only then does this card show
-  // the authoritative home, its owner-placement readiness, and manual moves.
-  const homeBridge = window.atumMatrix.agentHome
+  const own: ReactNode[] = []
 
-  // Cloud-only (AGENT_HOMES_CLOUD_ONLY): every assistant lives in the cloud, so "Lives on: The cloud"
-  // says nothing and the row goes (owner 2026-11-26: "obsolete now"); the Macs it can use are the
-  // panel's Your devices row. Only an assistant still on a Mac, or one moving, keeps it: there it is
-  // the way to the cloud, and the place it answers from is news.
-  const placed = agent.home?.placement
-  const awayFromCloud = agent.home
-    ? agent.home.lives.kind !== 'cloud' ||
-      Boolean(agent.home.move || agent.home.issue) ||
-      (placed !== undefined && placed.current !== 'cloud')
-    : !matrixAgentAnswersInCloud(agent)
-
-  if (agent.home && homeBridge && awayFromCloud) {
-    rows.push(
-      <MatrixAgentHomeRow
-        agentName={agent.name}
-        agentPrincipal={agent.principal}
-        bridge={homeBridge}
-        key="agent-home"
-        view={agent.home}
-      />
-    )
-  } else if (!(agent.home && homeBridge) && awayFromCloud) {
-    rows.push(<MatrixAgentPlaceRow agent={agent} key="agent-home" />)
-  }
-
-  if (agent.modelDestinations) {
-    rows.push(
-      <ModelDestinationsRow
+  if (window.atumMatrix?.routines) {
+    own.push(
+      <RoutinesRow
         agent={agent}
-        key="model-destinations"
-        preferenceScope={`account:${snapshot.identity?.userId ?? 'signed-out'}`}
+        copy={copy}
+        glyph={<RowGlyph icon={CalendarCheck} />}
+        initiallyOpen={focusRoutines}
+        key="routines"
+        locale={locale}
+        onMoveToCloud={agent.home && homeBridge ? openAnswerWhere : undefined}
+        paused={controls?.routinesPaused}
       />
     )
+  } else if (agent.isDefault && snapshot.checkIns && snapshot.identity) {
+    // A window without the routines bridge keeps the check-in row where it was: one list needs
+    // the native routine client, and an older runtime must not lose its only check-in control.
+    own.push(<CheckInsRow copy={copy} key="check-ins" locale={locale} snapshot={snapshot} />)
   }
 
-  if (controls) {
-    rows.push(<Fragment key="controls">{controls}</Fragment>)
-  }
-
-  if (store) {
-    rows.push(
-      <button
-        aria-label={`${copy.pet}, ${pet ?? copy.petChoose}`}
-        className="atum-settings-row atum-settings-link"
-        data-assistant-card-pet
-        key="pet"
-        onClick={() => openShelf('pets')}
-        type="button"
-      >
-        <span className="atum-settings-row-title min-w-0 flex-1">{copy.pet}</span>
-        <span className="atum-card-row-value">{pet ?? copy.petChoose}</span>
-        <ChevronRight aria-hidden className="atum-settings-chevron" />
-      </button>
-    )
-  }
-
-  if (card?.skills.length) {
-    rows.push(
-      <SkillsRow key="skills" onFindMore={store ? () => openShelf('skills') : undefined} skills={card.skills} />
-    )
+  if (controls?.pause) {
+    own.push(<Fragment key="pause">{controls.pause}</Fragment>)
   }
 
   if (snapshot.identity && window.atumMatrix?.backgroundSweep) {
-    rows.push(
+    own.push(
       <BackgroundSweepRow
         agentPrincipal={agent.principal}
         bridge={window.atumMatrix.backgroundSweep}
@@ -853,40 +890,91 @@ function CardRows({
     )
   }
 
-  if (window.atumMatrix?.routines) {
-    rows.push(
-      <RoutinesRow
+  const chat: ReactNode[] = []
+
+  if (agent.modelDestinations) {
+    chat.push(
+      <ModelDestinationsRow
         agent={agent}
-        copy={copy}
-        initiallyOpen={focusRoutines}
-        key="routines"
-        locale={locale}
-        onMoveToCloud={agent.home && homeBridge ? openAnswerWhere : undefined}
+        glyph={<RowGlyph icon={Sparkles} />}
+        key="model-destinations"
+        label={copy.answersWith}
+        preferenceScope={`account:${snapshot.identity?.userId ?? 'signed-out'}`}
       />
     )
-  } else if (agent.isDefault && snapshot.checkIns && snapshot.identity) {
-    // A window without the routines bridge keeps the check-in row where it was: one list needs
-    // the native routine client, and an older runtime must not lose its only check-in control.
-    rows.push(<CheckInsRow copy={copy} key="check-ins" locale={locale} snapshot={snapshot} />)
   }
 
-  // A cloud assistant no Mac runs has nothing to set up here, and where it answers is not said
-  // (0.19.4 Q4). One this Mac runs for it (answering or standing by, `macRole`) has a local runtime
-  // that can be not ready, so it offers the same setup as any local assistant.
-  if (!agent.ready && matrixAgentNeedsLocalSetup(agent)) {
-    rows.push(<SetupRow agent={agent} copy={copy} key="setup" status={status} />)
+  if (controls?.notifications) {
+    chat.push(<Fragment key="notifications">{controls.notifications}</Fragment>)
   }
 
-  if (!rows.length) {
-    return null
+  if (store) {
+    chat.push(
+      <button
+        aria-label={`${copy.pet}, ${pet ?? copy.petChoose}`}
+        className="atum-settings-row atum-settings-link"
+        data-assistant-card-pet
+        key="pet"
+        onClick={() => openShelf('pets')}
+        type="button"
+      >
+        <RowGlyph icon={PawPrint} />
+        <span className="atum-settings-row-title min-w-0 flex-1">{copy.pet}</span>
+        <span className="atum-card-row-value">{pet ?? copy.petChoose}</span>
+        <ChevronRight aria-hidden className="atum-settings-chevron" />
+      </button>
+    )
   }
+
+  const canUse: ReactNode[] = []
+
+  if (controls?.devices) {
+    canUse.push(<Fragment key="devices">{controls.devices}</Fragment>)
+  }
+
+  if (card?.skills.length) {
+    canUse.push(
+      <SkillsRow
+        glyph={<RowGlyph icon={PuzzlePiece} />}
+        key="skills"
+        onFindMore={store ? () => openShelf('skills') : undefined}
+        skills={card.skills}
+      />
+    )
+  }
+
+  const privacy = (
+    <span data-assistant-card-privacy id="assistant-card-privacy">
+      {copy.privacy(name)}
+    </span>
+  )
 
   return (
-    <section className="atum-card-section">
-      <div className="atum-settings-group" data-assistant-card-rows>
-        {rows}
-      </div>
-    </section>
+    <>
+      {own.length > 0 && (
+        <SettingsSection className="atum-card-section" data-assistant-card-section="own" title={copy.sectionOwn}>
+          {own}
+        </SettingsSection>
+      )}
+      {chat.length > 0 ? (
+        <SettingsSection
+          className="atum-card-section"
+          data-assistant-card-section="chat"
+          foot={privacy}
+          title={copy.sectionChat}
+        >
+          {chat}
+        </SettingsSection>
+      ) : (
+        // The trust line stays even when this chat has no rows of its own.
+        <p className="atum-card-section atum-settings-section-foot">{privacy}</p>
+      )}
+      {canUse.length > 0 && (
+        <SettingsSection className="atum-card-section" data-assistant-card-section="can-use" title={copy.sectionCanUse}>
+          {canUse}
+        </SettingsSection>
+      )}
+    </>
   )
 }
 
@@ -936,6 +1024,7 @@ function CheckInsRow({
 
   return (
     <label className="atum-settings-row cursor-pointer" data-assistant-card-check-ins>
+      <RowGlyph icon={CalendarCheck} />
       <span className="atum-settings-row-text">
         <span className="atum-settings-row-title">{copy.checkIns}</span>
         {on && (
@@ -959,8 +1048,8 @@ function CheckInsRow({
   )
 }
 
-/** Shown only while an assistant that runs here is not ready, with the roster's own action. */
-function SetupRow({
+/** Shown only while an assistant that runs here is not ready: a notice with the roster's own action. */
+function SetupNotice({
   agent,
   copy,
   status
@@ -974,23 +1063,25 @@ function SetupRow({
   const settingUp = status === 'agentSettingUp' && (agent.setup === 'working' || agent.readiness?.phase === 'starting')
 
   return (
-    <div className="atum-settings-row" data-assistant-card-setup>
-      <span className="atum-settings-row-title min-w-0 flex-1">{copy.setupRow}</span>
-      <span className="atum-card-row-value">{settingUp ? copy.setupRowWorking : copy.setupRowNotReady}</span>
-      {!settingUp && (
-        <Button
-          disabled={pending}
-          onClick={() => {
-            setPending(true)
-            const request = agent.isDefault ? window.atumMatrix.setupAssistant() : window.atumMatrix.retryReadiness()
-            void request.catch(() => {}).finally(() => setPending(false))
-          }}
-          size="sm"
-          variant="secondary"
-        >
-          {copy.setUp}
-        </Button>
-      )}
+    <div className="atum-card-section">
+      <CardNotice
+        action={
+          settingUp
+            ? undefined
+            : {
+                label: copy.setUp,
+                disabled: pending,
+                onClick: () => {
+                  setPending(true)
+                  const request = agent.isDefault ? window.atumMatrix.setupAssistant() : window.atumMatrix.retryReadiness()
+                  void request.catch(() => {}).finally(() => setPending(false))
+                }
+              }
+        }
+        data-assistant-card-setup
+        icon={AlertCircle}
+        title={settingUp ? copy.setupRowWorking : copy.setupRowNotReady}
+      />
     </div>
   )
 }

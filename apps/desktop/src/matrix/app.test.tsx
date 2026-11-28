@@ -4401,10 +4401,11 @@ describe('isolated Matrix composition', () => {
       expect(command).toHaveBeenCalledWith({ kind: 'mute', roomId: controlsState.rooms[0]!.id, muted: true })
     )
 
-    // Your devices: the Macs it can use, one row that opens to each one's state.
+    // Your devices: the Macs it can use, one row that opens to each one's state. With one Mac the
+    // row names it (revamp 2026-11-28: in use, else the Mac's name, else how many).
     const devices = await waitFor(() => {
       const found = panel.querySelector<HTMLElement>('[data-assistant-card-devices]')
-      expect(found?.textContent).toContain('1')
+      expect(found?.textContent).toContain('Mac mini')
 
       return found!
     })

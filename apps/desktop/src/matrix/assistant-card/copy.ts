@@ -147,6 +147,28 @@ export interface AssistantCardCopy {
   photoRemove: string
   copyHandle(handle: string): string
   copied: string
+  /** The header's "…" menu and its items (agent card revamp 2026-11-28). */
+  more: string
+  menuPhoto: string
+  menuChangeHandle: string
+  menuPetChoose: string
+  menuPetChange: string
+  sectionAbout: string
+  aboutEdit: string
+  aboutEmpty: string
+  editorTitle(name: string): string
+  editorWhat(name: string): string
+  sectionOwn: string
+  /** The Routines row's value while Pause holds them: "3 · paused". */
+  routinePausedCount(count: number): string
+  pausedTitle: string
+  followupsRoutine: string
+  followupsBuiltIn: string
+  sectionChat: string
+  answersWith: string
+  sectionCanUse: string
+  fileSentHere(when: string): string
+  filesShowAll: string
 }
 
 /** What kind of character a name refused (`AssistantNameCheck.char`), for the words only:
@@ -242,7 +264,7 @@ const en: AssistantCardCopy = {
   addRoutine: 'Add routine',
   routineEmpty: 'No routines yet.',
   routineLegacyPending: 'Existing schedules are still active. Finish moving them before managing routines here.',
-  routineCount: count => (count === 0 ? 'No routines' : count === 1 ? '1 routine' : `${count} routines`),
+  routineCount: count => (count === 0 ? 'None yet' : count === 1 ? '1 routine' : `${count} routines`),
   routineLoading: 'Loading routines…',
   routineLoadFailed: name => `Couldn’t load ${name}’s routines.`,
   routineLegacyMoving: 'Moving old schedules.',
@@ -322,7 +344,27 @@ const en: AssistantCardCopy = {
   photoError: 'Couldn’t open this image. Try a JPEG or PNG.',
   photoRemove: 'Remove photo',
   copyHandle: handle => `Copy @${handle}`,
-  copied: 'Copied'
+  copied: 'Copied',
+  more: 'More',
+  menuPhoto: 'Change photo',
+  menuChangeHandle: 'Change @handle…',
+  menuPetChoose: 'Choose a pet…',
+  menuPetChange: 'Change pet…',
+  sectionAbout: 'About',
+  aboutEdit: 'Edit',
+  aboutEmpty: 'Not set yet.',
+  editorTitle: name => `About ${name}`,
+  editorWhat: name => `What ${name} helps with`,
+  sectionOwn: 'On its own',
+  routinePausedCount: count => `${count} · paused`,
+  pausedTitle: 'Paused',
+  followupsRoutine: 'Follows up on open threads',
+  followupsBuiltIn: 'Built in',
+  sectionChat: 'In this chat',
+  answersWith: 'Answers with',
+  sectionCanUse: 'Can use',
+  fileSentHere: when => `Sent here · ${when}`,
+  filesShowAll: 'Show all files'
 }
 
 const vi: AssistantCardCopy = {
@@ -477,7 +519,27 @@ const vi: AssistantCardCopy = {
   photoError: 'Không mở được ảnh này. Hãy thử JPEG hoặc PNG.',
   photoRemove: 'Gỡ ảnh',
   copyHandle: handle => `Sao chép @${handle}`,
-  copied: 'Đã chép'
+  copied: 'Đã chép',
+  more: 'Thêm',
+  menuPhoto: 'Đổi ảnh',
+  menuChangeHandle: 'Đổi @tên…',
+  menuPetChoose: 'Chọn thú cưng…',
+  menuPetChange: 'Đổi thú cưng…',
+  sectionAbout: 'Giới thiệu',
+  aboutEdit: 'Sửa',
+  aboutEmpty: 'Chưa có.',
+  editorTitle: name => `Về ${name}`,
+  editorWhat: name => `${name} giúp bạn việc gì`,
+  sectionOwn: 'Tự làm',
+  routinePausedCount: count => `${count} · đang tạm dừng`,
+  pausedTitle: 'Đang tạm dừng',
+  followupsRoutine: 'Theo dõi việc còn dở',
+  followupsBuiltIn: 'Có sẵn',
+  sectionChat: 'Trong trò chuyện này',
+  answersWith: 'Trả lời bằng',
+  sectionCanUse: 'Có thể dùng',
+  fileSentHere: when => `Gửi ở đây · ${when}`,
+  filesShowAll: 'Xem tất cả tệp'
 }
 
 const ja: AssistantCardCopy = {
@@ -632,7 +694,27 @@ const ja: AssistantCardCopy = {
   photoError: 'この画像を開けませんでした。JPEGかPNGをお試しください。',
   photoRemove: '写真を削除',
   copyHandle: handle => `@${handle}をコピー`,
-  copied: 'コピーしました'
+  copied: 'コピーしました',
+  more: 'その他',
+  menuPhoto: '写真を変更',
+  menuChangeHandle: '@ハンドルを変更…',
+  menuPetChoose: 'ペットを選ぶ…',
+  menuPetChange: 'ペットを変更…',
+  sectionAbout: '紹介',
+  aboutEdit: '編集',
+  aboutEmpty: 'まだ設定されていません。',
+  editorTitle: name => `${name}について`,
+  editorWhat: name => `${name}が手伝うこと`,
+  sectionOwn: '自動で行うこと',
+  routinePausedCount: count => `${count}件 · 一時停止中`,
+  pausedTitle: '一時停止中',
+  followupsRoutine: '未完了のやり取りをフォローアップ',
+  followupsBuiltIn: '標準',
+  sectionChat: 'このチャット',
+  answersWith: '回答に使うモデル',
+  sectionCanUse: '使えるもの',
+  fileSentHere: when => `ここで送信 · ${when}`,
+  filesShowAll: 'すべてのファイルを表示'
 }
 
 const zh: AssistantCardCopy = {
@@ -787,7 +869,27 @@ const zh: AssistantCardCopy = {
   photoError: '无法打开这张图片。请试试 JPEG 或 PNG。',
   photoRemove: '移除照片',
   copyHandle: handle => `复制 @${handle}`,
-  copied: '已复制'
+  copied: '已复制',
+  more: '更多',
+  menuPhoto: '更换照片',
+  menuChangeHandle: '更改 @用户名…',
+  menuPetChoose: '选择宠物…',
+  menuPetChange: '更换宠物…',
+  sectionAbout: '简介',
+  aboutEdit: '编辑',
+  aboutEmpty: '还没有设置。',
+  editorTitle: name => `关于 ${name}`,
+  editorWhat: name => `${name} 帮你做什么`,
+  sectionOwn: '自动进行',
+  routinePausedCount: count => `${count} 项 · 已暂停`,
+  pausedTitle: '已暂停',
+  followupsRoutine: '跟进未完成的对话',
+  followupsBuiltIn: '内置',
+  sectionChat: '在此聊天中',
+  answersWith: '回答使用',
+  sectionCanUse: '可以使用',
+  fileSentHere: when => `在这里发送 · ${when}`,
+  filesShowAll: '查看全部文件'
 }
 
 const zhHant: AssistantCardCopy = {
@@ -942,7 +1044,27 @@ const zhHant: AssistantCardCopy = {
   photoError: '無法開啟這張圖片。請試試 JPEG 或 PNG。',
   photoRemove: '移除照片',
   copyHandle: handle => `複製 @${handle}`,
-  copied: '已複製'
+  copied: '已複製',
+  more: '更多',
+  menuPhoto: '更換照片',
+  menuChangeHandle: '更改 @使用者名稱…',
+  menuPetChoose: '選擇寵物…',
+  menuPetChange: '更換寵物…',
+  sectionAbout: '簡介',
+  aboutEdit: '編輯',
+  aboutEmpty: '還沒有設定。',
+  editorTitle: name => `關於 ${name}`,
+  editorWhat: name => `${name} 幫你做什麼`,
+  sectionOwn: '自動進行',
+  routinePausedCount: count => `${count} 項 · 已暫停`,
+  pausedTitle: '已暫停',
+  followupsRoutine: '跟進未完成的對話',
+  followupsBuiltIn: '內建',
+  sectionChat: '在此聊天中',
+  answersWith: '回答使用',
+  sectionCanUse: '可以使用',
+  fileSentHere: when => `在這裡傳送 · ${when}`,
+  filesShowAll: '查看全部檔案'
 }
 
 export const assistantCardCopies: Record<Locale, AssistantCardCopy> = { en, vi, ja, zh, 'zh-hant': zhHant }

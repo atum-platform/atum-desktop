@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import { AtumSegmented } from '@/components/ui/atum-segmented'
 import { Button } from '@/components/ui/button'
@@ -206,12 +206,18 @@ function routineRunsOn(agent: MatrixAgentView, locale: string, copy: AssistantCa
 export function RoutinesRow({
   agent,
   copy,
+  glyph,
   initiallyOpen = false,
   locale,
-  onMoveToCloud
+  onMoveToCloud,
+  paused = false
 }: {
   agent: MatrixAgentView
   copy: AssistantCardCopy
+  /** The card's leading glyph for the row. */
+  glyph?: ReactNode
+  /** Pause holds its routines: the row's value says so ("3 · paused"). */
+  paused?: boolean
   /** The composer's "Add routines" opens the list (and the add form's way in) on arrival. */
   initiallyOpen?: boolean
   locale: string
@@ -682,9 +688,16 @@ export function RoutinesRow({
         ref={row}
         type="button"
       >
+        {glyph}
         <span className="atum-settings-row-title min-w-0 flex-1">{copy.routines}</span>
         <span className="atum-card-row-value" data-routine-count>
-          {failed ? copy.retry : snapshot ? copy.routineCount(routineCount) : '…'}
+          {failed
+            ? copy.retry
+            : snapshot
+              ? paused && routineCount > 0
+                ? copy.routinePausedCount(routineCount)
+                : copy.routineCount(routineCount)
+              : '…'}
         </span>
         <ChevronRight aria-hidden className="atum-settings-chevron" data-open={open || undefined} />
       </button>
