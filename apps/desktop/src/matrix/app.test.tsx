@@ -58,7 +58,6 @@ import { $matrixDesktopServices } from './desktop-services'
 import { $matrixDriveTaskSelection, selectMatrixDriveFile, setMatrixDriveTaskScope } from './drive-selection'
 import { resetFirstRunGreetingForTests } from './first-run-greeting'
 import { requestFounderChat } from './founder/founder-store'
-import { resetMatrixGoogleNudgeDismissals } from './google-connection-settings'
 import { $matrixLastChatByAccount } from './last-chat'
 import { $outgoingEchoes } from './outgoing-echo'
 import { matrixHandleAccount, rememberMatrixHandle, resetMatrixHandlesForTest } from './person-handles'
@@ -438,7 +437,6 @@ beforeEach(() => {
   resetFirstRunForTests()
   resetFirstRunGreetingForTests()
   Object.keys(window.localStorage).filter(key => key.startsWith('atum.first-run')).forEach(key => window.localStorage.removeItem(key))
-  resetMatrixGoogleNudgeDismissals()
   // The first launch's story has its own tests; everything else starts past it.
   window.localStorage.setItem('io.atum.welcome.played', '1')
   // Chat's right panel opens by default (layout r2 §2, its own test below); everything else starts closed.
@@ -10120,47 +10118,6 @@ describe('the local assistant path (plan 2026-09-26-reliable-local-first-chat)',
     await waitFor(() => expect(screen.queryByText(/Assistant setup is waiting for a limit to reset/)).toBeNull())
   })
 
-  it('shows a valid unseen starter allowance only in the settled default assistant chat', async () => {
-    const command = vi.fn(() => new Promise<unknown>(() => {}))
-
-    const starter: MatrixSnapshot = {
-      ...ready,
-      petScope: 'starter-scope',
-      starterMarker: 'unseen',
-      starter: { kind: 'founding', amount: 50_000_999_999 },
-      agents: [
-        {
-          principal: 'default',
-          userId: '@atum:test',
-          isDefault: true,
-          ready: true,
-          hermes: 'ready',
-          readiness: { phase: 'ready', since: 1 },
-          atumModel: true
-        }
-      ]
-    }
-
-    const { bridge } = fixture(async () => starter, 'en', undefined, command)
-
-    await waitFor(() => expect(plate()).toBeNull(), LAUNCH_OPENS)
-    await waitFor(() =>
-      expect(window.document.querySelectorAll('[data-matrix-starter-notice] p')[1]?.textContent).toBe(
-        'Enough for about 20 chats.'
-      )
-    )
-    expect(command).toHaveBeenCalledWith({
-      kind: 'starterSeen',
-      identity: owner,
-      scope: 'starter-scope'
-    })
-    const composer = screen.getByRole('textbox', { name: COMPOSER })
-    fireEvent.change(composer, { target: { value: 'First message' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Send' }))
-    await waitFor(() => expect(bridge.sendTurn).toHaveBeenCalledWith('!assistant:test', 'First message'))
-    await waitFor(() => expect(window.document.querySelector('[data-matrix-starter-notice]')).toBeNull())
-  })
-
   it('says a start after launch only in the message box, however slow, never as lines in its chat', async () => {
     const { emit } = fixture(async () => ready)
     await waitFor(() => expect(plate()).toBeNull(), LAUNCH_OPENS)
@@ -11830,6 +11787,15 @@ describe("Home's chat (launch night, second wave)", () => {
     ...extra
   })
 
+  /** A first chat whose hidden welcome request the assistant has answered with its own welcome. */
+  const greeted = (snapshot: MatrixSnapshot, body = 'Hi Minh, I’m here. Connect what you’d like me to learn from.'): MatrixSnapshot => ({
+    ...snapshot,
+    messages: [
+      message('$seed', { body: 'io.atum.first-run.greeting/1 en Minh' }),
+      message('$welcome', { own: false, sender: '@atum:test', body, timestamp: 2 })
+    ]
+  })
+
   const assistantRoom = {
     ...assistantFields,
     id: '!assistant:test',
@@ -12572,7 +12538,7 @@ describe("Home's chat (launch night, second wave)", () => {
       save: vi.fn<MatrixAssistantCardsBridge['save']>(async () => ({ ok: false, error: 'unavailable' })),
       avatar: vi.fn<MatrixAssistantCardsBridge['avatar']>(async () => ({ ok: false, error: 'unavailable' }))
     }
-    emit(fresh)
+    emit(greeted(fresh))
 
     const card = await waitFor(() => {
       const found = window.document.querySelector<HTMLElement>('[data-matrix-first-run="offer"]')
@@ -12581,9 +12547,10 @@ describe("Home's chat (launch night, second wave)", () => {
       return found!
     })
 
-    // The welcome is one message: who it is, the invitation to name it, then what it can do. Naming
-    // is the person's reply in the composer, answered by the assistant itself: no form, no chips.
-    expect(card.textContent).toContain('Hi Minh, I’m Atum. You can rename me anytime')
+    // The welcome is the assistant's own message, never ready-made copy. Naming is the person's reply in the
+    // composer, answered by the assistant itself: no form, no chips.
+    expect(card.textContent).toContain('Hi Minh, I’m here.')
+    expect(card.textContent).not.toContain('You can rename me anytime')
     expect(card.querySelector('input:not([type="checkbox"]), textarea, form')).toBeNull()
     expect(within(card).queryByRole('button', { name: 'Na' })).toBeNull()
     expect(within(card).queryByRole('button', { name: 'Save name' })).toBeNull()
@@ -12591,12 +12558,14 @@ describe("Home's chat (launch night, second wave)", () => {
     expect(window.document.querySelector('[data-matrix-greeting]')).toBeNull()
     expect(screen.queryByRole('button', { name: 'Plan a trip' })).toBeNull()
 
-    // There is no checklist: one inline Atum asks card owns the happy path.
+    // There is no checklist: the welcome's own ask is answered by one action row; the Connections list is one tap away.
     expect(card.querySelector('[data-matrix-first-run-checklist]')).toBeNull()
     expect(card.querySelector('[data-checklist-row]')).toBeNull()
-    expect(card.querySelector('[data-matrix-first-run-connect-card]')).not.toBeNull()
-    expect(await within(card).findByRole('button', { name: 'Continue' })).toBeTruthy()
-    expect(card.querySelector('[data-atum-ask="google"]')).not.toBeNull()
+    expect(card.querySelectorAll('[data-atum-first-run-connections]')).toHaveLength(1)
+    expect(await within(card).findByRole('button', { name: 'Sure' })).toBeTruthy()
+    expect(within(card).getByRole('button', { name: 'Not now' })).toBeTruthy()
+    fireEvent.click(within(card).getByRole('button', { name: 'Choose what to connect' }))
+    await waitFor(() => expect(card.querySelector('[data-atum-ask="google"]')).not.toBeNull())
     expect(card.textContent).not.toContain('If Google warns you')
     expect(bridge.assistants.read).not.toHaveBeenCalled()
     expect(bridge.assistants.save).not.toHaveBeenCalled()
@@ -12656,7 +12625,7 @@ describe("Home's chat (launch night, second wave)", () => {
       const { bridge, emit } = fixture(async () => cloudFresh)
       bridge.firstRun = firstRun
       bridge.googleConnections = google
-      emit(cloudFresh)
+      emit(greeted(cloudFresh))
 
       const card = await waitFor(() => {
         expect(welcome()).not.toBeNull()
@@ -12664,26 +12633,29 @@ describe("Home's chat (launch night, second wave)", () => {
         return welcome()!
       })
 
-      expect(card.textContent).toContain('Hi Minh, I’m Atum Bot. You can rename me anytime')
+      expect(card.textContent).toContain('Hi Minh, I’m here.')
       expect(window.document.querySelector('[data-matrix-greeting]')).toBeNull()
       expect(card.querySelector('[data-matrix-first-run-checklist]')).toBeNull()
       expect(card.querySelector('[data-checklist-row]')).toBeNull()
-      expect(within(card).getByRole('button', { name: 'Continue' })).toBeTruthy()
-      expect(card.querySelector('[data-atum-ask="google"]')).not.toBeNull()
+      expect(await within(card).findByRole('button', { name: 'Sure' })).toBeTruthy()
       expect(nudge()).toBeNull()
 
-      // Skipping starts first learning through the legacy fallback in this older bridge fixture.
+      // Team spaces need no prompt, so Atum connected them before asking. Not now asks nothing more and learning starts on
+      // what is connected (an older bridge's allow), rather than being declined.
+      await waitFor(() => expect(bridge.agentSources!.set).toHaveBeenCalledExactlyOnceWith('team_spaces', true))
       fireEvent.click(within(card).getByRole('button', { name: 'Not now' }))
-      await waitFor(() => expect(firstRun.decline).toHaveBeenCalledOnce())
-      expect(within(card).queryByRole('button', { name: 'Continue' })).toBeNull()
-      expect(firstRun.allow).not.toHaveBeenCalled()
+      await waitFor(() => expect(firstRun.allow).toHaveBeenCalledOnce())
+      expect(within(card).queryByRole('button', { name: 'Not now' })).toBeNull()
+      expect(within(card).getByRole('button', { name: 'Choose what to connect' })).toBeTruthy()
+      expect(firstRun.decline).not.toHaveBeenCalled()
 
-      emit({ ...cloudFresh, firstRunOpen: undefined, firstRunMarker: 'answered', firstRunWelcome: 'dismissed' })
-      await waitFor(() => expect(skipped()).not.toBeNull())
-      expect(welcome()).toBeNull()
-      // Skipped: the same greeting remains, but the card has collapsed to the chip.
-      expect(skipped()!.textContent).toContain('You can rename me anytime')
-      await waitFor(() => expect(nudge()).not.toBeNull())
+      emit({ ...greeted(cloudFresh), firstRunOpen: undefined, firstRunMarker: 'answered', firstRunWelcome: 'dismissed' })
+      await waitFor(() => expect(welcome()).toBeNull())
+      // Skipped: the welcome stays in the chat with the same list under it; there is no separate Google chip any more.
+      expect(await screen.findByText('Hi Minh, I’m here. Connect what you’d like me to learn from.')).toBeTruthy()
+      expect(window.document.querySelectorAll('[data-atum-first-run-connections]')).toHaveLength(1)
+      expect(skipped()).toBeNull()
+      expect(nudge()).toBeNull()
     })
 
     it('sends the hidden greeting intent once, never shows it, and shows the generated welcome above Connections', async () => {
@@ -12863,23 +12835,26 @@ describe("Home's chat (launch night, second wave)", () => {
       expect(welcome()).toBeNull()
     })
 
-    it('skips the connector card and records the legacy dismissal on an older bridge', async () => {
-      const { bridge } = open(cloudAccount)
-      await waitFor(() => expect(welcome()).not.toBeNull())
+    it('Not now records the legacy dismissal on an older bridge when nothing could connect by itself', async () => {
+      const { bridge } = open(greeted(cloudAccount))
+      // Nothing promptless here: the team spaces switch is refused, so nothing is connected when Not now comes.
+      vi.mocked(bridge.agentSources!.set).mockRejectedValue(new Error('refused'))
+      await waitFor(() => expect(within(welcome()!).getByRole('button', { name: 'Not now' })).toBeTruthy())
 
       fireEvent.click(within(welcome()!).getByRole('button', { name: 'Not now' }))
       await waitFor(() => expect(bridge.firstRun!.decline).toHaveBeenCalledOnce())
-      await waitFor(() => expect(within(welcome()!).queryByRole('button', { name: 'Continue' })).toBeNull())
+      await waitFor(() => expect(within(welcome()!).queryByRole('button', { name: 'Not now' })).toBeNull())
       expect(bridge.firstRun!.finish).not.toHaveBeenCalled()
+      expect(bridge.firstRun!.allow).not.toHaveBeenCalled()
     })
 
     it('keeps the registry row when Google becomes connected', async () => {
-      const { emit } = open(cloudAccount)
-      await waitFor(() => expect(within(welcome()!).getByRole('button', { name: 'Continue' })).toBeTruthy())
-      expect(welcome()!.querySelector('[data-atum-ask="google"]')).not.toBeNull()
+      const { emit } = open(greeted(cloudAccount))
+      fireEvent.click(await within(await waitFor(() => welcome()!)).findByRole('button', { name: 'Choose what to connect' }))
+      await waitFor(() => expect(welcome()!.querySelector('[data-atum-ask="google"]')).not.toBeNull())
 
       emit({
-        ...cloudAccount,
+        ...greeted(cloudAccount),
         googleAssistant: {
           state: 'ready',
           services: { gmail: true, send: true, calendar: true, drive: true }
@@ -12922,7 +12897,7 @@ describe("Home's chat (launch night, second wave)", () => {
       disconnect: vi.fn(async () => ({ status: { sources: [], available: true } })),
       setSourcePreferences: vi.fn(async () => ({ status: { sources: [], available: true } }))
     }
-    emit(fresh)
+    emit(greeted(fresh, 'Hi Minh, I’m Bông.'))
 
     const card = await waitFor(() => {
       const found = window.document.querySelector<HTMLElement>('[data-matrix-first-run="offer"]')
@@ -12933,8 +12908,9 @@ describe("Home's chat (launch night, second wave)", () => {
 
     expect(card.querySelector('[data-matrix-first-run-checklist]')).toBeNull()
     expect(card.querySelector('[data-checklist-row]')).toBeNull()
-    expect(within(card).getByRole('button', { name: 'Continue' })).toBeTruthy()
-    expect(card.querySelector('[data-atum-ask="messages"]')).not.toBeNull()
+    fireEvent.click(await within(card).findByRole('button', { name: 'Choose what to connect' }))
+    await waitFor(() => expect(card.querySelector('[data-atum-ask="messages"]')).not.toBeNull())
+    expect(within(card.querySelector<HTMLElement>('[data-atum-ask="messages"]')!).getByRole('button', { name: 'Connect' })).toBeTruthy()
     expect(bridge.enrollHermes).not.toHaveBeenCalled()
     expect(firstRun.allow).not.toHaveBeenCalled()
     expect(card.textContent).toContain('I’m Bông.')
@@ -13085,19 +13061,14 @@ describe("Home's chat (launch night, second wave)", () => {
       return found!
     })
 
-    // The approved one-piece welcome says the assistant can be renamed without opening a naming form.
-    expect(panel.textContent).toContain(
-      'Chào bạn, mình là Atum. Bạn có thể đổi tên mình bất cứ lúc nào, chỉ cần nói tên bạn muốn gọi.'
-    )
-    expect(panel.textContent).not.toContain('Bạn muốn gọi mình là gì?')
+    // No ready-made welcome while the assistant starts: the assistant is shown writing, beside the real readiness line.
+    expect(panel.querySelector('[data-matrix-first-run-greeting="pending"]')).not.toBeNull()
+    expect(panel.textContent).not.toContain('Bạn có thể đổi tên mình')
     expect(panel.querySelector('input:not([type="checkbox"]), textarea, form')).toBeNull()
     expect(panel.querySelector('[data-matrix-launch-line="starting"]')).not.toBeNull()
-    expect(await within(panel).findByRole('button', { name: 'Tiếp tục' })).toBeTruthy()
-    expect(panel.querySelector('[data-atum-ask="google"]')).not.toBeNull()
     expect(panel.querySelector('[data-matrix-first-run-checklist]')).toBeNull()
     expect(bridge.enrollHermes).not.toHaveBeenCalled()
     expect(firstRun.allow).not.toHaveBeenCalled()
-    expect(within(panel).getByRole('button', { name: 'Để sau' })).toBeTruthy()
   })
 
   it('fills the box from a starter in an empty chat, without sending', async () => {

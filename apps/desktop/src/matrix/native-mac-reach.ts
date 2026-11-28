@@ -100,6 +100,9 @@ export function matrixNativeMacLine(
   }
 }
 
+/** Status reads: an owner's action waits behind one of these rather than being dropped. */
+const QUIET: ReadonlySet<MatrixNativeSshAction> = new Set<MatrixNativeSshAction>(['status', 'refresh'])
+
 /**
  * Read the setup result on entry, after actions and when the window regains focus. Focus never
  * reconnects a Mac the owner just disconnected: only Connect does that.
@@ -107,10 +110,11 @@ export function matrixNativeMacLine(
 export function useMatrixNativeMac(
   active: boolean,
   bridge: MatrixNativeMacBridge | undefined = window.atumMatrix?.nativeMac
-): MatrixNativeMacFacts & { busy: boolean; running?: MatrixNativeSshAction; run(action: MatrixNativeSshAction): void } {
+): MatrixNativeMacFacts & { busy: boolean; running?: MatrixNativeSshAction; run(action: MatrixNativeSshAction): Promise<void> } {
   const [result, setResult] = useState<MatrixNativeMacFacts>({ manual: false })
   const [running, setRunning] = useState<MatrixNativeSshAction>()
-  const inFlight = useRef(false)
+  const flight = useRef<{ action: MatrixNativeSshAction; done: Promise<void> } | null>(null)
+  const runRef = useRef<(action: MatrixNativeSshAction) => Promise<void>>(() => Promise.resolve())
 
   const take = useCallback((view: MatrixNativeSshView | undefined, action?: MatrixNativeSshAction) => {
     setResult(previous =>
@@ -120,15 +124,28 @@ export function useMatrixNativeMac(
     )
   }, [])
 
+  /**
+   * One action at a time; it settles when main has answered. A second action while one runs waits on it instead of starting:
+   * the owner's own action queues behind a quiet status refresh (the window regaining focus after a macOS prompt), and anything
+   * else simply shares the running one (a double click starts nothing twice).
+   */
   const run = useCallback(
-    (action: MatrixNativeSshAction) => {
-      if (!active || !bridge || inFlight.current) {
-        return
+    (action: MatrixNativeSshAction): Promise<void> => {
+      if (!active || !bridge) {
+        return Promise.resolve()
       }
 
-      inFlight.current = true
+      const current = flight.current
+
+      if (current) {
+        return QUIET.has(current.action) && !QUIET.has(action)
+          ? current.done.then(() => runRef.current(action))
+          : current.done
+      }
+
       setRunning(action)
-      void bridge
+
+      const done = bridge
         .ssh(action)
         .then(
           view => take(view, action),
@@ -138,12 +155,18 @@ export function useMatrixNativeMac(
           }
         )
         .finally(() => {
-          inFlight.current = false
+          flight.current = null
           setRunning(undefined)
         })
+
+      flight.current = { action, done }
+
+      return done
     },
     [active, bridge, take]
   )
+
+  runRef.current = run
 
   useEffect(() => {
     if (!active || !bridge) {
@@ -160,7 +183,7 @@ export function useMatrixNativeMac(
       () => undefined
     )
 
-    const refresh = () => run('refresh')
+    const refresh = () => void run('refresh')
 
     window.addEventListener('focus', refresh)
 

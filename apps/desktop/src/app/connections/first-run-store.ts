@@ -15,6 +15,7 @@ import type { MatrixSubscriptionsStatus } from '../../../shared/matrix-subscript
 import type { MatrixWorkBridge, WorkAgentPlans } from '../../../shared/matrix-work'
 import { WORK_RELAY_PLANS, type WorkRelayPlan, type WorkRelaySelection } from '../../../shared/matrix-work-relay'
 
+import { resetFirstRunAskForTests } from './first-run-controller'
 import { grantAccountPlanUse } from './store'
 
 /**
@@ -382,4 +383,5 @@ export function resetFirstRunForTests(): void {
   $firstRunPick.set(undefined)
   $firstRunAutoEnabled.set(true)
   $firstRunJustReady.set(new Set())
+  resetFirstRunAskForTests()
 }

@@ -1,16 +1,16 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
+import { FIRST_RUN_GREETING_RETRY_MS } from '@/app/connections/first-run-controller'
+import { resetFirstRunForTests } from '@/app/connections/first-run-store'
 import { I18nProvider, type Locale } from '@/i18n'
 
 import type { MatrixRoom, MatrixSnapshot, MatrixUiBridge } from '../../shared/matrix'
 import { MATRIX_ASSISTANT_ROOM_TYPE } from '../../shared/matrix-assistant-room'
-import { matrixFirstRunCopy } from '../../shared/matrix-first-run-copy'
 import type { MatrixGoogleConnectionBridge } from '../../shared/matrix-google-connections'
 
 import { MatrixFirstRunCard, matrixFirstRunPlace, MatrixFolderAccessRecovery } from './first-run-card'
-import { resetMatrixGoogleNudgeDismissals } from './google-connection-settings'
 import { AssistantGreeting } from './greeting'
 
 const owner = { userId: '@minh:test', deviceId: 'MAC' }
@@ -95,6 +95,7 @@ function googleBridge(): MatrixGoogleConnectionBridge & { connect: ReturnType<ty
 function bridge(google = googleBridge()) {
   const start = vi.fn(async () => {})
   const decline = vi.fn(async () => {})
+
   let sourceView = {
     gates: { google: false, folders: false, messages: false, browser: false, location: false, team_spaces: false },
     sources: [
@@ -102,10 +103,13 @@ function bridge(google = googleBridge()) {
       { kind: 'mac.files', optOutGate: 'folders', availability: 'unavailable' as const, grantable: true }
     ]
   }
+
   const set = vi.fn(async (gate: keyof typeof sourceView.gates, enabled: boolean) => {
     sourceView = { ...sourceView, gates: { ...sourceView.gates, [gate]: enabled } }
+
     return sourceView
   })
+
   const value = {
     agentSources: { read: vi.fn(async () => sourceView), set },
     googleConnections: google,
@@ -127,22 +131,113 @@ function bridge(google = googleBridge()) {
       watch: vi.fn(() => () => {})
     }
   } as unknown as MatrixUiBridge
+
   window.atumMatrix = value
 
   return { decline, google, set, start, value }
 }
 
-function show(snapshot = base, locale: Locale = 'en', assistantName?: string) {
+const WELCOME = 'Hi, I’m Atum. Connect what you’d like me to learn from.'
+
+function show(snapshot = base, locale: Locale = 'en', props: Partial<Parameters<typeof MatrixFirstRunCard>[0]> = { greeting: WELCOME }) {
   return render(
     <I18nProvider configClient={null} initialLocale={locale}>
-      <MatrixFirstRunCard assistantName={assistantName} roomId="!atum:test" snapshot={snapshot} />
+      <MatrixFirstRunCard roomId="!atum:test" snapshot={snapshot} {...props} />
     </I18nProvider>
   )
 }
 
+const row = (gate: string) => window.document.querySelector<HTMLElement>(`[data-atum-ask="${gate}"]`)
+const askState = () => window.document.querySelector<HTMLElement>('[data-atum-first-run-ask]')?.dataset.atumFirstRunAsk
+
+/** Choose what to connect: the full list in place of the ask row. */
+async function choose() {
+  fireEvent.click(await screen.findByRole('button', { name: 'Choose what to connect' }))
+  await waitFor(() => expect(row('google')).not.toBeNull())
+}
+
+const permissionsSnapshot = (fullDisk: string) => ({
+  platform: 'macos',
+  permissions: {
+    accessibility: 'not-granted',
+    screen: 'not-granted',
+    microphone: 'not-determined',
+    automation: 'manual-check',
+    files: 'manual-check',
+    fullDisk,
+    location: 'not-determined'
+  }
+})
+
+/** A Mac where folders and Messages still need macOS: Documents not asked yet, Full Disk Access not granted. */
+function macBridge() {
+  const made = bridge()
+  const value = made.value as unknown as Record<string, unknown>
+  let fullDisk = 'not-granted'
+  let listener: ((snapshot: ReturnType<typeof permissionsSnapshot>) => void) | undefined
+  const order: string[] = []
+
+  const folders = (mac: 'not-asked' | 'granted') => ({ platform: 'macos' as const, folders: [{ id: 'documents', kind: 'documents' as const, shared: true, mac }] })
+
+  const apply = vi.fn(async () => {
+    order.push('folders prompt')
+
+    return folders('granted')
+  })
+
+  value.folderAccess = { read: vi.fn(async () => folders('not-asked')), apply, add: vi.fn(), remove: vi.fn() }
+
+  const openSettings = vi.fn(async () => {
+    order.push('full disk pane')
+  })
+
+  value.permissions = {
+    status: vi.fn(async () => permissionsSnapshot(fullDisk)),
+    openSettings,
+    watch: vi.fn((next: typeof listener) => {
+      listener = next
+
+      return () => {
+        listener = undefined
+      }
+    })
+  }
+
+  const agentSources = value.agentSources as { read: ReturnType<typeof vi.fn>; set: ReturnType<typeof vi.fn> }
+  type View = { sources: unknown[] }
+  const read = agentSources.read.getMockImplementation() as () => Promise<View>
+  const set = agentSources.set.getMockImplementation() as (gate: string, enabled: boolean) => Promise<View>
+
+  const withMessages = <T extends { sources: unknown[] }>(view: T) => ({
+    ...view,
+    sources: [...view.sources, { kind: 'mac.message-metadata', optOutGate: 'messages', availability: 'unavailable', grantable: true }]
+  })
+
+  agentSources.read.mockImplementation(async () => withMessages(await read()))
+  agentSources.set.mockImplementation(async (gate: string, enabled: boolean) => withMessages(await set(gate, enabled)))
+
+  made.google.connect.mockImplementation(async () => {
+    order.push('google browser')
+
+    return made.google.status()
+  })
+
+  return {
+    ...made,
+    apply,
+    openSettings,
+    order,
+    grantFullDisk() {
+      fullDisk = 'granted'
+      listener?.(permissionsSnapshot('granted'))
+    }
+  }
+}
+
 afterEach(() => {
   cleanup()
-  resetMatrixGoogleNudgeDismissals()
+  vi.useRealTimers()
+  resetFirstRunForTests()
   Reflect.deleteProperty(window, 'atumMatrix')
 })
 
@@ -180,97 +275,201 @@ describe('first-run account and conversation fences', () => {
   })
 })
 
-describe('the greeting and inline connect card', () => {
-  it('keeps naming conversational and puts the source checklist inline', async () => {
+describe('the welcome and the one Connections list', () => {
+  it('flows the assistant’s own welcome into one action row, and Choose what to connect opens the list in three groups', async () => {
     const { google } = bridge()
     const view = show()
 
-    expect(screen.getByText(/^Hi Minh, I’m Atum\./)).toBeTruthy()
+    expect(screen.getByText(WELCOME)).toBeTruthy()
     expect(view.container.querySelector('input, textarea, form')).toBeNull()
-    expect(view.container.querySelector('[data-matrix-first-run-checklist]')).toBeNull()
-    expect(view.container.querySelector('[data-checklist-row]')).toBeNull()
-    expect(view.container.querySelector('[data-matrix-first-run-connect-card]')).not.toBeNull()
-    expect(screen.getByRole('heading', { name: 'Let me get to know your world' })).toBeTruthy()
-    expect(screen.queryByText('This Mac')).toBeNull()
-    expect(await screen.findByText('Mac folders')).toBeTruthy()
+    expect(view.container.querySelectorAll('[data-atum-first-run-connections]')).toHaveLength(1)
+    // The agent asked in its welcome; the window only answers it: Sure, a quiet Not now, and the list one tap away.
+    expect(screen.getByRole('button', { name: 'Sure' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Not now' })).toBeTruthy()
+    expect(row('google')).toBeNull()
+
+    await choose()
+    expect(screen.queryByRole('button', { name: 'Sure' })).toBeNull()
+    expect(screen.getByRole('heading', { name: 'AI plans' })).toBeTruthy()
+    expect(screen.getByRole('heading', { name: 'Accounts' })).toBeTruthy()
+    expect(screen.getByRole('heading', { name: 'This Mac' })).toBeTruthy()
+    expect(row('folders')).not.toBeNull()
+    expect(view.container.querySelector('[data-matrix-google-nudge], [data-matrix-starter-notice]')).toBeNull()
     expect(google.status).not.toHaveBeenCalled()
   })
 
-  it('uses the real assistant name and localized greeting in every locale', () => {
-    for (const locale of ['en', 'vi', 'ja', 'zh', 'zh-hant'] as Locale[]) {
-      bridge()
-      const snapshot = { ...base, agents: [{ ...base.agents![0]!, name: 'Mây' }, base.agents![1]!] }
-      const view = show(snapshot, locale)
-      const greeting = view.container.querySelector('p')!.textContent!
+  it('never stands in a ready-made greeting: a typing bubble, then a retry, then one quiet line', async () => {
+    vi.useFakeTimers()
+    bridge()
+    const resend = vi.fn(async () => {})
+    const view = show(base, 'en', { greetingPending: true, resendGreeting: resend })
 
-      expect(greeting).toBe(matrixFirstRunCopy(locale).greeting('Minh', 'Mây'))
-      cleanup()
-    }
+    expect(view.container.querySelector('[data-matrix-first-run-greeting="pending"]')).not.toBeNull()
+    expect(view.container.querySelector('[data-atum-first-run-connections]')).toBeNull()
+    expect(view.container.textContent).not.toMatch(/Hi Minh|rename me/u)
+
+    act(() => void vi.advanceTimersByTime(FIRST_RUN_GREETING_RETRY_MS))
+    expect(resend).toHaveBeenCalledOnce()
+    expect(screen.getByText('Taking a little longer…')).toBeTruthy()
+
+    act(() => void vi.advanceTimersByTime(FIRST_RUN_GREETING_RETRY_MS))
+    expect(screen.getByText('Atum isn’t answering yet.')).toBeTruthy()
+    // Nobody is stuck behind a silent assistant: the list shows with the quiet line.
+    expect(view.container.querySelector('[data-atum-first-run-connections]')).not.toBeNull()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Try again' }))
+    expect(resend).toHaveBeenCalledTimes(2)
+    expect(screen.getByText('Taking a little longer…')).toBeTruthy()
   })
 
-  it('runs the approved registry-fed Continue sequence', async () => {
+  it('a welcome that arrives late replaces the waiting state', () => {
+    vi.useFakeTimers()
+    bridge()
+    const resend = vi.fn(async () => {})
+    const view = show(base, 'en', { greetingPending: true, resendGreeting: resend })
+
+    act(() => void vi.advanceTimersByTime(FIRST_RUN_GREETING_RETRY_MS * 2))
+    view.rerender(
+      <I18nProvider configClient={null} initialLocale="en">
+        <MatrixFirstRunCard greeting={WELCOME} roomId="!atum:test" snapshot={base} />
+      </I18nProvider>
+    )
+
+    expect(screen.getByText(WELCOME)).toBeTruthy()
+    expect(screen.queryByText('Atum isn’t answering yet.')).toBeNull()
+  })
+
+  it('Google is one browser trip from its own row, and the first connected source admits first learning once', async () => {
     const { google, set, start } = bridge()
     show()
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Continue' }))
+    await choose()
+    fireEvent.click(within(row('google')!).getByRole('button', { name: 'Connect' }))
     await waitFor(() => expect(google.connect).toHaveBeenCalledExactlyOnceWith('google'))
-    await waitFor(() => expect(set).toHaveBeenCalledTimes(2))
-    await waitFor(() =>
-      expect(start).toHaveBeenCalledExactlyOnceWith({ locale: 'en', ending: 'done', roomId: '!atum:test' })
-    )
+    await waitFor(() => expect(set).toHaveBeenCalledExactlyOnceWith('google', true))
+    await waitFor(() => expect(start).toHaveBeenCalledExactlyOnceWith({ locale: 'en', ending: 'done', roomId: '!atum:test' }))
+    await waitFor(() => expect(row('google')!.dataset.atumFirstRunState).toBe('connected'))
+
+    fireEvent.click(within(row('folders')!).getByRole('button', { name: 'Connect' }))
+    await waitFor(() => expect(set).toHaveBeenCalledWith('folders', true))
+    expect(start).toHaveBeenCalledOnce()
+    expect(google.connect).toHaveBeenCalledOnce()
   })
 
-  it('settles without learning and keeps the greeting usable on Not now', async () => {
+  it('Skip the rest marks the open rows skipped and declines learning when nothing was connected', async () => {
     const { decline, set, start } = bridge()
+    show()
+
+    await choose()
+    fireEvent.click(screen.getByRole('button', { name: 'Skip the rest' }))
+    await waitFor(() => expect(decline).toHaveBeenCalledOnce())
+    expect(start).not.toHaveBeenCalled()
+    expect(set).not.toHaveBeenCalled()
+    expect(row('google')!.dataset.atumFirstRunState).toBe('skipped')
+    expect(screen.queryByRole('button', { name: 'Skip the rest' })).toBeNull()
+    // A skipped row can still be connected from the list.
+    expect(within(row('google')!).getByRole('button', { name: 'Connect' })).toBeTruthy()
+    expect(screen.getByText(WELCOME)).toBeTruthy()
+  })
+
+  it('connects an already-signed-in Google account automatically, before the welcome, and learning waits for the answer', async () => {
+    const { google, set, start } = bridge()
+    const signedIn = { ...base, googleAssistant: { state: 'ready' as const, services: { gmail: true, send: true, calendar: true, drive: true } } }
+    const view = show(signedIn, 'en', { greetingPending: true })
+
+    // Nothing to ask: the hidden list connects it while the welcome is written, so the welcome can name it.
+    await waitFor(() => expect(set).toHaveBeenCalledExactlyOnceWith('google', true))
+    expect(google.connect).not.toHaveBeenCalled()
+    // Learning would close the welcome before it arrives: it starts with the person's answer instead.
+    expect(start).not.toHaveBeenCalled()
+
+    view.rerender(
+      <I18nProvider configClient={null} initialLocale="en">
+        <MatrixFirstRunCard greeting={WELCOME} roomId="!atum:test" snapshot={signedIn} />
+      </I18nProvider>
+    )
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Sure' }))
+    await waitFor(() => expect(start).toHaveBeenCalledExactlyOnceWith({ locale: 'en', ending: 'done', roomId: '!atum:test' }))
+    await waitFor(() => expect(askState()).toBe('done'))
+    // Sure ran what was left (folders, with no macOS prompt on this bridge); the summary names everything connected.
+    expect(set.mock.calls).toEqual([['google', true], ['folders', true]])
+    expect(screen.getByText('Connected Google and Mac folders')).toBeTruthy()
+  })
+
+  it('Sure runs each native macOS step in turn, Messages waits for Full Disk Access, and Google comes last as one tap', async () => {
+    const { apply, google, grantFullDisk, openSettings, order, set, start } = macBridge()
+    show()
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Sure' }))
+
+    // Folders first: one macOS prompt; that first connected source admits first learning.
+    await waitFor(() => expect(apply).toHaveBeenCalledOnce())
+    await waitFor(() => expect(set).toHaveBeenCalledWith('folders', true))
+    await waitFor(() => expect(start).toHaveBeenCalledOnce())
+
+    // Messages: the Full Disk Access pane, and nothing else opens over it until it is answered.
+    await waitFor(() => expect(openSettings).toHaveBeenCalledExactlyOnceWith('fullDisk'))
+    expect(screen.getByRole('status').textContent).toBe('Allow Full Disk Access in System Settings · Google next')
+    expect(google.connect).not.toHaveBeenCalled()
+    expect(askState()).toBe('running')
+
+    act(() => grantFullDisk())
+    await waitFor(() => expect(set).toHaveBeenCalledWith('messages', true))
+
+    // Google never opens the browser by itself: one tap, last.
+    await waitFor(() => expect(askState()).toBe('google'))
+    expect(google.connect).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByRole('button', { name: 'Connect Google' }))
+    await waitFor(() => expect(askState()).toBe('done'))
+
+    expect(order).toEqual(['folders prompt', 'full disk pane', 'google browser'])
+    expect(screen.getByText('Connected Google, Documents and Messages')).toBeTruthy()
+    expect(start).toHaveBeenCalledOnce()
+  })
+
+  it('a step the person leaves settles quietly and the next one runs', async () => {
+    const { google, openSettings } = macBridge()
+    show()
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Sure' }))
+    await waitFor(() => expect(openSettings).toHaveBeenCalledOnce())
+
+    // Back in Atum without the grant: the step settles (Messages asks for a restart in the list) and Google is offered.
+    act(() => {
+      window.dispatchEvent(new Event('blur'))
+      window.dispatchEvent(new Event('focus'))
+    })
+
+    await waitFor(() => expect(askState()).toBe('google'))
+    fireEvent.click(screen.getByRole('button', { name: 'Not now' }))
+    await waitFor(() => expect(askState()).toBe('done'))
+    expect(google.connect).not.toHaveBeenCalled()
+  })
+
+  it('Not now asks nothing more, declines learning when nothing is connected, and keeps the list one tap away', async () => {
+    const { decline, google, set, start } = bridge()
     show()
 
     fireEvent.click(await screen.findByRole('button', { name: 'Not now' }))
     await waitFor(() => expect(decline).toHaveBeenCalledOnce())
+    expect(askState()).toBe('later')
+    expect(screen.queryByRole('button', { name: 'Sure' })).toBeNull()
     expect(start).not.toHaveBeenCalled()
     expect(set).not.toHaveBeenCalled()
-    expect(screen.queryByRole('heading', { name: 'Let me get to know your world' })).toBeNull()
-    expect(screen.getByText(/^Hi Minh, I’m Atum\./)).toBeTruthy()
+    expect(google.connect).not.toHaveBeenCalled()
+
+    await choose()
+    expect(row('google')!.dataset.atumFirstRunState).toBe('skipped')
   })
 
-  it('keeps the registry row when Google is already connected', async () => {
+  it('keeps the same list after a skip, with no separate Google chip', async () => {
     bridge()
-    render(
-      <I18nProvider configClient={null} initialLocale="en">
-        <MatrixFirstRunCard
-          snapshot={{
-            ...base,
-            googleAssistant: {
-              state: 'ready',
-              services: { gmail: true, send: true, calendar: true, drive: true }
-            }
-          }}
-        />
-      </I18nProvider>
-    )
-    await screen.findByText('Google')
-    expect(window.document.querySelector('[data-atum-ask="google"]')).not.toBeNull()
-    expect(screen.getByRole('heading', { name: 'Let me get to know your world' })).toBeTruthy()
-    expect(screen.getByRole('button', { name: 'Not now' })).toBeTruthy()
-  })
+    show(base, 'en', { greeting: WELCOME, skipped: true })
 
-  it('keeps the registry row visible when connecting would not help yet', async () => {
-    bridge()
-    show({ ...base, googleAssistant: { state: 'unavailable', reason: 'route' } })
-    await screen.findByRole('heading', { name: 'Let me get to know your world' })
-    expect(window.document.querySelector('[data-atum-ask="google"]')).not.toBeNull()
-  })
-
-  it('replaces the initial card with the small chip after skip', () => {
-    bridge()
-    render(
-      <I18nProvider configClient={null} initialLocale="en">
-        <MatrixFirstRunCard roomId="!atum:test" skipped snapshot={base} />
-      </I18nProvider>
-    )
-
-    expect(window.document.querySelector('[data-matrix-first-run-connect-card]')).toBeNull()
-    expect(window.document.querySelector('[data-matrix-google-nudge][data-placement="greeting"]')).not.toBeNull()
-    expect(screen.getByRole('button', { name: 'Connect Google' })).toBeTruthy()
+    await waitFor(() => expect(row('google')).not.toBeNull())
+    expect(window.document.querySelector('[data-matrix-first-run="skipped"]')).not.toBeNull()
+    expect(window.document.querySelector('[data-matrix-google-nudge]')).toBeNull()
   })
 })
 

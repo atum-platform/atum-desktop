@@ -183,7 +183,6 @@ describe('AtumShellRoot — signed in', () => {
     window.localStorage.removeItem('hermes.desktop.atum.welcomeSeen')
     const { container } = renderShell()
 
-    expect(container.querySelector('[data-slot="atum-welcome-storyboard"]')).toBeNull()
     expect(container.textContent).not.toMatch(/API key|OpenRouter|OpenAI|choose (?:a )?provider/iu)
     expect(container.querySelector('[data-atum-chat]')).toBeTruthy()
   })

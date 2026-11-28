@@ -376,7 +376,6 @@ describe('Atum Team Space — R8 company chrome contract', () => {
 describe('Atum chat — adjudicated everyday-message contracts', () => {
   const actions = readFileSync(resolve(ATUM_DIR, '../../matrix/message-actions.tsx'), 'utf8')
   const greeting = readFileSync(resolve(ATUM_DIR, '../../matrix/greeting.tsx'), 'utf8')
-  const starter = readFileSync(resolve(ATUM_DIR, '../../matrix/starter-notice.tsx'), 'utf8')
   const working = readFileSync(resolve(ATUM_DIR, '../../matrix/typing-indicator.tsx'), 'utf8')
   const undecryptable = readFileSync(resolve(ATUM_DIR, '../../matrix/undecryptable-message.tsx'), 'utf8')
 
@@ -388,9 +387,6 @@ describe('Atum chat — adjudicated everyday-message contracts', () => {
     expect(working).toContain('data-matrix-steps-list')
     expect(greeting).toContain('size-(--atum-avatar-lg)')
     expect(greeting).toContain('[font:var(--ak-t-body)] text-(--ak-ink-2)')
-    // A composer notice: inside the composer's glass (STYLE.md §10), not a band of its own.
-    expect(starter).toContain('data-matrix-starter-notice')
-    expect(starter).not.toContain('ProtonAmount')
   })
 })
 
@@ -489,10 +485,9 @@ describe('Atum Shell v2 — one opaque ground, one glass plate, SPEC §1 tokens'
     )
   })
 
-  it('tints the launch screen and the auth window, and paints the welcome on the ground', () => {
+  it('tints the launch screen and the auth window', () => {
     const connecting = readFileSync(resolve(ATUM_DIR, '../../components/gateway-connecting-overlay.tsx'), 'utf8')
     const authFrame = readFileSync(join(ATUM_DIR, 'auth-frame.tsx'), 'utf8')
-    const welcome = readFileSync(join(ATUM_DIR, 'welcome-storyboard.tsx'), 'utf8')
 
     expect(connecting).toContain("'atum-shell atum-launch fixed inset-0")
     expect(connecting).not.toContain('atum-window-ground')
@@ -502,7 +497,6 @@ describe('Atum Shell v2 — one opaque ground, one glass plate, SPEC §1 tokens'
     expect(styles).toContain('--atum-launch-tint: rgba(23, 24, 28, 0.55)')
     expect(styles).toContain('--atum-launch-tint: #F4F5F7')
     expect(authFrame).toContain('atum-window-ground')
-    expect(welcome).toContain('atum-welcome absolute inset-0 z-50 overflow-hidden atum-window-ground')
   })
 
   // `.atum-sidebar` is THE material; chat and workspace carry none and sit on
