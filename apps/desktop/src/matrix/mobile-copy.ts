@@ -1319,6 +1319,9 @@ const phoneScreensEn = {
     notConnected: 'Not connected',
     inCloud: 'In the cloud',
     needsAttention: 'Sign in again',
+    // Phone only: signed in on a Mac, but the plan's grant to cloud assistants is missing or expired. Desktop reads no such
+    // state; on a Mac the fix is its Connect, so the words follow `needsAttention` and the sheet's `needsMac`.
+    needsRenew: 'Connect again',
     connect: 'Connect',
     manage: 'Manage',
     ownerChats: {
@@ -1561,6 +1564,7 @@ export const mobileScreensCopy: Record<Locale, typeof phoneScreensEn> = {
       notConnected: 'Chưa kết nối',
       inCloud: 'Trên đám mây',
       needsAttention: 'Cần đăng nhập lại',
+      needsRenew: 'Cần kết nối lại',
       connect: 'Kết nối',
       manage: 'Quản lý',
       ownerChats: {
@@ -1798,6 +1802,7 @@ export const mobileScreensCopy: Record<Locale, typeof phoneScreensEn> = {
       notConnected: 'Not connected',
       inCloud: 'In the cloud',
       needsAttention: 'Sign in again',
+      needsRenew: 'Connect again',
       connect: 'Connect',
       manage: 'Manage',
       ownerChats: {
@@ -2035,6 +2040,7 @@ export const mobileScreensCopy: Record<Locale, typeof phoneScreensEn> = {
       notConnected: 'Not connected',
       inCloud: 'In the cloud',
       needsAttention: 'Sign in again',
+      needsRenew: 'Connect again',
       connect: 'Connect',
       manage: 'Manage',
       ownerChats: {
@@ -2272,6 +2278,7 @@ export const mobileScreensCopy: Record<Locale, typeof phoneScreensEn> = {
       notConnected: 'Not connected',
       inCloud: 'In the cloud',
       needsAttention: 'Sign in again',
+      needsRenew: 'Connect again',
       connect: 'Connect',
       manage: 'Manage',
       ownerChats: {

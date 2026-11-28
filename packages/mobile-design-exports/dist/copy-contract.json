@@ -6182,6 +6182,7 @@
     ],
     "src.matrix.mobile-copy.mobileScreensCopy.connections.manage": [],
     "src.matrix.mobile-copy.mobileScreensCopy.connections.needsAttention": [],
+    "src.matrix.mobile-copy.mobileScreensCopy.connections.needsRenew": [],
     "src.matrix.mobile-copy.mobileScreensCopy.connections.notConnected": [],
     "src.matrix.mobile-copy.mobileScreensCopy.connections.onMacs": [
       {

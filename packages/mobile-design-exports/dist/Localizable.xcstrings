@@ -109031,6 +109031,40 @@
         }
       }
     },
+    "src.matrix.mobile-copy.mobileScreensCopy.connections.needsRenew": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connect again"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connect again"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cần kết nối lại"
+          }
+        },
+        "zh": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connect again"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connect again"
+          }
+        }
+      }
+    },
     "src.matrix.mobile-copy.mobileScreensCopy.connections.notConnected": {
       "localizations": {
         "en": {
