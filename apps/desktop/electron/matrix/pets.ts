@@ -202,7 +202,9 @@ export class MatrixPets {
     const key = `matrix-pet:${scope.key}:${scope.agent}`
     const roamingAbort = new AbortController()
 
-    this.roamingAbort.get(key)?.abort(new Error('matrix_pet_cancelled'))
+    // Supersede only the optional roaming lookup. The queued read still returns the
+    // agent's selection and sprite, using the last verified roaming value or its default.
+    this.roamingAbort.get(key)?.abort()
     this.roamingAbort.set(key, roamingAbort)
 
     const live = () => {
