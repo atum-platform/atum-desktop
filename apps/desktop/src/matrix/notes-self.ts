@@ -12,6 +12,8 @@ import {
   readMatrixNotesSelfPointer
 } from '../../shared/matrix-notes-self'
 
+import { tombstoneReplacement } from './room-upgrade'
+
 declare module 'matrix-js-sdk' {
   interface AccountDataEvents {
     'com.atum.notes_self': { version: 1; room_id: string }
@@ -127,9 +129,7 @@ export function inspectMatrixNotesSelfRooms(
         continue
       }
 
-      const replacement = tombstone(room)?.getContent()?.replacement_room
-
-      if (typeof replacement === 'string' && replacement.startsWith('!')) {
+      if (tombstoneReplacement(room)) {
         retired.push(room)
 
         continue
