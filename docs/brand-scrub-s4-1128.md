@@ -14,6 +14,8 @@ exceptions. The renderer allowlist is exact source path plus value. Entries
 cover private CSS names and selectors, storage and event keys, runtime/provider
 discriminators, and the custom-endpoint review source recorded in the connection
 catalogue. Mapped dependency code is outside the first-party literal check.
+The same check can run on the completed build directory. It excludes the exact
+app-owned preload and SDK host artifact paths.
 The locale fixture covers five desktop locales and allows the exact Matrix
 protocol setup labels and example homeserver. Legal attribution uses the existing
 packaged notices inventory and hash audit. No legal copy is exempt in renderer

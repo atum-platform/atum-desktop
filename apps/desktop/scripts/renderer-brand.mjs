@@ -5,6 +5,16 @@ import { fileURLToPath } from 'node:url'
 import ts from 'typescript'
 
 const BRAND = /(?<![a-z0-9_])(?:t3|hermes|nous)(?![a-z0-9_])|t3[_-]?(?:code|thread_[a-z_]+)|nousresearch|hermes_home/iu
+const NON_RENDERER_OUTPUT = new Set([
+  'matrix-app-panel-preload.js',
+  'matrix-pages-preload.js',
+  'matrix-pet-preload.js',
+  'matrix-sdk-preload.js',
+  'matrix-sdk.html',
+  'matrix-sdk.js',
+  'matrix-ui-preload.js',
+  'matrix-work-preload.js'
+])
 
 export function hasLegacyBrand(value) {
   const decoded = value
@@ -72,7 +82,7 @@ export function verifyRendererBrand(directory, root, entries, allowlist) {
 
   const problems = new Set()
   for (const name of readdirSync(directory, { recursive: true })) {
-    if (!/\.(?:js|html)$/i.test(name)) continue
+    if (NON_RENDERER_OUTPUT.has(name) || !/\.(?:js|html)$/i.test(name)) continue
     const file = join(directory, name)
     const code = readFileSync(file, 'utf8')
     if (name.endsWith('.html')) {

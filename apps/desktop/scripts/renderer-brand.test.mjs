@@ -29,6 +29,7 @@ describe('desktop release branding', () => {
       const check = () => verifyRendererBrand(dir, dir, ['matrix.html'], {})
       assert.throws(check, /Missing renderer entry/)
       writeFileSync(join(dir, 'matrix.html'), '<title>Atum</title>')
+      writeFileSync(join(dir, 'matrix-ui-preload.js'), "const channel = 'hermes:open'")
       assert.doesNotThrow(check)
       writeFileSync(join(dir, 'settings.js'), "const title = 'Nous Portal'")
       assert.throws(check, /settings\.js/)
