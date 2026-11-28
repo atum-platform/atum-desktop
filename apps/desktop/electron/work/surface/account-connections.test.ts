@@ -1,7 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 
 import { ACCOUNT_CONNECTIONS_FIXTURE, ACCOUNT_CONNECTIONS_PROFILE, parseAccountConnectionsView } from '../../../shared/account-connections'
-import { accountPickerPlans, accountPlanRow } from '../../../src/app/connections/view'
 
 import { readAccountConnections } from './account-connections'
 import { projectPlanCapabilities } from './plan-capabilities'
@@ -48,9 +47,10 @@ describe('readAccountConnections', () => {
       models: [{ slug: 'gemini-test', name: 'Gemini Test', isCustom: false }]
     }
     const view = await readAccountConnections({ ...d, localCapabilities: async () => projectPlanCapabilities([native]) })
-    expect(accountPlanRow(view, 'antigravity')).toMatchObject({ here: true, state: 'connected' })
-    expect(accountPickerPlans(view)).toContainEqual({
-      plan: 'antigravity', kind: 'relay', models: [{ id: 'gemini-test', displayName: 'Gemini Test' }]
+    expect(view.connections.find(row => row.id === 'antigravity')).toMatchObject({
+      status: 'connected',
+      devices: [{ deviceServiceId: THIS_MAC, status: 'connected' }],
+      models: [{ id: 'gemini-test', displayName: 'Gemini Test' }]
     })
 
     const signedOut = await readAccountConnections({
@@ -58,7 +58,9 @@ describe('readAccountConnections', () => {
       fetch: json({ profile: ACCOUNT_CONNECTIONS_PROFILE, connections: view.connections }),
       localCapabilities: async () => projectPlanCapabilities([{ ...native, auth: { status: 'unauthenticated' } }])
     })
-    expect(accountPickerPlans(signedOut)).toContainEqual({ plan: 'antigravity', kind: 'connect' })
+    expect(signedOut.connections.find(row => row.id === 'antigravity')).toMatchObject({
+      status: 'not_connected', devices: [], models: []
+    })
   })
 
   it('keeps other Macs when Work signs this Mac out', async () => {
@@ -67,14 +69,16 @@ describe('readAccountConnections', () => {
       localCapabilities: async () => ({ codex: { state: 'disconnected' } })
     })
 
-    expect(accountPlanRow(view, 'codex')).toMatchObject({ here: false, state: 'connected' })
+    expect(view.connections.find(row => row.id === 'codex')).toMatchObject({
+      status: 'connected', devices: [{ deviceServiceId: THIS_MAC, status: 'connected' }]
+    })
   })
 
   it('shows a native plan on this Mac before device enrollment', async () => {
     const { deps: d } = deps(json({ profile: ACCOUNT_CONNECTIONS_PROFILE, connections: ACCOUNT_CONNECTIONS_FIXTURE.connections }))
     const view = parseAccountConnectionsView(await readAccountConnections({ ...d, thisDevice: () => undefined }))
 
-    expect(accountPlanRow(view, 'codex')).toMatchObject({ here: true, state: 'connected' })
+    expect(view?.localPlans).toContain('codex')
     expect(view?.thisDevice).toBeUndefined()
   })
 
