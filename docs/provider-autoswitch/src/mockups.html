@@ -1,0 +1,242 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Provider autoswitch mockups</title>
+<!-- The real Work kit: apps/web/dist/assets/main-*.css from an atum-work build, copied next to this file as work-kit.css. -->
+<link rel="stylesheet" href="work-kit.css" />
+<style>
+  /* Only what the compiled kit lacks. Every colour is a kit token. */
+  html, body { margin: 0; background: var(--background); color: var(--foreground); }
+  body { font-family: "Inter Variable", Inter, ui-sans-serif, system-ui, -apple-system, sans-serif; -webkit-font-smoothing: antialiased; }
+  .frame { width: 1180px; height: 760px; display: grid; grid-template-columns: 248px minmax(0, 1fr); overflow: hidden; }
+  .rail { background: var(--sidebar); border-inline-end: 1px solid var(--border); padding: 44px 10px 12px; }
+  .rail-row { height: 30px; display: flex; align-items: center; gap: 8px; padding: 0 10px; border-radius: 8px; font-size: 13px; color: var(--sidebar-muted-foreground); }
+  .rail-row.on { background: var(--accent); color: var(--foreground); }
+  .rail-head { font-size: 11px; color: var(--muted-foreground); padding: 14px 10px 6px; }
+  .main { position: relative; display: flex; flex-direction: column; min-width: 0; }
+  .titlebar { height: 44px; display: flex; align-items: center; padding: 0 20px; font-size: 13px; color: var(--muted-foreground); border-bottom: 1px solid var(--border); }
+  .settings { padding: 28px 40px; max-width: 760px; display: flex; flex-direction: column; gap: 28px; }
+  .group { border: 1px solid color-mix(in srgb, var(--border) 60%, transparent); border-radius: 12px; background: color-mix(in srgb, var(--card) 40%, transparent); }
+  .group > * + * { border-top: 1px solid color-mix(in srgb, var(--border) 50%, transparent); }
+  .switch { width: 30px; height: 18px; border-radius: 999px; padding: 2px; display: inline-flex; background: var(--input); }
+  .switch i { width: 14px; height: 14px; border-radius: 999px; background: var(--background); box-shadow: 0 1px 2px rgb(0 0 0 / 20%); }
+  .switch.on { background: var(--primary); justify-content: flex-end; }
+  .switch.on i { background: var(--primary-foreground); }
+  .order { list-style: none; margin: 0; padding: 0; border: 1px solid color-mix(in srgb, var(--border) 60%, transparent); border-radius: 10px; }
+  .order li { display: grid; grid-template-columns: 16px 20px minmax(0, 1fr) auto 24px auto; align-items: center; column-gap: 10px; padding: 7px 6px 7px 12px; font-size: 13px; }
+  .order li + li { border-top: 1px solid color-mix(in srgb, var(--border) 60%, transparent); }
+  .order li.off { color: var(--muted-foreground); }
+  .order li.off .pico { opacity: .45; }
+  .ib { width: 24px; height: 24px; display: inline-flex; align-items: center; justify-content: center; border-radius: 6px; color: var(--muted-foreground); }
+  .ib.dim { opacity: .35; }
+  .pill { font-size: 11px; line-height: 16px; padding: 0 5px; border-radius: 4px; }
+  .pill.use { background: color-mix(in srgb, var(--success) 12%, transparent); color: var(--success-foreground, var(--success)); }
+  .linkbtn { font-size: 12px; height: 24px; padding: 0 8px; border-radius: 6px; border: 1px solid var(--border); background: transparent; color: var(--foreground); display: inline-flex; align-items: center; }
+  .pico { width: 18px; height: 18px; border-radius: 5px; display: inline-flex; align-items: center; justify-content: center; }
+  .chat { flex: 1; overflow: hidden; padding: 28px 0 0; }
+  .col { max-width: 720px; margin: 0 auto; padding: 0 24px; }
+  .bubble { margin-inline-start: auto; width: fit-content; max-width: 70%; background: var(--secondary); color: var(--secondary-foreground); border-radius: 16px; padding: 8px 14px; font-size: 14px; line-height: 21px; }
+  .reply { font-size: 14px; line-height: 22px; margin: 18px 0 22px; color: var(--foreground); }
+  .reply p { margin: 0 0 10px; }
+  .faded { color: var(--muted-foreground); }
+  .composer-wrap { padding: 0 24px 20px; }
+  .composer { max-width: 720px; margin: 0 auto; border-radius: 20px; background: var(--card); border: 1px solid color-mix(in srgb, var(--foreground) 9%, transparent); box-shadow: 0 1px 2px rgb(0 0 0 / 4%), 0 8px 24px -12px rgb(0 0 0 / 12%); }
+  .dark .composer { background: var(--surface-raised, var(--card)); border-color: color-mix(in srgb, white 7%, transparent); }
+  .composer .input { padding: 14px 16px 6px; min-height: 46px; font-size: 14px; color: var(--muted-foreground); }
+  .composer .foot { display: flex; align-items: center; gap: 8px; padding: 0 8px 8px; }
+  .chip { height: 26px; display: inline-flex; align-items: center; gap: 6px; padding: 0 8px; border-radius: 8px; font-size: 12px; color: color-mix(in srgb, var(--foreground) 75%, transparent); white-space: nowrap; }
+  .chip.open { background: var(--accent); color: var(--foreground); }
+  .chip .eff { color: var(--muted-foreground); }
+  .status { min-width: 0; flex: 0 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; color: var(--muted-foreground); }
+  .status.warn { color: var(--destructive-foreground, var(--destructive)); }
+  .act { height: 24px; padding: 0 9px; border-radius: 7px; font-size: 12px; font-weight: 500; background: var(--accent); color: var(--foreground); border: 0; display: inline-flex; align-items: center; white-space: nowrap; }
+  .send { width: 30px; height: 30px; border-radius: 999px; background: var(--primary); color: var(--primary-foreground); display: inline-flex; align-items: center; justify-content: center; }
+  .send.idle { opacity: .35; }
+  .plus { width: 28px; height: 28px; border-radius: 999px; display: inline-flex; align-items: center; justify-content: center; color: var(--muted-foreground); }
+  .dot { width: 6px; height: 6px; border-radius: 999px; background: var(--destructive); display: inline-block; }
+  /* Model picker popup: the existing two-column picker, provider rail + model list, with its footer. */
+  .picker { position: absolute; right: calc(50% - 360px + 60px); bottom: 118px; width: 452px; border-radius: 14px; background: var(--popover); color: var(--popover-foreground); border: 1px solid var(--border); box-shadow: 0 16px 48px -12px rgb(0 0 0 / 28%), 0 2px 6px rgb(0 0 0 / 6%); overflow: hidden; }
+  .picker .cols { display: grid; grid-template-columns: 52px minmax(0, 1fr); height: 214px; }
+  .picker .prov { border-inline-end: 1px solid var(--border); padding: 8px 0; display: flex; flex-direction: column; align-items: center; gap: 6px; background: color-mix(in srgb, var(--muted) 40%, transparent); }
+  .picker .prov span { width: 34px; height: 34px; border-radius: 9px; display: inline-flex; align-items: center; justify-content: center; }
+  .picker .prov span.on { background: var(--accent); }
+  .picker .prov span.off { opacity: .4; }
+  .picker .models { padding: 6px; }
+  .mrow { height: 32px; display: flex; align-items: center; gap: 8px; padding: 0 10px; border-radius: 8px; font-size: 13px; }
+  .mrow.sel { background: var(--accent); }
+  .mrow .sub { margin-inline-start: auto; font-size: 11px; color: var(--muted-foreground); }
+  .pfoot { border-top: 1px solid var(--border); padding: 8px 12px; display: flex; align-items: center; gap: 10px; font-size: 12px; min-height: 40px; }
+  .pfoot .lbl { color: var(--muted-foreground); }
+  .seg { margin-inline-start: auto; display: inline-flex; padding: 2px; border-radius: 8px; background: color-mix(in srgb, var(--muted) 70%, transparent); }
+  .seg b { font-weight: 450; padding: 3px 9px; border-radius: 6px; color: var(--muted-foreground); }
+  .seg b.on { background: var(--background); color: var(--foreground); box-shadow: 0 1px 2px rgb(0 0 0 / 10%); }
+  .dark .seg b.on { background: var(--accent); }
+  .h2 { font-size: 16px; font-weight: 600; padding: 0 4px; margin-bottom: 10px; }
+  .row { display: flex; align-items: center; gap: 12px; padding: 0 16px; min-height: 44px; }
+  .fold-title { font-size: 14px; font-weight: 500; }
+  .sum { font-size: 12px; color: var(--muted-foreground); }
+  .hint { font-size: 12px; color: var(--muted-foreground); padding: 10px 16px 0; }
+  .prov-card { display: grid; grid-template-columns: 220px 1fr; height: 132px; }
+  .prov-card .l { border-inline-end: 1px solid var(--border); background: color-mix(in srgb, var(--muted) 10%, transparent); }
+  .prov-card .l div { height: 44px; display: flex; align-items: center; gap: 10px; padding: 0 16px; font-size: 13px; }
+  .prov-card .l div + div { border-top: 1px solid color-mix(in srgb, var(--border) 50%, transparent); }
+  .prov-card .l .sel { background: color-mix(in srgb, var(--muted) 40%, transparent); }
+  .prov-card .r { padding: 16px; font-size: 13px; color: var(--muted-foreground); }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script>
+  // One file draws every state. The hash names it: #<state>-<light|dark>.
+  const [state, theme] = (location.hash.slice(1) || "a-on-light").split(/-(?=light$|dark$)/);
+  if (theme === "dark") document.documentElement.classList.add("dark");
+
+  const icon = {
+    chatgpt: (s = 14) => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3l7.8 4.5v9L12 21l-7.8-4.5v-9z"/><circle cx="12" cy="12" r="3"/></svg>`,
+    claude: (s = 14) => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="#d97757" stroke-width="2" stroke-linecap="round"><path d="M12 3v18M3 12h18M5.6 5.6l12.8 12.8M18.4 5.6L5.6 18.4"/></svg>`,
+    agy: (s = 14) => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="#4f8df7" stroke-width="2" stroke-linejoin="round"><path d="M12 4l8 15H4z"/></svg>`,
+    atum: (s = 14) => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="2.5" fill="currentColor"/></svg>`,
+    chev: `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>`,
+    chevR: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg>`,
+    chevD: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>`,
+    grip: `<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.4"/><circle cx="15" cy="6" r="1.4"/><circle cx="9" cy="12" r="1.4"/><circle cx="15" cy="12" r="1.4"/><circle cx="9" cy="18" r="1.4"/><circle cx="15" cy="18" r="1.4"/></svg>`,
+    up: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 19V5M5 12l7-7 7 7"/></svg>`,
+    down: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12l7 7 7-7"/></svg>`,
+    send: `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 19V5M5 12l7-7 7 7"/></svg>`,
+    stop: `<svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><rect x="5" y="5" width="14" height="14" rx="2"/></svg>`,
+    plus: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>`,
+    check: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M5 12l5 5 9-10"/></svg>`,
+  };
+
+  const rail = (active) => `
+    <aside class="rail">
+      ${active === "settings"
+        ? ["General", "Chat", "Threads", "Providers", "Projects", "Voice", "Appearance"].map((n) => `<div class="rail-row ${n === "Providers" ? "on" : ""}">${n}</div>`).join("")
+        : `<div class="rail-head">Today</div>
+           <div class="rail-row on">Quarterly report draft</div>
+           <div class="rail-row">Clean up the landing copy</div>
+           <div class="rail-row">Invoice reminders</div>
+           <div class="rail-head">Yesterday</div>
+           <div class="rail-row">Pricing page review</div>
+           <div class="rail-row">Interview notes</div>`}
+    </aside>`;
+
+  const orderRow = (n, ico, name, opts = {}) => `
+    <li class="${opts.off ? "off" : ""}">
+      <span class="text-xs tabular-nums text-muted-foreground">${n}</span>
+      <span class="pico">${ico}</span>
+      <span>${name}${opts.note ? ` <span class="text-xs text-muted-foreground">· ${opts.note}</span>` : ""}</span>
+      <span>${opts.inUse ? `<span class="pill use">In use</span>` : opts.action ? `<span class="linkbtn">${opts.action}</span>` : ""}</span>
+      <span class="ib ${opts.off ? "dim" : ""}">${icon.grip}</span>
+      <span style="display:inline-flex;gap:2px"><span class="ib ${n === 1 || opts.off ? "dim" : ""}">${icon.up}</span><span class="ib ${opts.last || opts.off ? "dim" : ""}">${icon.down}</span></span>
+    </li>`;
+
+  const settings = (on) => `
+    <div class="frame">${rail("settings")}
+      <main class="main">
+        <div class="titlebar">Settings</div>
+        <div class="settings">
+          <section>
+            <div class="h2">Providers</div>
+            <div class="group prov-card">
+              <div class="l">
+                <div class="sel">${icon.chatgpt(16)} ChatGPT</div>
+                <div>${icon.claude(16)} Claude</div>
+                <div class="text-muted-foreground">${icon.agy(16)} Antigravity</div>
+              </div>
+              <div class="r">ChatGPT · Plus · signed in</div>
+            </div>
+          </section>
+          <section>
+            <div class="group">
+              <div class="row">
+                <span class="text-muted-foreground" style="display:inline-flex">${on ? icon.chevD : icon.chevR}</span>
+                <span class="fold-title">When a plan runs out</span>
+                <span class="sum">${on ? "ChatGPT, then Claude" : "Off"}</span>
+                <span style="margin-inline-start:auto" class="switch ${on ? "on" : ""}"><i></i></span>
+              </div>
+              ${on ? `
+              <div style="padding-bottom:14px">
+                <p class="hint" style="margin:0 0 10px">Your next message goes to the next plan in this list, and comes back when yours resets.</p>
+                <div style="padding:0 16px">
+                  <ol class="order" aria-label="Plans, preferred first">
+                    ${orderRow(1, icon.chatgpt(14), "ChatGPT", { inUse: true })}
+                    ${orderRow(2, icon.claude(14), "Claude")}
+                    ${orderRow(3, icon.agy(14), "Antigravity", { off: true, last: true, action: "Sign in" })}
+                  </ol>
+                </div>
+              </div>` : ""}
+            </div>
+          </section>
+          <section>
+            <div class="h2">Usage limits</div>
+            <div class="group"><div class="row text-sm text-muted-foreground">ChatGPT · 64% of the 5-hour window used</div></div>
+          </section>
+        </div>
+      </main>
+    </div>`;
+
+  const chip = (model, ico, opts = {}) => `
+    <span class="chip ${opts.open ? "open" : ""}">${ico}<span>${model}</span><span class="eff">${opts.effort ?? "High"}</span>${opts.warn ? `<span class="dot" aria-hidden></span>` : ""}<span class="text-muted-foreground" style="display:inline-flex">${icon.chev}</span></span>`;
+
+  const composer = ({ status = "", action = "", chipHtml, running = false, text = "Reply…", sendIdle = true }) => `
+    <div class="composer-wrap"><div class="composer">
+      <div class="input">${text}</div>
+      <div class="foot">
+        <span class="plus">${icon.plus}</span>
+        <span style="flex:1"></span>
+        ${status ? `<span class="status ${status.warn ? "warn" : ""}">${status.text}</span>` : ""}
+        ${action ? `<button class="act">${action}</button>` : ""}
+        ${chipHtml}
+        <span class="send ${running ? "" : sendIdle ? "idle" : ""}">${running ? icon.stop : icon.send}</span>
+      </div>
+    </div></div>`;
+
+  const conversation = (replyHtml) => `
+    <div class="chat"><div class="col">
+      <div class="bubble">Draft the Q3 summary from the sales sheet and the board notes.</div>
+      <div class="reply">${replyHtml}</div>
+    </div></div>`;
+
+  const fullReply = `<p>Here is a first draft of the Q3 summary. Revenue rose 18% on the quarter, led by the two enterprise renewals in August.</p><p>Churn held at 2.1%. The board asked for a clearer view of the pipeline, so I added a short section on the September close rate.</p>`;
+  const cutReply = `<p>Here is a first draft of the Q3 summary. Revenue rose 18% on the quarter, led by the two enterprise renewals in August.</p><p class="faded">Churn held at 2.1%. The board asked for a clearer view of the pipe</p>`;
+
+  const gpt = chip("GPT-6.2", icon.chatgpt(14));
+  const claude = chip("Claude Sonnet 5.5", icon.claude(14));
+
+  const chatFrame = (body, extra = "") => `<div class="frame">${rail("chat")}<main class="main"><div class="titlebar">Quarterly report draft</div>${body}${extra}</main></div>`;
+
+  const picker = (sessionChoice) => `
+    <div class="picker" role="dialog" aria-label="Model">
+      <div class="cols">
+        <div class="prov"><span class="on">${icon.chatgpt(18)}</span><span>${icon.claude(18)}</span><span class="off">${icon.agy(18)}</span><span>${icon.atum(18)}</span></div>
+        <div class="models">
+          <div class="mrow sel">${icon.check}<span>GPT-6.2</span><span class="sub">ChatGPT</span></div>
+          <div class="mrow"><span style="width:14px"></span><span>GPT-6.2 Mini</span><span class="sub">ChatGPT</span></div>
+          <div class="mrow"><span style="width:14px"></span><span>GPT-6.1</span><span class="sub">ChatGPT</span></div>
+          <div class="mrow"><span style="width:14px"></span><span>GPT-6.2 Codex</span><span class="sub">ChatGPT</span></div>
+          <div class="mrow"><span style="width:14px"></span><span>GPT-6 Luna</span><span class="sub">ChatGPT</span></div>
+          <div class="mrow"><span style="width:14px"></span><span>GPT-6.1 Mini</span><span class="sub">ChatGPT</span></div>
+        </div>
+      </div>
+      <div class="pfoot"><span class="lbl">Effort</span><span class="seg"><b>Low</b><b>Medium</b><b class="on">High</b></span></div>
+      <div class="pfoot">
+        <span class="lbl">For this session</span>
+        <span class="seg"><b class="${sessionChoice === "switch" ? "on" : ""}">Switch when out</b><b class="${sessionChoice === "stay" ? "on" : ""}">Stay on ChatGPT</b></span>
+      </div>
+    </div>`;
+
+  const views = {
+    "a-off": () => settings(false),
+    "a-on": () => settings(true),
+    "b-override": () => chatFrame(conversation(fullReply) + composer({ chipHtml: chip("GPT-6.2", icon.chatgpt(14), { open: true }) }), picker("stay")),
+    "c-switched": () => chatFrame(conversation(fullReply) + composer({ chipHtml: claude, status: { text: "ChatGPT is out until 8:37 PM · using Claude" } })),
+    "c-none-left": () => chatFrame(conversation(fullReply) + composer({ chipHtml: chip("GPT-6.2", icon.chatgpt(14), { warn: true }), text: "Now add a one-line headline for each section.", sendIdle: true, status: { text: "Plans are out until 8:37 PM" } })),
+    "d-continue": () => chatFrame(conversation(cutReply) + composer({ chipHtml: claude, status: { text: "ChatGPT ran out mid-reply" }, action: "Continue" })),
+    "e-back": () => chatFrame(conversation(fullReply) + composer({ chipHtml: gpt })),
+  };
+  document.getElementById("root").innerHTML = (views[state] ?? views["a-on"])();
+</script>
+</body>
+</html>
