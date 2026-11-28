@@ -292,7 +292,7 @@ it('uses the routine snapshot as the sole authority even when legacy check-in se
       ...checkInRoutine,
       title: input.title,
       instruction: input.instruction,
-      schedule: input.schedule,
+      schedule: input.schedule ?? checkInRoutine.schedule,
       timezone: input.timezone,
       enabled: input.enabled,
       notifications: input.notifications,

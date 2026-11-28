@@ -3,6 +3,7 @@ import { createHash, randomUUID } from 'node:crypto'
 import type { IpcMain, IpcMainInvokeEvent } from 'electron'
 
 import {
+  AGENT_ROUTINE_RUNS_PROFILE,
   type MatrixAgentRoutine,
   type MatrixAgentRoutineMutation,
   type MatrixAgentRoutineMutationDraft,
@@ -11,10 +12,13 @@ import {
   matrixRoutineActionInput,
   matrixRoutineCreateInput,
   type MatrixRoutineError,
+  matrixRoutineId,
   type MatrixRoutineMutationResult,
   type MatrixRoutineReadResult,
   type MatrixRoutineRunsResult,
+  matrixRoutineTimeZone,
   matrixRoutineUpdateInput,
+  parseMatrixAgentRoutine,
   parseMatrixAgentRoutineMutation,
   parseMatrixAgentRoutineRunsSnapshot,
   parseMatrixAgentRoutinesSnapshot
@@ -221,7 +225,8 @@ export async function mutateMatrixAgentRoutine(
   input: MatrixAgentRoutineMutation,
   signal: AbortSignal
 ): Promise<MatrixAgentRoutine | { id: string; revision: number }> {
-  if (!UUID.test(assistantId)) {
+  if (!UUID.test(assistantId) || (input.operation === 'update' && input.schedule === null) ||
+    (input.operation !== 'create' && !UUID.test(input.routineId))) {
     throw new MatrixAgentRoutineRequestError('invalid')
   }
 
@@ -311,19 +316,198 @@ export async function readMatrixAgentRoutineRuns(
   return snapshot
 }
 
+type NativeRoutineCommand =
+  | { operation: 'list' }
+  | { operation: 'runs'; routineId: string }
+  | MatrixAgentRoutineMutation
+
+/** S2 uses the enrolled host's current native job store. Only existing platform-backed rows
+ * without a native projection retain their controller route and historical runs. */
+export class MatrixNativeAgentRoutines {
+  private readonly routes = new Map<string, { legacy: Set<string>; projected: Map<string, string> }>()
+
+  constructor(private readonly options: {
+    request(principal: string, command: NativeRoutineCommand, signal: AbortSignal): Promise<unknown>
+    readLegacy(assistantId: string, signal: AbortSignal): Promise<MatrixAgentRoutinesSnapshot>
+    mutateLegacy(assistantId: string, input: MatrixAgentRoutineMutation, signal: AbortSignal): Promise<MatrixAgentRoutine | { id: string; revision: number }>
+    runsLegacy(assistantId: string, id: string, signal: AbortSignal): Promise<MatrixAgentRoutineRunsSnapshot>
+  }) {}
+
+  async read(assistantId: string, principal: string, signal: AbortSignal): Promise<MatrixAgentRoutinesSnapshot> {
+    const [answer, legacy] = await Promise.all([
+      this.options.request(principal, { operation: 'list' }, signal),
+      this.options.readLegacy(assistantId, signal).catch(() => undefined)
+    ])
+    const row = nativeRoutineAnswer(answer)
+
+    if (!matrixRoutineTimeZone(row.timezone) || !Array.isArray(row.routines)) {
+      throw new MatrixAgentRoutineRequestError('invalid')
+    }
+
+    const routines = row.routines.map(each => parseMatrixAgentRoutine(each, true))
+
+    if (routines.some(each => !each) || new Set(routines.map(each => each?.id)).size !== routines.length) {
+      throw new MatrixAgentRoutineRequestError('invalid')
+    }
+
+    const projected = new Map<string, string>()
+    const native = (routines as MatrixAgentRoutine[]).map(each => {
+      const presented = presentNativeRoutine(each)
+      if (presented.id !== each.id) {
+        projected.set(presented.id, each.id)
+      }
+
+      return presented
+    })
+    const nativeIds = new Set(native.map(each => each.id))
+    if (nativeIds.size !== native.length) {
+      throw new MatrixAgentRoutineRequestError('invalid')
+    }
+    const controllerOnly = legacy?.assistantPrincipal === principal
+      ? legacy.routines.filter(each => !nativeIds.has(each.id))
+      : []
+    this.routes.set(principal, { legacy: new Set(controllerOnly.map(each => each.id)), projected })
+
+    return {
+      assistantId,
+      assistantPrincipal: principal,
+      serverTime: Date.now(),
+      legacyState: 'clear',
+      nativeTimezone: row.timezone,
+      routines: [...native, ...controllerOnly]
+    }
+  }
+
+  async mutate(assistantId: string, principal: string, input: MatrixAgentRoutineMutation, signal: AbortSignal) {
+    if (input.operation !== 'create' && this.routes.get(principal)?.legacy.has(input.routineId)) {
+      if (input.operation === 'update' && input.schedule === null) {
+        throw new MatrixAgentRoutineRequestError('invalid')
+      }
+
+      return this.options.mutateLegacy(assistantId, input, signal)
+    }
+
+    const command = input.operation === 'create' ? input : { ...input, routineId: this.job(principal, input.routineId) }
+    const job = 'routineId' in command ? command.routineId : undefined
+    const row = nativeRoutineAnswer(await this.options.request(principal, command, signal))
+
+    if (input.operation === 'delete') {
+      const deleted = row.deleted as { id?: unknown; revision?: unknown } | undefined
+      if (deleted?.id === job && deleted?.revision === input.expectedRevision) {
+        return { id: input.routineId, revision: input.expectedRevision }
+      }
+    } else {
+      const routine = parseMatrixAgentRoutine(row.routine, true)
+      if (routine && (input.operation === 'create' || routine.id === job)) {
+        return presentNativeRoutine(routine)
+      }
+    }
+
+    throw new MatrixAgentRoutineRequestError('invalid')
+  }
+
+  async runs(assistantId: string, principal: string, routineId: string, signal: AbortSignal) {
+    if (this.routes.get(principal)?.legacy.has(routineId)) {
+      return this.options.runsLegacy(assistantId, routineId, signal)
+    }
+
+    const row = nativeRoutineAnswer(await this.options.request(principal, { operation: 'runs', routineId: this.job(principal, routineId) }, signal))
+    const snapshot = parseMatrixAgentRoutineRunsSnapshot(
+      { profile: AGENT_ROUTINE_RUNS_PROFILE, routineId, runs: row.runs },
+      routineId
+    )
+
+    if (!snapshot) {
+      throw new MatrixAgentRoutineRequestError('invalid')
+    }
+
+    return snapshot
+  }
+
+  private job(principal: string, id: string): string {
+    return this.routes.get(principal)?.projected.get(id) ?? id
+  }
+}
+
+// Platform routine projections use ar_<UUID without dashes> as the native job id.
+function presentNativeRoutine(routine: MatrixAgentRoutine): MatrixAgentRoutine {
+  const match = /^ar_([a-f0-9]{8})([a-f0-9]{4})([a-f0-9]{4})([a-f0-9]{4})([a-f0-9]{12})$/u.exec(routine.id)
+
+  return match ? { ...routine, id: match.slice(1).join('-') } : routine
+}
+
+function nativeRoutineAnswer(value: unknown): Record<string, unknown> {
+  if (!value || typeof value !== 'object' || !('action' in value) || value.action !== 'routine_editor') {
+    throw new MatrixAgentRoutineRequestError('invalid')
+  }
+
+  return value as Record<string, unknown>
+}
+
+export async function requestNativeAgentRoutines(
+  base: string,
+  token: string,
+  principal: string,
+  command: NativeRoutineCommand,
+  signal: AbortSignal,
+  fetcher: typeof fetch
+): Promise<unknown> {
+  const url = new URL(base)
+  if (url.protocol !== 'https:' || url.username || url.password || !UUID.test(principal)) {
+    throw new MatrixAgentRoutineRequestError('invalid')
+  }
+
+  let response: Response
+
+  try {
+    response = await fetcher(new URL('/api/host/agent-control', url), {
+      method: 'POST',
+      credentials: 'omit',
+      redirect: 'error',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+        Origin: url.origin,
+        'X-Atum-Host-Bridge-Contract': 'atum.s2.host-bridge/1.0.0'
+      },
+      body: JSON.stringify({ agent: principal, action: 'routine_editor', command }),
+      signal
+    })
+  } catch {
+    throw new MatrixAgentRoutineRequestError('offline')
+  }
+
+  if (!response.ok) {
+    await response.body?.cancel().catch(() => {})
+
+    if (response.status === 401) {
+      throw new Error('matrix_s1_authentication')
+    }
+
+    const errors: Partial<Record<number, MatrixRoutineError>> = {
+      400: 'invalid', 403: 'denied', 404: 'missing', 409: 'conflict', 503: 'offline'
+    }
+
+    throw new MatrixAgentRoutineRequestError(errors[response.status] ?? 'unavailable')
+  }
+
+  return readDomainJson(response, SNAPSHOT_BYTES)
+}
+
 /** The card's native side: a principal in, one owner-scoped answer out. Main holds the
  * bearer and the routine ledger; the window only ever sees the platform's closed rows. */
 export class MatrixAgentRoutines {
   constructor(
     private readonly options: {
       agents(): readonly { principal: string; assistantId: string }[]
-      read(assistantId: string, signal: AbortSignal): Promise<MatrixAgentRoutinesSnapshot>
+      read(assistantId: string, signal: AbortSignal, principal: string): Promise<MatrixAgentRoutinesSnapshot>
       mutate(
         assistantId: string,
         input: MatrixAgentRoutineMutation,
-        signal: AbortSignal
+        signal: AbortSignal,
+        principal: string
       ): Promise<MatrixAgentRoutine | { id: string; revision: number }>
-      runs(assistantId: string, routineId: string, signal: AbortSignal): Promise<MatrixAgentRoutineRunsSnapshot>
+      runs(assistantId: string, routineId: string, signal: AbortSignal, principal: string): Promise<MatrixAgentRoutineRunsSnapshot>
       /** A38: the owner zone the platform last acknowledged on this Mac (undefined when never). */
       ownerZone?(): string | undefined
       /** Closed operational diagnostics only: no principal, routine id, prompt or response. */
@@ -367,7 +551,7 @@ export class MatrixAgentRoutines {
     }
 
     try {
-      const snapshot = await this.options.read(agent.assistantId, this.signal())
+      const snapshot = await this.options.read(agent.assistantId, this.signal(), agent.principal)
 
       return { ok: true, snapshot }
     } catch (error) {
@@ -468,12 +652,12 @@ export class MatrixAgentRoutines {
   async runs(value: unknown, routineId: unknown): Promise<MatrixRoutineRunsResult> {
     const agent = this.agent(value)
 
-    if (!agent || typeof routineId !== 'string' || !UUID.test(routineId)) {
+    if (!agent || !matrixRoutineId(routineId)) {
       return this.failed('runs', 'missing')
     }
 
     try {
-      const snapshot = await this.options.runs(agent.assistantId, routineId, this.signal())
+      const snapshot = await this.options.runs(agent.assistantId, routineId, this.signal(), agent.principal)
 
       return { ok: true, snapshot }
     } catch (error) {
@@ -495,7 +679,7 @@ export class MatrixAgentRoutines {
     const input = { ...draft, requestId } as MatrixAgentRoutineMutation
 
     try {
-      const result = await this.options.mutate(agent.assistantId, input, this.signal())
+      const result = await this.options.mutate(agent.assistantId, input, this.signal(), agent.principal)
       this.ledger.clear(key)
 
       return 'title' in result

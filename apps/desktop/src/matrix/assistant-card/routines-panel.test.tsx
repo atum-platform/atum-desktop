@@ -745,3 +745,21 @@ describe('the coordinator’s round-4 review', () => {
     expect(dialog.querySelector('[data-routine-delete]')?.textContent).toBe('Xóa lịch')
   })
 })
+
+it('keeps the editor revision when a native job changes while its form is open', async () => {
+  const row = routine({ id: '12ab34cd56ef', native: true, schedule: { kind: 'interval', everyHours: 1 } })
+  routines.read.mockResolvedValue({ ok: true, snapshot: { ...snapshot([row]), nativeTimezone: row.timezone } })
+  routines.update.mockResolvedValue({ ok: false, error: 'conflict' })
+  renderRow('vi', { agent: { ...agent, runtime: 'hermes' } })
+  await openRoutine()
+
+  routines.read.mockResolvedValue({ ok: true, snapshot: snapshot([{ ...row, revision: 3, instruction: 'Agent edit' }]) })
+  await act(async () => window.dispatchEvent(new Event('focus')))
+  await act(async () => {
+    fireEvent.change(document.querySelector('[data-routine-instruction]')!, { target: { value: 'Owner draft' } })
+    fireEvent.click(document.querySelector('[data-routine-save]')!)
+  })
+  expect(routines.update).toHaveBeenCalledWith(expect.objectContaining({
+    routineId: row.id, expectedRevision: row.revision, instruction: 'Owner draft', schedule: null
+  }))
+})

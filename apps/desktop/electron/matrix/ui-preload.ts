@@ -627,6 +627,7 @@ const bridge: MatrixUiBridge = {
         kind: 'agentDesk',
         agentPrincipal,
         read: request.read,
+        ...(request.read === 'schedule' && request.summary ? { summary: true } : {}),
         ...(request.read === 'files' && request.path !== undefined ? { path: request.path } : {})
       })
   },
