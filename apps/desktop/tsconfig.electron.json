@@ -244,6 +244,7 @@
     "shared/matrix-progress-marker.ts",
     "shared/matrix-roster-search.ts",
     "shared/matrix-room-shared.ts",
+    "shared/matrix-room-upgrade.ts",
     "shared/matrix-progress-transaction.ts",
     "shared/matrix-turn-voice.ts",
     "shared/matrix-turn-style.ts",

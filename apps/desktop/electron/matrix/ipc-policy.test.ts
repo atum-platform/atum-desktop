@@ -496,6 +496,11 @@ describe('Matrix boundary', () => {
       kind: 'forget',
       roomId: '!r:test'
     })
+    // Upgraded room: only the old room's id crosses; the SDK reads the replacement from room state itself.
+    expect(parseMatrixCommand({ kind: 'joinSuccessor', roomId: '!r:test', replacement: '!x:test' })).toEqual({
+      kind: 'joinSuccessor',
+      roomId: '!r:test'
+    })
     expect(parseMatrixCommand({ kind: 'typing', roomId: '!r:test', typing: true, timeout: 999_999 })).toEqual({
       kind: 'typing',
       roomId: '!r:test',
@@ -527,6 +532,7 @@ describe('Matrix boundary', () => {
       { kind: 'react', roomId: '!r:test', eventId: '$m', key: 'a\u0000', reacted: true },
       { kind: 'react', roomId: '!r:test', eventId: '$m', key: 'x'.repeat(65), reacted: true },
       { kind: 'forget' },
+      { kind: 'joinSuccessor', roomId: '#alias:test' },
       { kind: 'forget', roomId: '#alias:test' },
       { kind: 'typing', roomId: '!r:test', typing: 'yes' },
       { kind: 'markUnread', roomId: '!r:test' },

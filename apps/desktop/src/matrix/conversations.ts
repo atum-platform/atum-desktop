@@ -40,6 +40,7 @@ import { matrixReadableRoomName } from './person-name'
 import { plainRoomAnswer } from './plain-room'
 import { readRoomNotificationMode } from './room-notification-mode'
 import { matrixRoomDialogue, matrixRoomPreview, matrixRoomUnread } from './room-preview'
+import { roomPredecessor, roomSuccessor } from './room-upgrade'
 import { teamSpaceAccountKey, teamSpaceKey } from './team-space/keys'
 import { $companyPrivateCos } from './team-space/private-cos-store'
 import { matrixRoomTimelineEvents } from './threads'
@@ -317,6 +318,9 @@ export function conversationRoom(client: MatrixClient, room: Room): MatrixRoom {
   // Whether anyone has spoken in an assistant's chat: the first run's one test of a new account.
   const dialogue = room.getType() === MATRIX_ASSISTANT_ROOM_TYPE ? matrixRoomDialogue(room, timelineEvents) : undefined
 
+  const successor = roomSuccessor(client, room)
+  const predecessor = roomPredecessor(client, room)
+
   const view: MatrixRoom = {
     id: room.roomId,
     // Never a member's ID standing in for a name (ledger AC8).
@@ -356,6 +360,8 @@ export function conversationRoom(client: MatrixClient, room: Room): MatrixRoom {
       room.getMyMembership() === 'join' &&
       room.canInvite(client.getSafeUserId()),
     ...(topic ? { topic } : {}),
+    ...(successor ? { successor } : {}),
+    ...(predecessor ? { predecessor } : {}),
     ...(canName ? { canName: true as const } : {}),
     ...(canTopic ? { canTopic: true as const } : {}),
     participants: room.getMembers()
