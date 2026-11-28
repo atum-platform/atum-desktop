@@ -20757,6 +20757,11 @@ async function start() {
 
         return agent?.matrixUser ?? null
       },
+      selectedWorkAssistant: () => {
+        const selected = state.roomId ? agentOfRoom(state.roomId) : undefined
+
+        return selected && isCloudOnlyAgent(selected) ? cloudPrincipal(selected) : undefined
+      },
       eligiblePlanAgents: async () => (await account.agents(AbortSignal.timeout(15_000)))
         .filter(agent => agent.status === 'active').map(agent => agent.principal).sort().slice(0, 256),
       openProtons: () => shell.openExternal(`${domain.resource}/payments/protons`),

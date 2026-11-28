@@ -2,7 +2,7 @@ import { Direction, EventType, type MatrixClient, MsgType } from 'matrix-js-sdk'
 
 import { MATRIX_PLAIN_SENDER_DEVICE, type MatrixInvocationMessage } from '../../shared/matrix'
 import { MATRIX_FIND_TURN } from '../../shared/matrix-turn'
-import { WORK_REQUEST_KEY, workAnswer } from '../../shared/work-question'
+import { WORK_LEARNING_MSGTYPE, WORK_REQUEST_KEY, type WorkLearningRequest, workAnswer } from '../../shared/work-question'
 
 import { confirmedPlainRoom } from './plain-room'
 import { readMatrixInvocation } from './read-invocation'
@@ -31,16 +31,22 @@ export async function sendWorkQuestion(
     requestId: string
     threadId: string
     transactionId: string
+    learning?: WorkLearningRequest
   }
 ): Promise<string> {
   const content = {
-    msgtype: MsgType.Text as const,
+    msgtype: q.learning ? WORK_LEARNING_MSGTYPE : MsgType.Text,
     body: q.question,
     'm.mentions': { user_ids: [q.agentId] },
-    [WORK_REQUEST_KEY]: { v: 1, request_id: q.requestId, source: 'work', intent: 'question', thread_id: q.threadId }
+    [WORK_REQUEST_KEY]: {
+      v: 1, request_id: q.requestId, source: 'work',
+      intent: q.learning ? 'learning' : 'question', thread_id: q.threadId,
+      ...q.learning
+    }
   }
 
-  return (await client.sendEvent(q.roomId, EventType.RoomMessage, content, q.transactionId)).event_id
+  // Matrix permits custom message types. Older assistants ignore this Work-only message.
+  return (await client.sendEvent(q.roomId, EventType.RoomMessage, content as { msgtype: MsgType.Text; body: string }, q.transactionId)).event_id
 }
 
 interface WorkAnswerQuery {
@@ -53,6 +59,7 @@ interface WorkAnswerQuery {
 interface WorkAnswerBody {
   body: string
   dataClass: 'non_google' | 'google' | 'unknown'
+  learning?: unknown
 }
 
 export async function readWorkAnswer(client: MatrixClient, q: WorkAnswerQuery): Promise<WorkAnswerBody | undefined> {
@@ -124,7 +131,8 @@ async function scanWorkAnswer(
     const dataClass =
       message.content.googleProtected && marker.data_class === 'non_google' ? 'google' : marker.data_class
 
-    pieces.set(marker.part, { body: message.content.body, dataClass })
+    pieces.set(marker.part, { body: message.content.body, dataClass,
+      ...(marker.parts === 1 && marker.learning !== undefined ? { learning: marker.learning } : {}) })
   }
 
   for (const event of [...room.getLiveTimeline().getEvents()].reverse().slice(0, MATRIX_FIND_TURN.pageSize)) {
@@ -190,5 +198,8 @@ async function scanWorkAnswer(
       ? 'unknown'
       : 'non_google'
 
-  return { body: ordered.map(part => part.body).join('\n'), dataClass }
+  const learning = ordered.length === 1 ? ordered[0]?.learning : undefined
+
+  return { body: ordered.map(part => part.body).join('\n'), dataClass,
+    ...(learning === undefined ? {} : { learning }) }
 }

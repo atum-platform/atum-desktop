@@ -12,6 +12,7 @@ import type { StagedWorkUpdate } from '../atum-staged-swap/state'
 import type { SafeStorageLike } from '../encrypted-store'
 import { admitConnector } from '../work/connector/admission'
 import { ConnectorHttp } from '../work/connector/http'
+import { submitWorkLearning } from '../work/connector/learning'
 import { matrixConnector, type OwnerSdkHost } from '../work/connector/matrix'
 import { ConnectorService } from '../work/connector/service'
 import type { ShellMcpOptions } from '../work/connector/shell-mcp'
@@ -112,6 +113,7 @@ export interface MatrixWorkDeps {
   ownerHost(): OwnerSdkHost | undefined
   /** The Matrix user of the active agent with this principal (`account.agents()`), or null. */
   agentMatrixUser(principal: string): Promise<string | null>
+  selectedWorkAssistant?(): string | undefined
   /** The signed-in owner’s active assistants, from the account roster. */
   eligiblePlanAgents(): Promise<string[]>
   /** The owner's top-up page (what `openTopUp` opens). */
@@ -570,6 +572,21 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
     // The owner view reads Work’s balance through the model proxy.
     readAccess: () => readWorkAccess(deps.model, deps.wallet),
     openProtons: deps.openProtons,
+    submitLearning: (owner, value, current) => submitWorkLearning(value, {
+      owner: deps.ownerHost,
+      selected: () => deps.selectedWorkAssistant?.(),
+      agent: deps.agentMatrixUser,
+      server: () => {
+        const deviceId = deps.deviceServiceId()
+        const bound = account()
+        if (deviceId && bound?.key === owner.key && !workStopping &&
+            !revokedDevices.has(deviceId) && t3Mcp.isPublished(mcpStore(bound), deviceId)) {
+          return 'work-' + deviceId.slice(0, 8).toLowerCase()
+        }
+      },
+      document: value => deliverables.learningDocument(owner, value),
+      current: () => !deps.closing() && current()
+    }),
     deliverableMessage: (owner, message, current, signal) => deliverables.message(owner, message, current, signal),
     deliverableStatus: (owner, identity) => deliverables.status(owner, identity),
     openDeliverable: (owner, identity, current) => deliverables.open(owner, identity, current)

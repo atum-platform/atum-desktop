@@ -1881,7 +1881,7 @@ export type MatrixSdkCommand =
    * `forgotten`, or `kept` for a room that is not only theirs. */
   | { kind: 'forgetAgentRoom'; roomId: string; ownerId: string; agentId: string }
   | { kind: 'readAppRoom'; roomId: string; ownerId: string; agentId: string; allowInvite?: boolean }
-  | { kind: 'sendWorkQuestion'; roomId: string; agentId: string; question: string; requestId: string; threadId: string; transactionId: string }
+  | { kind: 'sendWorkQuestion'; roomId: string; agentId: string; question: string; requestId: string; threadId: string; transactionId: string; learning?: import('./work-question').WorkLearningRequest }
   | { kind: 'readWorkAnswer'; roomId: string; agentId: string; eventId: string; requestId: string }
   | { kind: 'sendAppMessage'; roomId: string; body: string; userId: string }
   /** Native-owned official DM resolver (src/matrix/app-bot-dm.ts). It reuses the room the
