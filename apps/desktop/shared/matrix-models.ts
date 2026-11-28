@@ -76,7 +76,7 @@ export interface MatrixCloudModelChoiceView {
   /** The eligible OpenRouter shelf models, in the server's order, with their Proton prices. */
   shelf?: readonly MatrixShelfModelView[]
   /** The OpenCode Go model this cloud agent runs (the account subscription), when one is chosen. */
-  subscription?: { source: 'opencode_go' | 'chatgpt_plan'; model: string; effort: MatrixEffort; displayName: string }
+  subscription?: { source: 'opencode_go' | 'chatgpt_plan' | 'openrouter_free'; model: string; effort: MatrixEffort; displayName: string }
   /** The OpenCode Go models the connected account serves (`provider-connections` status). */
   subscriptionModels?: readonly MatrixCloudSubscriptionModel[]
   /**
@@ -130,7 +130,7 @@ export interface MatrixModelDestinationView {
   shelf?: MatrixShelfModelId
   /** Exact saved non-Atum default. `current` remains the selectable Atum fallback only. */
   external?: {
-    source: 'chatgpt_plan' | 'opencode_go' | `own_key:${string}`
+    source: 'chatgpt_plan' | 'opencode_go' | 'openrouter_free' | `own_key:${string}`
     providerLabel: string
     model: string
     modelLabel: string

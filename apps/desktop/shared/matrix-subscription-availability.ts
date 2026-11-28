@@ -81,7 +81,6 @@ export function matrixCloudPlanAvailability(
   if (!plan) {
     return undefined
   }
-
   if (plan.source === 'chatgpt_plan') {
     return choice.subscriptionCustody === 'carried'
       ? unavailable('no_mac')
@@ -110,7 +109,13 @@ export function matrixCurrentPlanAvailability(input: {
     return undefined
   }
 
-  const provider = input.account?.find(each => each.id === matrixCloudPlanProvider(plan.source))
+  const source = plan.source
+
+  if (source === 'openrouter_free') {
+    return matrixCloudPlanAvailability(input.choice)
+  }
+
+  const provider = input.account?.find(each => each.id === matrixCloudPlanProvider(source))
 
   return matrixAccountPlanAvailability(provider) ?? matrixCloudPlanAvailability(input.choice)
 }

@@ -340,7 +340,7 @@ import { $founderDraftOpen, closeFounderDraft, useFounderChatRequests } from './
 import { FounderHeaderIdentity } from './founder/header-identity'
 import { FounderIntroCard } from './founder/intro-card'
 import { isFounderRoom } from './founder/roster-founder'
-import { MatrixGoogleConnectNudge } from './google-connection-settings'
+import { accountUsesAtumFree, MatrixGoogleConnectNudge } from './google-connection-settings'
 import { MatrixGoogleWriteProposals } from './google-write-card'
 import { AssistantGreeting } from './greeting'
 import {
@@ -6096,7 +6096,11 @@ function Conversation({
               )}
               {(defaultAssistantChat || firstRunHere) && <MatrixFolderAccessRecovery snapshot={snapshot} />}
               {defaultAssistantChat && snapshot.firstRunWelcome === 'dismissed' && !firstRunSkippedHere && (
-                <MatrixGoogleConnectNudge access={snapshot.googleAssistant} scope={snapshot.identity?.userId} />
+                <MatrixGoogleConnectNudge
+                  access={snapshot.googleAssistant}
+                  scope={snapshot.identity?.userId}
+                  usesAtumFree={accountUsesAtumFree(snapshot.agents)}
+                />
               )}
               {/* The owner's pending Google writes for this agent chat, read from Shell's list (never
                 from the room) and refreshed on this chat's activity. */}

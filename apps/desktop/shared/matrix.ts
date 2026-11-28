@@ -865,7 +865,7 @@ export interface MatrixAgentHomeModelOption {
   /** Opaque, display-safe connection reference plus exact model/effort. */
   connectionRef: string
   /** `opencode_go` is the account-wide cloud subscription (`atum.model-choice/1.4`). */
-  source: 'atum' | 'chatgpt_plan' | 'opencode_go' | `own_key:${string}`
+  source: 'atum' | 'chatgpt_plan' | 'opencode_go' | 'openrouter_free' | `own_key:${string}`
   providerLabel: string
   model: string
   modelLabel: string
@@ -2136,6 +2136,9 @@ export type MatrixEmailSignIn = 'available' | 'unavailable' | 'unknown'
  * names and one opaque sign-in handle. A key is write-only and cleared from the field at once.
  */
 export interface MatrixSubscriptionsBridge {
+  connectAtumFree?(): Promise<boolean>
+  disconnectAtumFree?(): Promise<boolean>
+  cancelAtumFree?(): Promise<void>
   /** One read per Atum account, shared by every assistant on this Mac. */
   status(): Promise<MatrixSubscriptionsStatus>
   /** The room agent's Mac-hosted subscription catalog (account connections, safe names). */
@@ -2351,7 +2354,7 @@ export interface MatrixUiBridge {
     /** One cloud pick from the account-wide OpenCode Go connection (`atum.model-choice/1.4`). */
     writeSubscription(
       agentPrincipal: string,
-      source: 'opencode_go' | 'chatgpt_plan',
+      source: 'opencode_go' | 'chatgpt_plan' | 'openrouter_free',
       model: string,
       effort: 'low' | 'medium' | 'high'
     ): Promise<{ status: 'saved' | 'refused' }>

@@ -49,7 +49,7 @@ const PROVIDER_ICONS: ReadonlyArray<{ matches: readonly string[]; icon: Provider
   { matches: ['qwen'], icon: { key: 'qwen', asset: qwenMark, color: '#6950EF' } },
   { matches: ['copilot-acp', 'github copilot', 'copilot'], icon: { key: 'github-copilot', asset: copilotMark } },
   { matches: ['google-ai', 'google'], icon: { key: 'google', Icon: SiGoogle } },
-  { matches: ['openrouter'], icon: { key: 'openrouter', Icon: SiOpenrouter } },
+  { matches: ['openrouter', 'atum-free'], icon: { key: 'openrouter', Icon: SiOpenrouter } },
   { matches: ['mistral'], icon: { key: 'mistral', Icon: SiMistralai } },
   { matches: ['ollama'], icon: { key: 'ollama', Icon: SiOllama } },
   { matches: ['huggingface', 'hugging-face'], icon: { key: 'hugging-face', Icon: SiHuggingface } },
