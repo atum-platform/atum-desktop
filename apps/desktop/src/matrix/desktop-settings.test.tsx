@@ -10,7 +10,8 @@ import {
   $matrixFeedbackOpen,
   MatrixDesktopSettings,
   MatrixFeedbackDialog,
-  MatrixUpdateFooter
+  MatrixUpdateFooter,
+  MatrixUpdateSettings
 } from './desktop-settings'
 
 const idle: MatrixDesktopServicesStatus = {
@@ -72,6 +73,7 @@ function fixture(status: MatrixDesktopServicesStatus = idle) {
     onOpenFeedback,
     ...render(
       <I18nProvider configClient={null} initialLocale="en">
+        <MatrixUpdateSettings />
         <MatrixDesktopSettings onOpenFeedback={onOpenFeedback} />
         <MatrixUpdateFooter />
         <MatrixFeedbackDialog />
@@ -92,6 +94,18 @@ it('persists the sharing choice in a few words, and explains it in one sentence 
 it('names the version beside the honest never-checked update status', () => {
   fixture()
   expect(screen.getByText('Atum 1.0.0 · Not checked yet')).toBeTruthy()
+})
+
+it('keeps the version and its update out of Help, which holds sharing and feedback only', () => {
+  fixture()
+  cleanup()
+  render(
+    <I18nProvider configClient={null} initialLocale="en">
+      <MatrixDesktopSettings onOpenFeedback={() => {}} />
+    </I18nProvider>
+  )
+  expect(screen.queryByText('Atum 1.0.0 · Not checked yet')).toBeNull()
+  expect(screen.getByRole('switch', { name: 'Share usage data' })).toBeTruthy()
 })
 
 it('sends feedback from its own sheet, with the diagnostic ID one copy away, and forgets a closed draft', async () => {

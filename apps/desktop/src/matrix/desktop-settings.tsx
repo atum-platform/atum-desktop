@@ -90,14 +90,12 @@ export function MatrixUsageSharing() {
 }
 
 /**
- * Settings › Help: "Updates" (the software update with the version) and "Help improve Atum"
- * (sharing, and the way to send feedback). Feedback opens its own sheet, so Settings steps
- * aside. Start at login lives in Settings › General.
+ * Settings › General › Updates: the version and its software update (owner 2026-11-28: "versions and
+ * updates should probably be in General"). The same updater the rail's update button runs.
  */
-export function MatrixDesktopSettings({ onOpenFeedback }: { onOpenFeedback(): void }) {
-  const copy = useMatrixDesktopServicesCopy()
+export function MatrixUpdateSettings() {
   const settings = useMatrixSettingsCopy()
-  const { failed, set, status, writing } = useUsageSharing()
+  const status = useStore($matrixDesktopServices)
   const { locale } = useI18n()
 
   if (!status || !window.atumDesktopServices) {
@@ -105,20 +103,36 @@ export function MatrixDesktopSettings({ onOpenFeedback }: { onOpenFeedback(): vo
   }
 
   return (
-    <>
-      <SettingsSection data-matrix-desktop-services title={settings.updates}>
-        <SoftwareUpdate
-          busy={status.busy}
-          checkNow={() => window.atumDesktopServices!.checkUpdates()}
-          currentVersion={status.version}
-          locale={locale}
-          openDownload={() => window.atumMatrix.openLink(ATUM_LINKS.download).then(() => true)}
-          restart={() => window.atumDesktopServices!.restart(status.update.version ?? undefined)}
-          setChannel={channel => window.atumDesktopServices!.setUpdateChannel(channel)}
-          status={status.update}
-        />
-      </SettingsSection>
+    <SettingsSection data-matrix-desktop-services title={settings.updates}>
+      <SoftwareUpdate
+        busy={status.busy}
+        checkNow={() => window.atumDesktopServices!.checkUpdates()}
+        currentVersion={status.version}
+        locale={locale}
+        openDownload={() => window.atumMatrix.openLink(ATUM_LINKS.download).then(() => true)}
+        restart={() => window.atumDesktopServices!.restart(status.update.version ?? undefined)}
+        setChannel={channel => window.atumDesktopServices!.setUpdateChannel(channel)}
+        status={status.update}
+      />
+    </SettingsSection>
+  )
+}
 
+/**
+ * Settings › Help: "Help improve Atum" (sharing, and the way to send feedback). Feedback opens its
+ * own sheet, so Settings steps aside. The version and its update live in Settings › General.
+ */
+export function MatrixDesktopSettings({ onOpenFeedback }: { onOpenFeedback(): void }) {
+  const copy = useMatrixDesktopServicesCopy()
+  const settings = useMatrixSettingsCopy()
+  const { failed, set, status, writing } = useUsageSharing()
+
+  if (!status || !window.atumDesktopServices) {
+    return null
+  }
+
+  return (
+    <>
       <SettingsSection title={settings.improve}>
         <div className="atum-settings-item">
           <SettingsRow
