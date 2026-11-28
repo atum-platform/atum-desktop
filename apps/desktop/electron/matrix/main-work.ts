@@ -113,7 +113,7 @@ export interface MatrixWorkDeps {
   ownerHost(): OwnerSdkHost | undefined
   /** The Matrix user of the active agent with this principal (`account.agents()`), or null. */
   agentMatrixUser(principal: string): Promise<string | null>
-  selectedWorkAssistant?(): string | undefined
+  primaryWorkAssistant?(): string | undefined
   /** The signed-in owner’s active assistants, from the account roster. */
   eligiblePlanAgents(): Promise<string[]>
   /** The owner's top-up page (what `openTopUp` opens). */
@@ -574,7 +574,7 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
     openProtons: deps.openProtons,
     submitLearning: (owner, value, current) => submitWorkLearning(value, {
       owner: deps.ownerHost,
-      selected: () => deps.selectedWorkAssistant?.(),
+      primary: () => deps.primaryWorkAssistant?.(),
       agent: deps.agentMatrixUser,
       server: () => {
         const deviceId = deps.deviceServiceId()

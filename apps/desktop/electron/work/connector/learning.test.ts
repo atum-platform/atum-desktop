@@ -15,7 +15,7 @@ const input = {
 }
 
 function fixture() {
-  const command = vi.fn(async (request: MatrixSdkCommand) => {
+  const command = vi.fn(async (request: MatrixSdkCommand): Promise<unknown> => {
     switch (request.kind) {
       case 'findAssistantRoom': return '!owner-dm:example.test'
 
@@ -29,7 +29,7 @@ function fixture() {
 
   return {
     owner: () => ({ userId: '@owner:example.test', command }),
-    selected: () => agent,
+    primary: () => agent,
     server: () => 'work-aabbccdd',
     document: () => '/fixture/work/weekly-update.docx',
     agent: vi.fn(async () => '@assistant:example.test'),
@@ -53,8 +53,8 @@ describe('Work owner composer relay', () => {
     }))
   })
 
-  it('keeps the original assistant when the owner changes their selected assistant', async () => {
-    const port = { ...fixture(), selected: () => 'different-assistant' }
+  it('keeps the original assistant when the account primary changes', async () => {
+    const port = { ...fixture(), primary: () => 'different-assistant' }
     const modelSelection = { instanceId: 'claude', model: 'override' }
     expect(await submitWorkLearning({ ...input, threadId: bound, modelSelection }, port))
       .toEqual({ status: 'started', threadId: bound })
@@ -64,10 +64,26 @@ describe('Work owner composer relay', () => {
     }))
   })
 
-  it('allows offline drafts to start standalone and protects bound follow-ups', async () => {
+  it('continues both drafts and bound threads locally when the relay loses reach', async () => {
     const port = { ...fixture(), server: () => undefined }
     expect(await submitWorkLearning(input, port)).toEqual({ status: 'standalone' })
-    expect(await submitWorkLearning({ ...input, threadId: bound }, port)).toEqual({ status: 'unavailable' })
+    expect(await submitWorkLearning({ ...input, threadId: bound }, port)).toEqual({ status: 'standalone' })
     expect(port.command).not.toHaveBeenCalled()
+  })
+
+  it('uses the native local turn after the assistant explicitly declines its attachment', async () => {
+    const port = fixture()
+    port.command.mockResolvedValueOnce('!owner-dm:example.test')
+      .mockResolvedValueOnce('$owner-event')
+      .mockResolvedValueOnce({ learning: { status: 'standalone' } })
+    expect(await submitWorkLearning({ ...input, threadId: bound }, port)).toEqual({ status: 'standalone' })
+  })
+
+  it('keeps the draft when Work reports an active run', async () => {
+    const port = fixture()
+    port.command.mockResolvedValueOnce('!owner-dm:example.test')
+      .mockResolvedValueOnce('$owner-event')
+      .mockResolvedValueOnce({ learning: { status: 'busy' } })
+    expect(await submitWorkLearning({ ...input, threadId: bound }, port)).toEqual({ status: 'running' })
   })
 })

@@ -20757,10 +20757,10 @@ async function start() {
 
         return agent?.matrixUser ?? null
       },
-      selectedWorkAssistant: () => {
-        const selected = state.roomId ? agentOfRoom(state.roomId) : undefined
+      primaryWorkAssistant: () => {
+        const primary = productAgent()
 
-        return selected && isCloudOnlyAgent(selected) ? cloudPrincipal(selected) : undefined
+        return primary && isCloudOnlyAgent(primary) ? cloudPrincipal(primary) : undefined
       },
       eligiblePlanAgents: async () => (await account.agents(AbortSignal.timeout(15_000)))
         .filter(agent => agent.status === 'active').map(agent => agent.principal).sort().slice(0, 256),

@@ -8,7 +8,7 @@ import type { OwnerSdkHost } from './matrix'
 
 type LearningResult =
   | { status: 'started'; threadId: string }
-  | { status: 'standalone' | 'unavailable' }
+  | { status: 'standalone' | 'unavailable' | 'running' }
 
 const modelSelectionSchema = z.object({
   instanceId: z.string().trim().min(1).max(256),
@@ -25,7 +25,7 @@ function boundedText(value: unknown, limit: number): value is string {
 
 export async function submitWorkLearning(value: unknown, port: {
   owner(): OwnerSdkHost | undefined
-  selected(): string | undefined
+  primary(): string | undefined
   agent(principal: string): Promise<string | null>
   server(): string | undefined
   document(value: unknown): string | undefined
@@ -45,11 +45,11 @@ export async function submitWorkLearning(value: unknown, port: {
   const bound = workLearningThread(threadId)
 
   if (!bound && !workLearningSessionId.test(threadId)) {return unavailable}
-  const principal = bound?.agent ?? port.selected()
+  const principal = bound?.agent ?? port.primary()
   const server = port.server()
   const owner = port.owner()
 
-  if (!principal || !server || !owner) {return bound ? unavailable : standalone}
+  if (!principal || !server || !owner) {return standalone}
 
   if (!workLearningSessionId.test(principal) || !boundedText(text, 24_000) ||
       Buffer.byteLength(text) > 24_000) {return unavailable}
@@ -58,14 +58,14 @@ export async function submitWorkLearning(value: unknown, port: {
 
   if (!port.current()) {return unavailable}
 
-  if (!agent) {return bound ? unavailable : standalone}
+  if (!agent) {return standalone}
 
   const room = await owner.command({ kind: 'findAssistantRoom', ownerId: owner.userId, agentId: agent })
     .catch(() => undefined)
 
   if (!port.current()) {return unavailable}
 
-  if (typeof room !== 'string') {return bound ? unavailable : standalone}
+  if (typeof room !== 'string') {return standalone}
 
   const path = document === undefined ? undefined : port.document(document)
 
@@ -73,31 +73,52 @@ export async function submitWorkLearning(value: unknown, port: {
   const session = bound?.session ?? threadId
   const target = `work-learning-${principal}-${session}`
 
-  const event = await owner.command({
-    kind: 'sendWorkQuestion', roomId: room, agentId: agent, question: text, requestId,
-    threadId: session, transactionId: `atum-work-learning-${requestId}`,
-    learning: { server, followup: Boolean(bound), model: model.data,
-      ...(path ? { document: path } : {}) }
-  }).catch(() => undefined)
-
-  if (typeof event !== 'string' || !event.startsWith('$')) {return unavailable}
-
+  const fallback = bound ? standalone : unavailable
   const deadline = Date.now() + 45_000
 
-  while (port.current() && Date.now() < deadline) {
-    const answer = await owner.command({
-      kind: 'readWorkAnswer', roomId: room, agentId: agent, eventId: event, requestId
-    }).catch(() => undefined) as { learning?: { threadId?: unknown; runId?: unknown; status?: unknown } } | undefined
 
-    if (!port.current()) {return unavailable}
+  const waitForReceipt = async (): Promise<LearningResult> => {
+    const event = await owner.command({
+      kind: 'sendWorkQuestion', roomId: room, agentId: agent, question: text, requestId,
+      threadId: session, transactionId: `atum-work-learning-${requestId}`,
+      learning: { server, followup: Boolean(bound), model: model.data,
+        ...(path ? { document: path } : {}) }
+    }).catch(() => undefined)
 
-    if (answer?.learning?.threadId === target && boundedText(answer.learning.runId, 255)) {
-      return { status: 'started', threadId: target }
+    if (typeof event !== 'string' || !event.startsWith('$')) {return fallback}
+
+    while (port.current() && Date.now() < deadline) {
+      const answer = await owner.command({
+        kind: 'readWorkAnswer', roomId: room, agentId: agent, eventId: event, requestId
+      }).catch(() => undefined) as { learning?: { threadId?: unknown; runId?: unknown; status?: unknown } } | undefined
+
+      if (!port.current()) {return unavailable}
+
+      if (answer?.learning?.threadId === target && boundedText(answer.learning.runId, 255)) {
+        return { status: 'started', threadId: target }
+      }
+
+      if (answer?.learning?.status === 'standalone') {return standalone}
+
+      if (answer?.learning?.status === 'busy') {return { status: 'running' }}
+
+      if (answer?.learning?.status === 'unavailable') {return fallback}
+      await setTimeout(500)
     }
 
-    if (answer?.learning?.status === 'unavailable') {return unavailable}
-    await setTimeout(500)
+    return fallback
   }
 
-  return unavailable
+  const timeout = new AbortController()
+
+  try {
+    const result = await Promise.race([
+      waitForReceipt(),
+      setTimeout(45_000, fallback, { signal: timeout.signal })
+    ])
+
+    return port.current() ? result : unavailable
+  } finally {
+    timeout.abort()
+  }
 }
