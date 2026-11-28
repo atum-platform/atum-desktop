@@ -16,3 +16,4 @@
 - #176 merged cleanly.
 - #177 merged cleanly.
 - Work 0.12.2 pin merged cleanly.
+- #178 merged cleanly.
