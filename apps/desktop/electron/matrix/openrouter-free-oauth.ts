@@ -19,9 +19,16 @@ export async function authorizeOpenRouterFree({
   const state = randomBytes(24).toString('base64url')
   // A denied OpenRouter callback omits state. Its private path still identifies this attempt.
   const path = '/callback/' + state
-  const callback = Promise.withResolvers<string>()
-  void callback.promise.catch(() => undefined)
-  const abort = () => callback.reject(new Error('openrouter_authorization_cancelled'))
+  let finish!: (code: string) => void
+  let fail!: (error: Error) => void
+  const callback = new Promise<string>((resolve, reject) => {
+    finish = resolve
+    fail = reject
+  })
+
+  void callback.catch(() => undefined)
+
+  const abort = () => fail(new Error('openrouter_authorization_cancelled'))
   const server = createServer((request, response) => {
     response.setHeader('content-type', 'text/html; charset=utf-8')
     response.setHeader('cache-control', 'no-store')
@@ -38,7 +45,7 @@ export async function authorizeOpenRouterFree({
 
     if (!code || url.searchParams.has('error')) {
       response.end(atumOAuthCompletionHtml('connection-denied'))
-      callback.reject(new Error('openrouter_authorization_denied'))
+      fail(new Error('openrouter_authorization_denied'))
 
       return
     }
@@ -49,7 +56,7 @@ export async function authorizeOpenRouterFree({
     }
 
     response.end(atumOAuthCompletionHtml('connection-approved'))
-    callback.resolve(code)
+    finish(code)
   })
   lifetime.addEventListener('abort', abort, { once: true })
 
@@ -75,7 +82,7 @@ export async function authorizeOpenRouterFree({
       limit: '0.01'
     }).toString()
     await openExternal(url.toString())
-    const code = await callback.promise
+    const code = await callback
     const response = await fetchImpl('https://openrouter.ai/api/v1/auth/keys', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
