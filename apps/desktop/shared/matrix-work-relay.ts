@@ -1,4 +1,4 @@
-/** Plans available through native Work providers. */
+/** Plans available to the cloud relay. Copilot and Kiro are interactive Work only. */
 export const WORK_RELAY_PLANS = ['codex', 'claude', 'antigravity'] as const
 export type WorkRelayPlan = (typeof WORK_RELAY_PLANS)[number]
 export const WORK_RELAY_PROVIDER = {

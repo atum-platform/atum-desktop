@@ -206,6 +206,7 @@
     "shared/matrix-window.ts",
     "shared/matrix-window-failure.ts",
     "shared/matrix-work.ts",
+    "shared/work-local-plans.ts",
     "shared/account-connections.ts",
     "shared/first-run-labels.ts",
     "shared/first-run-pick.ts",
