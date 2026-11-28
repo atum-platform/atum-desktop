@@ -46,3 +46,9 @@
 - The Resume fixture supplies the current host schedule after the write, including the global pause state.
 - The held first-run heads are absent from the train ancestry.
 - Verify the combined head with desktop typecheck, lint, the canonical build and renderer brand gate, the focused inventory above, and the public guard against main.
+
+### Client check repair
+
+The brand scrub changed the logged-out billing card to refer to the provider and changed the early runtime-exit label to Atum. The billing state, rendered billing card, and abort tests now expect those messages. They still check that logged-out billing hides account rows and that a terminated runtime reports the signal.
+
+Run the full client suite with `npm exec --workspace apps/desktop -- vitest run --maxWorkers 4` and the public history check with `python3 scripts/public_guard.py --base origin/main --head HEAD`.
