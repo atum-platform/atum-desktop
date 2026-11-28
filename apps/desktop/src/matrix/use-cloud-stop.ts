@@ -97,7 +97,11 @@ export function useMatrixCloudStop({
 
   const live =
     available && room
-      ? matrixCloudStopTarget({ messages, turns: snapshot.localTurns, roomId: room.id, unanswered, working })
+      ? matrixCloudStopTarget({
+          messages, turns: snapshot.localTurns, roomId: room.id, unanswered, working,
+          agentId: roomAgent?.runtime === 'hermes' ? roomAgent.userId : undefined,
+          roomTimeline: messages === snapshot.messages
+        })
       : undefined
 
   // The typing signal a question from another device shows through expires in moments, long

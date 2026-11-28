@@ -88,6 +88,30 @@ describe('the event a cloud Stop names', () => {
     ).toBeUndefined()
   })
 
+  it('uses the confirmed cloud event while the timeline is still catching up', () => {
+    const input = { messages: [], turns: [turn({ questionEventId: '$synced' })], roomId: ROOM, working: true }
+
+    expect(matrixCloudStopTarget({ ...input, roomTimeline: true })).toBe('$synced')
+    expect(matrixCloudStopTarget(input)).toBeUndefined()
+  })
+
+  it('targets the bound Hermes progress source ahead of a queued question', async () => {
+    const agentId = '@agent:test'
+    const progress = {
+      profile: 'atum.agent-turns/1.3', scope: 'owner_private', phase: 'working', kind: 'heartbeat', revision: 1
+    } as const
+    const line = message({ id: '$working', sender: agentId, own: false, notice: true, progress, replyTo: '$active' })
+    const queued = message({ id: '$queued' })
+    const input = { messages: [line, queued], agentId, roomId: ROOM, unanswered: queued, working: true }
+    const route = matrixStopRoute({ runtime: 'hermes', working: true, eventId: matrixCloudStopTarget(input) })
+    const stop = vi.fn(async () => ({ state: 'stopped' as const }))
+
+    await expect(executeMatrixStop(route, ROOM, stop)).resolves.toBe('stopped')
+    expect(stop).toHaveBeenCalledWith({ action: 'stopTurn', roomId: ROOM, eventId: '$active' })
+    expect(matrixCloudStopTarget({ ...input, agentId: '@other:test' })).toBe('$queued')
+    expect(matrixCloudStopTarget({ ...input, messages: [{ ...line, redacted: true }, queued] })).toBe('$queued')
+  })
+
   it('names the oldest owner message still waiting when another device asked', () => {
     expect(
       matrixCloudStopTarget({
