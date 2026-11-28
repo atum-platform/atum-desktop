@@ -269,9 +269,9 @@ exceptions.
   near-white (#ecedf0) with ink text (#17181c) in dark (owner 2026-11-28,
   replacing the 2026-10-28 raised grey, which read as "mine" by alignment
   alone). Targets: at least 3:1 between your bubble and the quiet one, and
-  4.5:1 for everything drawn on yours. In dark, what sits on your bubble (a
+  4.5:1 for everything drawn on yours. In both themes, what sits on your bubble (a
   reply quote, "in thread", a file chip, a code fence) takes the bubble's own
-  ink, quietened, never the window's light ink tones. While being edited, a
+  ink, quietened, never the window's ink tones (owner 2026-11-28). While being edited, a
   turn returns to the quiet field.
 - **Team space channels read like Slack** (owner, 2026-10-25, reconfirmed
   2026-10-28): flat runs, edge to edge, for people and assistants alike. A
