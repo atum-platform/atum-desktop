@@ -18,6 +18,7 @@ import { MATRIX_NOTES_SELF_ROOM_TYPE } from '../../shared/matrix-notes-self'
 import { foldSearchChar, foldSearchQuery, textMatchesChatSearch } from './chat-search-matches'
 import { companyFileContext } from './company-files'
 import { historyMessageText } from './history-message-text'
+import { plainRoomAnswer } from './plain-room'
 
 const UUID = /^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/u
 const ROOM_ID = /^![!-9;-~]{1,255}:[!-~]{1,255}$/u
@@ -33,7 +34,7 @@ function record(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
 }
 
-function searchSnippet(body: string, query: string): string {
+export function searchSnippet(body: string, query: string): string {
   const characters = [...body]
 
   if (characters.length <= MATRIX_COMPANY_MESSAGE_SEARCH_SNIPPET_MAX) {
@@ -235,6 +236,7 @@ function loadedSearch(
   const tab = command.tab ?? 'messages'
   const selectedFileType = command.fileType ?? 'all'
   const allowedSenders = senders ? new Set(senders) : undefined
+  const ignored = new Set(client.getIgnoredUsers?.())
   const results: MatrixCompanyMessageSearchValue['results'] = []
 
   for (const target of admitted) {
@@ -251,7 +253,8 @@ function loadedSearch(
       if (!eventId || !EVENT_ID.test(eventId) || !sender || !USER_ID.test(sender) ||
         !Number.isSafeInteger(at) || at < 0 || at > MAX_DATE_MS || event.getType() !== EventType.RoomMessage ||
         event.getWireType() !== EventType.RoomMessage || event.isRedacted() || event.isDecryptionFailure() ||
-        !record(content) || allowedSenders && !allowedSenders.has(sender) || !matrixCompanySearchDateMatches(at, parsed)) {
+        !record(content) || ignored.has(sender) || allowedSenders && !allowedSenders.has(sender) ||
+        !matrixCompanySearchDateMatches(at, parsed)) {
         continue
       }
 
@@ -321,12 +324,24 @@ export async function searchCompanyMessages(
     return unavailable()
   }
 
-  const authorizedAll = command.rooms.filter(target => boundCompanyRoom(client, { ...target, companyId: command.companyId }))
+  const authorizedAll = command.rooms.flatMap(target => {
+    const room = boundCompanyRoom(client, { ...target, companyId: command.companyId })
+
+    return room ? [{ target, room }] : []
+  })
   const encrypted = (roomId: string) => typeof client.isRoomEncrypted === 'function'
     ? client.isRoomEncrypted(roomId)
     : Boolean(client.getRoom(roomId)?.hasEncryptionStateEvent?.())
-  const encryptedRooms = authorizedAll.filter(target => encrypted(target.roomId)).length
-  const authorized = authorizedAll.filter(target => !encrypted(target.roomId))
+  const crypto = client.getCrypto?.()
+  const plain = await Promise.all(authorizedAll.map(({ room }) =>
+    crypto ? plainRoomAnswer(client, room) : !encrypted(room.roomId)))
+
+  if (!active()) {return unavailable()}
+
+  const encryptedRooms = plain.filter(value => value === false).length
+  const authorized = authorizedAll.flatMap(({ target }, index) =>
+    plain[index] === true && !encrypted(target.roomId) &&
+    boundCompanyRoom(client, { ...target, companyId: command.companyId }) ? [target] : [])
   const admitted = channelTargets(authorized, parsed.in)
   const senders = senderIds(client, admitted, parsed.from, command.senderUserId)
 
@@ -391,6 +406,7 @@ export async function searchCompanyMessages(
 
   const targets = new Map(admitted.map(target => [target.roomId, target]))
   const seen = new Set<string>()
+  const ignored = new Set(client.getIgnoredUsers?.())
   const results: MatrixCompanyMessageSearchValue['results'] = []
 
   for (const event of foundEvents) {
@@ -411,7 +427,7 @@ export async function searchCompanyMessages(
       return unavailable()
     }
 
-    if (seen.has(eventId)) {continue}
+    if (seen.has(eventId) || ignored.has(sender) || encrypted(target.roomId)) {continue}
 
     const threadRootId = threadRoot(content)
 

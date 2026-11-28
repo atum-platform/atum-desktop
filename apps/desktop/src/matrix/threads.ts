@@ -95,6 +95,11 @@ interface ThreadAttention {
   unfollowed: Set<string>
 }
 
+interface FocusedThread {
+  rootId: string
+  events: readonly MatrixEvent[]
+}
+
 function record(value: unknown): Record<string, unknown> | undefined {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
     ? (value as Record<string, unknown>)
@@ -378,9 +383,10 @@ function projectMatrixThreads(
   project: (event: MatrixEvent) => MatrixMessage | null,
   sdkThreads: readonly MatrixSdkThread[],
   attention: ThreadAttention,
-  group = false
+  group = false,
+  focus?: FocusedThread
 ): MatrixThread[] {
-  return sdkThreads
+  const threads = sdkThreads
     .flatMap(thread => {
       const rootEvent = thread.rootEvent ?? room.findEventById(thread.id)
       const root = rootEvent ? project(rootEvent) : null
@@ -394,12 +400,12 @@ function projectMatrixThreads(
       const events = (group ? children.filter(event => !legacyAssistantReply(event)) : children)
         .sort((left, right) => left.getTs() - right.getTs())
       const replyCount = thread.length - (children.length - events.length)
+      const focused = focus?.rootId === root.id ? focus.events : undefined
 
-      if (group && replyCount <= 0 && !events.length) {
+      if (group && replyCount <= 0 && !events.length && !focused) {
         return []
       }
-      const replies = events
-        .slice(-MATRIX_THREAD_REPLIES_MAX)
+      const replies = (focused ? focused.filter(event => event.getId() !== root.id) : events.slice(-MATRIX_THREAD_REPLIES_MAX))
         .map(event => {
           const message = project(event)
 
@@ -425,22 +431,29 @@ function projectMatrixThreads(
       const participantIds = [...new Set([root.sender, ...replies.map(reply => reply.sender)])].slice(0, 100)
 
       return [
-        { root, replies, participantIds, replyCount: Math.max(replyCount, 0), lastActivityAt, unread, highlights, followed }
+        { root, replies, participantIds, replyCount: Math.max(replyCount, focused ? replies.length : 0),
+          lastActivityAt, unread, highlights, followed }
       ]
     })
     .sort((left, right) => right.lastActivityAt - left.lastActivityAt || left.root.id.localeCompare(right.root.id))
-    .slice(0, MATRIX_THREADS_MAX)
+
+  const focusedIndex = focus ? threads.findIndex(thread => thread.root.id === focus.rootId) : -1
+
+  return focusedIndex >= MATRIX_THREADS_MAX
+    ? [...threads.slice(0, MATRIX_THREADS_MAX - 1), threads[focusedIndex]!]
+    : threads.slice(0, MATRIX_THREADS_MAX)
 }
 
 /** Bounded display projection of the room's known server threads. */
 export function matrixThreads(
   room: Room,
   userId: string,
-  project: (event: MatrixEvent) => MatrixMessage | null
+  project: (event: MatrixEvent) => MatrixMessage | null,
+  focus?: FocusedThread
 ): MatrixThread[] {
   const attention = matrixThreadAttention(room)
 
-  return projectMatrixThreads(room, userId, project, room.getThreads(), attention, matrixThreadRoomKind(room) === 'group')
+  return projectMatrixThreads(room, userId, project, room.getThreads(), attention, matrixThreadRoomKind(room) === 'group', focus)
 }
 
 function cachedCompanyRoomThreads(
