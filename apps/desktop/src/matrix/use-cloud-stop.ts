@@ -97,19 +97,23 @@ export function useMatrixCloudStop({
 
   const live =
     available && room
-      ? matrixCloudStopTarget({ messages, turns: snapshot.localTurns, roomId: room.id, unanswered, working })
+      ? matrixCloudStopTarget({
+          messages, turns: snapshot.localTurns, roomId: room.id, unanswered, working,
+          agentId: roomAgent?.runtime === 'hermes' ? roomAgent.userId : undefined,
+          roomTimeline: messages === snapshot.messages
+        })
       : undefined
 
   // The typing signal a question from another device shows through expires in moments, long
   // before a cloud turn does. Once Stop has named that question, keep naming it until the
   // question clears or the room changes, so the button does not vanish mid-turn.
-  const latch = useRef<{ roomId: string; unansweredId: string | null; eventId: string } | null>(null)
+  const latch = useRef<{ roomId: string; eventId: string } | null>(null)
 
   if (live) {
-    latch.current = { roomId: room!.id, unansweredId: unanswered?.id ?? null, eventId: live }
+    latch.current = live === unanswered?.id ? { roomId: room!.id, eventId: live } : null
   } else if (
     latch.current &&
-    (!available || latch.current.roomId !== room?.id || latch.current.unansweredId !== (unanswered?.id ?? null))
+    (!available || latch.current.roomId !== room?.id || latch.current.eventId !== unanswered?.id)
   ) {
     latch.current = null
   }

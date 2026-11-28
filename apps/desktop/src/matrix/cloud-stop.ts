@@ -10,8 +10,15 @@ export function matrixCloudStopTarget(input: {
   roomId: string
   unanswered?: MatrixMessage | null
   working: boolean
+  agentId?: string
+  roomTimeline?: boolean
 }): string | undefined {
   const unanswered = input.unanswered
+  const line = input.agentId && matrixWorkingLine(input.messages, new Set([input.agentId]), input.agentId)
+  if (line && confirmedProgress(line) && line.progress?.scope === 'owner_private' && !line.progress.trigger &&
+      line.replyTo?.startsWith('$')) {
+    return line.replyTo
+  }
 
   const candidates = (input.turns ?? [])
     .filter(
@@ -22,23 +29,28 @@ export function matrixCloudStopTarget(input: {
         each.synced.question &&
         !each.synced.answer
     )
-    .map(turn => ({ turn, question: input.messages.findLast(each => each.own && each.turn === turn.turnId) }))
+    .map(turn => {
+      const question = input.messages.findLast(each => each.own && each.turn === turn.turnId)
+      const eventId = question?.id.startsWith('$') ? question.id : input.roomTimeline ? turn.questionEventId : undefined
+
+      return { turn, eventId }
+    })
     .filter(
-      (each): each is { turn: MatrixLocalTurnView; question: MatrixMessage } =>
-        each.question?.id.startsWith('$') === true
+      (each): each is { turn: MatrixLocalTurnView; eventId: string } =>
+        each.eventId?.startsWith('$') === true
     )
 
   // The question this room is actually waiting on wins over which turn happens to sit first;
   // among the rest the oldest one is the turn a follow-up queued behind.
   const chosen =
-    (unanswered && candidates.find(each => each.question.id === unanswered.id)) ??
+    (unanswered && candidates.find(each => each.eventId === unanswered.id)) ??
     candidates.reduce<(typeof candidates)[number] | undefined>(
       (oldest, each) => (oldest && oldest.turn.createdAt <= each.turn.createdAt ? oldest : each),
       undefined
     )
 
   if (chosen) {
-    return chosen.question.id
+    return chosen.eventId
   }
 
   if (!input.working) {
@@ -118,7 +130,9 @@ export function matrixCloudStopScheduled(
     return undefined
   }
 
-  const confirmed = line.id.startsWith('$') && !line.decryptionFailed && !line.pending && !line.failed
+  return { schedule: confirmedProgress(line) ? progress.schedule : undefined }
+}
 
-  return { schedule: confirmed ? progress.schedule : undefined }
+function confirmedProgress(line: MatrixMessage): boolean {
+  return line.id.startsWith('$') && !line.decryptionFailed && !line.pending && !line.failed
 }
