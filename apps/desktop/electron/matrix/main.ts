@@ -131,6 +131,7 @@ import {
 } from '../../shared/matrix'
 import { matrixActionCopy } from '../../shared/matrix-action-copy'
 import type { MatrixHostAgentControl } from '../../shared/matrix-agent-desk'
+import { matrixAgentScreenText } from '../../shared/matrix-agent-screen-copy'
 import { MATRIX_AGENT_SOURCES_IPC } from '../../shared/matrix-agent-sources'
 import { matrixAgentStatusText, matrixCheckingLine } from '../../shared/matrix-agent-status-copy'
 import { appBotTurnRefusal } from '../../shared/matrix-app-bot-failure'
@@ -379,6 +380,7 @@ import {
   matrixUnheldTickerRestartable,
   reconcileMatrixAgentLease
 } from './agent-runtime'
+import { registerMatrixAgentScreenIpc } from './agent-screen'
 import { MatrixAgentSignals, matrixWorkingAsk } from './agent-signals'
 import {
   MatrixAgentSourceSettings,
@@ -1914,6 +1916,14 @@ function ownerKeyChanged() {
 }
 
 let account: MatrixAccount
+let stopAgentScreen: (() => void) | undefined
+let lastAgentScreenScope: string | undefined
+
+function agentScreenScope(): string | undefined {
+  const scope = !closing && account?.appScope()
+
+  return scope ? JSON.stringify([scope.accountKey, scope.generation]) : undefined
+}
 /** The root encrypted credential file; subscription keys take an account-scoped view of it. */
 let credentialStore: EncryptedStore | undefined
 let drive: MatrixDrive | undefined
@@ -6868,6 +6878,12 @@ const presentationCommand = createPresentationDispatch({
 })
 
 function publish(next: MatrixSnapshot) {
+  const screenScope = agentScreenScope()
+  if (screenScope !== lastAgentScreenScope || (!next.identity && state.identity)) {
+    stopAgentScreen?.()
+    lastAgentScreenScope = screenScope
+  }
+
   if (webPreviewScope(next) !== webPreviewScope(state)) {
     webPreviews.clear()
   }
@@ -19182,6 +19198,56 @@ async function start() {
       }
     })
   )
+  stopAgentScreen = registerMatrixAgentScreenIpc(ipcMain, {
+    assertSender: event => requireMatrixCaller(event, ui?.webContents, UI_URL),
+    scope: agentScreenScope,
+    credentials: async ({ roomId, request }) => {
+      const agent = state.agents?.find(item => item.principal === request.agentPrincipal)
+      const room = state.rooms.find(item => item.id === roomId)
+      const identity = account.identity()
+      if (
+        !config.domain || !agent || !identity || room?.agentPrincipal !== agent.principal ||
+        !room.assistant || !isAssistantRoom(room, identity.userId, agent.userId)
+      ) {return undefined}
+
+      // As with S1 source-authority, use the native owner's own Matrix/MAS grant.
+      // The hub resolves the token to this Matrix device and checks the owner principal itself.
+      const { principal: ownerPrincipal } = await account.readDomain(false)
+      const { userId, deviceId, accessToken } = account.sdkConfiguration()
+
+      return { ownerPrincipal, userId, deviceId, accessToken }
+    },
+    matrixDevice: () => account.sdkConfiguration(),
+    continue: async ({ roomId, request }, transactionId) => {
+      const host = hosts.get('human')
+      const identity = account.identity()
+      const agent = state.agents?.find(item => item.principal === request.agentPrincipal)
+      const scope = agentScreenScope()
+      const live = () => Boolean(
+        scope && agentScreenScope() === scope && hosts.get('human') === host && state.state === 'ready'
+      )
+      if (!host || !agent || !identity || host.identity.userId !== identity.userId || host.identity.deviceId !== identity.deviceId) {
+        throw new Error('matrix_not_ready')
+      }
+
+      await requireAssistantConversation(
+        () => host.queue.command({
+          kind: 'readAssistantRoom', roomId, ownerId: host.identity.userId, agentId: agent.userId, forTurn: true
+        }),
+        live
+      )
+      if (!live()) {throw new Error('matrix_not_ready')}
+
+      await host.queue.command({
+        kind: 'sendAgentScreenContinuation',
+        roomId,
+        body: matrixAgentScreenText(state.displayPreferences?.language?.value ?? 'en').continueMessage,
+        transactionId
+      }, 30_000)
+    }
+  })
+  lastAgentScreenScope = agentScreenScope()
+
   // Google write cards: the pending list and each card's delivered/approve/decline, sent with the
   // owner's bearer (never the renderer's). Nothing is posted into any room.
   ipcMain.handle(

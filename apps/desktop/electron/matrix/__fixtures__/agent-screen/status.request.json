@@ -1,0 +1,7 @@
+{
+  "op": "status",
+  "accessToken": "synthetic",
+  "ownerPrincipal": "11111111-1111-4111-8111-abcdef123456",
+  "agentPrincipal": "22222222-1111-4111-8111-abcdef123456",
+  "sessionId": "44444444-1111-4111-8111-abcdef123456"
+}

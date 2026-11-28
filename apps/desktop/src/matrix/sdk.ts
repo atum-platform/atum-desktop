@@ -178,7 +178,8 @@ import {
   joinedConversation,
   MATRIX_TITLE_ACCOUNT_DATA,
   personalGroupStateAllowed,
-  rememberDirectConversation
+  rememberDirectConversation,
+  requireAgentPostRoom
 } from './conversations'
 import { initializeMatrixDeviceIsolation } from './device-isolation'
 import { matrixDisplayPreferences } from './display-preferences'
@@ -2954,6 +2955,13 @@ export async function startMatrixSdk(
 
       case 'prepareResult':
         return prepareMatrixResult(client, command, configuration.deviceIsolation)
+
+      case 'sendAgentScreenContinuation':
+        await requireAgentPostRoom(client, joinedRoom(command.roomId))
+        await requireMatrixRoomPeerTrust(client, command.roomId, configuration.deviceIsolation, () => !stopped && state === 'ready')
+        return sendWithTransaction(client, command.roomId, command.transactionId, () =>
+          client.sendEvent(command.roomId, EventType.RoomMessage, { msgtype: MsgType.Text, body: command.body }, command.transactionId)
+        )
 
       case 'sendTurn':
         return sendMatrixTurn(client, command)

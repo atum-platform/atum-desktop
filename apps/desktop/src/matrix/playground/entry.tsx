@@ -30,6 +30,7 @@ import { playgroundLinkPreviewMode, playgroundLinkPreviews, withPlaygroundLinkPr
 import { playgroundDocumentPreview, playgroundPlaceBridges, playgroundPlaces, withPlaygroundPlaces } from './places-fixtures'
 import { playgroundRelayMode, withPlaygroundRelay } from './relay-fixtures'
 import { playgroundRoutines, playgroundRoutinesMode } from './routine-fixtures'
+import { playgroundAgentScreen } from './screen-fixtures'
 import {
   playgroundGoogleConnections,
   playgroundLoginStartup,
@@ -129,6 +130,9 @@ checkIns.subscribe(() => store.emit(store.current))
 if (linkPreviews) {
   store.emit(store.current)
 }
+
+// The agent Screen in-memory lease is enabled only for the standalone playground.
+playgroundAgentScreen(params)
 
 window.atumMatrix = {
   ...bridge,

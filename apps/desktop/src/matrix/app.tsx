@@ -153,7 +153,8 @@ import { matrixTeamSpaceCopy } from '../../shared/matrix-team-space-copy'
 import {
   isMatrixTransientLine,
   matrixHideEndedTransientLines,
-  matrixLiveWorkingLine
+  matrixLiveWorkingLine,
+  matrixWorkingLine
 } from '../../shared/matrix-transient-lines'
 import { matrixTurnQuote } from '../../shared/matrix-turn-intake'
 import type { MatrixWindowFacts } from '../../shared/matrix-window'
@@ -173,6 +174,9 @@ import { useMatrixAgentHandleBackfill } from './agent-handle-backfill'
 import { agentHomeTitleIconShown, MatrixAgentHomeRow } from './agent-home-control'
 import { bindAgentPlansAccount } from './agent-plans-store'
 import { NewAssistantButton } from './agent-roster'
+import { agentScreenAutoOpen, agentScreenNativeRunning } from './agent-screen/auto-open'
+import { agentScreenTransport } from './agent-screen/transport'
+import { useAgentScreenStatus } from './agent-screen/use-status'
 import { authorizedBotApi, botApiAppForMessage, isBotApiRoom } from './app-bots/bot-api'
 import { MatrixBotApiKeyboard, MatrixBotApiText } from './app-bots/bot-api-text'
 import { MatrixBotApiPhotoView } from './app-bots/bot-photo'
@@ -471,7 +475,7 @@ import {
   rightPanelToggleCopy,
   setMatrixRightPanel
 } from './right-panel'
-import { anyAgentPrompts, assistantTarget, primaryAgent, snapshotForRoom } from './room-agent'
+import { anyAgentPrompts, assistantTarget, primaryAgent, roomAgentActivity, snapshotForRoom } from './room-agent'
 import { RoomUpgradeBand } from './room-upgrade-band'
 import { MatrixRosterConversations } from './roster-conversations'
 import { useRosterCopy } from './roster-copy'
@@ -595,9 +599,6 @@ declare global {
     atumMatrix: MatrixUiBridge
   }
 }
-
-/** The working line's Watch stays hidden until a cloud agent's screen can be watched (owner 2026-11-21). */
-const DESK_WATCH_SHOWN: boolean = false
 
 const initial: MatrixSnapshot = {
   state: 'signed_out',
@@ -7407,6 +7408,7 @@ function MatrixAccountView({
   const [workspaceTabs, setWorkspaceTabs] = useState({ scope: '', count: 0 })
   const [documentRequest, setDocumentRequest] = useState(0)
   const [deskRequest, setDeskRequest] = useState(0)
+  const [screenRequest, setScreenRequest] = useState(0)
   const [browserRequest, setBrowserRequest] = useState<{ id: string; url: string; scope: string }>()
   // First run: pick the best plan this Mac already has while the launch screen shows (owner 2026-11-27).
   useFirstRunAutoPick(snapshot)
@@ -8255,13 +8257,53 @@ function MatrixAccountView({
     setDocumentRequest(value => value + 1)
   }
 
-  // Watch on the working line of an agent's own chat: the panel opens on its desk, never by itself.
-  const deskEligible = Boolean(room && !conversationInfo && matrixAgentDeskAgent(snapshot, room))
+  // Watch on the working line of an agent's own chat (cloud or relay mode alike).
+  const screenAgent = !conversationInfo ? matrixAgentDeskAgent(snapshot, room) : undefined
+  const deskEligible = Boolean(screenAgent)
+
+  const screenTransport = agentScreenTransport()
+  const screenActivity = room && deskEligible ? roomAgentActivity(snapshot, room.id) : undefined
+  const screenOwner = snapshot.identity
+  const screenScope = room && screenAgent && screenOwner
+    ? JSON.stringify([screenOwner.userId, screenOwner.deviceId, room.id, screenAgent.principal])
+    : undefined
+  const screenWorkingLine = screenAgent && matrixWorkingLine(snapshot.messages, new Set([screenAgent.userId]), screenAgent.userId)
+  const screenWorking = room && screenAgent && matrixAgentTyping({
+    roomId: room.id,
+    agentId: screenAgent.userId,
+    typing: snapshot.typing,
+    turns: snapshot.localTurns,
+    running: screenActivity?.state === 'running'
+  })
+  const screenBusy = Boolean(screenWorking || screenWorkingLine)
+  const screenExchange = screenBusy
+    ? snapshot.messages.findLast(message => message.own && !message.redacted && !message.pending && !message.failed)?.id
+    : undefined
+  const screenRun = screenBusy ? screenActivity?.invocationId ?? screenExchange ?? 'busy' : undefined
+  const screenStatus = useAgentScreenStatus(screenTransport, screenScope, room?.id, screenAgent?.principal, screenRun)
+  const screenShown = screenStatus.available
+  const screenRunning = screenStatus.running || agentScreenNativeRunning(screenActivity)
+  const screenOpened = useRef(new Map<string, string>())
 
   const watchDesk = () => {
+    if (screenScope && screenRun) {screenOpened.current.set(screenScope, screenRun)}
     openWorkspace('workbench')
-    setDeskRequest(value => value + 1)
+    setScreenRequest(value => value + 1)
   }
+
+  useEffect(() => {
+    if (!screenScope) {return}
+    const lastOpened = screenOpened.current.get(screenScope)
+    if (!screenRun) {
+      if (lastOpened === 'busy') {screenOpened.current.delete(screenScope)}
+      return
+    }
+
+    if (agentScreenAutoOpen({ run: screenRun, lastOpened, available: screenShown, compact, running: screenRunning })) {
+      watchDesk()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- watchDesk uses the current workbench state.
+  }, [compact, screenRun, screenScope, screenShown, screenRunning])
 
   const openThreads = (rootId?: string) => {
     if (!room || !threadRoom) {
@@ -9027,7 +9069,7 @@ function MatrixAccountView({
           setPinnedRoomId(null)
           setThreadView(next)
         }}
-        onWatchDesk={DESK_WATCH_SHOWN && deskEligible && !workspaceOpen ? watchDesk : undefined}
+        onWatchDesk={screenShown && deskEligible && !(workspaceOpen && workspaceKind === 'workbench') ? watchDesk : undefined}
         pinsOpen={pinsOpen}
         settled={settled}
         snapshot={roomView}
@@ -9937,6 +9979,8 @@ function MatrixAccountView({
               onPercentChange={setWorkspacePercent}
               onTabCountChange={reportWorkspaceTabs}
               percent={workspacePercent}
+              screenRequest={screenRequest}
+              screenTransport={screenShown ? screenTransport ?? undefined : undefined}
               snapshot={snapshot}
               terminalRequest={terminalRequest}
               windowControls={

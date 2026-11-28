@@ -120,6 +120,18 @@
           "Atum bundles upstream Regular and SemiBold WOFF2 files. Exact source URLs, byte counts and SHA-256 values are recorded in apps/desktop/src/fonts/look-pack-fonts.json."
         ],
         "licenseFiles": ["app/literata-OFL.txt"]
+      },
+      {
+        "id": "hermes-desktop-bot-screen",
+        "name": "Hermes Desktop Bot Screen viewer adapted for the agent's Screen",
+        "version": "commit 266360dd9fb85ab8939c71ce7d1868afe6cf775b",
+        "license": "MIT",
+        "copyright": ["Copyright (c) 2026 Nous Research"],
+        "source": "https://github.com/NousResearch/hermes-agent/tree/266360dd9fb85ab8939c71ce7d1868afe6cf775b/apps/desktop/src/plugins/hermes-bots",
+        "notes": [
+          "Atum adapts screen-pane.tsx and screen-connection.ts (the noVNC attach lifecycle, the control-taken eviction budget, the lease-holder check, paste forwarding and the hand back on close) to Atum Kit, its own transport seam and a tested reducer in apps/desktop/src/matrix/agent-screen/."
+        ],
+        "licenseFiles": ["app/hermes-desktop-bot-screen-LICENSE.txt"]
       }
     ]
   },

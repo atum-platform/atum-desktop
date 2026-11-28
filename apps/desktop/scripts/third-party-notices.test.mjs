@@ -31,6 +31,7 @@ import {
   NOTICE_FILE,
   NOTICE_INVENTORY_FILE,
   NOTICE_INVENTORY_SCHEMA,
+  npmSourceOffer,
   productionClosure,
   readAppCatalog,
   readEngineCatalog,
@@ -648,5 +649,30 @@ describe('packaging', () => {
 
   it.each(configs)('%s packages the Electron whose notices the installed package carries', (_file, config) => {
     expect(config.electronVersion).toBe(desktop.devDependencies.electron)
+  })
+})
+
+describe('the MPL source offer', () => {
+  it('names where the exact Source Code Form of an MPL package is, and nothing for other licences', () => {
+    const novnc = {
+      name: '@novnc/novnc',
+      version: '1.7.0',
+      license: 'MPL-2.0',
+      resolved: 'https://registry.npmjs.org/@novnc/novnc/-/novnc-1.7.0.tgz',
+      repository: 'https://github.com/novnc/noVNC'
+    }
+
+    expect(npmSourceOffer(novnc)).toBe(
+      'Source Code Form of @novnc/novnc 1.7.0: https://registry.npmjs.org/@novnc/novnc/-/novnc-1.7.0.tgz and https://github.com/novnc/noVNC'
+    )
+    expect(npmSourceOffer({ ...novnc, license: '(MPL-2.0 OR Apache-2.0)' })).toContain('Source Code Form of @novnc/novnc')
+    expect(npmSourceOffer({ ...novnc, license: 'MIT' })).toBeNull()
+  })
+
+  it('reads the exact archive from the lockfile for the shipped noVNC', () => {
+    const shipped = collectNpmPackages().find(item => item.name === '@novnc/novnc')
+
+    expect(shipped?.resolved).toMatch(/^https:\/\/registry\.npmjs\.org\/@novnc\/novnc\/-\/novnc-\d+\.\d+\.\d+\.tgz$/u)
+    expect(npmSourceOffer(shipped)).toContain(shipped.resolved)
   })
 })

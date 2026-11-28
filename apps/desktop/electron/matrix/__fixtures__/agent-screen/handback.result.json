@@ -1,0 +1,14 @@
+{
+  "released": true,
+  "status": {
+    "running": true,
+    "holder": "agent",
+    "controlRevision": 2,
+    "viewerHasControl": false
+  },
+  "continuation": {
+    "askEventId": "$login-ask",
+    "roomId": "!private:example.test",
+    "transactionId": "RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR"
+  }
+}
