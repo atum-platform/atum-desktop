@@ -1,3 +1,5 @@
+import { nativeWorkDesign } from './work-design-native'
+
 // Runs inside drive-import-native's isolated helper, sharing its fd-relative primitives.
 export const nativeWorkPlacement = String.raw`
 from contextlib import ExitStack
@@ -77,21 +79,25 @@ def validate_work_docx(fd):
     except (ValueError, ElementTree.ParseError, zipfile.BadZipFile, RuntimeError, NotImplementedError):
         raise Refused('unavailable')
 
-def write_work_intent(stage, record):
-    fd = os.open('next', os.O_WRONLY|os.O_CREAT|os.O_TRUNC|os.O_NOFOLLOW, 0o600, dir_fd=stage)
+${nativeWorkDesign}
+
+def write_work_intent(stage, intent, record):
+    pending = intent + '-next'
+    fd = os.open(pending, os.O_WRONLY|os.O_CREAT|os.O_TRUNC|os.O_NOFOLLOW, 0o600, dir_fd=stage)
     with os.fdopen(fd, 'w') as stream:
         json.dump(record, stream)
         stream.flush()
         os.fsync(stream.fileno())
-    os.rename('next', 'intent', src_dir_fd=stage, dst_dir_fd=stage)
+    os.rename(pending, intent, src_dir_fd=stage, dst_dir_fd=stage)
     os.fsync(stage)
 
 def work_placement(cfg, drive, reply):
     work = cfg['work']
     probe = cfg['mode'] == 'work-probe'
     folder, parts = work_parts(work['folder']), work_parts(work['path'])
+    format = work.get('design', 'docx')
     if (len(folder) != 3 or folder[0] != 'Agents' or folder[2] != 'deliverables' or
-        not parts[-1].lower().endswith('.docx') or len(parts) > 8 or
+        format not in ('docx', 'html', 'svg') or not parts[-1].lower().endswith('.' + format) or len(parts) > 8 or
         not re.fullmatch(r'[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}', work['id'])):
         raise Refused('unavailable')
 
@@ -127,64 +133,81 @@ def work_placement(cfg, drive, reply):
         fcntl.flock(lock, fcntl.LOCK_EX|fcntl.LOCK_NB)
         scope = {'root':{key:cfg['target'][key] for key in ('root', 'dev', 'ino')}, 'work':work}
 
-        try: intent = os.open('intent', READ, dir_fd=stage)
-        except FileNotFoundError: record = None
-        else:
-            with os.fdopen(intent, 'rb') as stream: record = json.loads(stream.read(16384))
-
-        if record is not None:
-            if record['scope'] != scope: raise Changed()
-            placement = record['placement']
-            suffix = record['suffix']
-            try: payload = os.open('payload', READ, dir_fd=stage)
-            except FileNotFoundError:
-                # Rename consumed the staged inode. Absence, replacement or changed bytes are ambiguous.
-                check_target(target)
-                try: placed = hold(stack, os.open(placement['name'], READ, dir_fd=target))
-                except FileNotFoundError: raise Changed()
-                if work_hash(placed, target, placement['name']) != record['facts']: raise Changed()
-                os.fsync(target)
-                os.fsync(stage)
-                reply.update(state='completed', placement=placement)
-                return
+        def place(name, prefix, prepare, remaining):
+            intent = prefix + 'intent'
+            payload_name = prefix + 'payload'
+            try: record_fd = os.open(intent, READ, dir_fd=stage)
+            except FileNotFoundError: record = None
             else:
-                if work_hash(hold(stack, payload), stage, 'payload') != record['facts']: raise Changed()
+                with os.fdopen(record_fd, 'rb') as stream: record = json.loads(stream.read(16384))
+
+            if record is not None:
+                if record['scope'] != scope: raise Changed()
+                placement = record['placement']
+                suffix = record['suffix']
+                try: payload = os.open(payload_name, READ, dir_fd=stage)
+                except FileNotFoundError:
+                    # Rename consumed the staged inode. Absence or replacement is ambiguous.
+                    check_target(target)
+                    try: placed = hold(stack, os.open(placement['name'], READ, dir_fd=target))
+                    except FileNotFoundError: raise Changed()
+                    if work_hash(placed, target, placement['name']) != record['facts']: raise Changed()
+                    os.fsync(target)
+                    os.fsync(stage)
+                    return placement
+                if work_hash(hold(stack, payload), stage, payload_name) != record['facts']: raise Changed()
                 facts = record['facts']
                 if probe: return
-        elif probe or cfg.get('workRecovery'):
-            return
-        else:
+            else:
+                if probe or (cfg.get('workRecovery') and not prefix): return
+                if prepare: prepare()
+                payload = hold(stack, os.open(payload_name, READ, dir_fd=stage))
+                facts = work_hash(payload, stage, payload_name)
+                suffix = 1
+
+            stem, extension = os.path.splitext(name)
+            for index in range(suffix, 1001):
+                candidate = name if index == 1 else stem + ' (' + str(index) + ')' + extension
+                placement = dict(facts, name=candidate)
+                write_work_intent(stage, intent, {'scope':scope, 'facts':facts, 'placement':placement, 'suffix':index})
+                check_target(target)
+                if facts['size'] > remaining: raise OSError(errno.EDQUOT, 'no room')
+                try: exclusive_rename(stage, payload_name, target, candidate)
+                except OSError as error:
+                    if error.errno not in (errno.EEXIST, errno.ENOTEMPTY): raise
+                    continue
+                os.fsync(target)
+                os.fsync(stage)
+                reply['added'] += 1
+                return placement
+            raise Refused('unavailable')
+
+        def prepare_source():
             check_target(target)
             output = hold(stack, directory(work['outputRoot']))
             if work_identity(output) != work['outputIdentity']: raise Changed()
             source_parent = hold(stack, stage_directory(output, parts[:-1]))
             source = hold(stack, os.open(parts[-1], READ, dir_fd=source_parent))
             info = os.fstat(source)
-            if not stat.S_ISREG(info.st_mode) or info.st_nlink != 1 or not 0 < info.st_size <= WORK_MAX_BYTES:
+            limit = WORK_MAX_BYTES if format == 'docx' else DESIGN_MAX_BYTES
+            if not stat.S_ISREG(info.st_mode) or info.st_nlink != 1 or not 0 < info.st_size <= limit:
                 raise Refused('unavailable')
             # With no committed intent, a payload can only be an interrupted copy.
             try: os.unlink('payload', dir_fd=stage)
             except FileNotFoundError: pass
             copy_file(source, stage, 'payload', identity(info))
             payload = hold(stack, os.open('payload', READ, dir_fd=stage))
-            validate_work_docx(payload)
-            facts = work_hash(payload, stage, 'payload')
-            suffix = 1
+            if format == 'docx': validate_work_docx(payload)
+            else: prepare_work_preview(stage, payload, format)
 
-        stem, extension = os.path.splitext(parts[-1])
-        for index in range(suffix, 1001):
-            name = parts[-1] if index == 1 else stem + ' (' + str(index) + ')' + extension
-            placement = dict(facts, name=name)
-            write_work_intent(stage, {'scope':scope, 'facts':facts, 'placement':placement, 'suffix':index})
-            check_target(target)
-            if facts['size'] > cfg.get('remaining', WORK_MAX_BYTES): raise OSError(errno.EDQUOT, 'no room')
-            try: exclusive_rename(stage, 'payload', target, name)
-            except OSError as error:
-                if error.errno not in (errno.EEXIST, errno.ENOTEMPTY): raise
-                continue
-            os.fsync(target)
-            os.fsync(stage)
-            reply.update(state='completed', added=1, placement=placement)
-            return
-        raise Refused('unavailable')
+        remaining = cfg.get('remaining', WORK_MAX_BYTES * 2)
+        placed = place(parts[-1], '', prepare_source, remaining)
+        if placed is None: return
+        if format != 'docx':
+            if reply['added']: remaining -= placed['size']
+            # Tie the preview name to the actual editable sibling selected on collision.
+            preview = place(placed['name'] + '.png', 'preview-', None, remaining)
+            if preview is None: return
+            reply['previewPlacement'] = preview
+        reply.update(state='completed', placement=placed)
 `
