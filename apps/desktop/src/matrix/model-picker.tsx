@@ -1033,8 +1033,13 @@ export function MatrixModelPicker({
   const [freeConnecting, setFreeConnecting] = useState(false)
   const [freeError, setFreeError] = useState(false)
   const freeEligible = Boolean(agentPrincipal && free?.eligibleAgents?.includes(agentPrincipal))
+  const lastFreeModel = cloudSubscription?.source === 'openrouter_free'
+    ? free?.models.find(model => model.id === cloudSubscription.model)
+    : undefined
+  const disconnectedFreeModels = lastFreeModel ? [lastFreeModel] : (free?.models.slice(0, 1) ?? [])
+
   const freeRoutes: PickerRoute[] = free && agentPrincipal
-    ? (free.state === 'connected' && freeEligible ? free.models : free.models.slice(0, 1)).map((model, index) => ({
+    ? (free.state === 'connected' && freeEligible ? free.models : disconnectedFreeModels).map((model, index) => ({
         route: {
           id: matrixModelRouteId('atum-free', model.id),
           provider: 'atum-free',
@@ -2019,6 +2024,32 @@ export function MatrixModelPicker({
     )
   }
 
+  const connectFree = async (picked: PickerRoute) => {
+    const context = beginSelection()
+    setFreeConnecting(true)
+    setFreeError(false)
+
+    try {
+      const connected = await subscriptionsService?.connectAtumFree?.()
+
+      if (context.current() && shown.current) {
+        if (connected) {
+          setFreeSignIn(null)
+          void loadAccountSubscriptions()
+          writeCloudSubscription(picked)
+        } else {
+          setFreeError(true)
+        }
+      }
+    } catch {
+      if (context.current()) {
+        setFreeError(true)
+      }
+    } finally {
+      setFreeConnecting(false)
+    }
+  }
+
   /** A new thinking level for the cloud plan model that answers now: the same plan write, same model. */
   const chooseCloudPlanEffort = (plan: PickerRoute, level: MatrixEffort) => {
     const write = window.atumMatrix.modelDestinations?.writeSubscription
@@ -2742,39 +2773,22 @@ export function MatrixModelPicker({
               <div className="space-y-3 p-3" data-atum-free-auth>
                 <p>Atum never pays and only uses OpenRouter's free models. Atum creates this key with a 1-cent spending cap.</p>
                 <p>Your cloud agent sends messages to OpenRouter. Some free providers may store or train on them.</p>
-                <button className="ak-btn ak-btn--sm ak-btn--plain" type="button"
-                  onClick={() => void window.atumMatrix.openLink('https://openrouter.ai/settings/privacy')}>
+                <button className="ak-btn ak-btn--sm ak-btn--plain"
+                  onClick={() => void window.atumMatrix.openLink('https://openrouter.ai/settings/privacy')}
+                  type="button">
                   OpenRouter privacy settings
                 </button>
                 {freeError && <p role="alert">OpenRouter sign-in could not finish. Try again.</p>}
                 <div className="flex gap-2">
-                  <button className="ak-btn ak-btn--sm" disabled={freeConnecting} type="button" onClick={async () => {
-                    const context = beginSelection()
-                    setFreeConnecting(true)
-                    setFreeError(false)
-                    try {
-                      if (await subscriptionsService?.connectAtumFree?.()) {
-                        if (context.current() && shown.current) {
-                          setFreeSignIn(null)
-                          void loadAccountSubscriptions()
-                          writeCloudSubscription(freeSignIn)
-                        }
-                      } else if (context.current()) {
-                        setFreeError(true)
-                      }
-                    } catch {
-                      if (context.current()) setFreeError(true)
-                    } finally {
-                      setFreeConnecting(false)
-                    }
-                  }}>
+                  <button className="ak-btn ak-btn--sm" disabled={freeConnecting}
+                    onClick={() => void connectFree(freeSignIn)} type="button">
                     {freeConnecting ? 'Waiting for OpenRouter…' : 'Connect OpenRouter'}
                   </button>
-                  <button className="ak-btn ak-btn--sm ak-btn--plain" type="button" onClick={() => {
+                  <button className="ak-btn ak-btn--sm ak-btn--plain" onClick={() => {
                     selection.current += 1
                     void subscriptionsService?.cancelAtumFree?.()
                     setFreeSignIn(null)
-                  }}>Cancel</button>
+                  }} type="button">Cancel</button>
                 </div>
               </div>
             ) : confirming && subscriptionsService ? (

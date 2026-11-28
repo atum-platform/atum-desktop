@@ -130,6 +130,23 @@ export function AccountSubscriptionsSection({
     void loadFirstRunLabels(bridge)
   }, [bridge])
 
+  const disconnectFree = async () => {
+    setFreeBusy(true)
+    setFreeError(false)
+
+    try {
+      if (await opencode.bridge?.disconnectAtumFree?.()) {
+        await opencode.reload()
+      } else {
+        setFreeError(true)
+      }
+    } catch {
+      setFreeError(true)
+    } finally {
+      setFreeBusy(false)
+    }
+  }
+
   // Stop using: the account consent for this plan is revoked on every Mac (it stays off; the automatic pick never re-grants a
   // revoked plan) and the assistants move to the next best plan, or Atum's model.
   const stopUsing = (plan: WorkRelayPlan) => {
@@ -208,39 +225,29 @@ export function AccountSubscriptionsSection({
       />
       {free && (
         <SettingsRow
-          title="Atum Free"
-          data-atum-connection="openrouter_free"
-          data-atum-connection-state={free.state}
-          lead={<ProviderMark provider={{ id: 'openrouter', label: 'OpenRouter' }} size="sm" />}
-          help={freeError ? 'Could not disconnect OpenRouter. Try again.'
-            : free.state === 'connected' ? 'Uses your OpenRouter account' : 'Connect from a cloud agent’s model picker'}
-          control={(
+          control={
             <div className="flex gap-2">
               {free.keyHash && (
-                <button className="ak-btn ak-btn--sm ak-btn--plain" type="button"
-                  onClick={() => void window.atumMatrix.openLink(`https://openrouter.ai/keys/${free.keyHash}`)}>
+                <button className="ak-btn ak-btn--sm ak-btn--plain"
+                  onClick={() => void window.atumMatrix.openLink(`https://openrouter.ai/keys/${free.keyHash}`)}
+                  type="button">
                   Manage key in OpenRouter
                 </button>
               )}
               {free.state === 'connected' && (
-                <button className="ak-btn ak-btn--sm ak-btn--plain" disabled={freeBusy} type="button"
-                  onClick={async () => {
-                    setFreeBusy(true)
-                    setFreeError(false)
-                    try {
-                      if (await opencode.bridge?.disconnectAtumFree?.()) await opencode.reload()
-                      else setFreeError(true)
-                    } catch {
-                      setFreeError(true)
-                    } finally {
-                      setFreeBusy(false)
-                    }
-                  }}>
+                <button className="ak-btn ak-btn--sm ak-btn--plain" disabled={freeBusy}
+                  onClick={() => void disconnectFree()} type="button">
                   Disconnect OpenRouter
                 </button>
               )}
             </div>
-          )}
+          }
+          data-atum-connection="openrouter_free"
+          data-atum-connection-state={free.state}
+          help={freeError ? 'Could not disconnect OpenRouter. Try again.'
+            : free.state === 'connected' ? 'Uses your OpenRouter account' : 'Connect from a cloud agent’s model picker'}
+          lead={<ProviderMark provider={{ id: 'openrouter', label: 'OpenRouter' }} size="sm" />}
+          title="Atum Free"
         />
       )}
       <SettingsRow
