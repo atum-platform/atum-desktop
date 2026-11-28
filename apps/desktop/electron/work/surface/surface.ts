@@ -1,10 +1,10 @@
 import type { AccountConnectionsView, AccountPlan } from '../../../shared/account-connections'
 import type { FirstRunLabels } from '../../../shared/first-run-labels'
 import type {
+  MatrixWorkGuest,
   MatrixWorkPlanConsent,
   MatrixWorkPlanConsentInput,
   MatrixWorkProjection,
-  MatrixWorkRect,
   MatrixWorkViewState,
   WorkAgentPlans,
   WorkAttentionSnapshot,
@@ -21,21 +21,13 @@ import type { WorkIncarnation } from '../sidecar/process'
 import type { WorkConsentClient } from './platform'
 import { projectWorkConsent, workPlanConnectPath } from './projection'
 
-/** The owner view as main paints it: R's port, plus where it sits in the Matrix window (null: off the window). */
-export interface WorkViewHandle {
-  port: OwnerViewPort
-  place(rect: MatrixWorkRect | null): void
-  /** Moves keyboard focus into the view, so a band command that lands in its composer shows the caret. */
-  focus?(): void
-}
-
 /** The parts of one signed-in account's Work. Main builds them (lanes S, R, G) and hands them over. */
 export interface WorkSurfaceParts {
   relay?: {
     readPlans(principal: string): Promise<WorkAgentPlans | null>
     select(principal: string, model: string, plan?: WorkRelayPlan): Promise<WorkRelaySelection>
   }
-  session: { openOwnerView(createView: (incarnation: WorkIncarnation) => OwnerViewPort): Promise<OpenOwnerView> }
+  session: { openOwnerView(createView: (incarnation: WorkIncarnation) => Promise<OwnerViewPort>, signal: AbortSignal): Promise<OpenOwnerView> }
   /** S's per-account Work off marker (§8.5). Off: nothing starts, the page says so. */
   enabled(): boolean
   /** S's balance read for the Atum provider (`readModelAccess`). */
@@ -61,7 +53,7 @@ export interface WorkSurfaceOptions {
   getAttention?(): WorkAttentionSnapshot | null
   runCommand?(command: WorkBandCommand): Promise<boolean>
   setSurfaceMode?(projectId: string, mode: 'work' | 'code'): Promise<void>
-  createView(incarnation: WorkIncarnation): WorkViewHandle
+  createView(incarnation: WorkIncarnation, signal: AbortSignal, publishGuest: (guest: MatrixWorkGuest) => void): Promise<OwnerViewPort>
   publish(projection: MatrixWorkProjection | null): void
   /** Stable codes only: never a URL, a token or a path. */
   log?(line: string): void
@@ -81,20 +73,19 @@ const PROTONS: Record<WorkAccess, MatrixWorkProjection['protons']> = {
 type ViewPhase = 'idle' | 'starting' | 'ready' | 'unavailable'
 
 /**
- * Lane DW's main-side half: one owner view at a time (R's rule), placed where the Work page asks, and one
- * projection for the Matrix window.
+ * One owner guest at a time, and its projection for the Matrix window.
  */
 export class WorkSurface {
   private parts: WorkSurfaceParts | undefined
-  private handle: WorkViewHandle | undefined
+  private view?: OwnerViewPort
+  private guest?: MatrixWorkGuest
+  private openingGuest?: AbortController
   private prewarmTimer?: ReturnType<typeof setTimeout>
-  private warmed = false
   private recoveryTimer?: ReturnType<typeof setTimeout>
   private recovering = false
   private recoveryFailures = 0
   private phase: ViewPhase = 'idle'
   private opening: Promise<void> | undefined
-  private rect: MatrixWorkRect | null = null
   private protons: MatrixWorkProjection['protons'] = 'unknown'
   private planLimits: MatrixWorkProjection['planLimits']
   private generation = 0
@@ -106,7 +97,6 @@ export class WorkSurface {
   /** Main calls this when an account's Work is built (parts) or torn down (undefined): sign-out, switch. */
   attach(parts: WorkSurfaceParts | undefined): void {
     clearTimeout(this.prewarmTimer)
-    this.warmed = false
     this.planLimits = undefined
     this.cancelRecovery()
     this.generation++
@@ -132,7 +122,6 @@ export class WorkSurface {
         return
       }
 
-      this.warmed = true
       void this.open()
     }, 2_000)
     this.prewarmTimer.unref?.()
@@ -146,6 +135,7 @@ export class WorkSurface {
     }
 
     return {
+      ...(this.guest ? { guest: this.guest } : {}),
       ...(this.planLimits?.length ? { planLimits: this.planLimits } : {}),
       view: this.viewState(parts),
       protons: this.protons
@@ -179,27 +169,6 @@ export class WorkSurface {
     return this.parts.relay.select(principal, model, plan)
   }
 
-  async show(rect: MatrixWorkRect): Promise<void> {
-    if (!this.rect) {this.options.log?.('[atum-work] startup phase=click ms=0 at=' + Date.now())}
-    clearTimeout(this.prewarmTimer)
-    this.rect = rect
-
-    if (this.phase === 'ready') {
-      this.handle?.place(rect)
-
-      return
-    }
-
-    if (this.phase === 'idle' || this.phase === 'starting' || this.recovering) {
-      await this.open()
-    }
-  }
-
-  async hide(): Promise<void> {
-    this.rect = null
-    this.handle?.place(null)
-  }
-
   async retry(): Promise<void> {
     if (this.phase === 'starting') {
       return
@@ -217,11 +186,6 @@ export class WorkSurface {
   async getAttention() { return this.options.getAttention?.() ?? null }
 
   async runCommand(command: WorkBandCommand): Promise<boolean> {
-    // The click lands in the Atum renderer; New thread ends in the view's composer, so the view takes focus first.
-    if (command === 'chat.new') {
-      this.handle?.focus?.()
-    }
-
     return (await this.options.runCommand?.(command)) ?? false
   }
 
@@ -313,7 +277,6 @@ export class WorkSurface {
 
     if (!on) {
       clearTimeout(this.prewarmTimer)
-      this.warmed = false
       this.cancelRecovery()
       this.closeView()
       this.phase = 'idle'
@@ -339,7 +302,7 @@ export class WorkSurface {
 
   private async followPendingPath(): Promise<void> {
     const path = this.pendingPath
-    const port = this.handle?.port
+    const port = this.view
 
     if (!path || !port) {
       return
@@ -363,8 +326,13 @@ export class WorkSurface {
     return this.phase === 'ready' ? 'ready' : this.phase === 'unavailable' ? 'unavailable' : 'starting'
   }
 
-  private open(): Promise<void> {
+  open(): Promise<void> {
+    clearTimeout(this.prewarmTimer)
     const parts = this.parts
+
+    if (this.phase === 'ready' || (this.phase === 'unavailable' && !this.recovering)) {
+      return Promise.resolve()
+    }
 
     if (!parts || !parts.enabled()) {
       this.publish()
@@ -372,14 +340,21 @@ export class WorkSurface {
       return Promise.resolve()
     }
 
-    this.opening ??= this.openOnce(parts, this.generation).finally(() => {
-      this.opening = undefined
-    })
+    if (!this.opening) {
+      const controller = new AbortController()
+      this.openingGuest = controller
+      this.opening = this.openOnce(parts, this.generation, controller.signal).finally(() => {
+        if (this.openingGuest === controller) {
+          this.opening = undefined
+          this.openingGuest = undefined
+        }
+      })
+    }
 
     return this.opening
   }
 
-  private async openOnce(parts: WorkSurfaceParts, generation: number): Promise<void> {
+  private async openOnce(parts: WorkSurfaceParts, generation: number, signal: AbortSignal): Promise<void> {
     const startedAt = Date.now()
     this.options.log?.(`[atum-work] startup phase=view-start ms=0 at=${startedAt}`)
     this.phase = 'starting'
@@ -388,18 +363,24 @@ export class WorkSurface {
     let outcome: OpenOwnerView
 
     try {
-      outcome = await parts.session.openOwnerView(incarnation => {
-        if (generation !== this.generation || !parts.enabled()) {throw new Error('work_open_cancelled')}
-        const handle = this.options.createView(incarnation)
-        this.handle = handle
-
-        return handle.port
-      })
+      outcome = await parts.session.openOwnerView(async incarnation => {
+        if (signal.aborted || !parts.enabled()) {throw new Error('work_open_cancelled')}
+        const view = await this.options.createView(incarnation, signal, guest => {
+          this.guest = guest
+          this.publish()
+        })
+        if (signal.aborted || !parts.enabled()) {
+          view.close()
+          throw new Error('work_open_cancelled')
+        }
+        this.view = view
+        return view
+      }, signal)
     } catch (error) {
       outcome = { state: 'failed', reason: (error as { code?: string }).code ?? 'open_failed' }
     }
 
-    if (generation !== this.generation || !parts.enabled()) {
+    if (signal.aborted || generation !== this.generation || !parts.enabled()) {
       // The account changed or Work was turned off while the view opened.
       if (outcome.state !== 'failed') {
         outcome.view.close()
@@ -419,12 +400,12 @@ export class WorkSurface {
       return
     }
 
-    const handle = this.handle
+    const view = this.view
     this.phase = 'ready'
     this.recovering = false
     const readyAt = Date.now()
     void outcome.incarnation.unexpectedExit?.then(unexpected => {
-      if (unexpected && this.handle === handle && generation === this.generation) {
+      if (unexpected && this.view === view && generation === this.generation) {
         // Only a healthy run earns a fresh backoff; a view that pairs and dies at once keeps backing off.
         if (Date.now() - readyAt >= HEALTHY_RUN_MS) {this.recoveryFailures = 0}
         this.closeView()
@@ -435,14 +416,14 @@ export class WorkSurface {
       }
     })
     outcome.view.onClosed(() => {
-      if (this.handle === handle && generation === this.generation) {
+      if (this.view === view && generation === this.generation) {
         // Crashed or closed underneath us: say so, with "Try again". A view that dies at once must not reopen in a loop.
-        this.handle = undefined
+        this.view = undefined
+        this.guest = undefined
         this.phase = 'unavailable'
         this.publish()
       }
     })
-    handle?.place(this.rect)
     this.options.log?.(`[atum-work] startup phase=view-ready ms=${Date.now() - startedAt} at=${Date.now()}`)
     this.publish()
     void this.refreshProtons().then(() => {if (generation === this.generation) {this.publish()}})
@@ -458,7 +439,7 @@ export class WorkSurface {
   private scheduleRecovery(generation: number): void {
     clearTimeout(this.recoveryTimer)
     this.recoveryTimer = setTimeout(() => {
-      if (generation === this.generation && this.recovering && (this.rect || this.warmed) && this.parts?.enabled()) {
+      if (generation === this.generation && this.recovering && this.parts?.enabled()) {
         void this.retry()
       }
     }, Math.min(30_000, 1_000 * 2 ** Math.min(this.recoveryFailures++, 5)))
@@ -466,10 +447,13 @@ export class WorkSurface {
   }
 
   private closeView(): void {
-    const handle = this.handle
-    this.handle = undefined
-    handle?.place(null)
-    handle?.port.close()
+    const view = this.view
+    this.view = undefined
+    this.guest = undefined
+    this.openingGuest?.abort()
+    this.openingGuest = undefined
+    this.opening = undefined
+    view?.close()
   }
 
   private async refreshProtons(): Promise<void> {
