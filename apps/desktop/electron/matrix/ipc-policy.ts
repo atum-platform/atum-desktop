@@ -580,6 +580,29 @@ export function parseMatrixCommand(value: unknown): MatrixCommand {
       }
     }
 
+    case 'rosterMessageSearch': {
+      if ((row.scope !== 'plain' && row.scope !== 'device') || !Array.isArray(row.roomIds) ||
+        !row.roomIds.every(id => typeof id === 'string' && id.startsWith('!') && id.length <= 1024)) {
+        throw new Error('matrix_command_invalid')
+      }
+
+      const query = text('query', 400).trim()
+
+      if ([...query].length < 2 || [...query].length > 200) {
+        throw new Error('matrix_command_invalid')
+      }
+
+      return { kind: row.kind, scope: row.scope, query, roomIds: [...new Set(row.roomIds)] }
+    }
+
+    case 'selectSearchEvent':
+      if (row.scope !== 'plain' && row.scope !== 'device') {
+        throw new Error('matrix_command_invalid')
+      }
+
+      return { kind: row.kind, scope: row.scope, roomId: roomId(), eventId: text('eventId', 1024, '$'),
+        ...(row.threadRootId === undefined ? {} : { threadRootId: text('threadRootId', 1024, '$') }) }
+
     case 'select':
 
     case 'paginateTimeline':

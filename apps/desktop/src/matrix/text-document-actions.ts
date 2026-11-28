@@ -60,6 +60,6 @@ export function runMatrixCommand(command: MatrixCommand): Promise<unknown> {
     noteMatrixDestinationRequest()
   }
 
-  return ['select', 'notesSelfOpen', 'selectApp', 'discoverApps', 'leave', 'forget', 'create', 'join'].includes(command.kind)
+  return ['select', 'selectSearchEvent', 'notesSelfOpen', 'selectApp', 'discoverApps', 'leave', 'forget', 'create', 'join'].includes(command.kind)
     ? runMatrixDocumentAction(action) : action()
 }
