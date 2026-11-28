@@ -199,14 +199,14 @@ export function shelfTooltip(
 function cloudSubscriptionOption(input: {
   model: { id: string; displayName: string; efforts: readonly MatrixEffort[]; defaultEffort: MatrixEffort }
   available: boolean
-  source: 'opencode_go' | 'chatgpt_plan'
+  source: 'opencode_go' | 'chatgpt_plan' | 'openrouter_free'
 }): MatrixAgentHomeModelOption {
   const chatgpt = input.source === 'chatgpt_plan'
 
   return {
     connectionRef: `${input.source}:${input.model.id}`,
     source: input.source,
-    providerLabel: chatgpt ? 'ChatGPT' : 'OpenCode Go',
+    providerLabel: chatgpt ? 'ChatGPT' : input.source === 'openrouter_free' ? 'Atum Free' : 'OpenCode Go',
     model: input.model.id,
     modelLabel: input.model.displayName,
     effort: input.model.defaultEffort,
@@ -235,7 +235,7 @@ function defaultPickerSource(input: {
   here?: 'cloud' | 'this_mac'
   connected?: MatrixConnectedModel
   home?: MatrixAgentHomeView
-  subscription?: 'opencode_go' | 'chatgpt_plan'
+  subscription?: 'opencode_go' | 'chatgpt_plan' | 'openrouter_free'
   /** The cloud's saved choice is an OpenRouter shelf model. */
   shelf?: boolean
 }): string | undefined {
@@ -246,7 +246,7 @@ function defaultPickerSource(input: {
   }
 
   if (input.subscription) {
-    return input.subscription === 'chatgpt_plan' ? 'openai-codex' : 'opencode-go'
+    return input.subscription === 'openrouter_free' ? 'atum-free' : input.subscription === 'chatgpt_plan' ? 'openai-codex' : 'opencode-go'
   }
 
   if (input.shelf && input.managed && input.cloud && input.here !== 'this_mac') {
@@ -485,7 +485,7 @@ export function MatrixModelPicker({
     ? cloudSubscriptionRevoked
       ? cloudSubscription.source === 'opencode_go'
         ? words.reconnectOpencode
-        : 'ChatGPT'
+        : cloudSubscription.source === 'openrouter_free' ? 'Reconnect OpenRouter' : 'ChatGPT'
       : cloudSubscription.displayName
     : undefined
 
@@ -667,7 +667,7 @@ export function MatrixModelPicker({
       providerLabel: provider.label,
       accountLabel: provider.label,
       connection:
-        option.source === 'chatgpt_plan' || option.source === 'opencode_go'
+        option.source === 'chatgpt_plan' || option.source === 'opencode_go' || option.source === 'openrouter_free'
           ? 'plan'
           : option.source === 'atum'
             ? 'local'
@@ -678,12 +678,12 @@ export function MatrixModelPicker({
         (effort): effort is MatrixEffort => effort === 'low' || effort === 'medium' || effort === 'high'
       ),
       current:
-        option.source === 'opencode_go' || option.source === 'chatgpt_plan'
+        option.source === 'opencode_go' || option.source === 'chatgpt_plan' || option.source === 'openrouter_free'
           ? cloudSubscription?.model === option.model && !cloudSubscriptionRevoked
           : sameHomeModel(option, currentHomeOption),
       ready:
         option.available &&
-        !((option.source === 'opencode_go' || option.source === 'chatgpt_plan') && cloudSubscriptionRevoked)
+        !((option.source === 'opencode_go' || option.source === 'chatgpt_plan' || option.source === 'openrouter_free') && cloudSubscriptionRevoked)
     }
   }
 
@@ -805,7 +805,7 @@ export function MatrixModelPicker({
         .filter(
           option =>
             option.source !== 'atum' &&
-            !(cloudSubscriptions && (option.source === 'chatgpt_plan' || option.source === 'opencode_go'))
+            !(cloudSubscriptions && (option.source === 'chatgpt_plan' || option.source === 'opencode_go' || option.source === 'openrouter_free'))
         )
         .map(option => {
           const route = homeRouteFor(option)
@@ -1028,8 +1028,43 @@ export function MatrixModelPicker({
     }))
   })
 
+  const free = accountSubscriptions?.atumFree
+  const [freeSignIn, setFreeSignIn] = useState<PickerRoute | null>(null)
+  const [freeConnecting, setFreeConnecting] = useState(false)
+  const [freeError, setFreeError] = useState(false)
+  const freeEligible = Boolean(agentPrincipal && free?.eligibleAgents?.includes(agentPrincipal))
+  const lastFreeModel = cloudSubscription?.source === 'openrouter_free'
+    ? free?.models.find(model => model.id === cloudSubscription.model)
+    : undefined
+  const disconnectedFreeModels = lastFreeModel ? [lastFreeModel] : (free?.models.slice(0, 1) ?? [])
+
+  const freeRoutes: PickerRoute[] = free && agentPrincipal
+    ? (free.state === 'connected' && freeEligible ? free.models : disconnectedFreeModels).map((model, index) => ({
+        route: {
+          id: matrixModelRouteId('atum-free', model.id),
+          provider: 'atum-free',
+          model: model.id,
+          name: index === 0 ? 'Atum Free' : model.displayName,
+          providerLabel: 'Atum Free',
+          accountLabel: 'OpenRouter',
+          connection: 'plan',
+          target: 'agent_default',
+          destination: 'cloud',
+          efforts: [],
+          current: free.state === 'connected' && cloudSubscription?.source === 'openrouter_free' &&
+            cloudSubscription.model === model.id,
+          ready: freeEligible
+        },
+        subscription: true,
+        disabled: !freeEligible,
+        reason: !freeEligible ? 'Atum Free works only on accounts without Google connected.'
+          : free.state === 'disconnected' ? 'Connect OpenRouter' : 'Uses your OpenRouter account'
+      }))
+    : []
+
   const cloudSubscriptionRoutes: PickerRoute[] = cloudSubscriptions
     ? [
+        ...freeRoutes,
         ...relayRoutes,
         // ChatGPT plan models are served by the selected owner Mac (R2).
         ...(!readAgentPlans && !hasCodexRelay && (cloudChatGptConnected || cloudChatGptPending)
@@ -1473,6 +1508,10 @@ export function MatrixModelPicker({
       setCatalog({ status: 'idle' })
       setSubscriptions({ status: 'idle' })
       setAccountSubscriptions(null)
+      if (freeSignIn) {
+        void subscriptionsService?.cancelAtumFree?.()
+        setFreeSignIn(null)
+      }
       trainingRead.current += 1
       setTraining(null)
       setConfirming(null)
@@ -1826,6 +1865,17 @@ export function MatrixModelPicker({
     // A hand pick is this assistant's own: the first-run automatic pick never changes it afterwards.
     noteManualModelPick(agentPrincipal)
 
+    if (picked.route.provider === 'atum-free') {
+      if (free?.state === 'connected') {
+        writeCloudSubscription(picked)
+      } else {
+        setFreeError(false)
+        setFreeSignIn(picked)
+      }
+
+      return
+    }
+
     if (picked.relayPlan) {
       writeRelaySelection(picked)
 
@@ -1943,7 +1993,8 @@ export function MatrixModelPicker({
 
     void write(
       agentPrincipal,
-      picked.route.provider === 'openai-codex' ? 'chatgpt_plan' : 'opencode_go',
+      picked.route.provider === 'atum-free' ? 'openrouter_free'
+        : picked.route.provider === 'openai-codex' ? 'chatgpt_plan' : 'opencode_go',
       picked.route.model,
       effort
     ).then(
@@ -1971,6 +2022,32 @@ export function MatrixModelPicker({
         setRetryPick(picked)
       }
     )
+  }
+
+  const connectFree = async (picked: PickerRoute) => {
+    const context = beginSelection()
+    setFreeConnecting(true)
+    setFreeError(false)
+
+    try {
+      const connected = await subscriptionsService?.connectAtumFree?.()
+
+      if (context.current() && shown.current) {
+        if (connected) {
+          setFreeSignIn(null)
+          void loadAccountSubscriptions()
+          writeCloudSubscription(picked)
+        } else {
+          setFreeError(true)
+        }
+      }
+    } catch {
+      if (context.current()) {
+        setFreeError(true)
+      }
+    } finally {
+      setFreeConnecting(false)
+    }
   }
 
   /** A new thinking level for the cloud plan model that answers now: the same plan write, same model. */
@@ -2207,6 +2284,7 @@ export function MatrixModelPicker({
     setProblem(undefined)
     setEffortNotice(undefined)
     setPendingConnected(null)
+    setFreeSignIn(null)
     setPendingCloudSubscription(null)
     setPendingHome(null)
     setPendingModel(null)
@@ -2236,6 +2314,7 @@ export function MatrixModelPicker({
 
     setFilterTouched(false)
     setPendingConnected(null)
+    setFreeSignIn(null)
     setPendingCloudSubscription(null)
     setPendingHome(null)
     setPendingModel(null)
@@ -2439,7 +2518,7 @@ export function MatrixModelPicker({
     ? undefined
     : homeDisplayRoute
       ? parseMatrixSubscriptionProvider(homeDisplayRoute.provider)
-      : savedCloudPlan
+      : savedCloudPlan && savedCloudPlan.source !== 'openrouter_free'
         ? matrixCloudPlanProvider(savedCloudPlan.source)
         : undefined
 
@@ -2467,7 +2546,8 @@ export function MatrixModelPicker({
   const chipWarning = relayChip ??
     (chipDown && savedCloudPlan
       ? words.planUnavailable[chipDown](
-          matrixSubscriptionProviderLabel(savedCloudPlan.source === 'chatgpt_plan' ? 'openai-codex' : 'opencode-go')
+          savedCloudPlan.source === 'openrouter_free' ? 'Atum Free'
+            : matrixSubscriptionProviderLabel(savedCloudPlan.source === 'chatgpt_plan' ? 'openai-codex' : 'opencode-go')
         )
       : fellBack && chipPlanProvider
         ? words.fallbackWhy[MATRIX_FALLBACK_WHY[fellBack.reason]](matrixSubscriptionProviderLabel(chipPlanProvider))
@@ -2484,7 +2564,9 @@ export function MatrixModelPicker({
   // else Atum's own line-up.
   const chipRoute: Pick<MatrixModelRoute, 'provider' | 'providerLabel'> =
     currentRoute ??
-    (chipPlanProvider
+    (savedCloudPlan?.source === 'openrouter_free'
+      ? { provider: 'atum-free', providerLabel: 'Atum Free' }
+      : chipPlanProvider
       ? { provider: chipPlanProvider, providerLabel: matrixSubscriptionProviderLabel(chipPlanProvider) }
       : { provider: 'atum', providerLabel: atumProvider })
 
@@ -2687,7 +2769,29 @@ export function MatrixModelPicker({
           searchRef={search}
           sources={filterSources}
           takeover={
-            confirming && subscriptionsService ? (
+            freeSignIn ? (
+              <div className="space-y-3 p-3" data-atum-free-auth>
+                <p>Atum never pays and only uses OpenRouter's free models. Atum creates this key with a 1-cent spending cap.</p>
+                <p>Your cloud agent sends messages to OpenRouter. Some free providers may store or train on them.</p>
+                <button className="ak-btn ak-btn--sm ak-btn--plain"
+                  onClick={() => void window.atumMatrix.openLink('https://openrouter.ai/settings/privacy')}
+                  type="button">
+                  OpenRouter privacy settings
+                </button>
+                {freeError && <p role="alert">OpenRouter sign-in could not finish. Try again.</p>}
+                <div className="flex gap-2">
+                  <button className="ak-btn ak-btn--sm" disabled={freeConnecting}
+                    onClick={() => void connectFree(freeSignIn)} type="button">
+                    {freeConnecting ? 'Waiting for OpenRouter…' : 'Connect OpenRouter'}
+                  </button>
+                  <button className="ak-btn ak-btn--sm ak-btn--plain" onClick={() => {
+                    selection.current += 1
+                    void subscriptionsService?.cancelAtumFree?.()
+                    setFreeSignIn(null)
+                  }} type="button">Cancel</button>
+                </div>
+              </div>
+            ) : confirming && subscriptionsService ? (
               <ChatGptTrainingConfirm
                 bridge={subscriptionsService}
                 onConfirmed={next => {

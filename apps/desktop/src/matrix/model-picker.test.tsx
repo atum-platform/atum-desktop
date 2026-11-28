@@ -1319,6 +1319,48 @@ describe('account subscriptions in the model picker', () => {
     expect(rows(card).some(each => each.textContent?.includes('OpenCode Go'))).toBe(false)
   })
 
+  it.each([true, false])('offers the Free cloud pick only when the agent is eligible (%s)', async eligible => {
+    const agentPrincipal = '00000000-0000-4000-8000-bd7662a5eeb4'
+    const model = 'nvidia/nemotron-3-ultra-550b-a55b:free'
+    const connectAtumFree = vi.fn(async () => true)
+    const writeSubscription = vi.fn(async () => ({ status: 'saved' as const }))
+    const subscriptions = {
+      ...subscriptionsBridge({}),
+      connectAtumFree,
+      status: vi.fn(async () => ({
+        scope: 'account' as const,
+        providers: [],
+        atumFree: {
+          state: 'disconnected' as const,
+          eligibleAgents: eligible ? [agentPrincipal] : [],
+          models: [{ id: model, displayName: 'Nemotron Ultra', efforts: [], defaultEffort: 'medium' as const }]
+        }
+      }))
+    }
+    picker(ROOM, { agentPrincipal, cloud: true, managed: true, bridge: {
+      subscriptions,
+      modelDestinations: {
+        read: vi.fn(async () => undefined),
+        write: vi.fn(async () => ({ status: 'saved' as const })),
+        writeSubscription,
+        cap: vi.fn(async () => ({ status: 'saved' as const }))
+      }
+    } })
+    const card = await open('Model: Nguyệt Thực 1.3')
+    await waitFor(() => expect(rail(card, 'atum-free')).toBeTruthy())
+    fireEvent.click(rail(card, 'atum-free'))
+    const option = row(card, matrixModelRouteId('atum-free', model))
+    expect(option.disabled).toBe(!eligible)
+    if (eligible) {
+      fireEvent.click(option)
+      fireEvent.click(within(card).getByRole('button', { name: 'Connect OpenRouter' }))
+      await waitFor(() => expect(writeSubscription).toHaveBeenCalledWith(agentPrincipal, 'openrouter_free', model, 'medium'))
+    } else {
+      expect(option.textContent).toContain('Atum Free works only on accounts without Google connected.')
+      expect(connectAtumFree).not.toHaveBeenCalled()
+    }
+  })
+
   it('writes a cloud agent’s ChatGPT pick from ChatGPT’s own list', async () => {
     const subscriptions = subscriptionsBridge({ chatgpt: ['gpt-5.6-luna'] })
     const writeSubscription = vi.fn(async () => ({ status: 'saved' as const }))

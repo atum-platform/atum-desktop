@@ -9,7 +9,7 @@ import type { MatrixSnapshot, MatrixUiBridge } from '../../shared/matrix'
 import { matrixFirstRunCopy, matrixFirstRunName } from '../../shared/matrix-first-run-copy'
 
 import { MatrixFirstRunConnectCard } from './first-run-connect-card'
-import { MatrixGoogleConnectNudge } from './google-connection-settings'
+import { accountUsesAtumFree, MatrixGoogleConnectNudge } from './google-connection-settings'
 import { MatrixLaunchNotice, matrixLaunchNoticeKind } from './launch-notice'
 import { MATRIX_MARKDOWN_HOST } from './markdown-host'
 import { matrixPersonName } from './person-name'
@@ -113,6 +113,7 @@ export function MatrixFirstRunCard({
             access={snapshot.googleAssistant}
             placement="greeting"
             scope={snapshot.identity?.userId}
+            usesAtumFree={accountUsesAtumFree(snapshot.agents)}
           />
         ) : (
           <MatrixFirstRunConnectCard roomId={roomId} snapshot={snapshot} />

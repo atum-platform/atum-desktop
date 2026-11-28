@@ -52,7 +52,9 @@ export function matrixHomeModelProvider(option: MatrixAgentHomeModelOption): Pic
         ? 'openai-codex'
         : option.source === 'opencode_go'
           ? 'opencode-go'
-          : option.source.slice('own_key:'.length) || option.providerLabel.toLocaleLowerCase()
+          : option.source === 'openrouter_free'
+            ? 'atum-free'
+            : option.source.slice('own_key:'.length) || option.providerLabel.toLocaleLowerCase()
 
   return { id, label: option.providerLabel }
 }

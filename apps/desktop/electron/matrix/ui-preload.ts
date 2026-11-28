@@ -252,6 +252,9 @@ const bridge: MatrixUiBridge = {
       ipcRenderer.invoke(channel.ui, { kind: 'videoConsentAllow' }) as Promise<MatrixVideoConsentAllowResult>,
     revokeVideoConsent: () =>
       ipcRenderer.invoke(channel.ui, { kind: 'videoConsentRevoke' }) as Promise<MatrixVideoConsentRevokeResult>,
+    connectAtumFree: () => ipcRenderer.invoke(channel.ui, { kind: 'subscriptionAtumFreeConnect' }),
+    cancelAtumFree: () => ipcRenderer.invoke(channel.ui, { kind: 'subscriptionAtumFreeCancel' }),
+    disconnectAtumFree: () => ipcRenderer.invoke(channel.ui, { kind: 'subscriptionAtumFreeDisconnect' }),
     connectOpenCode: value =>
       ipcRenderer.invoke(channel.ui, { kind: 'subscriptionOpenCodeSave', value }) as Promise<MatrixSubscriptionKeyResult>,
     disconnectOpenCode: async () => {

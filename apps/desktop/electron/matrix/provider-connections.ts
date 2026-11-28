@@ -15,6 +15,8 @@ import { readDomainJson } from './domain'
 
 export const MATRIX_PROVIDER_CONNECTIONS_PROFILE = 'atum.provider-connections/1' as const
 export const MATRIX_PROVIDER_CONNECTIONS_PROVIDER = 'opencode_go' as const
+type ProviderConnection = typeof MATRIX_PROVIDER_CONNECTIONS_PROVIDER | 'openrouter_free'
+export const MATRIX_FREE_MODEL_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._/-]{0,199}:free$/u
 export const MATRIX_PROVIDER_MODEL_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._/-]{0,199}$/u
 export const MATRIX_OPENCODE_GO_KEY_MIN_BYTES = 8
 export const MATRIX_OPENCODE_GO_KEY_MAX_BYTES = 512
@@ -46,6 +48,8 @@ export interface MatrixProviderConnectionSnapshot {
     revision: number
     models: readonly MatrixProviderConnectionModel[]
     connectedAt?: number
+    keyHash?: string
+    eligibleAgents?: readonly string[]
   }
 }
 
@@ -72,12 +76,12 @@ const EFFORTS = ['low', 'medium', 'high'] as const
 
 export type MatrixProviderEffort = (typeof EFFORTS)[number]
 
-function parseModel(value: unknown): MatrixProviderConnectionModel | undefined {
+function parseModel(value: unknown, provider: ProviderConnection): MatrixProviderConnectionModel | undefined {
   if (
     !record(value) ||
     !exact(value, ['id', 'displayName', 'efforts', 'defaultEffort', 'contextBudget', 'outputBudget']) ||
     typeof value.id !== 'string' ||
-    !MATRIX_PROVIDER_MODEL_ID_PATTERN.test(value.id) ||
+    !(provider === 'openrouter_free' ? MATRIX_FREE_MODEL_PATTERN : MATRIX_PROVIDER_MODEL_ID_PATTERN).test(value.id) ||
     typeof value.displayName !== 'string' ||
     [...value.displayName].length < 1 ||
     [...value.displayName].length > 120 ||
@@ -145,7 +149,9 @@ export function matrixSubscriptionsWithProviderConnections(
  * and no unknown key. Anything else is unavailable; a malformed answer never becomes a weak
  * "disconnected" that lets a picker offer an unusable model.
  */
-export function parseMatrixProviderConnectionsStatus(value: unknown): MatrixProviderConnectionSnapshot | undefined {
+export function parseMatrixProviderConnectionsStatus(
+  value: unknown, provider: ProviderConnection = MATRIX_PROVIDER_CONNECTIONS_PROVIDER
+): MatrixProviderConnectionSnapshot | undefined {
   if (
     !record(value) ||
     !exact(value, ['profile', 'revision', 'connections']) ||
@@ -159,7 +165,7 @@ export function parseMatrixProviderConnectionsStatus(value: unknown): MatrixProv
 
   const row = value.connections[0]
 
-  if (!record(row) || row.provider !== MATRIX_PROVIDER_CONNECTIONS_PROVIDER || !integer(row.revision, 0, MAX_SAFE)) {
+  if (!record(row) || row.provider !== provider || !integer(row.revision, 0, MAX_SAFE)) {
     return undefined
   }
 
@@ -167,7 +173,16 @@ export function parseMatrixProviderConnectionsStatus(value: unknown): MatrixProv
     return undefined
   }
 
-  const models = row.models.map(parseModel)
+  const models = row.models.map(model => parseModel(model, provider))
+  const keyHash = provider === 'openrouter_free' && typeof row.keyHash === 'string' &&
+    /^[a-f0-9]{64}$/u.test(row.keyHash) ? row.keyHash : undefined
+  const eligibleAgents = provider === 'openrouter_free' && Array.isArray(row.eligibleAgents) &&
+    row.eligibleAgents.every(id => typeof id === 'string' && UUID.test(id)) ? row.eligibleAgents : undefined
+  const freeFields = [...(keyHash ? ['keyHash'] : []), ...(eligibleAgents ? ['eligibleAgents'] : [])]
+
+  if (provider === 'openrouter_free' && !eligibleAgents) {
+    return undefined
+  }
 
   if (models.some(model => !model)) {
     return undefined
@@ -175,7 +190,8 @@ export function parseMatrixProviderConnectionsStatus(value: unknown): MatrixProv
 
   if (row.state === 'connected') {
     if (
-      !exact(row, ['provider', 'state', 'revision', 'models', 'modelPolicy', 'connectedAt', 'keyVersion']) ||
+      !exact(row, ['provider', 'state', 'revision', 'models', 'modelPolicy', 'connectedAt', 'keyVersion', ...freeFields]) ||
+      (provider === 'openrouter_free' && !keyHash) ||
       row.modelPolicy !== 'subscription' ||
       !integer(row.connectedAt, 0, MAX_SAFE) ||
       !integer(row.keyVersion, 1, 2_147_483_647) ||
@@ -190,14 +206,16 @@ export function parseMatrixProviderConnectionsStatus(value: unknown): MatrixProv
         state: 'connected',
         revision: row.revision,
         models: models as MatrixProviderConnectionModel[],
-        connectedAt: row.connectedAt
+        connectedAt: row.connectedAt,
+        ...(keyHash ? { keyHash } : {}),
+        ...(eligibleAgents ? { eligibleAgents } : {})
       }
     }
   }
 
   if (
     row.state !== 'disconnected' ||
-    !exact(row, ['provider', 'state', 'revision', 'models', 'modelPolicy']) ||
+    !exact(row, ['provider', 'state', 'revision', 'models', 'modelPolicy', ...freeFields]) ||
     row.modelPolicy !== 'none' ||
     row.revision > value.revision
   ) {
@@ -209,7 +227,9 @@ export function parseMatrixProviderConnectionsStatus(value: unknown): MatrixProv
     connection: {
       state: 'disconnected',
       revision: row.revision,
-      models: models as MatrixProviderConnectionModel[]
+      models: models as MatrixProviderConnectionModel[],
+      ...(keyHash ? { keyHash } : {}),
+      ...(eligibleAgents ? { eligibleAgents } : {})
     }
   }
 }
@@ -243,12 +263,13 @@ export async function requestMatrixProviderConnections(
   accessToken: string,
   action: MatrixProviderConnectionsAction,
   signal: AbortSignal,
-  body?: unknown
+  body?: unknown,
+  provider: ProviderConnection = MATRIX_PROVIDER_CONNECTIONS_PROVIDER
 ): Promise<MatrixProviderConnectionsResponse> {
   signal.throwIfAborted()
 
   const routes = {
-    status: 'provider-connections',
+    status: provider === 'openrouter_free' ? 'provider-connections?provider=openrouter_free' : 'provider-connections',
     connect: 'provider-connections/connect',
     disconnect: 'provider-connections/disconnect'
   } as const
@@ -317,7 +338,10 @@ export class MatrixProviderConnections {
   private snapshot: MatrixProviderConnectionSnapshot | undefined
   private lastReadAt = 0
 
-  constructor(private readonly options: MatrixProviderConnectionsOptions) {}
+  constructor(
+    private readonly options: MatrixProviderConnectionsOptions,
+    private readonly provider: ProviderConnection = MATRIX_PROVIDER_CONNECTIONS_PROVIDER
+  ) {}
 
   activate(owner: MatrixProviderConnectionsScope | null): void {
     if (sameScope(owner, this.owner)) {
@@ -345,6 +369,7 @@ export class MatrixProviderConnections {
       return this.snapshot
     }
 
+    const owner = this.options.scope()
     let response: MatrixProviderConnectionsResponse
 
     try {
@@ -353,11 +378,11 @@ export class MatrixProviderConnections {
       return undefined
     }
 
-    if (!sameScope(this.owner, this.options.scope())) {
+    if (!sameScope(owner, this.options.scope())) {
       return undefined
     }
 
-    const next = response.status === 200 ? parseMatrixProviderConnectionsStatus(response.value) : undefined
+    const next = response.status === 200 ? parseMatrixProviderConnectionsStatus(response.value, this.provider) : undefined
 
     if (!next) {
       return undefined
@@ -384,10 +409,11 @@ export class MatrixProviderConnections {
     const body = {
       profile: MATRIX_PROVIDER_CONNECTIONS_PROFILE,
       requestId: randomUUID(),
-      provider: MATRIX_PROVIDER_CONNECTIONS_PROVIDER,
+      provider: this.provider,
       credential: { kind: 'api_key', value: key }
     }
 
+    const owner = this.options.scope()
     let response: MatrixProviderConnectionsResponse
 
     try {
@@ -396,11 +422,11 @@ export class MatrixProviderConnections {
       return false
     }
 
-    if (!sameScope(this.owner, this.options.scope())) {
+    if (!sameScope(owner, this.options.scope())) {
       return false
     }
 
-    const next = response.status === 200 ? parseMatrixProviderConnectionsStatus(response.value) : undefined
+    const next = response.status === 200 ? parseMatrixProviderConnectionsStatus(response.value, this.provider) : undefined
 
     if (!next || next.connection.state !== 'connected') {
       return false
@@ -419,31 +445,34 @@ export class MatrixProviderConnections {
       return false
     }
 
+    const disconnectOwner = this.options.scope()
+
     for (let attempt = 0; attempt < 2; attempt++) {
       const current = await this.refresh(true)
 
-      if (!current) {
+      if (!current || !sameScope(disconnectOwner, this.options.scope())) {
         return false
       }
 
+      const owner = this.options.scope()
       let response: MatrixProviderConnectionsResponse
 
       try {
         response = await this.options.call('disconnect', AbortSignal.timeout(TIMEOUT_MS), {
           profile: MATRIX_PROVIDER_CONNECTIONS_PROFILE,
           requestId: randomUUID(),
-          provider: MATRIX_PROVIDER_CONNECTIONS_PROVIDER,
+          provider: this.provider,
           expectedRevision: current.connection.revision
         })
       } catch {
         return false
       }
 
-      if (!sameScope(this.owner, this.options.scope())) {
+      if (!sameScope(owner, this.options.scope())) {
         return false
       }
 
-      const next = response.status === 200 ? parseMatrixProviderConnectionsStatus(response.value) : undefined
+      const next = response.status === 200 ? parseMatrixProviderConnectionsStatus(response.value, this.provider) : undefined
 
       if (next) {
         this.snapshot = next

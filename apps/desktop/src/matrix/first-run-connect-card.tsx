@@ -25,6 +25,7 @@ import { matrixKnowledgeSourcesCopy } from '../../shared/matrix-knowledge-source
 import type { MatrixPermissionsSnapshot } from '../../shared/matrix-permissions'
 
 import { MatrixFirstRunFolderRows } from './folder-access-rows'
+import { accountUsesAtumFree, MatrixGoogleFreeWarning } from './google-connection-settings'
 import {
   type MatrixKnowledgeSourceRow,
   projectMatrixKnowledgeSourceRows
@@ -562,6 +563,8 @@ export function MatrixFirstRunConnectCard({
                     {tip && <SettingsTip label={tip} />}
                   </span>
                   {detail && <span className="ak-row-meta block max-w-full">{detail}</span>}
+                  {row.kind === 'google' && matrixGoogleConnectOffered(snapshot.googleAssistant) &&
+                    accountUsesAtumFree(snapshot.agents) && <MatrixGoogleFreeWarning className="ak-row-meta block" />}
                 </span>
                 {state === 'settings' ? (
                   <Button

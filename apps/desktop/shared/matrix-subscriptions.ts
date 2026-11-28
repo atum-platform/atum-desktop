@@ -66,6 +66,12 @@ export interface MatrixSubscriptionProviderStatus {
 /** The account's subscriptions, read once for every assistant of that account. */
 export interface MatrixSubscriptionsStatus {
   scope: 'account'
+  atumFree?: {
+    state: 'connected' | 'disconnected'
+    keyHash?: string
+    eligibleAgents?: readonly string[]
+    models: readonly MatrixSubscriptionModel[]
+  }
   providers: readonly MatrixSubscriptionProviderStatus[]
 }
 
