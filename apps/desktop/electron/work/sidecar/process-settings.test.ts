@@ -106,8 +106,7 @@ actual.main()
       expect(settings.providerInstances.claudeAgent).toEqual({ driver: 'claudeAgent', enabled: true })
       expect(settings.providerInstances.antigravity).toEqual({ driver: 'antigravity', enabled: true })
       expect(settings.providerInstances.opencode).toEqual({
-        driver: 'opencode', enabled: true,
-        environment: [{ name: 'OPENCODE_CONFIG_CONTENT', value: '{"disabled_providers":["openrouter"]}' }]
+        driver: 'opencode', enabled: true
       })
       expect(settings.providerInstances.copilot).toMatchObject({
         driver: 'acpRegistry', enabled: true, config: { source: 'local', commandPath: 'copilot', commandArgs: ['--acp'] }

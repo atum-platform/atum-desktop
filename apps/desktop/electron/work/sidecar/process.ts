@@ -183,10 +183,7 @@ async function startProcess(options: WorkProcessOptions, { continuation, trial }
       textGenerationModelSelection: managedModel,
       providerInstances: { [ATUM_WORK_PROVIDER]: workProvider(python, profile) }
     },
-    planProviderDefaults: { ...PLAN_PROVIDER_DEFAULTS, ...LOCAL_PLAN_PROVIDER_DEFAULTS, opencode: {
-      driver: 'opencode', enabled: true,
-      environment: [{ name: 'OPENCODE_CONFIG_CONTENT', value: JSON.stringify({ disabled_providers: ['openrouter'] }) }]
-    } },
+    planProviderDefaults: { ...PLAN_PROVIDER_DEFAULTS, ...LOCAL_PLAN_PROVIDER_DEFAULTS, opencode: { driver: 'opencode', enabled: true } },
     trial,
     continuation,
     desktop,

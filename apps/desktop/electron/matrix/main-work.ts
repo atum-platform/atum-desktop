@@ -787,7 +787,7 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
       readLocalPlans: () => readLocalPlanStates(
         host.current(), bound, deps.sessionFromPartition(partitionFor(bound.key)), () => host.current()
       ),
-      async setupLocalPlan(plan) {
+      async setupLocalPlan(plan, action) {
         const running = host.current()
 
         if (!running || !host.enabled() || running.accountKey !== bound.key || running.generation !== bound.generation) {
@@ -796,7 +796,7 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
 
         const scope = new AbortController()
         void running.exited.then(() => scope.abort())
-        await setupWorkLocalPlan(running.origin, deps.sessionFromPartition(partitionFor(bound.key)), plan, scope.signal)
+        return setupWorkLocalPlan(running.origin, deps.sessionFromPartition(partitionFor(bound.key)), plan, action, scope.signal)
       },
       deviceServiceId: () => deps.deviceServiceId(),
       relay: createOwnerRelay(async () => {

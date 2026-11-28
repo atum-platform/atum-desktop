@@ -13,7 +13,7 @@ import type {
   WorkSurfaceModeSnapshot
 } from '../../../shared/matrix-work'
 import type { WorkRelayPlan, WorkRelaySelection } from '../../../shared/matrix-work-relay'
-import type { WorkLocalPlan, WorkLocalPlanStates } from '../../../shared/work-local-plans'
+import type { WorkLocalPlan, WorkLocalPlanAction, WorkLocalPlanAuthAction, WorkLocalPlanStates } from '../../../shared/work-local-plans'
 import type { OwnerViewPort } from '../session/pairing'
 import type { OpenOwnerView } from '../session/session'
 import type { WorkAccess } from '../sidecar/host'
@@ -49,7 +49,7 @@ export interface WorkSurfaceParts {
   /** This Mac's four first-run connections and T3's plan names (local only). */
   readPlanLabels?(): Promise<FirstRunLabels>
   readLocalPlans?(): Promise<WorkLocalPlanStates>
-  setupLocalPlan?(plan: WorkLocalPlan): Promise<void>
+  setupLocalPlan?(plan: WorkLocalPlan, action: WorkLocalPlanAuthAction): Promise<string | void>
   /** The owner's consent client (gate 4b-2), and this Mac's device-service id so the page can name "This Mac". */
   consent?: Pick<WorkConsentClient, 'read' | 'revoke' | 'set'>
   deviceServiceId?(): string | undefined
@@ -277,7 +277,7 @@ export class WorkSurface {
     return this.parts === parts ? states ?? {} : {}
   }
 
-  async localPlanAction(plan: WorkLocalPlan, action: 'setup' | 'manage'): Promise<void> {
+  async localPlanAction(plan: WorkLocalPlan, action: WorkLocalPlanAction): Promise<string | void> {
     const parts = this.parts
 
     if (action === 'manage') {
@@ -294,7 +294,7 @@ export class WorkSurface {
     if (this.parts !== parts || !parts?.enabled() || !parts.setupLocalPlan) {
       throw new Error('work_setup_unavailable')
     }
-    await parts.setupLocalPlan(plan)
+    return parts.setupLocalPlan(plan, action)
   }
 
   /** Project the owner’s account consent and the eligible assistants. */

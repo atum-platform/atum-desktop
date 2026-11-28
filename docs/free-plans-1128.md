@@ -20,17 +20,22 @@ its browser sign-in. An existing Kiro CLI on the Mac can sign in directly. The
 native driver uses the CLI’s account and model catalog for readiness.
 
 The owner still needs to confirm Kiro Free availability from Vietnam using an
-existing eligible account. In Desktop, click Install & sign in for Kiro, choose
-your Free account in the browser, select a model Work offers, send a harmless
+existing eligible account. In Desktop, choose Sign in with Google or Sign in
+with GitHub. Work installs Kiro first if needed. Confirm your Free account in
+the browser, select a model Work offers, send a harmless
 prompt, and verify usage and readiness after a restart.
 
 ## OpenRouter Free
 
-Connect OpenRouter Free from Settings → Connections after installing OpenCode
-2.3.2. This is a manual fallback for a few chats per day. Use a personal
-workspace without upstream provider keys. Complete OpenRouter’s browser consent
+Open OpenRouter Free in Settings → Connections and choose Install & sign in.
+Work can use OpenCode 2.3.x already on the Mac. If a compatible version is
+unavailable, Work installs 2.3.2 into the account’s Work directory using the
+checksum-verified official installer and release archive. This is a manual
+fallback for a few chats per day. Use a personal workspace without upstream
+provider keys. Complete OpenRouter’s browser consent
 and select OpenRouter Free in Work. The daily count, when available, comes from
-OpenRouter’s key endpoint.
+OpenRouter’s key endpoint. When OpenRouter reports the daily cap, Work stops
+the active turn and shows the next midnight UTC in the device’s local time.
 
 The Work instance stores the PKCE-issued key in OpenCode’s local credential
 database beneath the account’s Work directory. It uses a distinct OpenCode
@@ -43,7 +48,8 @@ to its Privacy page.
 On a packaged build, choose an already eligible personal account, complete
 browser consent, send a harmless Work prompt, and check OpenRouter Activity for
 the exact model and zero cost. Verify the separate ordinary OpenCode list has no
-OpenRouter models, including after restarting Desktop. Use Work’s provider
+OpenRouter models when that OpenCode instance has no OpenRouter credential of its
+own. Repeat after restarting Desktop. Use Work’s provider
 settings to disconnect and OpenRouter’s key settings to revoke the issued key.
 
 OpenRouter cloud relay, automatic fallback, upstream key verification, OpenCode
@@ -59,3 +65,18 @@ not grant cloud relay consent.
 
 The rows refresh when Work is ready, when Desktop regains focus and after
 setup returns. The status and the OpenRouter count come from Work.
+
+## Round 2 setup and verification
+
+Kiro’s Google and GitHub buttons select the CLI’s browser flow without terminal
+input. Work replaces a dangling managed Kiro link on reinstall. Allow 1.5 GB of
+free disk space for setup when a CLI must be installed. Desktop shows Work’s
+setup failure reason, including the disk-space message.
+
+Use Sign out on the Copilot row to remove the GitHub Copilot CLI’s local login.
+The ordinary OpenCode instance keeps its own providers. The OpenRouter Free
+status check leaves the isolated server off until its credential database exists.
+
+Local verification uses fake CLIs, replayed provider events and synthetic
+OpenRouter credentials. A live browser login and an installed-app check remain
+owner acceptance steps.

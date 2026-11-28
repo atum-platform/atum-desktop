@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-import { isWorkLocalPlan, WORK_LOCAL_PLANS, type WorkLocalPlan, type WorkLocalPlanStates } from '../../../shared/work-local-plans'
+import { isWorkLocalPlan, WORK_LOCAL_PLANS, type WorkLocalPlan, type WorkLocalPlanAuthAction, type WorkLocalPlanStates } from '../../../shared/work-local-plans'
 import type { WorkIncarnation } from '../sidecar/process'
 
 import { type OwnerFetch, readWorkProviders, workOwnerSocketUrl } from './provider-config'
@@ -58,35 +58,39 @@ interface AuthState {
   instanceId: string
   phase: string
   flowId?: string
+  message?: unknown
 }
 
 /** Use the Work owner session for both the native sign-in request and its progress stream. */
-export async function setupWorkLocalPlan(origin: string, owner: OwnerFetch, plan: WorkLocalPlan, signal: AbortSignal) {
+export async function setupWorkLocalPlan(origin: string, owner: OwnerFetch, plan: WorkLocalPlan, action: WorkLocalPlanAuthAction, signal: AbortSignal) {
   const url = await workOwnerSocketUrl(origin, owner, signal)
 
   if (!url || signal.aborted) {throw new Error('work_setup_unavailable')}
 
-  await new Promise<void>((resolve, reject) => {
+  return new Promise<string | void>((resolve, reject) => {
     const socket = new WebSocket(url)
     let flowId: string | undefined
     let finished = false
 
-    const send = (id: string, tag: string) => socket.send(JSON.stringify({
-      _tag: 'Request', id, tag, payload: { instanceId: plan }, headers: []
+    const methodId = action === 'setup-google' ? 'google' : action === 'setup-github' ? 'github' : undefined
+    const send = (id: string, tag: string, method?: string) => socket.send(JSON.stringify({
+      _tag: 'Request', id, tag, payload: { instanceId: plan, ...(method ? { methodId: method } : {}) }, headers: []
     }))
-    const finish = (ok = false) => {
+    const finish = (ok = false, detail?: unknown) => {
       if (finished) {return}
       finished = true
       clearTimeout(timer)
       signal.removeEventListener('abort', abort)
       socket.close()
-      if (ok) {resolve()} else {reject(new Error('work_setup_failed'))}
+      if (ok) {resolve()}
+      else if (typeof detail === 'string' && detail.trim() && detail.length <= 500) {resolve(detail)}
+      else {reject(new Error('work_setup_failed'))}
     }
     const abort = () => finish()
     const timer = setTimeout(abort, 310_000)
 
     signal.addEventListener('abort', abort, { once: true })
-    socket.addEventListener('open', () => send('1', 'provider.auth.start'), { once: true })
+    socket.addEventListener('open', () => send('1', action === 'logout' ? 'provider.auth.logout' : 'provider.auth.start', methodId), { once: true })
     socket.addEventListener('message', event => {
       if (finished) {return}
       try {
@@ -95,7 +99,10 @@ export async function setupWorkLocalPlan(origin: string, owner: OwnerFetch, plan
         if (frame._tag === 'Exit' && frame.requestId === '1') {
           const state = frame.exit?.value
 
-          if (frame.exit?._tag !== 'Success' || state?.instanceId !== plan || !state.flowId) {return finish()}
+          if (frame.exit?._tag !== 'Success' || state?.instanceId !== plan) {return finish()}
+          if (action === 'logout') {return finish(true)}
+          if (state.phase === 'failed') {return finish(false, state.message)}
+          if (!state.flowId) {return finish()}
           flowId = state.flowId
           send('2', 'provider.auth.subscribe')
         } else if (frame._tag === 'Chunk' && frame.requestId === '2') {
@@ -104,7 +111,8 @@ export async function setupWorkLocalPlan(origin: string, owner: OwnerFetch, plan
           for (const state of frame.values ?? []) {
             if (state.instanceId !== plan || state.flowId !== flowId) {continue}
             if (state.phase === 'succeeded') {return finish(true)}
-            if (state.phase === 'cancelled' || state.phase === 'failed') {return finish()}
+            if (state.phase === 'failed') {return finish(false, state.message)}
+            if (state.phase === 'cancelled') {return finish()}
           }
         } else if (frame._tag === 'Exit' && frame.requestId === '2') {
           finish()

@@ -34,7 +34,6 @@ describe('local Work plans', () => {
     const setup = new Promise<void>(resolve => { release = resolve })
     const readLocalPlans = vi.fn()
       .mockResolvedValueOnce({ [plan]: { state: 'not_installed' } })
-    if (plan === 'openrouter-free') {readLocalPlans.mockResolvedValueOnce({ [plan]: { state: 'signed_out' } })}
     readLocalPlans.mockResolvedValueOnce({ [plan]: { state: 'ready' } })
       .mockResolvedValueOnce({ [plan]: { state: 'signed_out' } })
     const localPlanAction = vi.fn().mockReturnValue(setup)
@@ -42,15 +41,9 @@ describe('local Work plans', () => {
     const row = container.querySelector<HTMLElement>(`[data-atum-connection="${plan}"]`)!
     const ui = within(row)
 
-    if (plan === 'openrouter-free') {
-      const connect = await ui.findByRole('button', { name: 'Connect' })
-      expect(connect).toHaveProperty('disabled', true)
-      await act(async () => { fireEvent.focus(window) })
-      fireEvent.click(connect)
-    } else {
-      fireEvent.click(await ui.findByRole('button', { name: 'Install & sign in' }))
-    }
-    expect(localPlanAction).toHaveBeenCalledWith(plan, 'setup')
+    await act(async () => {})
+    fireEvent.click(await ui.findByRole('button', { name: plan === 'kiro' ? 'Sign in with Google' : 'Install & sign in' }))
+    expect(localPlanAction).toHaveBeenCalledWith(plan, plan === 'kiro' ? 'setup-google' : 'setup')
     expect(row.dataset.atumConnectionState).toBe('installing')
     expect((ui.getByRole('button', { name: 'Setting up…' }) as HTMLButtonElement).disabled).toBe(true)
 
@@ -61,6 +54,31 @@ describe('local Work plans', () => {
 
     await act(async () => { fireEvent.focus(window) })
     expect(row.dataset.atumConnectionState).toBe('signed_out')
-    expect(ui.getByRole('button', { name: plan === 'openrouter-free' ? 'Connect' : 'Sign in' })).toBeTruthy()
+    expect(ui.getByRole('button', { name: plan === 'kiro' ? 'Sign in with GitHub' : plan === 'openrouter-free' ? 'Connect' : 'Sign in' })).toBeTruthy()
+  })
+
+  it('shows the specific setup failure beside the Kiro sign-in actions', async () => {
+    const localPlanAction = vi.fn().mockResolvedValue('Free up 1.5 GB of disk space to install Kiro.')
+    const readLocalPlans = vi.fn().mockResolvedValue({ kiro: { state: 'not_installed' } })
+    const ui = render(<LocalPlanRows bridge={{ localPlanAction, readLocalPlans }} manageLabel="Manage" />)
+
+    fireEvent.click(ui.getByRole('button', { name: 'Sign in with GitHub' }))
+
+    expect(localPlanAction).toHaveBeenCalledWith('kiro', 'setup-github')
+    expect(await ui.findByText('Free up 1.5 GB of disk space to install Kiro.')).toBeTruthy()
+  })
+
+  it('signs out of Copilot and refreshes its local readiness', async () => {
+    const localPlanAction = vi.fn().mockResolvedValue(undefined)
+    const readLocalPlans = vi.fn()
+      .mockResolvedValueOnce({ copilot: { state: 'ready' } })
+      .mockResolvedValueOnce({ copilot: { state: 'signed_out' } })
+    const { container } = render(<LocalPlanRows bridge={{ localPlanAction, readLocalPlans }} manageLabel="Manage" />)
+    const ui = within(container.querySelector<HTMLElement>('[data-atum-connection="copilot"]')!)
+
+    fireEvent.click(await ui.findByRole('button', { name: 'Sign out' }))
+
+    expect(localPlanAction).toHaveBeenCalledWith('copilot', 'logout')
+    expect(await ui.findByRole('button', { name: 'Sign in' })).toBeTruthy()
   })
 })
