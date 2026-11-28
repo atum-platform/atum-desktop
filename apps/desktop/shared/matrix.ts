@@ -142,6 +142,7 @@ import type { WorkRelayTurnChrome } from './matrix-work-relay'
 import type { MatrixWebPreviewOffer } from './matrix-workbench-preview'
 import type { GroupRecentTarget } from './room-participation/recent'
 import type { GroupChainPublication, GroupPolicyChange, GroupRuntimeCommand } from './room-participation/runtime'
+import type { WorkLearningRequest } from './work-question'
 
 export type MatrixDestination = { kind: 'room'; roomId: string } | { kind: 'app'; appId: string } | { kind: 'discover' }
 export interface MatrixAppWorkspace {
@@ -1881,7 +1882,7 @@ export type MatrixSdkCommand =
    * `forgotten`, or `kept` for a room that is not only theirs. */
   | { kind: 'forgetAgentRoom'; roomId: string; ownerId: string; agentId: string }
   | { kind: 'readAppRoom'; roomId: string; ownerId: string; agentId: string; allowInvite?: boolean }
-  | { kind: 'sendWorkQuestion'; roomId: string; agentId: string; question: string; requestId: string; threadId: string; transactionId: string }
+  | { kind: 'sendWorkQuestion'; roomId: string; agentId: string; question: string; requestId: string; threadId: string; transactionId: string; learning?: WorkLearningRequest }
   | { kind: 'readWorkAnswer'; roomId: string; agentId: string; eventId: string; requestId: string }
   | { kind: 'sendAppMessage'; roomId: string; body: string; userId: string }
   /** Native-owned official DM resolver (src/matrix/app-bot-dm.ts). It reuses the room the

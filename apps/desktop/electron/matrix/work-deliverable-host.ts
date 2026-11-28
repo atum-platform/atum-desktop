@@ -151,6 +151,25 @@ export class WorkDeliverableHost {
     }).catch(() => null)
   }
 
+  learningDocument(owner: WorkDeliverableOwner, value: unknown): string | undefined {
+    const id = parseWorkDeliverableId(value)
+    if (!id) {return undefined}
+
+    try {
+      const record = readRecord(owner, id)
+      if (!record?.result || privateOutputRoot(owner, id.artifactId, record.outputRoot) === undefined) {
+        return undefined
+      }
+      const result = path.join(record.outputRoot, record.result.path)
+      if (result.startsWith(record.outputRoot + path.sep) &&
+          realpathSync(result) === result && lstatSync(result).isFile()) {
+        return result
+      }
+    } catch {
+      return undefined
+    }
+  }
+
   async open(owner: WorkDeliverableOwner, value: unknown, current: () => boolean): Promise<boolean> {
     const id = parseWorkDeliverableId(value)
 
