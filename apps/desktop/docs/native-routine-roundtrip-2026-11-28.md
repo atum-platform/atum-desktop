@@ -7,3 +7,5 @@ The [own-routines audit](https://github.com/atum-platform/atum-app/pull/1105) id
 - Existing controller-only routines keep their platform history and CRUD. Native projections of these routines retain the existing desktop UUID while addressing the native job ID on the host.
 
 Verification covers Desk refresh and overflow, mixed global and individual pauses, native short IDs and projection IDs in Electron, and stale editor drafts. The card revamp can keep its layout and slots. The shared integration points are the schedule hook and the card control and routine data calls, plus the panel's disambiguation of advanced cadence fields.
+
+A dry merge with `feat/agent-card-revamp` found one conflict in `agent-controls.tsx`. In both of the revamp's Pause views, pass `schedule.globallyPaused` to `matrixAgentDeskPaused`. Keep the switch disabled while `schedule.pending`.
