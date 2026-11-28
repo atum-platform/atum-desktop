@@ -48,15 +48,20 @@ async function captureHtml(file: string, width: number, height: number, signal: 
     const { cssContentSize } = await contents.debugger.sendCommand('Page.getLayoutMetrics')
 
     if (!cssContentSize || cssContentSize.width > width || cssContentSize.height > height) {return null}
-    const paint = once(contents, 'paint', { signal })
-    contents.invalidate()
-    const [, , painted] = await paint as [unknown, unknown, NativeImage]
+    let painted: NativeImage
+
+    do {
+      const paint = once(contents, 'paint', { signal })
+      contents.invalidate()
+      const [, , frame] = await paint as [unknown, unknown, NativeImage]
+      painted = frame
+    } while (painted.isEmpty())
     // Electron can reject the compositor copy after a valid offscreen paint.
     const captured = await contents.capturePage({ x: 0, y: 0, width, height }, { stayHidden: true }).catch(() => painted)
     signal.throwIfAborted()
     const image = captured.isEmpty() ? painted : captured
 
-    return blocked || image.isEmpty() ? null : image.resize({ width, height }).toPNG()
+    return blocked ? null : image.resize({ width, height }).toPNG()
   } finally {
     signal.removeEventListener('abort', abort)
     abort()

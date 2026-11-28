@@ -23,9 +23,9 @@ without fetched assets. The generated PNG must be nonempty, at most 8 MiB,
 and match the expected dimensions.
 
 HTML uses Electron's offscreen BrowserWindow and capturePage. If the
-compositor copy fails after a successful paint, it uses that same offscreen
-frame. Its in-memory session allows only the exact temporary document as a
-main-frame request.
+compositor copy fails, it uses the first nonempty offscreen frame within
+the render deadline. Its in-memory session allows only the exact temporary
+document as a main-frame request.
 It has sandboxing, no preload, no Node integration and JavaScript disabled.
 SVG uses the upstream resvg 0.50.0 CLI with system fonts. Runtime staging
 verifies the archive and executable hashes for both Mac architectures and
