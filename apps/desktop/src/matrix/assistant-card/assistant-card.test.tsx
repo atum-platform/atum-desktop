@@ -189,7 +189,7 @@ describe('background follow-ups on the card', () => {
     save: vi.fn()
   })
 
-  it('shows exactly one short Vietnamese switch for a personal agent beside, not inside, routines', async () => {
+  it('is the first, built-in item of the Routines list, with one short Vietnamese switch', async () => {
     const bridge = backgroundSweep()
 
     const routines = {
@@ -209,17 +209,25 @@ describe('background follow-ups on the card', () => {
 
     await openLan()
 
+    // Owner 2026-11-28 (open question 1): not a card row any more; it waits inside Routines.
+    await waitFor(() => expect(window.document.querySelector('[data-assistant-card-routines]')).toBeTruthy())
+    expect(window.document.querySelector('[data-assistant-card-background-sweep]')).toBeNull()
+    // The row's count is the person's own routines; the built-in one is not counted.
+    await waitFor(() => expect(window.document.querySelector('[data-routine-count]')?.textContent).toBe('Chưa có'))
+    fireEvent.click(window.document.querySelector<HTMLElement>('[data-assistant-card-routines]')!)
+
     const row = await waitFor(() => {
-      const found = document.querySelector<HTMLElement>('[data-assistant-card-background-sweep]')
+      const found = window.document.querySelector<HTMLElement>('[data-assistant-card-background-sweep]')
       expect(found).toBeTruthy()
 
       return found!
     })
 
-    expect(document.querySelectorAll('[data-assistant-card-background-sweep]')).toHaveLength(1)
-    expect(row.textContent).toBe('Theo dõi nền')
-    expect(within(row).getAllByRole('switch', { name: 'Theo dõi nền' })).toHaveLength(1)
-    expect(row.closest('[data-routines-panel]')).toBeNull()
+    expect(window.document.querySelectorAll('[data-assistant-card-background-sweep]')).toHaveLength(1)
+    expect(row.textContent).toBe('Theo dõi việc còn dởCó sẵn')
+    expect(within(row).getAllByRole('switch', { name: 'Theo dõi việc còn dở' })).toHaveLength(1)
+    expect(row.closest('[data-routines-panel]')).toBeTruthy()
+    await waitFor(() => expect(within(row).getByRole('switch').getAttribute('aria-checked')).toBe('true'))
   })
 
   it('uses the same server setting for the Main assistant even when it answers from cloud', async () => {
@@ -232,7 +240,8 @@ describe('background follow-ups on the card', () => {
     act(() => openAssistantCard({ kind: 'agent', principal: ATUM }))
     await waitFor(() => expect(bridge.read).toHaveBeenCalledWith(ATUM))
 
-    const toggle = screen.getByRole('switch', { name: 'Theo dõi nền' })
+    // No routines list in this window: follow-ups keep a row of their own.
+    const toggle = screen.getByRole('switch', { name: 'Theo dõi việc còn dở' })
     await waitFor(() => expect(toggle.getAttribute('aria-checked')).toBe('true'))
   })
 })

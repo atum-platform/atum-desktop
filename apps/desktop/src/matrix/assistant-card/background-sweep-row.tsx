@@ -1,5 +1,5 @@
 import { useStore } from '@nanostores/react'
-import { useCallback, useEffect } from 'react'
+import { type ReactNode, useCallback, useEffect } from 'react'
 
 import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
@@ -20,16 +20,26 @@ import {
   finishBackgroundSweepSave
 } from './store'
 
+/**
+ * The built-in follow-up sweep (on by default): it follows up on open threads on its own. Owner
+ * 2026-11-28 (open question 1, yes): it is the first, built-in item of the Routines panel, with its
+ * switch; only a window without the routines list keeps it as a row of its own.
+ */
 export function BackgroundSweepRow({
   agentPrincipal,
   bridge,
   copy,
-  ownerKey
+  glyph,
+  ownerKey,
+  variant = 'row'
 }: {
   agentPrincipal: string
   bridge: MatrixBackgroundSweepBridge
   copy: AssistantCardCopy
+  /** The card's leading glyph, for the row form. */
+  glyph?: ReactNode
   ownerKey: string
+  variant?: 'routine' | 'row'
 }) {
   const key = backgroundSweepCacheKey(ownerKey, agentPrincipal)
   const entry = useStore($backgroundSweepSettings, { keys: [key] })[key]
@@ -81,39 +91,56 @@ export function BackgroundSweepRow({
   const known = entry?.setting !== undefined
   const pending = entry?.pending === true
 
-  return (
-    <div className="atum-settings-row" data-assistant-card-background-sweep>
-      <span className="atum-settings-row-title min-w-0 flex-1">{copy.backgroundFollowups}</span>
-      <span className="flex shrink-0 items-center gap-2">
-        {(entry?.loading || pending) && <Spinner className="size-3.5 animate-spin" />}
-        {entry?.error && (
-          <Button
-            onClick={() => {
-              if (entry.error === 'save' && entry.retryEnabled !== undefined) {
-                save(entry.retryEnabled)
-              } else {
-                read()
-              }
-            }}
-            size="inline"
-            variant="textStrong"
-          >
-            {copy.retry}
-          </Button>
-        )}
-        <Switch
-          aria-busy={pending || undefined}
-          aria-label={copy.backgroundFollowups}
-          checked={entry?.setting?.enabled ?? false}
-          disabled={!known || entry?.loading === true}
-          onCheckedChange={value => {
-            if (!pending) {
-              save(value)
+  const control = (
+    <span className="flex shrink-0 items-center gap-2">
+      {(entry?.loading || pending) && <Spinner className="size-3.5 animate-spin" />}
+      {entry?.error && (
+        <Button
+          onClick={() => {
+            if (entry.error === 'save' && entry.retryEnabled !== undefined) {
+              save(entry.retryEnabled)
+            } else {
+              read()
             }
           }}
-          size="xs"
-        />
-      </span>
+          size="inline"
+          variant="textStrong"
+        >
+          {copy.retry}
+        </Button>
+      )}
+      <Switch
+        aria-busy={pending || undefined}
+        aria-label={copy.followupsRoutine}
+        checked={entry?.setting?.enabled ?? false}
+        disabled={!known || entry?.loading === true}
+        onCheckedChange={value => {
+          if (!pending) {
+            save(value)
+          }
+        }}
+      />
+    </span>
+  )
+
+  // In the Routines panel: the first item, built in, drawn like the routines under it.
+  if (variant === 'routine') {
+    return (
+      <li className="flex items-center gap-3 py-2" data-assistant-card-background-sweep data-routine-built-in>
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-(length:--atum-t-control) text-(--atum-ink)">{copy.followupsRoutine}</span>
+          <span className="block text-(length:--atum-t-caption) text-(--atum-ink-muted)">{copy.followupsBuiltIn}</span>
+        </span>
+        {control}
+      </li>
+    )
+  }
+
+  return (
+    <div className="atum-settings-row" data-assistant-card-background-sweep>
+      {glyph}
+      <span className="atum-settings-row-title min-w-0 flex-1">{copy.followupsRoutine}</span>
+      {control}
     </div>
   )
 }

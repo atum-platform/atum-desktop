@@ -76,6 +76,7 @@ function paragraphs(source: string): string[] {
     if (FENCE.test(raw)) {
       fenced = !fenced
       flush()
+
       continue
     }
 
@@ -85,6 +86,7 @@ function paragraphs(source: string): string[] {
 
     if (!raw.trim() || HEADING.test(raw) || RULE.test(raw)) {
       flush()
+
       continue
     }
 

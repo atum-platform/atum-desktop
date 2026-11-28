@@ -45,7 +45,7 @@ describe('the assistant card background follow-up switch', () => {
     const bridge = { read: vi.fn(() => read.promise), save: vi.fn() } as unknown as MatrixBackgroundSweepBridge
     render(row(bridge))
 
-    const toggle = screen.getByRole('switch', { name: 'Background follow-ups' }) as HTMLButtonElement
+    const toggle = screen.getByRole('switch', { name: 'Follows up on open threads' }) as HTMLButtonElement
     expect(toggle.getAttribute('aria-checked')).toBe('false')
     expect(toggle.disabled).toBe(true)
     expect(document.querySelector('.atum-spinner')).toBeTruthy()
@@ -60,10 +60,25 @@ describe('the assistant card background follow-up switch', () => {
     const bridge = { read: vi.fn(async () => setting()), save: vi.fn() } as unknown as MatrixBackgroundSweepBridge
     render(row(bridge))
 
-    const toggle = await screen.findByRole('switch', { name: 'Background follow-ups' })
+    const toggle = await screen.findByRole('switch', { name: 'Follows up on open threads' })
     await waitFor(() => expect(toggle.getAttribute('aria-checked')).toBe('true'))
-    expect(screen.getByText('Background follow-ups')).toBeTruthy()
-    expect(document.querySelector('[data-assistant-card-background-sweep]')?.textContent).toBe('Background follow-ups')
+    expect(screen.getByText('Follows up on open threads')).toBeTruthy()
+    expect(document.querySelector('[data-assistant-card-background-sweep]')?.textContent).toBe('Follows up on open threads')
+  })
+
+  it('draws as a built-in routine inside the Routines list, with the same switch', async () => {
+    const bridge = { read: vi.fn(async () => setting()), save: vi.fn() } as unknown as MatrixBackgroundSweepBridge
+    render(
+      <ul>
+        <BackgroundSweepRow agentPrincipal={AGENT} bridge={bridge} copy={assistantCardCopies.en} ownerKey="@owner:test\nDEVICE" variant="routine" />
+      </ul>
+    )
+
+    const toggle = await screen.findByRole('switch', { name: 'Follows up on open threads' })
+    await waitFor(() => expect(toggle.getAttribute('aria-checked')).toBe('true'))
+    const item = document.querySelector<HTMLElement>('[data-routine-built-in]')!
+    expect(item.tagName).toBe('LI')
+    expect(item.textContent).toBe('Follows up on open threadsBuilt in')
   })
 
   it('updates optimistically, preserves focus while pending, and commits server truth', async () => {
@@ -73,7 +88,7 @@ describe('the assistant card background follow-up switch', () => {
       save: vi.fn(() => save.promise)
     } as MatrixBackgroundSweepBridge
     render(row(bridge))
-    const toggle = await screen.findByRole('switch', { name: 'Background follow-ups' })
+    const toggle = await screen.findByRole('switch', { name: 'Follows up on open threads' })
     await waitFor(() => expect(toggle.getAttribute('aria-checked')).toBe('true'))
 
     toggle.focus()
@@ -106,7 +121,7 @@ describe('the assistant card background follow-up switch', () => {
         .mockResolvedValueOnce({ status: 'saved', setting: setting(false, 2) })
     } as MatrixBackgroundSweepBridge
     render(row(bridge))
-    const toggle = await screen.findByRole('switch', { name: 'Background follow-ups' })
+    const toggle = await screen.findByRole('switch', { name: 'Follows up on open threads' })
     await waitFor(() => expect(toggle.getAttribute('aria-checked')).toBe('true'))
 
     fireEvent.click(toggle)
@@ -138,7 +153,7 @@ describe('the assistant card background follow-up switch', () => {
     render(row(bridge))
 
     current.resolve(setting(false, 2))
-    const toggle = screen.getByRole('switch', { name: 'Background follow-ups' }) as HTMLButtonElement
+    const toggle = screen.getByRole('switch', { name: 'Follows up on open threads' }) as HTMLButtonElement
     await waitFor(() => expect(toggle.disabled).toBe(false))
     expect(toggle.getAttribute('aria-checked')).toBe('false')
 

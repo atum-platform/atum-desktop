@@ -205,6 +205,7 @@ function routineRunsOn(agent: MatrixAgentView, locale: string, copy: AssistantCa
  * read-only so one newer row cannot hide the rest. The routines snapshot is authoritative. */
 export function RoutinesRow({
   agent,
+  builtIn,
   copy,
   glyph,
   initiallyOpen = false,
@@ -213,6 +214,8 @@ export function RoutinesRow({
   paused = false
 }: {
   agent: MatrixAgentView
+  /** The built-in routine(s) first in the list (the follow-up sweep), whatever the list's own state. */
+  builtIn?: ReactNode
   copy: AssistantCardCopy
   /** The card's leading glyph for the row. */
   glyph?: ReactNode
@@ -716,6 +719,11 @@ export function RoutinesRow({
             </div>
           )}
           {notice && !dialogOpen && <RoutineNotice copy={copy} notice={notice} />}
+          {builtIn && (
+            <ul className="border-b border-(--atum-line)" data-routines-built-in>
+              {builtIn}
+            </ul>
+          )}
           {failed ? (
             <div className="flex items-center gap-2 py-1.5">
               <span className="min-w-0 flex-1 text-(length:--atum-t-caption) text-(--atum-ink-muted)">

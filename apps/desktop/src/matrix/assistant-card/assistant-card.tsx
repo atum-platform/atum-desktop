@@ -7,7 +7,7 @@ import { Switch } from '@/components/ui/switch'
 import { Tip } from '@/components/ui/tooltip'
 import { useI18n } from '@/i18n'
 import { ATUM_AVATAR_ACCEPT } from '@/lib/atum-avatar'
-import { AlertCircle, CalendarCheck, Check, ChevronRight, MessageCircle, PawPrint, PuzzlePiece, Sparkles } from '@/lib/icons'
+import { AlertCircle, CalendarCheck, Check, ChevronRight, MessageCircle, MessageQuestion, PawPrint, PuzzlePiece, Sparkles } from '@/lib/icons'
 import { cn } from '@/lib/utils'
 
 import contextFileLimits from '../../../../../hermes_cli/data/context-file-limits.json'
@@ -823,11 +823,26 @@ function CardSections({
   }
 
   const own: ReactNode[] = []
+  const sweepBridge = window.atumMatrix?.backgroundSweep
+
+  const followups = (variant: 'routine' | 'row') =>
+    snapshot.identity && sweepBridge ? (
+      <BackgroundSweepRow
+        agentPrincipal={agent.principal}
+        bridge={sweepBridge}
+        copy={copy}
+        glyph={variant === 'row' ? <RowGlyph icon={MessageQuestion} /> : undefined}
+        key="background-sweep"
+        ownerKey={`${snapshot.identity.userId}\n${snapshot.identity.deviceId}`}
+        variant={variant}
+      />
+    ) : undefined
 
   if (window.atumMatrix?.routines) {
     own.push(
       <RoutinesRow
         agent={agent}
+        builtIn={followups('routine')}
         copy={copy}
         glyph={<RowGlyph icon={CalendarCheck} />}
         initiallyOpen={focusRoutines}
@@ -837,26 +852,23 @@ function CardSections({
         paused={controls?.routinesPaused}
       />
     )
-  } else if (agent.isDefault && snapshot.checkIns && snapshot.identity) {
-    // A window without the routines bridge keeps the check-in row where it was: one list needs
-    // the native routine client, and an older runtime must not lose its only check-in control.
-    own.push(<CheckInsRow copy={copy} key="check-ins" locale={locale} snapshot={snapshot} />)
+  } else {
+    if (agent.isDefault && snapshot.checkIns && snapshot.identity) {
+      // A window without the routines bridge keeps the check-in row where it was: one list needs
+      // the native routine client, and an older runtime must not lose its only check-in control.
+      own.push(<CheckInsRow copy={copy} key="check-ins" locale={locale} snapshot={snapshot} />)
+    }
+
+    // No routines list to hold it: follow-ups keep a row of their own, so the switch is never lost.
+    const row = followups('row')
+
+    if (row) {
+      own.push(row)
+    }
   }
 
   if (controls?.pause) {
     own.push(<Fragment key="pause">{controls.pause}</Fragment>)
-  }
-
-  if (snapshot.identity && window.atumMatrix?.backgroundSweep) {
-    own.push(
-      <BackgroundSweepRow
-        agentPrincipal={agent.principal}
-        bridge={window.atumMatrix.backgroundSweep}
-        copy={copy}
-        key="background-sweep"
-        ownerKey={`${snapshot.identity.userId}\n${snapshot.identity.deviceId}`}
-      />
-    )
   }
 
   const chat: ReactNode[] = []
