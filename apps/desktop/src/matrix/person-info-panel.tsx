@@ -71,6 +71,7 @@ interface PanelProps {
   percent: number
   room: MatrixRoom
   snapshot: MatrixSnapshot
+  threadPreview?: ReactNode
   windowControls: ReactNode
 }
 
@@ -93,6 +94,7 @@ function PersonInfoPanelFor({
   percent,
   room,
   snapshot,
+  threadPreview,
   windowControls
 }: PanelProps) {
   const { locale } = useI18n()
@@ -129,7 +131,7 @@ function PersonInfoPanelFor({
             snapshot={snapshot}
           />
         ) : (
-          <InfoHome copy={copy} fail={fail} info={info} onSeeAll={setSection} room={room} snapshot={snapshot} />
+          <InfoHome copy={copy} fail={fail} info={info} onSeeAll={setSection} room={room} snapshot={snapshot} threadPreview={threadPreview} />
         )}
       </div>
     </AtumWorkspaceSurface>
@@ -142,7 +144,8 @@ function InfoHome({
   info,
   onSeeAll,
   room,
-  snapshot
+  snapshot,
+  threadPreview
 }: {
   copy: MatrixPersonInfoCopy
   fail(cause?: unknown): void
@@ -150,6 +153,7 @@ function InfoHome({
   onSeeAll(section: MatrixRoomSharedSection): void
   room: MatrixRoom
   snapshot: MatrixSnapshot
+  threadPreview?: ReactNode
 }) {
   const { locale } = useI18n()
   const chat = useChatCopy()
@@ -209,6 +213,7 @@ function InfoHome({
           </label>
         )}
       </div>
+      {threadPreview}
       <SharedPreview copy={copy} onSeeAll={onSeeAll} room={room} section="media" snapshot={snapshot} />
       <SharedPreview copy={copy} onSeeAll={onSeeAll} room={room} section="files" snapshot={snapshot} />
       <SharedPreview copy={copy} onSeeAll={onSeeAll} room={room} section="links" snapshot={snapshot} />

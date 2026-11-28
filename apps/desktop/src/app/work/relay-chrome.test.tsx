@@ -1,16 +1,11 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { I18nProvider } from '@/i18n'
 
-import type { MatrixWorkBridge, MatrixWorkProjection } from '../../../shared/matrix-work'
-
-import { WorkRelaySharedContextLine, WorkRelayTurnLine } from './relay-chrome'
+import { WorkRelayTurnLine } from './relay-chrome'
 import type { WorkRelayTurnChrome } from './relay-view'
-import { resetWorkStoreForTests } from './store'
-import { WorkScreen } from './work-screen'
 
-beforeEach(resetWorkStoreForTests)
 afterEach(cleanup)
 
 const NOW = Date.UTC(2026, 10, 22, 8, 0)
@@ -87,51 +82,5 @@ describe('WorkRelayTurnLine: one line, at most one action, UI chrome only', () =
   ] satisfies [WorkRelayTurnChrome, string][])('words %o', (chrome, text) => {
     line(chrome)
     expect(screen.getByText(text)).toBeTruthy()
-  })
-})
-
-describe('the shared-context line (O14)', () => {
-  const words = (names: string[]) =>
-    render(
-      <I18nProvider configClient={null} initialLocale="en">
-        <WorkRelaySharedContextLine names={names} />
-      </I18nProvider>
-    )
-
-  it('says once that what the owner types there can show up in the replies', () => {
-    words(['Rin'])
-    expect(screen.getByRole('note').textContent).toBe('What you type in Rin’s chat here can show up in its replies.')
-
-    cleanup()
-    words(['Rin', 'Luna'])
-    expect(screen.getByRole('note').textContent).toBe('What you type in your assistants’ chats here can show up in their replies.')
-
-    cleanup()
-    const { container } = words([])
-    expect(container.textContent).toBe('')
-  })
-
-  it('is drawn on the Work page only for assistants whose chat runs here', () => {
-    const projection: MatrixWorkProjection = { view: 'ready', assistants: 'on', agents: [], protons: 'ok' }
-    const bridge = { read: vi.fn(async () => null), place: vi.fn(async () => {}), hide: vi.fn(async () => {}), retry: vi.fn(async () => {}), getSurfaceMode: vi.fn(async () => null), onSurfaceModeChanged: vi.fn(() => () => {}) } as unknown as MatrixWorkBridge
-
-    const page = (relayChats?: string[]) =>
-      render(
-        <I18nProvider configClient={null} initialLocale="en">
-          <WorkScreen
-            agentName={principal => (principal === 'rin' ? 'Rin' : undefined)}
-            bridge={bridge}
-            obstructed={false}
-            onAddProtons={() => {}}
-            projection={projection}
-            relayChats={relayChats}
-          />
-        </I18nProvider>
-      )
-
-    expect(page().container.querySelector('[data-work-relay-shared-context]')).toBeNull()
-
-    cleanup()
-    expect(page(['rin', 'rin']).container.querySelector('[data-work-relay-shared-context]')?.textContent).toContain('Rin’s chat')
   })
 })

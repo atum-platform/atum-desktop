@@ -5,15 +5,13 @@ import json
 import os
 from pathlib import Path
 import resource
-import re
 import secrets
 import select
 import signal
+import socket
 import subprocess
 import sys
-import threading
-import shlex
-import tomllib
+import tempfile
 import time
 
 
@@ -139,48 +137,34 @@ class Children:
             pass
 
 
-def wait_for_gateway(home, gateway, children):
-    from hermes_cli.gateway_runtime import discover_gateway_endpoint
-
-    deadline = time.monotonic() + 25
-    while time.monotonic() < deadline:
-        if select.select([0], [], [], 0.1)[0] or gateway.poll() is not None:
-            raise RuntimeError("gateway_stopped")
-        ready = discover_gateway_endpoint(home, timeout=0.4)
-        if ready.state == "ready" and ready.endpoint and ready.endpoint.control_home in (None, home):
-            lock = json.loads((Path(home) / "gateway.lock").read_text())
-            if lock.get("pid") == gateway.pid:
-                return
-    raise RuntimeError("gateway_timeout")
-
-
 def run(spec, children, channel):
     # A per-child file descriptor / core dump bound. The supervisor applies
     # the process-count and RSS budgets to the entire owned tree separately.
     for limit, soft in [(resource.RLIMIT_CORE, 0), (resource.RLIMIT_NOFILE, 2048)]:
         _, hard = resource.getrlimit(limit)
         resource.setrlimit(limit, (soft if hard < 0 else min(soft, hard), hard))
-    gateways = []
-    ready_file = Path(spec["settingsPath"]).with_name("delegated-gateway-ready")
-    ready_file.unlink(missing_ok=True)
-    for env in spec["gateways"]:
-        child = children.start([sys.executable, "-P", "-B", "-X", "utf8", "-m",
-                                "hermes_cli.main", "gateway", "run"], env, spec["cwd"])
-        gateways.append((env, child))
-    # Discovery runs alongside the server; delegated admission waits for this incarnation.
-    def discover():
-        try:
-            env, child = gateways[1]
-            wait_for_gateway(env["HERMES_HOME"], child, children)
-            ready_file.write_text(str(sidecar.pid), encoding="ascii")
-        except Exception:
-            pass
+    gateway = spec["gateway"]
+    children.start([sys.executable, "-P", "-B", "-X", "utf8", "-m",
+                    "hermes_cli.main", "gateway", "run"], gateway, spec["cwd"])
     env = spec["environment"]
-    if channel:
-        env = {**env, **channel, "T3_SERVICE_LAUNCHER_CONTEXT": json.dumps(spec["trial"])}
+    if spec.get("trial"):
+        env = {**env, "T3_SERVICE_LAUNCHER_CONTEXT": json.dumps(spec["trial"])}
+    env = {**env, **channel}
     passed = [int(channel["NODE_CHANNEL_FD"])] if channel else []
     token = spec.pop("connectorToken", None)
+    desktop = spec.pop("desktop", None)
+    args = [spec["executable"], "--mode", "web", "--no-browser", "--host", "127.0.0.1"]
     try:
+        if desktop:
+            with socket.socket() as port:
+                port.bind(('127.0.0.1', 0))
+                desktop['port'] = port.getsockname()[1]
+            with tempfile.TemporaryFile() as bootstrap:
+                bootstrap.write(json.dumps(desktop).encode('utf-8') + b'\n')
+                bootstrap.seek(0)
+                bootstrap_fd = os.dup(bootstrap.fileno())
+            passed.extend([bootstrap_fd, desktop['desktopTelemetryFd'], desktop['desktopTelemetryControlFd']])
+            args = [spec['executable'], '--bootstrap-fd', str(bootstrap_fd), '--auto-bootstrap-project-from-cwd']
         if token:
             read_fd, write_fd = os.pipe()
             passed.append(read_fd)
@@ -190,14 +174,11 @@ def run(spec, children, channel):
                 os.close(write_fd)
             env = {**env, "ATUM_WORK_CONNECTOR_FD": str(read_fd)}
         sidecar = children.start(
-            [spec["executable"], "--mode", "web", "--no-browser", "--host", "127.0.0.1"],
-            env, spec["cwd"], subprocess.PIPE, tuple(passed),
+            args, env, spec["cwd"], subprocess.PIPE, tuple(passed),
         )
     finally:
         for fd in passed:
             os.close(fd)
-    if len(gateways) > 1:
-        threading.Thread(target=discover, daemon=True).start()
     publish("spawned", pid=sidecar.pid)
     assert sidecar.stdout is not None
     line_buffer = b""
@@ -226,6 +207,8 @@ def run(spec, children, channel):
 def work_provider_instances(saved, defaults, brokers):
     saved = saved if isinstance(saved, dict) else {}
     instances = {**defaults, **saved, **brokers}
+    for instance_id in ("atum-managed-delegated", "atum-relay-codex"):
+        instances.pop(instance_id, None)
     # Migrate the exact legacy Codex and Claude stubs. Other configs belong to the account.
     for instance_id in ("codex", "claudeAgent"):
         instance = saved.get(instance_id)
@@ -237,52 +220,13 @@ def work_provider_instances(saved, defaults, brokers):
     return instances
 
 
-def _relay_codex_instance(owner):
-    """Native Codex overrides disable user MCPs only in the hidden relay instance."""
-    config = dict(owner.get("config", {}))
-    environment = {entry["name"]: entry.get("value") for entry in owner.get("environment", [])
-                   if entry.get("name") in ("HOME", "CODEX_HOME")}
-    source_home = config.get("homePath") or environment.get("CODEX_HOME") or os.environ.get("CODEX_HOME")
-    home = Path(source_home or Path(environment.get("HOME") or Path.home()) / ".codex").expanduser()
-    # Shadow homes can retain a different config; refuse an unknown source rather than
-    # accidentally enumerate the owner's default file while Codex reads another.
-    if config.get("shadowHomePath"):
-        raise RuntimeError("relay_codex_shadow_home")
-    try:
-        data = tomllib.loads((home / "config.toml").read_text())
-    except FileNotFoundError:
-        data = {}
-    servers = set(data.get("mcp_servers", {}))
-    for profile in data.get("profiles", {}).values():
-        servers.update(profile.get("mcp_servers", {}))
-    args = shlex.split(config.get("launchArgs", ""))
-    for arg in args:
-        if re.search(r"(?:^|=|\s)mcp_servers(?:[.\s=]|$)", arg):
-            # Quoted names and table overrides in arbitrary launch args cannot be
-            # safely enumerated here. Fail closed rather than pass them to a relay.
-            raise RuntimeError("relay_codex_mcp_launch_override")
-    # Native table override handles quoted/dotted server names (mcp_servers={} alone merges).
-    table = ",".join(f"{json.dumps(name)}={{enabled=false}}" for name in sorted(servers))
-    overrides = ["--config", "mcp_servers={" + table + "}"] if servers else []
-    return {**owner, "showInPicker": False, "displayName": "ChatGPT (assistant relay)",
-            "config": {**config, "launchArgs": shlex.join([*args, *overrides])}}
-
-
-def relay_codex_instance(owner):
-    try:
-        return _relay_codex_instance(owner)
-    except (OSError, ValueError, TypeError, RuntimeError):
-        # A relay with unknown config is disabled without blocking the owner's Work.
-        return {**owner, "enabled": False, "showInPicker": False}
-
-
 def main():
     spec = json.loads(sys.stdin.buffer.readline(262144))
-    # Electron created the Node IPC channel. Only the T3 trial inherits it.
+    # Electron created the Node IPC channel. Only the Work server inherits it.
     # Its native messages travel directly over that channel.
     channel = {name: os.environ.pop(name) for name in
                ("NODE_CHANNEL_FD", "NODE_CHANNEL_SERIALIZATION_MODE") if name in os.environ}
-    if bool(channel) != bool(spec.get("trial")):
+    if spec.get("trial") and not channel:
         raise RuntimeError("work_trial_channel_missing")
     children = Children()
     with Path(spec["lock"]).open("a") as lock:
@@ -299,31 +243,25 @@ def main():
 
             profile_source = Path(spec["profileSource"])
             owner = yaml.safe_load((profile_source / "self-work.yaml").read_text())
-            delegated = yaml.safe_load((profile_source / "delegated.yaml").read_text())
             owner["model"] = {"provider": spec["managedProvider"], "default": spec["managedModelAlias"]}
             owner["gateway"] = {"standalone": True}
             owner["plugins"] = {"auto_update_check_hours": 0}
-            for env, config in zip(spec["gateways"], (owner, {**owner, **delegated}), strict=True):
-                path = Path(env["HERMES_HOME"]) / "config.yaml"
-                path.write_text(yaml.safe_dump(config), encoding="utf-8")
-                path.chmod(0o600)
+            path = Path(spec["gateway"]["HERMES_HOME"]) / "config.yaml"
+            path.write_text(yaml.safe_dump(owner), encoding="utf-8")
+            path.chmod(0o600)
             instances = work_provider_instances(
                 settings.get("providerInstances", {}), spec["planProviderDefaults"],
                 spec["settings"]["providerInstances"],
             )
-            codex = instances["codex"]
-            # A saved instance can occupy the default ID with a different driver.
-            if not isinstance(codex, dict) or codex.get("driver") != "codex":
-                codex = spec["planProviderDefaults"]["codex"]
-            instances["atum-relay-codex"] = relay_codex_instance(codex)
+            continuation = spec.pop('continuation', False)
             settings.update(spec["settings"])
+            if spec.get('trial') and not continuation:
+                settings.setdefault("continueThreadsAfterServerUpdate", False)
             settings["providerInstances"] = instances
             settings["textGenerators"] = {}
             for override in settings.get("projectSettingsOverrides", {}).values():
                 override.pop("textGenerationModelSelection", None)
                 override.pop("providerInstances", None)
-                if not settings["continueThreadsAfterServerUpdate"] and "continueThreadsAfterServerUpdate" in override:
-                    override["continueThreadsAfterServerUpdate"] = False
             temp = Path(spec["settingsPath"] + ".work-next")
             temp.write_text(json.dumps(settings), encoding="utf-8")
             os.chmod(temp, 0o600)

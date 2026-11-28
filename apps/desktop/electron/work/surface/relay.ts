@@ -2,9 +2,9 @@ import { z } from 'zod'
 
 import type { WorkAgentPlans } from '../../../shared/matrix-work'
 import type { WorkRelayPlan } from '../../../shared/matrix-work-relay'
-import { WorkRelaySelectionSchema } from '../gate/contract'
-import { deviceServiceCall, type DeviceServicePlatformOptions } from '../gate/platform'
-import type { WorkMount } from '../mount/mount'
+
+import { WorkRelaySelectionSchema } from './plan-contract'
+import { deviceServiceCall, type DeviceServicePlatformOptions } from './platform'
 
 const selectionSnapshot = z.object({
   revision: z.number().int().nonnegative(),
@@ -13,7 +13,6 @@ const selectionSnapshot = z.object({
 
 /** The native plan catalog and the existing owner-scoped selection protocol. */
 export function createOwnerRelay(
-  mount: WorkMount,
   readCatalog: () => Promise<Omit<WorkAgentPlans, 'selection'> | null>,
   platform: () => DeviceServicePlatformOptions
 ) {
@@ -61,9 +60,6 @@ export function createOwnerRelay(
 
         return write(latest.revision)
       }
-    },
-    chats(): string[] {
-      return [...new Set((mount.service()?.ledger.receipts('relay_json IS NOT NULL') ?? []).filter(row => Boolean(row.threadId)).map(row => row.principal))]
     }
   }
 }

@@ -51,10 +51,7 @@ describe.skipIf(!python || process.platform === 'win32')('Work startup settings'
       await writeFile(join(pythonBin, 'python3.14'), `#!/bin/sh\nexec ${quotedPython} "$@"\n`, { mode: 0o700 })
       await copyFile(join(__dirname, 'supervisor.py'), join(workRuntime, 'actual_supervisor.py'))
 
-      for (const profile of ['self-work.yaml', 'delegated.yaml']) {
-        await copyFile(resolve(__dirname, '../../../../../acp_adapter/profiles', profile), join(profiles, profile))
-      }
-
+      await copyFile(resolve(__dirname, '../../../../../acp_adapter/profiles/self-work.yaml'), join(profiles, 'self-work.yaml'))
       await writeFile(join(paths.userdata, '.atum-theme-installed'), '')
       // Execute the real supervisor up to provider launch. The fixture only publishes
       // a loopback listener and inspects the gateway profiles in the temporary home.
@@ -72,11 +69,12 @@ class Handler(http.server.BaseHTTPRequestHandler):
         self.end_headers()
 
 def run(spec, children, channel):
-    environments = spec["gateways"]
-    Path(${JSON.stringify(observed)}).write_text(json.dumps([
-        [env["ATUM_MANAGED_MODEL_DEFAULT"], yaml.safe_load((Path(env["HERMES_HOME"]) / "config.yaml").read_text())["model"], env["HOME"]]
-        for env in environments
-    ]))
+    env = spec["gateway"]
+    Path(${JSON.stringify(observed)}).write_text(json.dumps({
+        "gatewayProfile": [env["ATUM_MANAGED_MODEL_DEFAULT"], yaml.safe_load((Path(env["HERMES_HOME"]) / "config.yaml").read_text())["model"], env["HOME"]],
+        "workThreadMcpOrigin": spec["environment"].get("T3CODE_THREAD_MCP_ORIGIN"),
+        "gatewayThreadMcpOrigin": env.get("T3CODE_THREAD_MCP_ORIGIN"),
+    }))
     with http.server.ThreadingHTTPServer(("127.0.0.1", 0), Handler) as server:
         origin = f"http://127.0.0.1:{server.server_port}"
         Path(spec["settingsPath"]).with_name("server-runtime.json").write_text(json.dumps({"pid": os.getpid(), "origin": origin}))
@@ -99,15 +97,17 @@ actual.main()
       expect(settings.defaultModelSelection).toEqual({ instanceId: 'atum-managed', model: 'atum-managed:nguyet-thuc' })
       expect(settings.textGenerationModelSelection).toEqual(settings.defaultModelSelection)
       const defaultProfile = ['nguyet-thuc', { provider: 'atum-managed', default: 'nguyet-thuc' }]
-      expect(JSON.parse(await readFile(observed, 'utf8'))).toEqual([[...defaultProfile, homedir()], [...defaultProfile, join(root, 'work', 'delegated')]])
+      expect(JSON.parse(await readFile(observed, 'utf8'))).toEqual({
+        gatewayProfile: [...defaultProfile, homedir()],
+        workThreadMcpOrigin: 'https://modeb-ta.atumplatform.com',
+        gatewayThreadMcpOrigin: null
+      })
       expect(settings.providerInstances.codex).toEqual({ driver: 'codex', enabled: true, config: { setupMode: 'existing' } })
       expect(settings.providerInstances.claudeAgent).toEqual({ driver: 'claudeAgent', enabled: true })
       expect(settings.providerInstances.antigravity).toEqual({ driver: 'antigravity', enabled: true })
       expect(settings.providerInstances.opencode).toEqual({ driver: 'opencode', enabled: true })
-      expect(settings.providerInstances['atum-managed-delegated']).toMatchObject({ enabled: true, showInPicker: false })
-      expect(settings.providerInstances['atum-managed-delegated'].environment).toContainEqual({
-        name: 'HOME', value: join(root, 'work', 'delegated'), sensitive: false
-      })
+      expect(settings.providerInstances['atum-managed-delegated']).toBeUndefined()
+      expect(settings.providerInstances['atum-relay-codex']).toBeUndefined()
       expect(settings.providerInstances['atum-managed'].environment.some((entry: { name: string }) => entry.name === 'HOME')).toBe(false)
 
       await sidecar.stop()
@@ -125,7 +125,7 @@ actual.main()
       settings.providerInstances.claudeAgent.config = { binaryPath: '/opt/example/bin/claude' }
       settings.providerInstances.antigravity.enabled = false
       settings.providerInstances.codex = { driver: 'pi', displayName: 'Custom Pi', enabled: false }
-      settings.providerInstances['atum-managed-delegated'].showInPicker = true
+      settings.providerInstances['atum-managed-delegated'] = { driver: 'acpRegistry', enabled: true, showInPicker: true }
       settings.providerInstances['atum-relay-codex'] = { driver: 'opencode', enabled: true, showInPicker: true }
       await writeFile(settingsPath, JSON.stringify(settings))
 
@@ -137,8 +137,8 @@ actual.main()
       expect(restarted.providerInstances.codex).toEqual(settings.providerInstances.codex)
       expect(restarted.providerInstances.claudeAgent.config).toEqual(settings.providerInstances.claudeAgent.config)
       expect(restarted.providerInstances.antigravity.enabled).toBe(false)
-      expect(restarted.providerInstances['atum-managed-delegated'].showInPicker).toBe(false)
-      expect(restarted.providerInstances['atum-relay-codex']).toMatchObject({ driver: 'codex', showInPicker: false })
+      expect(restarted.providerInstances['atum-managed-delegated']).toBeUndefined()
+      expect(restarted.providerInstances['atum-relay-codex']).toBeUndefined()
     } finally {
       await sidecar.stop()
       vi.unstubAllEnvs()

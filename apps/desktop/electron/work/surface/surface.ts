@@ -1,4 +1,5 @@
 import type { AccountConnectionsView, AccountPlan } from '../../../shared/account-connections'
+import type { FirstRunLabels } from '../../../shared/first-run-labels'
 import type {
   MatrixWorkPlanConsent,
   MatrixWorkPlanConsentInput,
@@ -12,22 +13,13 @@ import type {
   WorkSurfaceModeSnapshot
 } from '../../../shared/matrix-work'
 import type { WorkRelayPlan, WorkRelaySelection } from '../../../shared/matrix-work-relay'
-import type { GateEvent } from '../gate/gate'
-import type { WorkConsentClient } from '../gate/platform'
 import type { OwnerViewPort } from '../session/pairing'
 import type { OpenOwnerView } from '../session/session'
 import type { WorkAccess } from '../sidecar/host'
 import type { WorkIncarnation } from '../sidecar/process'
 
-import {
-  type GateSurfaceState,
-  projectWorkAgents,
-  projectWorkAssistants,
-  projectWorkConsent,
-  projectWorkPlan,
-  projectWorkPlanConnect,
-  workPlanConnectPath
-} from './projection'
+import type { WorkConsentClient } from './platform'
+import { projectWorkConsent, workPlanConnectPath } from './projection'
 
 /** The owner view as main paints it: R's port, plus where it sits in the Matrix window (null: off the window). */
 export interface WorkViewHandle {
@@ -39,26 +31,13 @@ export interface WorkViewHandle {
 
 /** The parts of one signed-in account's Work. Main builds them (lanes S, R, G) and hands them over. */
 export interface WorkSurfaceParts {
-  planConnectOpen?(): boolean
   relay?: {
     readPlans(principal: string): Promise<WorkAgentPlans | null>
     select(principal: string, model: string, plan?: WorkRelayPlan): Promise<WorkRelaySelection>
-    chats(): string[]
   }
   session: { openOwnerView(createView: (incarnation: WorkIncarnation) => OwnerViewPort): Promise<OpenOwnerView> }
   /** S's per-account Work off marker (§8.5). Off: nothing starts, the page says so. */
   enabled(): boolean
-  /** Lane G's door. Absent while this Mac has no Work route for the account. */
-  gate?: {
-    state(): GateSurfaceState
-    on(listener: (event: GateEvent) => void): () => void
-    acceptWorkGrant(): Promise<void>
-    setSwitch(on: boolean): Promise<void>
-    /** Gate 4b: "Agents may use my ChatGPT plan here" on this Mac. */
-    setPlanSwitch?(on: boolean): Promise<void>
-    openRoute(): Promise<void>
-    closeRoute(): Promise<void>
-  }
   /** S's balance read for the Atum provider (`readModelAccess`). */
   readAccess?(): Promise<WorkAccess>
   readPlanUsage?(): Promise<MatrixWorkProjection['planLimits']>
@@ -66,11 +45,12 @@ export interface WorkSurfaceParts {
   prepareChatGptConnect?(): Promise<void>
   /** `atum.account-connections/1`, or this Mac's own plan facts when the registry cannot be read. */
   readConnections?(): Promise<AccountConnectionsView | null>
+  /** This Mac's four first-run connections and T3's plan names (local only). */
+  readPlanLabels?(): Promise<FirstRunLabels>
   /** The owner's consent client (gate 4b-2), and this Mac's device-service id so the page can name "This Mac". */
   consent?: Pick<WorkConsentClient, 'read' | 'revoke' | 'set'>
   deviceServiceId?(): string | undefined
-  /** First use: the owner opened Work, so main starts what a sign-in does not (the server and the gate). Never rejects. */
-  wantServer?(): Promise<void>
+  eligiblePlanAgents?(): Promise<string[]>
 }
 
 export interface WorkSurfaceOptions {
@@ -102,11 +82,10 @@ type ViewPhase = 'idle' | 'starting' | 'ready' | 'unavailable'
 
 /**
  * Lane DW's main-side half: one owner view at a time (R's rule), placed where the Work page asks, and one
- * projection of S, R and G for the Matrix window. It holds no credential and decides no admission.
+ * projection for the Matrix window.
  */
 export class WorkSurface {
   private parts: WorkSurfaceParts | undefined
-  private detachGate: (() => void) | undefined
   private handle: WorkViewHandle | undefined
   private prewarmTimer?: ReturnType<typeof setTimeout>
   private warmed = false
@@ -119,9 +98,7 @@ export class WorkSurface {
   private protons: MatrixWorkProjection['protons'] = 'unknown'
   private planLimits: MatrixWorkProjection['planLimits']
   private generation = 0
-  /** While a restart of the session server runs, nothing opens a view: it would start a second server. */
-  private holds = 0
-  /** Gate 4a: T3's own connect screen, opened in the view as soon as it is painted. */
+  /** T3’s own provider setup screen, opened once the view is painted. */
   private pendingPath: string | undefined
 
   constructor(private readonly options: WorkSurfaceOptions) {}
@@ -133,14 +110,11 @@ export class WorkSurface {
     this.planLimits = undefined
     this.cancelRecovery()
     this.generation++
-    this.detachGate?.()
-    this.detachGate = undefined
     this.closeView()
     this.parts = parts
     this.pendingPath = undefined
     this.phase = 'idle'
     this.protons = 'unknown'
-    this.detachGate = parts?.gate?.on(() => this.publish())
     this.publish()
 
     if (parts) {this.schedulePrewarm()}
@@ -152,7 +126,7 @@ export class WorkSurface {
     this.prewarmTimer = setTimeout(() => {
       if (!this.parts?.enabled()) {return}
 
-      if (this.holds > 0 || this.options.canPrewarm?.() === false) {
+      if (this.options.canPrewarm?.() === false) {
         this.schedulePrewarm()
 
         return
@@ -171,21 +145,9 @@ export class WorkSurface {
       return null
     }
 
-    const gate = parts.gate?.state()
-
-    const plan = projectWorkPlan(gate)
-    const planConnect = parts.enabled() ? projectWorkPlanConnect(gate) : undefined
-
     return {
-      ...(parts.relay ? { relayChats: parts.relay.chats() } : {}),
       ...(this.planLimits?.length ? { planLimits: this.planLimits } : {}),
-      ...(gate?.relayAccountConsent ? { relayAccountConsent: true } : {}),
-      ...(gate?.connectedPlans?.length ? { connectedPlans: gate.connectedPlans } : {}),
       view: this.viewState(parts),
-      assistants: projectWorkAssistants(gate),
-      ...(plan ? { plan } : {}),
-      ...(planConnect ? { planConnect } : {}),
-      agents: projectWorkAgents(gate),
       protons: this.protons
     }
   }
@@ -222,10 +184,6 @@ export class WorkSurface {
     clearTimeout(this.prewarmTimer)
     this.rect = rect
 
-    if (this.holds > 0) {
-      return
-    }
-
     if (this.phase === 'ready') {
       this.handle?.place(rect)
 
@@ -242,31 +200,8 @@ export class WorkSurface {
     this.handle?.place(null)
   }
 
-  /**
-   * Run `work` (a restart of the session server) with the view closed, then paint it again if the page is still
-   * showing. Whatever asks for a view meanwhile (a resize, "Try again") waits: a second open would start a second
-   * server beside the one being restarted.
-   */
-  async suspend<T>(work: () => Promise<T>): Promise<T> {
-    this.cancelRecovery()
-    this.holds++
-    this.closeView()
-    this.phase = 'idle'
-    this.publish()
-
-    try {
-      return await work()
-    } finally {
-      this.holds--
-
-      if (this.holds === 0 && (this.rect || this.warmed) && this.parts?.enabled()) {
-        void this.open()
-      }
-    }
-  }
-
   async retry(): Promise<void> {
-    if (this.holds > 0 || this.phase === 'starting') {
+    if (this.phase === 'starting') {
       return
     }
 
@@ -276,45 +211,6 @@ export class WorkSurface {
     await this.open()
   }
 
-  /** D9: the enrollment text was read and accepted here. The grant opens the route; the switch follows it. */
-  async allowAssistants(): Promise<void> {
-    const gate = this.parts?.gate
-
-    if (!gate) {
-      return
-    }
-
-    await gate.acceptWorkGrant()
-    await gate.setSwitch(true)
-    await this.bindRoute()
-  }
-
-  async setAssistants(on: boolean): Promise<void> {
-    const gate = this.parts?.gate
-
-    if (!gate) {
-      return
-    }
-
-    await gate.setSwitch(on)
-
-    if (on) {
-      await this.bindRoute()
-    } else {
-      await gate.closeRoute()
-      this.publish()
-    }
-  }
-
-  async setPlan(on: boolean): Promise<void> {
-    await this.parts?.gate?.setPlanSwitch?.(on)
-    this.publish()
-  }
-
-  /**
-   * Gate 4a: open T3's own Codex provider screen in the owner view (the page shows Work). Atum draws no login and never sees the
-   * token: the screen, the browser sign-in and Codex's own store are T3's and Codex's.
-   */
   getSurfaceMode() { return this.options.getSurfaceMode?.() ?? Promise.resolve(null) }
 
   async getSidebar() { return this.options.getSidebar?.() ?? null }
@@ -363,38 +259,52 @@ export class WorkSurface {
     return (await this.parts?.readConnections?.()) ?? null
   }
 
-  /** Gate 4b-2: the account's consent, as the owner's page reads it. */
+  /** First run: this Mac's four connections. Empty while no account's Work is attached or T3 has not answered. */
+  async readPlanLabels(): Promise<FirstRunLabels> {
+    const generation = this.generation
+    const labels = await this.parts?.readPlanLabels?.()
+
+    return generation === this.generation ? labels ?? {} : {}
+  }
+
+  /** Project the owner’s account consent and the eligible assistants. */
   async readPlanConsent(plan?: WorkRelayPlan): Promise<MatrixWorkPlanConsent> {
+    const parts = this.parts
     const consent = this.consentDoor()
+    const [record, entitled] = await Promise.all([
+      consent.read(plan), parts?.eligiblePlanAgents?.().catch(() => []) ?? []
+    ])
 
-    const entitled = (this.parts?.gate?.state().agents ?? []).map(agent => agent.principal)
+    if (this.parts !== parts) {throw new Error('work_account_changed')}
 
-    return projectWorkConsent(await (plan ? consent.read(plan) : consent.read()), this.parts?.deviceServiceId?.(), entitled)
+    return projectWorkConsent(record, parts?.deviceServiceId?.(), entitled)
   }
 
   /** Express opt-in: the owner named these assistants and Macs. Main sends nothing the page did not name. */
   async setPlanConsent(input: MatrixWorkPlanConsentInput, plan?: WorkRelayPlan): Promise<MatrixWorkPlanConsent> {
+    const parts = this.parts
     const consent = this.consentDoor()
     await consent.set({ ...(plan ? { provider: plan } : {}), agents: input.agents, devices: input.macs, alsoWhenScheduled: input.alsoWhenScheduled })
+    if (this.parts !== parts) {throw new Error('work_account_changed')}
+
     return this.readPlanConsent(plan)
   }
 
   async revokePlanConsent(plan?: WorkRelayPlan): Promise<MatrixWorkPlanConsent> {
+    const parts = this.parts
     const consent = this.consentDoor()
 
     if (plan) {await consent.revoke(plan)}
     else {await consent.revoke()}
 
+    if (this.parts !== parts) {throw new Error('work_account_changed')}
+
     return this.readPlanConsent(plan)
   }
 
-  async reconnectAssistants(): Promise<void> {
-    await this.bindRoute()
-  }
-
   /**
-   * Settings: Work off or on for this account on this Mac. Off first stops what is painted, then main's cutoff and
-   * server stop run; on only clears the marker, and the page opens the view again the next time it is shown.
+   * Settings: Work off or on for this account on this Mac. Off closes the view, stops the server, and clears native
+   * publication. On clears the marker so the next open can start the server.
    */
   async setWork(on: boolean): Promise<void> {
     if (!this.parts) {
@@ -445,17 +355,6 @@ export class WorkSurface {
     }
   }
 
-  private async bindRoute(): Promise<void> {
-    try {
-      await this.parts?.gate?.openRoute()
-    } catch (error) {
-      // The gate records why (socket down); the page shows it. Nothing else moves.
-      this.options.log?.(`[work-surface] route_bind_failed ${(error as { code?: string }).code ?? 'unknown'}`)
-    }
-
-    this.publish()
-  }
-
   private viewState(parts: WorkSurfaceParts): MatrixWorkViewState {
     if (!parts.enabled()) {
       return 'off'
@@ -466,10 +365,6 @@ export class WorkSurface {
 
   private open(): Promise<void> {
     const parts = this.parts
-
-    if (this.holds > 0) {
-      return Promise.resolve()
-    }
 
     if (!parts || !parts.enabled()) {
       this.publish()
@@ -493,10 +388,8 @@ export class WorkSurface {
     let outcome: OpenOwnerView
 
     try {
-      // Enrollment is independent of the owner view. WorkSession itself serializes server startup.
-      void parts.wantServer?.().catch(() => undefined)
       outcome = await parts.session.openOwnerView(incarnation => {
-        if (generation !== this.generation || this.holds > 0 || !parts.enabled()) {throw new Error('work_open_cancelled')}
+        if (generation !== this.generation || !parts.enabled()) {throw new Error('work_open_cancelled')}
         const handle = this.options.createView(incarnation)
         this.handle = handle
 
@@ -506,8 +399,8 @@ export class WorkSurface {
       outcome = { state: 'failed', reason: (error as { code?: string }).code ?? 'open_failed' }
     }
 
-    if (generation !== this.generation) {
-      // The account changed while the view opened: whatever opened belongs to the old one.
+    if (generation !== this.generation || !parts.enabled()) {
+      // The account changed or Work was turned off while the view opened.
       if (outcome.state !== 'failed') {
         outcome.view.close()
       }
@@ -531,7 +424,7 @@ export class WorkSurface {
     this.recovering = false
     const readyAt = Date.now()
     void outcome.incarnation.unexpectedExit?.then(unexpected => {
-      if (unexpected && this.handle === handle && generation === this.generation && this.holds === 0) {
+      if (unexpected && this.handle === handle && generation === this.generation) {
         // Only a healthy run earns a fresh backoff; a view that pairs and dies at once keeps backing off.
         if (Date.now() - readyAt >= HEALTHY_RUN_MS) {this.recoveryFailures = 0}
         this.closeView()
@@ -565,7 +458,7 @@ export class WorkSurface {
   private scheduleRecovery(generation: number): void {
     clearTimeout(this.recoveryTimer)
     this.recoveryTimer = setTimeout(() => {
-      if (generation === this.generation && this.recovering && (this.rect || this.warmed) && this.parts?.enabled() && this.holds === 0) {
+      if (generation === this.generation && this.recovering && (this.rect || this.warmed) && this.parts?.enabled()) {
         void this.retry()
       }
     }, Math.min(30_000, 1_000 * 2 ** Math.min(this.recoveryFailures++, 5)))

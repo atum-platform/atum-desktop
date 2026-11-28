@@ -14,19 +14,16 @@ export function registerMatrixWorkIpc(
     | 'getAttention'
     | 'runCommand'
     | 'setSurfaceMode'
-    | 'allowAssistants'
     | 'readAgentPlans'
     | 'selectRelay'
     | 'hide'
     | 'openPlanConnect'
     | 'read'
     | 'readConnections'
+    | 'readPlanLabels'
     | 'readPlanConsent'
-    | 'reconnectAssistants'
     | 'retry'
     | 'revokePlanConsent'
-    | 'setAssistants'
-    | 'setPlan'
     | 'setPlanConsent'
     | 'setWork'
     | 'show'
@@ -69,26 +66,17 @@ export function registerMatrixWorkIpc(
       case 'retry':
         return surface.retry()
 
-      case 'allowAssistants':
-        return surface.allowAssistants()
-
-      case 'setAssistants':
-        return surface.setAssistants(request.on)
-
-      case 'setPlan':
-        return surface.setPlan(request.on)
-
       case 'setWork':
         return surface.setWork(request.on)
-
-      case 'reconnectAssistants':
-        return surface.reconnectAssistants()
 
       case 'openPlanConnect':
         return surface.openPlanConnect(request.plan)
 
       case 'readConnections':
         return surface.readConnections()
+
+      case 'readPlanLabels':
+        return surface.readPlanLabels()
 
       case 'readPlanConsent':
         return request.plan ? surface.readPlanConsent(request.plan) : surface.readPlanConsent()

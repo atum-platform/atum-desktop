@@ -5,7 +5,7 @@ import {
   type AccountPlan,
   type AccountPlanConnection
 } from '../../../shared/account-connections'
-import { WORK_RELAY_ENABLED_PLANS } from '../../../shared/matrix-work-relay'
+import { WORK_RELAY_PLANS } from '../../../shared/matrix-work-relay'
 
 /**
  * Account connections as the window draws them. Pure: from the one registry read to rows, lines and the picker's rule. No copy
@@ -126,7 +126,7 @@ export function accountPickerPlans(view: AccountConnectionsView | null | undefin
       return { plan: row.plan, kind: 'connect' }
     }
 
-    return WORK_RELAY_ENABLED_PLANS.includes(row.plan as never)
+    return WORK_RELAY_PLANS.includes(row.plan as never)
       ? { plan: row.plan, kind: 'relay', models: row.models }
       : { plan: row.plan, kind: 'in_work', models: row.models }
   })

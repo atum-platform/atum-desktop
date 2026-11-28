@@ -52,14 +52,41 @@ async def test_initialize_against_locked_home_never_provisions_gateway(tmp_path)
         home.chmod(0o700)
 
 
+@pytest.mark.asyncio
+async def test_work_session_new_waits_for_managed_gateway(daemon, tmp_path, monkeypatch):
+    from acp_adapter import gateway_server
+    from hermes_cli import gateway_runtime
+    from hermes_constants import reset_hermes_home_override, set_hermes_home_override
+
+    home, _, _, _ = daemon
+    discover = gateway_runtime.discover_gateway_endpoint
+    startup_states = iter(("absent", "starting"))
+
+    def discover_during_startup(profile_home):
+        state = next(startup_states, None)
+        if state is not None:
+            return gateway_runtime.GatewayDiscovery(state)
+        return discover(profile_home)
+
+    monkeypatch.setattr(gateway_runtime, "discover_gateway_endpoint", discover_during_startup)
+    token = set_hermes_home_override(home)
+    try:
+        agent = gateway_server.GatewayACPAgent(managed=True, wait_for_gateway=True)
+        try:
+            assert (await agent.new_session(cwd=str(tmp_path), mcp_servers=[])).session_id
+        finally:
+            await agent.aclose()
+    finally:
+        reset_hermes_home_override(token)
+
+
 @pytest.mark.parametrize('invalid', [False, True])
-def test_delegated_profile_limits_real_stdio_registration(tmp_path, invalid):
-    import hermes_yaml
+def test_profile_limits_real_stdio_registration(tmp_path, invalid):
     from tools.registry import registry
 
     home = tmp_path / 'profile'
     home.mkdir(mode=0o700)
-    overlay = hermes_yaml.safe_load((ROOT / 'acp_adapter/profiles/delegated.yaml').read_text())
+    overlay = {'editor_mcp_tools': {'t3-code': ['t3_thread_read']}}
     if invalid:
         overlay['editor_mcp_tools']['t3-code'] = ['t3_thread_*']
     (home / 'config.yaml').write_text(json.dumps(overlay))
@@ -87,7 +114,7 @@ server.run()
     authority = SimpleNamespace(profile_id=str(home), sessions={})
     policy = LocalSessionPolicy(source='acp', platform='acp', cwd=str(tmp_path), model=None,
                                 toolsets=(), config_json='{}', request_json='{}', terminal_json='{}')
-    restricted, changed = rebind_editor_mcp(authority, 'delegated', policy, servers)
+    restricted, changed = rebind_editor_mcp(authority, 'scoped', policy, servers)
     manifest = json.loads(restricted.editor_mcp_json)
     if invalid:
         assert not manifest['schemas']
@@ -108,7 +135,6 @@ def test_profile_disables_connections_and_title_inference_before_a_turn(tmp_path
     from agent.title_generator import _auto_title_enabled
     from hermes_cli.tools_config import _get_platform_tools
     from hermes_constants import reset_hermes_home_override, set_hermes_home_override
-    from tools.approval import check_all_command_guards
     from toolsets import resolve_toolset
 
     profile = ROOT / 'acp_adapter/profiles'
@@ -121,14 +147,10 @@ def test_profile_disables_connections_and_title_inference_before_a_turn(tmp_path
     assert 'manage_connections' not in surface
     assert 'computer_use' not in surface
 
-    cfg.update(hermes_yaml.safe_load((profile / 'delegated.yaml').read_text()))
     assert cfg['approvals']['mode'] == 'manual'
-    cfg['approvals']['mode'] = 'off'  # the deny floor still applies
     (tmp_path / 'config.yaml').write_text(json.dumps(cfg))
     token = set_hermes_home_override(tmp_path)
     try:
         assert not _auto_title_enabled()
-        assert check_all_command_guards('t3 thread list', 'local')['user_deny']
-        assert check_all_command_guards('t3 acp-mcp-call fixture {}', 'local')['user_deny']
     finally:
         reset_hermes_home_override(token)

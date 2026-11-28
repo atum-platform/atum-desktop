@@ -7,12 +7,11 @@ import type { IpcMainInvokeEvent } from 'electron'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { MATRIX_WORK_IPC, type MatrixWorkProjection, type WorkAttentionSnapshot, type WorkSidebarSnapshot, type WorkSurfaceModeSnapshot } from '../../shared/matrix-work'
-import { type GateEvent, GateLedger, workGatePaths } from '../work/gate'
-import { createKeychainSecretStore } from '../work/mount'
 import { workSessionPaths } from '../work/session'
+import { createKeychainSecretStore } from '../work/sidecar/secret-store'
 
 import { matrixRosterAgentAnswersInCloud } from './cloud-agent-placement'
-import { createGateDoor, createMatrixWork, MATRIX_WORK_MODEL_ROLE, type MatrixWorkDeps, readWorkAccess, WORK_MIN_AVAILABLE_MICRO_PROTONS, WorkModelKeys } from './main-work'
+import { createMatrixWork, MATRIX_WORK_MODEL_ROLE, type MatrixWorkDeps, readWorkAccess, WORK_MIN_AVAILABLE_MICRO_PROTONS, WorkModelKeys } from './main-work'
 import { matrixCloudOnlyReadiness, MatrixReadinessMonitor } from './readiness'
 
 const { handlers } = vi.hoisted(() => ({ handlers: new Map<string, (event: unknown, value?: unknown) => Promise<unknown>>() }))
@@ -133,103 +132,6 @@ describe('WorkModelKeys', () => {
   })
 })
 
-describe('createGateDoor', () => {
-  function lab() {
-    const listeners = new Set<() => void>()
-    const gateListeners = new Set<(event: GateEvent) => void>()
-    let service: ReturnType<typeof fakeService> | undefined
-
-    const fakeService = () => ({
-      state: () => ({ enrolled: true, phase: 'open', workGrantAccepted: true, switchOn: true, socket: 'bound', agents: [] }),
-      on: (listener: (event: GateEvent) => void) => {
-        gateListeners.add(listener)
-
-        return () => void gateListeners.delete(listener)
-      },
-      openRoute: vi.fn(async () => {}),
-      closeRoute: vi.fn(async () => {})
-    })
-
-    const mount = {
-      service: () => service as never,
-      onChange: (listener: () => void) => {
-        listeners.add(listener)
-
-        return () => void listeners.delete(listener)
-      },
-      acceptWorkGrant: vi.fn(async () => {}),
-      setSwitch: vi.fn(async (_on: boolean) => {})
-    }
-
-    return {
-      door: createGateDoor(mount as never),
-      mount,
-      listeners,
-      gateListeners,
-      start: () => (service = fakeService()),
-      stop: () => (service = undefined),
-      change: () => listeners.forEach(listener => listener())
-    }
-  }
-
-  it('shows an unenrolled Mac until the mount has a gate, then the gate\'s own state', () => {
-    const { door, start } = lab()
-
-    expect(door.state()).toMatchObject({ enrolled: false, workGrantAccepted: false })
-    start()
-    expect(door.state()).toMatchObject({ enrolled: true, phase: 'open', socket: 'bound' })
-  })
-
-  it('follows the mount: every change is announced, and the gate it starts later is listened to', () => {
-    const lab1 = lab()
-    const events: string[] = []
-    const stop = lab1.door.on(event => void events.push(event.type))
-
-    lab1.change()
-    expect(events).toEqual(['change'])
-
-    lab1.start()
-    lab1.change()
-    expect(events).toEqual(['change', 'change'])
-    expect(lab1.gateListeners.size).toBe(1)
-
-    for (const listener of [...lab1.gateListeners]) {
-      listener({ type: 'change' })
-    }
-
-    expect(events).toEqual(['change', 'change', 'change'])
-
-    // the gate is retired and a new one built: the old listener goes, the new one comes
-    lab1.stop()
-    lab1.change()
-    expect(lab1.gateListeners.size).toBe(0)
-    lab1.start()
-    lab1.change()
-    expect(lab1.gateListeners.size).toBe(1)
-
-    stop()
-    expect(lab1.listeners.size).toBe(0)
-    expect(lab1.gateListeners.size).toBe(0)
-  })
-
-  it('hands the owner\'s actions to the mount, and the route to the gate only while there is one', async () => {
-    const { door, mount, start } = lab()
-
-    await door.acceptWorkGrant()
-    await door.setSwitch(false)
-    expect(mount.acceptWorkGrant).toHaveBeenCalledTimes(1)
-    expect(mount.setSwitch).toHaveBeenCalledWith(false)
-
-    await expect(door.openRoute()).resolves.toBeUndefined()
-    await expect(door.closeRoute()).resolves.toBeUndefined()
-
-    const service = start()
-    await door.openRoute()
-    await door.closeRoute()
-    expect(service.openRoute).toHaveBeenCalledTimes(1)
-    expect(service.closeRoute).toHaveBeenCalledTimes(1)
-  })
-})
 
 describe('createMatrixWork', () => {
   const roots: string[] = []
@@ -274,6 +176,7 @@ describe('createMatrixWork', () => {
       scope: () => ({ accountKey: 'a'.repeat(64), generation: 1 }),
       ownerPrincipal: () => '67000000-0000-4000-8000-0000000000a1',
       deviceServiceId: () => '67000000-0000-4000-8000-0000000000d1',
+      deviceEnrollmentEpoch: () => 1,
       localDeviceServiceId: () => '67000000-0000-4000-8000-0000000000d1',
       deviceServicesEndpoint: () => 'https://api.example.test/api/matrix/v1/device-services',
       bearer: async () => 'bearer',
@@ -285,7 +188,7 @@ describe('createMatrixWork', () => {
       prepareChatGptConnect: async () => undefined,
       ownerHost: () => undefined,
       agentMatrixUser: async () => null,
-      agentName: () => undefined,
+      eligiblePlanAgents: async () => [],
       openProtons: async () => {},
       publish: (_channel, projection) => void published.push(projection),
       closing: () => state.closing,
@@ -440,42 +343,40 @@ describe('createMatrixWork', () => {
     expect(existsSync(paths.snapshot)).toBe(false)
   })
 
-  it('the update door reads the durable stop ledger when no gate runs: a stop owed on a home a server may still hold is refused up front', async () => {
-    const { work, deps } = build({}, true)
-    const root = join(deps.userData, 'work-accounts', 'a'.repeat(32))
-    const paths = workSessionPaths({ root })
-    const ledger = new GateLedger(workGatePaths({ root }).ledger, '67000000-0000-4000-8000-0000000000a1')
-    const luna = '67000000-0000-4000-8000-00000000000a'
-    ledger.setEntitled(luna, true)
-
-    expect(
-      ledger.admit({ principal: luna, requestId: 'AAAAAAAAAAAAAAAAAAAAA1', paramsHash: 'h', callJson: '{}', fingerprint: 'f', sessionId: 's', threadId: 't', eventId: '$e', notAfter: 1, epoch: 1, generation: 1 })
-    ).toEqual({ ok: true })
-    ledger.markForwarded(luna, 'AAAAAAAAAAAAAAAAAAAAA1', 'inc-1')
-    ledger.cutoff({ scope: 'agent', principal: luna, reason: 'agent_removed_owner' })
-    ledger.close()
-    expect(GateLedger.owedCountAt(workGatePaths({ root }).ledger)).toBe(1)
-
-    // a server holds the home (the runtime file names a live process): the refusal comes first, nothing is touched
-    mkdirSync(paths.userdata, { recursive: true })
-    writeFileSync(join(paths.userdata, 'server-runtime.json'), JSON.stringify({ pid: process.pid }))
-    await work.activate()
-    expect(await work.update({ version: '0.1.12', resources: deps.resources })).toEqual({ outcome: 'refused', reason: 'stops_owed' })
-
-    // no server holds it (the app was quit and replaced): the stop settles when the gate starts, so it does not block the update
-    rmSync(join(paths.userdata, 'server-runtime.json'))
-    expect((await work.update({ version: '0.1.12', resources: deps.resources })).outcome).toBe('refused')
-    expect(await work.update({ version: '0.1.12', resources: deps.resources })).not.toEqual({ outcome: 'refused', reason: 'stops_owed' })
-  })
-
-  it('exposes the main-owned update door; with no account bound it is unavailable, never a silent no-op', async () => {
+  it('leaves Work stopped when the shell updates before an account is bound', async () => {
     const { work } = build({ scope: () => null }, true)
 
-    await expect(work.update({ version: '9.9.9', resources: '/nowhere' })).rejects.toThrow('work_unavailable')
+    await expect(work.prepareUpdate('/unused-staged-resources')).resolves.toBeNull()
+    expect(work.modelKeys()).toEqual([])
+    work.cancelPreparedUpdate()
   })
 
   it('offers no model key until a server has asked for one', () => {
     expect(build().work.modelKeys()).toEqual([])
+  })
+
+  it('marks Work off for the initiating account before the native publication clear finishes', async () => {
+    let scope = { accountKey: 'a'.repeat(64), generation: 1 }
+    const { work, deps } = build({ scope: () => scope }, true)
+    const offPath = (key: string) => join(deps.userData, 'work-accounts', key.slice(0, 32), 'work-disabled')
+    let finish!: (reply: Response) => void
+    const request = vi.fn(() => new Promise<Response>(resolve => {finish = resolve}))
+    vi.stubGlobal('fetch', request)
+
+    try {
+      await work.activate()
+      const stopping = handlers.get(MATRIX_WORK_IPC.request)!({}, { kind: 'setWork', on: false })
+      await vi.waitFor(() => expect(request).toHaveBeenCalledOnce())
+      expect(existsSync(offPath(scope.accountKey))).toBe(true)
+
+      scope = { accountKey: 'b'.repeat(64), generation: 2 }
+      finish(Response.json({ deviceServiceId: deps.deviceServiceId() }))
+      await stopping
+      expect(existsSync(offPath(scope.accountKey))).toBe(false)
+    } finally {
+      vi.unstubAllGlobals()
+      await work.quit()
+    }
   })
 
   it('clears the enrolled Mac on sign-out even if Work never started this run', async () => {

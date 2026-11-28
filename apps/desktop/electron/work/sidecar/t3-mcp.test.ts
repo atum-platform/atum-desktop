@@ -2,9 +2,8 @@ import { createHash } from 'node:crypto'
 
 import { expect, it, vi } from 'vitest'
 
-import { memorySecretStore } from '../gate/sessions'
-
 import { WorkT3McpPublication } from './t3-mcp'
+import { memorySecretStore } from './t3-mcp-session'
 
 const DAY = 86_400_000
 const LOCAL = 'http://127.0.0.1:4321'
@@ -17,7 +16,8 @@ const bearer = (n: number) => `${Buffer.from(JSON.stringify({ kind: 'session', s
 function fixture() {
   const state = {
     connectOrigin: CONNECT, linked: true, linkableHere: false, relayUnavailable: false, linkResponseLost: false,
-    badState: false, registrationOrigin: undefined as string | undefined
+    badState: false, registrationOrigin: undefined as string | undefined, probeUnavailable: false,
+    rejectedCredentials: new Set<string>()
   }
   const sessions = new Map<string, string>()
   const records: Array<{ url: string; init?: RequestInit }> = []
@@ -34,6 +34,19 @@ function fixture() {
     if (![LOCAL, state.connectOrigin, RELAY].includes(url.origin)) {throw new Error('unexpected fixture origin')}
 
     switch (url.pathname) {
+      case '/mcp': {
+        const authorization = new Headers(init?.headers).get('authorization') ?? ''
+
+        if (state.rejectedCredentials.has(authorization.replace(/^Bearer /u, ''))) {
+          return Response.json({ error: 'invalid_mcp_credential' }, {
+            status: 401, headers: { 'www-authenticate': 'Bearer error="invalid_token"' }
+          })
+        }
+
+        return state.probeUnavailable
+          ? new Response(null, { status: 530 })
+          : Response.json({ jsonrpc: '2.0', id: 1, result: { supportedVersions: ['2026-07-28'] } })
+      }
       case '/.well-known/oauth-authorization-server':
         return Response.json({ registration_endpoint: `${state.registrationOrigin ?? state.connectOrigin}/oauth/mcp/register` })
       case '/oauth/mcp/register':
@@ -93,7 +106,8 @@ it('uses Connect for discovery and DCR, and loopback Work for pairing, approval 
     `${CONNECT}/.well-known/oauth-authorization-server`,
     `${CONNECT}/oauth/mcp/register`,
     `${LOCAL}/oauth/mcp/decision`,
-    `${LOCAL}/oauth/mcp/token`
+    `${LOCAL}/oauth/mcp/token`,
+    `${CONNECT}/mcp`
   ])
   expect(records[0]?.init).toMatchObject({ credentials: 'include', redirect: 'error' })
   expect(target.pairing.create).toHaveBeenCalledTimes(1)
@@ -165,6 +179,67 @@ it('reuses one live credential across relaunch, revokes orphans and replaces the
   await next.refresh(target)
   expect(auth.revokeSession).toHaveBeenLastCalledWith(sessionId(3))
   expect(target.call).toHaveBeenLastCalledWith('work_t3_mcp_clear', { deviceServiceId: target.deviceServiceId })
+})
+
+it('replaces a listed session after native Connect rejects its bearer, preserving it during a tunnel outage', async () => {
+  const { target, auth, state, sessions, newPublication, advance } = fixture()
+  const publication = newPublication()
+  await publication.refresh(target)
+  advance(60_000)
+
+  state.probeUnavailable = true
+  await publication.refresh(target)
+  expect(target.call).toHaveBeenCalledTimes(1)
+  expect(auth.revokeSession).not.toHaveBeenCalled()
+
+  state.probeUnavailable = false
+  state.rejectedCredentials.add(bearer(1))
+  expect(sessions.has(sessionId(1))).toBe(true)
+  await publication.refresh(target)
+
+  expect(target.call).toHaveBeenCalledTimes(2)
+  expect(target.call).toHaveBeenLastCalledWith('work_t3_mcp_set', expect.objectContaining({
+    credential: bearer(2), expiresAt: START + 30 * DAY + 60_000
+  }))
+  expect(auth.revokeSession).toHaveBeenCalledExactlyOnceWith(sessionId(1))
+
+  await newPublication().refresh(target)
+  expect(target.call).toHaveBeenCalledTimes(2)
+})
+
+it('rotates a legacy receipt once so its replacement can be validated on the next refresh', async () => {
+  const { target, sessions, newPublication } = fixture()
+  sessions.set(sessionId(90), 'Atum Work')
+  target.store.set('t3-mcp-publication', JSON.stringify({
+    published: {
+      deviceServiceId: target.deviceServiceId, connectUrl: `${CONNECT}/mcp`,
+      sessionId: sessionId(90), expiresAt: START + 30 * DAY
+    }
+  }))
+
+  await newPublication().refresh(target)
+  await newPublication().refresh(target)
+
+  expect(target.call).toHaveBeenCalledTimes(1)
+  expect(target.auth.revokeSession).toHaveBeenCalledExactlyOnceWith(sessionId(90))
+})
+
+it('keeps a pending bearer during an outage and drops it if Work later rejects it', async () => {
+  const { target, state, sessions, newPublication } = fixture()
+  state.probeUnavailable = true
+  const publication = newPublication()
+  await expect(publication.refresh(target)).rejects.toThrow('work_t3_mcp_probe_unavailable')
+  expect(target.call).not.toHaveBeenCalled()
+  expect(sessions.has(sessionId(1))).toBe(true)
+
+  state.probeUnavailable = false
+  state.rejectedCredentials.add(bearer(1))
+  await expect(publication.refresh(target)).rejects.toThrow('work_t3_mcp_token_rejected')
+  expect(target.call).not.toHaveBeenCalled()
+  expect(sessions.has(sessionId(1))).toBe(false)
+
+  await publication.refresh(target)
+  expect(target.call).toHaveBeenCalledExactlyOnceWith('work_t3_mcp_set', expect.objectContaining({ credential: bearer(2) }))
 })
 
 it('retries a lost publication acknowledgement after relaunch with the same pending bearer', async () => {

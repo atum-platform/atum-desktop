@@ -624,3 +624,63 @@ An assistant's card that settles as `expired` shows `C.closed`. The other states
   hashes match their files.
 - No desktop source changed, so desktop typecheck, lint and vitest have nothing new to cover. The outbound
   guard results are in the commit.
+
+## Merge of desktop main `3424194e` into waves 4g + 4h (28 Nov)
+
+PR #135 had fallen 20 commits behind main. `origin/main` (`3424194e`) is merged in with a merge commit. No
+`dist/` file conflicted, because main has not touched `packages/mobile-design-exports` or this doc since the
+merge base `52b0d1aa`. The only conflict was `apps/desktop/docs/beta-features-2026-11-25.md`. That file keeps
+main's two new rows (composer paperclip, assistant card Skills, #145) and main's "Checked and left alone"
+note, and adds this branch's sentence on `desktop.surfaces.{comingSoon,comingSoonHelp}` reaching the phone.
+
+The export was then regenerated, not hand-merged. The producer is wave 4h's (atum-app
+`chore/mobile-export-wave4h-keys` `42d51de7`, unchanged). It ran in a scratch root holding the merged tree's
+`apps/desktop` and `packages/atum-kit` (`git write-tree` of the staged merge). After that,
+`wave4/splice4.mjs` ran with an empty spec (`{"families":{},"refresh":{},"remove":{}}`).
+
+### What the regenerated export carries, against the previous head `c0245fd`
+
+- **Catalog, contract and copy map: unchanged.** The splice reports 0 added, 0 refreshed and 0 removed, so
+  the catalog keeps 4187 entries. Every entry the snapshot shares with the producer is byte-identical.
+  `Localizable.xcstrings` keeps `eca4f730…`, so no new identifier is involved and the `reviewed_blobs`
+  question doesn't arise.
+- **Inventory: +1 source.** `apps/desktop/src/matrix/room-upgrade-copy.ts` (`copies`, #160) is new on main.
+- The producer was also run on `c0245fd`'s own tree as a baseline. Its catalog, contract and copy map equal
+  the merged tree's, and only the inventory row above differs.
+
+### Phone-relevant words main added that the export does not carry yet
+
+The phone key list (`phone-export-keys.json`) picks keys one by one. Main's new words are not on it, so this
+merge exports none of them. Adding any of them is a new wave (4i) in the producer, which needs a key list
+change and a test. On main's sources, compared with `c0245fd`, the producer reads 26 new catalog leaves, sees 2
+changed and finds none removed:
+
+| Desktop change | Readable by the producer now | Keys |
+|---|---|---|
+| #160 room upgrade | yes, 7 | `src.matrix.room-upgrade-copy.copies.{continues,earlier,join,moved,open,unavailable,unconfirmed}` |
+| #155 notification modes | yes, 8 new + 2 changed | `shared.matrix-notification-copy.copy.{roomModes.{all,inherit,mentions,nothing},roomModeHelp.{all,mentions,nothing},encryptedMentionsHelp}`; changed: `copy.accountLevel` ("Team space thread messages"), `copy.accountLevelHelp` |
+| #156 threads and pins | yes, 1 | `src.matrix.thread-copy.copy.allThreads` |
+| #154 roster filter | yes, 5 | `src.matrix.roster-create-copy.copies.{filterMenu,filterAll,filterUnread,filterFavourites,filterLowPriority}` |
+| Agent panel, consistency audit (#147) | yes, 5 | `shared.matrix-agent-desk-copy.matrixAgentDeskCopy.{filesUnavailable,noFiles,nothingScheduled,scheduleUnavailable,tryAgain}` |
+| #145 Coming soon entry points | already exported | reuses `desktop.surfaces.{comingSoon,comingSoonHelp}` (wave 4g) |
+| #157 voice, polls, location, stickers | no | the words sit inline in `poll/row.tsx`, `rich-content-dialog.tsx`, `rich-row.tsx` and `voice-note/*.tsx`, not in a copy table. They need lifting into a `-copy.ts` table, or copying into `mobileScreensCopy` |
+| #148 plan pick, #150 New assistant | no | `src/app/connections/first-run-copy.ts` is outside the producer's `src/matrix` scan. Wave 4c's rule applies: copy into `mobileScreensCopy`. #150 adds no copy table keys |
+
+None of the export's existing keys changed wording on main, so the phone needs no rekey for this merge.
+
+### For the phone repin
+
+- Manifest SHA-256: `726ec4a924e886e4e18a616608492d61097e54637c33b62856bd531d57a5fb75` (was
+  `e9136dc388da23f8c88fddfff22d9b63db60abd53023182d8ee6e450bc874c39`).
+- Changed file hash: `copy-inventory.json` `3abfab0efeed360435570dcd1a9adec03d123be9211a250daa33475b0c2110e1`.
+  `Localizable.xcstrings` and `copy-contract.json` are unchanged.
+
+### Checks
+
+- Producer on the merged tree: `export.mjs` and `export.mjs --check` exit 0, and tests pass 48 of 48. The run
+  needed desktop's own dependency versions in the scratch root (`zod` 4.6.6, `nanostores` 1.3.0,
+  `@nanostores/react` 1.1.0, `react` 19.2.7, `@phosphor-icons/core` 2.1.1, `typescript` 6.0.3, `esbuild` 0.28.1).
+  Wave 4g's eight glyph aliases got throwaway entries for the run only, plus `Funnel`, which is new from #154.
+  `glyphs.json` is not spliced, and mapping `Funnel` properly is a separate design-export step.
+- Producer on `c0245fd`: `export.mjs` and `--check` exit 0, without `Funnel`.
+- Splice: 0 added, 0 refreshed, 0 removed. All 44 manifest hashes match their files.

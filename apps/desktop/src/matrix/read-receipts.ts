@@ -17,8 +17,7 @@ export const READ_RETRY_MS = [1_000, 4_000, 15_000] as const
  * is looking at. Local echoes (`~` ids, or still sending) never count: a receipt must name
  * an event the server knows.
  *
- * `matrixRoomTimelineEvents` is the displayed window: ordinary-room SDK threads are flattened
- * into it, while Team Space replies stay in their panel and use per-thread receipts there.
+ * Only the displayed main window counts. Group and Team Space threads use their own receipts.
  */
 export function latestSettledEvent(room: Room): MatrixEvent | undefined {
   const settled = (event: MatrixEvent) => Boolean(event.getId()?.startsWith('$')) && event.status === null

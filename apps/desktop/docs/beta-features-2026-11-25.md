@@ -17,10 +17,19 @@ out as "Coming soon". Nothing is hidden, and no error state appears.
 | Store, pets and apps | Unchanged and purchasable. |
 | Already owned items | Never greyed out. "Owned" and "Try now" still work. |
 | New assistant, "Ready to hire" | Listings show, and each button reads "Coming soon" (disabled). "Make your own" is unchanged. |
+| Composer paperclip, "Add a skill" | Greyed, disabled, with "Coming soon" at the end of the row (`data-composer-plus-coming-soon`). Photos, files and routines are unchanged. (2026-11-26) |
+| Assistant card, Skills popover | The skills the assistant has stay listed. "Find more skills" is greyed and disabled, with "Coming soon" in place of the arrow (`data-assistant-card-skills-coming-soon`). (2026-11-26) |
 
-All labels reuse `t.surfaces.comingSoon` and `t.surfaces.comingSoonHelp`. No new copy strings were added.
-The phone gets both from the mobile design snapshot as `desktop.surfaces.{comingSoon,comingSoonHelp}`
-(wave 4g, `docs/ports/mobile-export-wave4-copy.md`).
+All labels reuse `t.surfaces.comingSoon` and `t.surfaces.comingSoonHelp`. No new copy strings were added,
+so the mobile copy export inventory is unchanged. The phone gets both from the mobile design snapshot as
+`desktop.surfaces.{comingSoon,comingSoonHelp}` (wave 4g, `docs/ports/mobile-export-wave4-copy.md`).
+
+Checked and left alone on 2026-11-26: Settings has no hire or skill entry of its own (an assistant's
+page reuses the card above). Team Space's Marketplace page sits behind the Team Space gate. The Store
+sidebar's Skills and Assistants shelves stay browsable, because every hire and skill card in them
+already reads "Coming soon". The legacy "Browse skills" button in the app capability dialog is not
+wired in the Matrix build (`native-apps.tsx` passes no `onBrowse`). Renewing a paused hire you
+already own is unchanged, since things you already own are never greyed out.
 
 ## How beta is read
 

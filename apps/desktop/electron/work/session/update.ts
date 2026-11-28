@@ -63,7 +63,7 @@ export type UpdateIncarnation = WorkIncarnation
 /**
  * One pin's host. `WorkHost` satisfies it. Without `trial` on the incarnation the
  * driver runs in "main-gated" mode: the new pin starts like any start, no view
- * is paired and the gate stays closed until main records the commit.
+ * is paired until main records the commit.
  */
 export interface PinHost {
   current(): WorkIncarnation | undefined
@@ -82,7 +82,7 @@ export interface UpdateState {
 export type UpdateOutcome =
   | { outcome: 'committed'; pin: PinRef; host: PinHost; incarnation: UpdateIncarnation }
   | { outcome: 'rolled_back'; reason: string; host: PinHost; incarnation?: UpdateIncarnation }
-  | { outcome: 'refused'; reason: 'downgrade' | 'not_newer' | 'insufficient_space' | 'pin_unverified' | 'stops_owed' | 'in_progress' }
+  | { outcome: 'refused'; reason: 'downgrade' | 'not_newer' | 'insufficient_space' | 'pin_unverified' | 'in_progress' }
 
 export type Refusal = Extract<UpdateOutcome, { outcome: 'refused' }>
 
@@ -94,8 +94,6 @@ export interface UpdateDeps {
   hostFor(pin: PinRef): PinHost
   /** Stop whatever is running now (the live pin's host), awaiting teardown. */
   stopRunning(): Promise<void>
-  /** Gate's "stops owed": an update does not start while any is open. */
-  stopsOwed(): boolean
   freeBytes?(path: string): number
   verifyPin?(pin: PinRef): Promise<void>
   /** Event codes only. Never a URL, token or output. */
@@ -127,6 +125,11 @@ export async function verifyPinDigest(pin: PinRef): Promise<void> {
   }
 }
 
+export interface WorkUpdateSelection {
+  id: string
+  select(write: () => void): void
+}
+
 export class UpdateDriver {
   private running = false
 
@@ -148,8 +151,8 @@ export class UpdateDriver {
   }
 
   /**
-   * Every refusal that can be known BEFORE anything stops: an update already running, a downgrade, the same version, a stop
-   * owed (read from the durable stop ledger by the caller's `stopsOwed`), a pin that fails its digest, too little disk. Nothing
+   * Every refusal that can be known BEFORE anything stops: an update already running, a downgrade, the same version, a pin
+   * that fails its digest, too little disk. Nothing
    * is touched by it, so a caller can answer a refusal without closing a view or restarting the server.
    */
   preflight(target: PinRef): Promise<Refusal | undefined> {
@@ -170,10 +173,6 @@ export class UpdateDriver {
       return { outcome: 'refused', reason: 'not_newer' }
     }
 
-    if (deps.stopsOwed()) {
-      return { outcome: 'refused', reason: 'stops_owed' }
-    }
-
     try {
       await (deps.verifyPin ?? verifyPinDigest)(target)
     } catch {
@@ -187,7 +186,7 @@ export class UpdateDriver {
     return undefined
   }
 
-  async update(target: PinRef): Promise<UpdateOutcome> {
+  async update(target: PinRef, planned?: WorkUpdateSelection): Promise<UpdateOutcome> {
     const { deps } = this
 
     // Taken before the first await: a second call during the checks is refused as in progress.
@@ -213,7 +212,7 @@ export class UpdateDriver {
       const committed = this.readState()?.pin ?? running.version
       const previous = running.version === committed ? running : undefined
 
-      return await deps.coordinator.exclusive(() => this.run({ fromVersion: committed, previous }, target))
+      return await deps.coordinator.exclusive(() => this.run({ fromVersion: committed, previous }, target, planned))
     } finally {
       this.running = false
     }
@@ -261,7 +260,7 @@ export class UpdateDriver {
     })
   }
 
-  private async run(current: { fromVersion: string; previous: PinRef | undefined }, target: PinRef): Promise<UpdateOutcome> {
+  private async run(current: { fromVersion: string; previous: PinRef | undefined }, target: PinRef, planned?: WorkUpdateSelection): Promise<UpdateOutcome> {
     const { deps } = this
     const { coordinator, paths } = deps
     const log = (event: string) => deps.log?.(redactPairingSecrets(event))
@@ -274,19 +273,21 @@ export class UpdateDriver {
 
     // 2. Snapshot the stopped home. The manifest is written last; the marker
     //    moves to `pending` only once the snapshot is durable.
-    const snapshotId = randomUUID()
+    const snapshotId = planned?.id ?? randomUUID()
     this.takeSnapshot(snapshotId, current.fromVersion, target.version)
     coordinator.markers.advance('pending', snapshotId)
     log('update_snapshot_taken')
 
-    // 3. Trial. Nothing is paired, no view is handed a grant, and the gate stays
+    // 3. Trial. Nothing is paired, no view is handed a grant; Work stays
     //    closed (the caller holds `updateInProgress`) until commit.
     const host = deps.hostFor(target)
     let incarnation: UpdateIncarnation | undefined
 
+    let selected = false
+
     try {
       incarnation = await host.start({
-        continuation: false,
+        continuation: Boolean(planned),
         resources: target.resources,
         trial: {
           protocol: 4,
@@ -301,22 +302,36 @@ export class UpdateDriver {
         }
       })
 
+      if (planned && !incarnation.trial) {throw new WorkSessionError('work_trial_required')}
       if (incarnation.trial) {
         const { trial } = incarnation
         await withDeadline(trial.prepared, deps.prepareWithinMs ?? 20_000)
         log('update_trial_prepared')
-        await withDeadline(trial.commit(), deps.commitWithinMs ?? 25_000)
+      }
+
+      const state = this.readState()
+      const select = () => {
+        this.writeState({ version: 1, pin: target.version, committed: [...(state?.committed ?? []), snapshotId] })
+        selected = true
+      }
+      if (planned) {planned.select(select)} else {select()}
+
+      if (incarnation.trial) {
+        await withDeadline(incarnation.trial.commit(), deps.commitWithinMs ?? 25_000)
       }
     } catch (error) {
+      if (selected) {
+        // The child may have received committed and started effects before the
+        // relay failed. Leave the snapshot marker for forward recovery.
+        await host.stop()
+        log('update_selected_ack_failed')
+        throw new WorkSessionError('work_update_activation_unconfirmed')
+      }
       log('update_trial_failed')
 
       return this.rollback(host, current.previous, redactPairingSecrets(error instanceof Error ? error.message : 'trial_failed'))
     }
 
-    // 4. Commit. The record that makes a downgrade impossible is written
-    //    before the marker is cleared, so a crash between them is a commit.
-    const state = this.readState()
-    this.writeState({ version: 1, pin: target.version, committed: [...(state?.committed ?? []), snapshotId] })
     coordinator.markers.clear()
     rmSync(paths.snapshot, { recursive: true, force: true })
     log('update_committed')

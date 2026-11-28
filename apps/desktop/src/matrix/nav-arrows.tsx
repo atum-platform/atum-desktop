@@ -60,7 +60,8 @@ export function MatrixNavArrows() {
     const label = copy[direction]
 
     return (
-      <Tip label={`${label} ${direction === 'back' ? '⌘[' : '⌘]'}`}>
+      // In the title band: sideways, never down over a native view (owner 2026-11-27).
+      <Tip label={`${label} ${direction === 'back' ? '⌘[' : '⌘]'}`} side={direction === 'back' ? 'left' : 'right'}>
         <button
           aria-disabled={enabled ? undefined : true}
           aria-label={label}

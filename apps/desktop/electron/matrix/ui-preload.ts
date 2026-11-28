@@ -131,13 +131,10 @@ const bridge: MatrixUiBridge = {
     show: rect => ipcRenderer.invoke(MATRIX_WORK_IPC.request, { kind: 'show', rect }),
     hide: () => ipcRenderer.invoke(MATRIX_WORK_IPC.request, { kind: 'hide' }),
     retry: () => ipcRenderer.invoke(MATRIX_WORK_IPC.request, { kind: 'retry' }),
-    allowAssistants: () => ipcRenderer.invoke(MATRIX_WORK_IPC.request, { kind: 'allowAssistants' }),
-    setAssistants: on => ipcRenderer.invoke(MATRIX_WORK_IPC.request, { kind: 'setAssistants', on }),
-    setPlan: on => ipcRenderer.invoke(MATRIX_WORK_IPC.request, { kind: 'setPlan', on }),
     setWork: on => ipcRenderer.invoke(MATRIX_WORK_IPC.request, { kind: 'setWork', on }),
-    reconnectAssistants: () => ipcRenderer.invoke(MATRIX_WORK_IPC.request, { kind: 'reconnectAssistants' }),
     openPlanConnect: plan => ipcRenderer.invoke(MATRIX_WORK_IPC.request, plan ? { kind: 'openPlanConnect', plan } : { kind: 'openPlanConnect' }),
     readConnections: () => ipcRenderer.invoke(MATRIX_WORK_IPC.request, { kind: 'readConnections' }),
+    readPlanLabels: () => ipcRenderer.invoke(MATRIX_WORK_IPC.request, { kind: 'readPlanLabels' }),
     readAgentPlans: principal => ipcRenderer.invoke(MATRIX_WORK_IPC.request, { kind: 'readAgentPlans', principal }),
     selectRelay: (principal, model, plan) => ipcRenderer.invoke(MATRIX_WORK_IPC.request, { kind: 'selectRelay', principal, model, ...(plan ? { plan } : {}) }),
     readPlanConsent: plan => ipcRenderer.invoke(MATRIX_WORK_IPC.request, { kind: 'readPlanConsent', ...(plan ? { plan } : {}) }),
@@ -338,7 +335,7 @@ const bridge: MatrixUiBridge = {
     history: before => ipcRenderer.invoke(channel.ui, { kind: 'walletHistory', before })
   },
   voice: {
-    microphone: roomId => ipcRenderer.invoke(MATRIX_VOICE_IPC.microphone, roomId),
+    microphone: (roomId, mode) => ipcRenderer.invoke(MATRIX_VOICE_IPC.microphone, roomId, mode),
     settings: roomId => ipcRenderer.invoke(MATRIX_VOICE_IPC.request, { kind: 'settings', roomId }),
     transcribe: (roomId, dataUrl, mimeType) =>
       ipcRenderer.invoke(MATRIX_VOICE_IPC.request, { kind: 'transcribe', roomId, dataUrl, mimeType }),
@@ -502,13 +499,13 @@ const bridge: MatrixUiBridge = {
   },
   windowFacts: () => ipcRenderer.invoke(MATRIX_WINDOW_CHANNELS.facts),
   onDocumentClose: prepare => {
-    const receive = (_event: Electron.IpcRendererEvent, id: unknown) => {
+    const receive = (_event: Electron.IpcRendererEvent, id: unknown, updating: unknown) => {
       if (typeof id !== 'string') {
         return
       }
 
       void Promise.resolve()
-        .then(prepare)
+        .then(() => prepare(updating === true))
         .then(
           () => ipcRenderer.send(MATRIX_WINDOW_CHANNELS.documentCloseReady, id, true),
           () => ipcRenderer.send(MATRIX_WINDOW_CHANNELS.documentCloseReady, id, false)

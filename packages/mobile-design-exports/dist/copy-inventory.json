@@ -286,6 +286,12 @@
       "tables": []
     },
     {
+      "source": "apps/desktop/src/matrix/room-upgrade-copy.ts",
+      "tables": [
+        "copies"
+      ]
+    },
+    {
       "source": "apps/desktop/src/matrix/roster-copy.ts",
       "tables": [
         "copies"

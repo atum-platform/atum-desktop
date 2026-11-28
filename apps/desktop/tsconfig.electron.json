@@ -24,7 +24,7 @@
   // transaction adapter against the actual file lease and export services.
   // The Matrix SDK seam's contract and command queue are DOM-free too: the main process
   // keeps one queue per SDK window, and browser and headless hosts share it (G8-36).
-  "include": ["shared/work-question.ts",
+  "include": ["vendor/t3-updates/apps/desktop/src/**/*.ts", "vendor/t3-updates/packages/**/*.ts", "shared/work-question.ts",
     "shared/beta-features.ts",
     "shared/app-panel.ts",
     "shared/gmail-compose.ts",
@@ -118,6 +118,7 @@
     "shared/matrix-undecryptable.ts",
     "shared/matrix-device-trust.ts",
     "shared/matrix-voice.ts",
+    "shared/matrix-rich-content.ts",
     "shared/matrix-voice-settings.ts",
     "shared/matrix-voice-settings-copy.ts",
     "shared/matrix-login-startup.ts",
@@ -206,6 +207,9 @@
     "shared/matrix-window-failure.ts",
     "shared/matrix-work.ts",
     "shared/account-connections.ts",
+    "shared/first-run-labels.ts",
+    "shared/first-run-pick.ts",
+    "shared/matrix-first-run-greeting.ts",
     "shared/matrix-work-relay.ts",
     "shared/matrix-hermes-activity.ts",
     "shared/matrix-turn.ts",
@@ -239,6 +243,7 @@
     "shared/matrix-progress-line.ts",
     "shared/matrix-progress-marker.ts",
     "shared/matrix-room-shared.ts",
+    "shared/matrix-room-upgrade.ts",
     "shared/matrix-progress-transaction.ts",
     "shared/matrix-turn-voice.ts",
     "shared/matrix-turn-style.ts",

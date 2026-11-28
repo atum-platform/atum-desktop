@@ -29,7 +29,7 @@ export interface AccountConnectProgress {
 
 export const $accountConnectProgress = atom<AccountConnectProgress | null>(null)
 
-export type ConnectionsBridge = Pick<MatrixWorkBridge, 'openPlanConnect' | 'readPlanConsent' | 'setPlan' | 'setPlanConsent'> &
+export type ConnectionsBridge = Pick<MatrixWorkBridge, 'openPlanConnect' | 'readPlanConsent' | 'setPlanConsent'> &
   Partial<Pick<MatrixWorkBridge, 'readConnections'>>
 
 function workBridge(): ConnectionsBridge | undefined {
@@ -87,16 +87,14 @@ export function closeAccountConnect(): void {
 /**
  * Q1 (owner 11-23): connecting a plan is the consent for every assistant of the account, through this Mac. The platform's record
  * still names assistants and Macs (C5 makes "all" a value), so this names every assistant Work knows and this Mac, scheduled work
- * included (Q2), then turns this Mac's switch on. Best effort: a failure here never blocks the plan, which still works in Work, and
+ * included (Q2). Best effort: a failure here never blocks the plan, which still works in Work, and
  * a cloud turn that cannot use it answers on Nguyệt Thực.
  */
-export async function grantAccountPlanUse(bridge: ConnectionsBridge, plan: AccountPlan): Promise<boolean> {
+export async function grantAccountPlanUse(bridge: Pick<ConnectionsBridge, 'readPlanConsent' | 'setPlanConsent'>, plan: AccountPlan): Promise<boolean> {
   try {
     const consent = await bridge.readPlanConsent(plan)
     // Reader-first rollout: retain the server's all-owner scope without sending "all" yet.
     if (consent.state === 'on' && consent.allOwnerAgents) {
-      await bridge.setPlan(true)
-
       return true
     }
     const thisMac = consent.macs.find(mac => mac.thisMac)
@@ -109,10 +107,8 @@ export async function grantAccountPlanUse(bridge: ConnectionsBridge, plan: Accou
     const macs = [...new Set([...(consent.state === 'on' ? consent.macs.filter(mac => mac.named).map(mac => mac.id) : []), thisMac.id])]
 
     await bridge.setPlanConsent({ agents, macs, alsoWhenScheduled: true }, plan)
-    await bridge.setPlan(true)
     return true
   } catch {
-    // The per-Mac switch in Connections still turns it on by hand.
     return false
   }
 }

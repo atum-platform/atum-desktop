@@ -31,6 +31,7 @@ interface DeviceSettingsWords {
   allowFailed: string
   unavailable: string
   active: string
+  /** The device-wide stop: it ends every agent's use of this Mac, not one chat's turn. */
   stopNow: string
   capability: Record<string, string>
 }
@@ -61,7 +62,7 @@ const words: Record<DeviceSettingsLocale, DeviceSettingsWords> = {
     allowFailed: 'Not added: Touch ID was cancelled.',
     unavailable: 'This Mac cannot run commands for agents right now.',
     active: 'An agent is using this Mac now.',
-    stopNow: 'Stop now',
+    stopNow: 'Stop all agents',
     capability: {
       ssh_agent: 'Use the SSH agent',
       keychain: 'Use the Keychain',
@@ -101,7 +102,7 @@ const words: Record<DeviceSettingsLocale, DeviceSettingsWords> = {
     allowFailed: 'Chưa thêm: Touch ID đã bị huỷ.',
     unavailable: 'Máy Mac này hiện chưa thể chạy lệnh cho trợ lý.',
     active: 'Một trợ lý đang dùng máy Mac này.',
-    stopNow: 'Dừng ngay',
+    stopNow: 'Dừng mọi trợ lý',
     capability: {
       ssh_agent: 'Dùng SSH agent',
       keychain: 'Dùng Keychain',
@@ -141,7 +142,7 @@ const words: Record<DeviceSettingsLocale, DeviceSettingsWords> = {
     allowFailed: '追加されませんでした。Touch ID がキャンセルされました。',
     unavailable: 'この Mac は現在エージェントのコマンドを実行できません。',
     active: 'エージェントがこの Mac を使用中です。',
-    stopNow: '今すぐ停止',
+    stopNow: 'すべてのエージェントを停止',
     capability: {
       ssh_agent: 'SSH エージェントを使用',
       keychain: 'キーチェーンを使用',
@@ -181,7 +182,7 @@ const words: Record<DeviceSettingsLocale, DeviceSettingsWords> = {
     allowFailed: '未添加：Touch ID 已取消。',
     unavailable: '这台 Mac 目前无法为助手运行命令。',
     active: '有助手正在使用这台 Mac。',
-    stopNow: '立即停止',
+    stopNow: '停止所有助手',
     capability: {
       ssh_agent: '使用 SSH 代理',
       keychain: '使用钥匙串',
@@ -221,7 +222,7 @@ const words: Record<DeviceSettingsLocale, DeviceSettingsWords> = {
     allowFailed: '未新增：Touch ID 已取消。',
     unavailable: '這台 Mac 目前無法為助理執行指令。',
     active: '有助理正在使用這台 Mac。',
-    stopNow: '立即停止',
+    stopNow: '停止所有助理',
     capability: {
       ssh_agent: '使用 SSH 代理',
       keychain: '使用鑰匙圈',

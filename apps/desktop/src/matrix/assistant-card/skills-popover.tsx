@@ -1,5 +1,9 @@
+import { useStore } from '@nanostores/react'
+
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { useI18n } from '@/i18n'
 import { ArrowUpRight, ChevronRight } from '@/lib/icons'
+import { $betaFeatures } from '@/store/beta-features'
 
 import { useAssistantCardCopy } from './copy'
 
@@ -13,6 +17,9 @@ export function skillLabel(name: string): string {
 /** Card 2's "Skills · N": a short read-only list, and the way to find more. */
 export function SkillsRow({ onFindMore, skills }: { onFindMore?(): void; skills: readonly string[] }) {
   const copy = useAssistantCardCopy()
+  const { t } = useI18n()
+  // Finding skills waits for beta accounts (store/beta-features.ts); the skills it has stay listed.
+  const soon = !useStore($betaFeatures).granted
 
   if (!skills.length) {
     return null
@@ -44,12 +51,19 @@ export function SkillsRow({ onFindMore, skills }: { onFindMore?(): void; skills:
           <>
             <div aria-hidden className="mx-2 my-1 h-px bg-(--atum-line)" />
             <button
-              className="atum-row flex h-8 w-full items-center gap-2 px-2.5 text-left text-(length:--atum-t-ui)"
+              aria-label={soon ? `${copy.findSkills}: ${t.surfaces.comingSoon}` : undefined}
+              className="atum-row flex h-8 w-full items-center gap-2 px-2.5 text-left text-(length:--atum-t-ui) disabled:pointer-events-none disabled:opacity-50"
+              data-assistant-card-skills-coming-soon={soon ? true : undefined}
+              disabled={soon}
               onClick={onFindMore}
               type="button"
             >
               <span className="min-w-0 flex-1 truncate">{copy.findSkills}</span>
-              <ArrowUpRight aria-hidden className="size-3.5 text-(--atum-ink-faint)" />
+              {soon ? (
+                <span className="shrink-0">{t.surfaces.comingSoon}</span>
+              ) : (
+                <ArrowUpRight aria-hidden className="size-3.5 text-(--atum-ink-faint)" />
+              )}
             </button>
           </>
         )}

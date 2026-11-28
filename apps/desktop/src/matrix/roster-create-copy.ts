@@ -70,7 +70,12 @@ const en = {
   hirePrice: (amount: string) => `${amount} Protons/month`,
   hiring: (name: string) => `Hiring ${name}…`,
   hired: (name: string) => `${name} is in your chats.`,
-  hireFailed: (name: string) => `Couldn't hire ${name}. Try again.`
+  hireFailed: (name: string) => `Couldn't hire ${name}. Try again.`,
+  filterMenu: 'Filter',
+  filterAll: 'All',
+  filterUnread: 'Unread',
+  filterFavourites: 'Favourites',
+  filterLowPriority: 'Low priority'
 }
 
 type RosterCreateCopy = typeof en
@@ -142,7 +147,12 @@ const vi: RosterCreateCopy = {
   hirePrice: amount => `${amount} Proton/tháng`,
   hiring: name => `Đang thuê ${name}…`,
   hired: name => `${name} đã có trong danh sách trò chuyện.`,
-  hireFailed: name => `Chưa thuê được ${name}. Hãy thử lại.`
+  hireFailed: name => `Chưa thuê được ${name}. Hãy thử lại.`,
+  filterMenu: 'Lọc',
+  filterAll: 'Tất cả',
+  filterUnread: 'Chưa đọc',
+  filterFavourites: 'Yêu thích',
+  filterLowPriority: 'Ưu tiên thấp'
 }
 
 const ja: RosterCreateCopy = {
@@ -212,7 +222,12 @@ const ja: RosterCreateCopy = {
   hirePrice: amount => `月額 ${amount} Proton`,
   hiring: name => `${name} を雇っています…`,
   hired: name => `${name} がチャットに加わりました。`,
-  hireFailed: name => `${name} を雇えませんでした。もう一度お試しください。`
+  hireFailed: name => `${name} を雇えませんでした。もう一度お試しください。`,
+  filterMenu: 'フィルター',
+  filterAll: 'すべて',
+  filterUnread: '未読',
+  filterFavourites: 'お気に入り',
+  filterLowPriority: '低優先度'
 }
 
 const zh: RosterCreateCopy = {
@@ -281,7 +296,12 @@ const zh: RosterCreateCopy = {
   hirePrice: amount => `每月 ${amount} Proton`,
   hiring: name => `正在聘请 ${name}…`,
   hired: name => `${name} 已加入你的聊天。`,
-  hireFailed: name => `未能聘请 ${name}。请重试。`
+  hireFailed: name => `未能聘请 ${name}。请重试。`,
+  filterMenu: '筛选',
+  filterAll: '全部',
+  filterUnread: '未读',
+  filterFavourites: '收藏',
+  filterLowPriority: '低优先级'
 }
 
 const zhHant: RosterCreateCopy = {
@@ -350,7 +370,12 @@ const zhHant: RosterCreateCopy = {
   hirePrice: amount => `每月 ${amount} Proton`,
   hiring: name => `正在聘請 ${name}…`,
   hired: name => `${name} 已加入你的聊天。`,
-  hireFailed: name => `無法聘請 ${name}。請再試一次。`
+  hireFailed: name => `無法聘請 ${name}。請再試一次。`,
+  filterMenu: '篩選',
+  filterAll: '全部',
+  filterUnread: '未讀',
+  filterFavourites: '我的最愛',
+  filterLowPriority: '低優先順序'
 }
 
 const copies: Record<Locale, RosterCreateCopy> = { en, vi, ja, zh, 'zh-hant': zhHant }

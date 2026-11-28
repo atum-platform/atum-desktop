@@ -393,7 +393,12 @@ export function ModelDestinationsRow({
             }}
             side="bottom"
             subscriptionBridge={local ? cardSubscriptions(homeView, choice) : undefined}
-            trigger={
+            trigger={answering => {
+              // A cloud row names what answers now, as the composer's chip does: a Mac plan's
+              // model while one is selected, else this choice's own model.
+              const shown = choice.kind === 'cloud' && answering.plan ? answering.plan : label
+
+              return (
               <button
                 aria-haspopup="dialog"
                 className="atum-settings-row atum-settings-link"
@@ -403,8 +408,8 @@ export function ModelDestinationsRow({
                 <span className="atum-settings-row-title shrink-0">
                   {cloudOnly ? copy.modelPicker : destinationName(locale, choice)}
                 </span>
-                <span className="atum-card-row-value ms-auto" title={label}>
-                  {label}
+                <span className="atum-card-row-value ms-auto" title={shown}>
+                  {shown}
                 </span>
                 {!cloudOnly && !choice.external && !choice.shelf && choice.current === view.recommended && (
                   <span className={BADGE} data-assistant-card-model-recommended>
@@ -413,7 +418,8 @@ export function ModelDestinationsRow({
                 )}
                 <ChevronRight aria-hidden className="atum-settings-chevron" />
               </button>
-            }
+              )
+            }}
           />
         )
       })}

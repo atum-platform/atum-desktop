@@ -34,7 +34,6 @@ function lab(overrides: Partial<UpdateDeps> = {}) {
         await hosts[V1.version].stop()
         await hosts[V2.version].stop()
       },
-      stopsOwed: () => false,
       freeBytes: () => 1e12,
       verifyPin: async () => undefined,
       log: event => void log.push(event),
@@ -106,8 +105,8 @@ describe('main-owned update: success path', () => {
   })
 
   it('answers committed through the trial handle only after prepared, once', async () => {
-    const commit = vi.fn(async () => undefined)
     const { hosts, driver } = lab()
+    const commit = vi.fn(async () => {expect(driver.readState()?.pin).toBe(V2.version)})
     hosts[V2.version].trialMode = () => ({ prepared: Promise.resolve(), commit })
 
     expect((await driver.update(V2)).outcome).toBe('committed')
@@ -119,7 +118,6 @@ describe('main-owned update: preflight refusals change nothing', () => {
   it.each([
     ['pin_unverified', { verifyPin: async () => { throw new Error('digest') } }],
     ['insufficient_space', { freeBytes: () => 1024 }],
-    ['stops_owed', { stopsOwed: () => true }]
   ] as const)('refuses %s before stopping anything', async (reason, overrides) => {
     const { home, events, driver } = lab(overrides)
     const before = fixtures(home)
@@ -173,7 +171,6 @@ describe('main-owned update: a failed trial restores, then resets, then starts t
 
   it.each([
     ['start throws', (h: FakeHost) => { h.failStart = true }],
-    ['commit is too slow', (h: FakeHost) => { h.trialMode = () => ({ prepared: Promise.resolve(), commit: () => new Promise<void>(() => undefined) }) }],
     ['prepared never arrives', (h: FakeHost) => { h.trialMode = () => ({ prepared: new Promise<void>(() => undefined), commit: async () => undefined }) }]
   ])('rolls back when %s', async (_name, break_) => {
     const { hosts, driver, home } = lab({ prepareWithinMs: 40, commitWithinMs: 40 })
@@ -185,6 +182,19 @@ describe('main-owned update: a failed trial restores, then resets, then starts t
     expect(outcome.outcome).toBe('rolled_back')
     expect(before.anyAccepted()).toBe(false)
     expect(driver.readState()?.pin ?? '0.1.11').toBe('0.1.11')
+  })
+
+  it('recovers forward when acknowledgement fails after durable selection', async () => {
+    const { hosts, driver } = lab()
+    hosts[V2.version].trialMode = () => ({
+      prepared: Promise.resolve(),
+      commit: async () => {throw new Error('activation acknowledgement failed')}
+    })
+
+    await expect(driver.update(V2)).rejects.toThrow('work_update_activation_unconfirmed')
+    expect(driver.readState()?.pin).toBe(V2.version)
+    await expect(driver.recover()).resolves.toBe('committed')
+    expect(driver.readState()?.pin).toBe(V2.version)
   })
 
   it('reports no incarnation when the old pin cannot restart, and keeps nothing live', async () => {

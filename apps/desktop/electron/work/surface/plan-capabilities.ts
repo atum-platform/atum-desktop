@@ -1,7 +1,10 @@
 import { z } from 'zod'
 
-import type { PlanCapabilities } from '../gate/plan-fact'
+import type { FirstRunLabels } from '../../../shared/first-run-labels'
+import type { FirstRunProvider } from '../../../shared/first-run-pick'
 import { PLAN_PROVIDER_BY_INSTANCE } from '../plan-providers'
+
+import type { PlanCapabilities } from './plan-facts'
 
 const modelId = /^[A-Za-z0-9][A-Za-z0-9._/-]{0,199}$/u
 const modelLabel = /^[A-Za-z0-9][A-Za-z0-9 ._()/+:-]{0,119}$/u
@@ -76,6 +79,55 @@ export function projectPlanCapabilities(providers: unknown): PlanCapabilities {
     result[provider] = {
       state: 'connected',
       ...(catalog.size ? { models: [...catalog].map(([id, displayName]) => ({ id, displayName })) } : {})
+    }
+  }
+
+  return result
+}
+
+/** T3's built-in instances for the four first-run connections (OpenCode is T3's own `opencode` driver). */
+const FIRST_RUN_INSTANCE = {
+  claudeAgent: 'claude',
+  codex: 'codex',
+  antigravity: 'antigravity',
+  opencode: 'opencode'
+} as const satisfies Record<string, FirstRunProvider>
+
+// A plan name only: letters, digits and simple punctuation, never an address (no "@"), at most 60 characters.
+const planLabel = /^[A-Za-z0-9][A-Za-z0-9 ._()+:/-]{0,59}$/u
+
+/**
+ * This Mac's four connections as T3 reports them, for the first chat's Connections rows and the automatic pick. Local only:
+ * it stays on this Mac (main → its own window). The account email T3 also holds is never read.
+ * - `ready`: installed and signed in (any login kind; the pick decides what may be used);
+ * - `signed_out`: installed or configured, not signed in;
+ * - `not_installed`: T3 cannot find the client.
+ * A provider T3 does not list, or whose probe has not answered, is left out (the row reads Connect).
+ */
+export function projectPlanLabels(providers: unknown): FirstRunLabels {
+  const result: FirstRunLabels = {}
+
+  if (!Array.isArray(providers)) {return result}
+
+  for (const value of providers) {
+    const parsed = nativeProvider.extend({ auth: nativeProvider.shape.auth.extend({ label: z.string().optional() }) }).safeParse(value)
+
+    if (!parsed.success) {continue}
+
+    const { instanceId, driver, enabled, installed, status, auth } = parsed.data
+
+    if (instanceId !== driver || !Object.hasOwn(FIRST_RUN_INSTANCE, instanceId)) {continue}
+
+    const provider = FIRST_RUN_INSTANCE[instanceId as keyof typeof FIRST_RUN_INSTANCE]
+
+    if (!installed) {
+      result[provider] = { state: 'not_installed' }
+    } else if (!enabled || status === 'disabled' || auth.status === 'unauthenticated') {
+      result[provider] = { state: 'signed_out' }
+    } else if (auth.status === 'authenticated') {
+      const label = auth.label?.trim()
+
+      result[provider] = { state: 'ready', ...(label && planLabel.test(label) ? { label } : {}) }
     }
   }
 

@@ -37,9 +37,11 @@ import {
 } from '@/app/atum/shell-surface'
 import { ComposerSurface } from '@/app/chat/composer/composer-surface'
 import { AccountConnectSheet } from '@/app/connections/connect-sheet'
+import { FirstRunConnections } from '@/app/connections/first-run-connections'
+import { useFirstRunAutoPick } from '@/app/connections/use-first-run-auto-pick'
 import { workCopy } from '@/app/work/copy'
 import { WorkRelayMessageLine } from '@/app/work/relay-chrome'
-import { $work, $workActive, connectWorkBridge, loadWorkEnrollmentDeferred, setWorkActive, workOnRail } from '@/app/work/store'
+import { $work, $workActive, connectWorkBridge, setWorkActive, workOnRail } from '@/app/work/store'
 import { WorkScreen } from '@/app/work/work-screen'
 import { MarkdownContent } from '@/components/assistant-ui/markdown-surface'
 import { Button } from '@/components/ui/button'
@@ -55,7 +57,6 @@ import {
 import { EmptyState } from '@/components/ui/empty-state'
 import { NoticeBand } from '@/components/ui/error-state'
 import { Loader } from '@/components/ui/loader'
-import { SearchField } from '@/components/ui/search-field'
 import { SegmentedControl } from '@/components/ui/segmented-control'
 import { Switch } from '@/components/ui/switch'
 import { Tip } from '@/components/ui/tooltip'
@@ -144,6 +145,7 @@ import {
 } from '../../shared/matrix-notes-self'
 import type { MatrixPageId } from '../../shared/matrix-pages'
 import type { MatrixProfileTarget } from '../../shared/matrix-profile'
+import { matrixHumanVoiceRoom } from '../../shared/matrix-rich-content'
 import type { MatrixSavedMessagesSnapshot } from '../../shared/matrix-saved-messages'
 import { isMatrixVerificationPending } from '../../shared/matrix-security'
 import { matrixFoldSubscriptionFallbacks, matrixLatestAnswerFallback } from '../../shared/matrix-subscription-fallback'
@@ -169,6 +171,8 @@ import {
 import { matrixAgentDeskAgent, matrixAgentDeskSteers } from './agent-desk-model'
 import { useMatrixAgentHandleBackfill } from './agent-handle-backfill'
 import { agentHomeTitleIconShown, MatrixAgentHomeRow } from './agent-home-control'
+import { bindAgentPlansAccount } from './agent-plans-store'
+import { NewAssistantButton } from './agent-roster'
 import { authorizedBotApi, botApiAppForMessage, isBotApiRoom } from './app-bots/bot-api'
 import { MatrixBotApiKeyboard, MatrixBotApiText } from './app-bots/bot-api-text'
 import { MatrixBotApiPhotoView } from './app-bots/bot-photo'
@@ -205,7 +209,7 @@ import {
   withAssistantNames
 } from './assistant-card'
 import { useAssistantCardCopy } from './assistant-card/copy'
-import { MatrixAssistantInfoPanel } from './assistant-info-panel'
+import { MatrixAssistantInfoPanel, matrixAssistantPanelRoom } from './assistant-info-panel'
 import { matrixComposerHint, useAttentionCopy } from './attention-copy'
 import {
   MatrixAttentionAnnouncer,
@@ -213,6 +217,7 @@ import {
   useMatrixApprovalSheet,
   useMatrixAttentionSummary
 } from './attention-indicator'
+import { checkpointBrowserForUpdate } from './browser-update-checkpoint'
 import { useChatCopy } from './chat-copy'
 import {
   aboutAppBot,
@@ -321,6 +326,8 @@ import {
   matrixFirstRunPlace,
   MatrixFolderAccessRecovery
 } from './first-run-card'
+import { firstRunGreetingSeed, firstRunGreetingSent, withoutFirstRunGreetingSeed } from './first-run-greeting'
+import { FirstRunGreetingSender } from './first-run-greeting-sender'
 import { MatrixForwardDialog } from './forward-dialog'
 import {
   matrixForwardNeedsLocalInvocation,
@@ -345,6 +352,7 @@ import {
 import { MatrixGroupHeaderTopic } from './group-details'
 import { groupRecipientChoice, useGroupRoomPolicy } from './group-room-policy'
 import { groupRoomCopy, GroupRoomSettings } from './group-room-settings'
+import { GroupThreadPreview } from './group-thread-preview'
 import { HermesPrompts } from './hermes-prompts'
 import {
   $matrixHistoryReveal,
@@ -353,6 +361,7 @@ import {
   companyHistoryRevealProjected,
   revealMatrixHistoryMessage
 } from './history-search'
+import { registerInAppBrowser } from './in-app-links'
 import { invocationCopy, invocationNoticeVisible } from './invocation-notice'
 import { MatrixLanguageProvider } from './language'
 import { matrixChatRoomToOpen, matrixRememberedChat, rememberMatrixLastChat } from './last-chat'
@@ -416,6 +425,7 @@ import {
   mergeOutgoingEchoes,
   settleOutgoingEcho
 } from './outgoing-echo'
+import { MatrixPanelSearch, MatrixPanelSearchRow } from './panel-search'
 import { MatrixPeerIdentityPanel } from './peer-identity-panel'
 import { directRoomWith } from './people'
 import { useMatrixHandleContacts } from './person-handle-contacts'
@@ -454,6 +464,8 @@ import { useMatrixReadAttention } from './read-attention'
 import { matrixFirstUnreadMessageId } from './read-marker'
 import { matrixReadinessCopy, matrixSetupCooldown } from './readiness-copy'
 import { ResultRecoveryOutcome, useResultRecovery } from './result-recovery'
+import { MatrixRichContentDialog } from './rich-content-dialog'
+import { MatrixRichRow } from './rich-row'
 import {
   $matrixRightPanel,
   MATRIX_RIGHT_PANEL_MIN_WINDOW,
@@ -462,10 +474,19 @@ import {
   setMatrixRightPanel
 } from './right-panel'
 import { anyAgentPrompts, assistantTarget, primaryAgent, snapshotForRoom } from './room-agent'
+import { RoomUpgradeBand } from './room-upgrade-band'
 import { MatrixRosterConversations } from './roster-conversations'
 import { useRosterCopy } from './roster-copy'
-import { MatrixRosterCreate, type MatrixRosterCreation } from './roster-create'
+import { matrixCanCreateAssistant, MatrixRosterCreate, type MatrixRosterCreation } from './roster-create'
 import { useRosterCreateCopy } from './roster-create-copy'
+import {
+  $matrixRosterFilterByAccount,
+  availableMatrixRosterFilters,
+  effectiveMatrixRosterFilter,
+  matrixRememberedRosterFilter,
+  rememberMatrixRosterFilter
+} from './roster-filter'
+import { MatrixRosterFilterButton } from './roster-filter-button'
 import { matrixRosterGlobalSearchPending, useMatrixRosterGlobalSearch } from './roster-global-search'
 import { matrixPrimaryAgentName, matrixRosterAgentName, normalizeMatrixRosterQuery, projectMatrixRoster } from './roster-model'
 import { matrixAgentConversationRoom } from './roster-preview'
@@ -554,6 +575,7 @@ import { useShellShortcuts } from './use-shell-shortcuts'
 import { useVideoConsentAsk } from './video-consent-ask'
 import { VideoConsentCard } from './video-consent-card'
 import { MatrixVoiceDictation, useMatrixReadAloud } from './voice'
+import { MatrixVoiceLedge, MatrixVoiceStart, useMatrixVoiceNote } from './voice-note/composer'
 import { matrixWalletCopy } from './wallet-copy'
 import { useMatrixWalletHistory } from './wallet-ui'
 import { MatrixWebPreviewOfferCard } from './web-preview-offer'
@@ -636,6 +658,8 @@ const ConversationActions = createContext<{
   composer?: MatrixComposerActions | null
   /** The newest answer keeps its action row in sight. */
   latestAnswerId?: string
+  /** The assistant's first-run greeting: the Connections block stays right under it in the chat's history. */
+  firstRunGreetingReplyId?: string
   /** Your newest message: nothing under it says "Sent" any more, but the composer keeps its
    * starter prompts only until you have written once. */
   latestOwnId?: string
@@ -1434,6 +1458,16 @@ function MatrixEventMessageBubble() {
               <MatrixBotApiKeyboard keyboard={botApi.keyboard} />
               {bubbleMeta && <div className="flex justify-end" data-matrix-meta-after>{bubbleMeta}</div>}
             </>
+          ) : message.rich && settled && action ? (
+            <>
+              <MatrixRichRow
+                key={`${action.room.id}:${message.id}`}
+                message={message}
+                room={action.room}
+                save={message.attachment ? () => eventCommand('download') : undefined}
+              />
+              {bubbleMeta && <div className="flex justify-end" data-matrix-meta-after>{bubbleMeta}</div>}
+            </>
           ) : message.attachment && !message.decryptionFailed ? (
             <MatrixFileCard
               action={
@@ -1647,6 +1681,9 @@ function MatrixEventMessageBubble() {
       {message.relayTurn && message.relayTurn.kind !== 'none' && !message.redacted && (
         <WorkRelayMessageLine chrome={message.relayTurn} className={underText} plan={workRelayNoticePlan(message.answeredByFallback?.plan)} />
       )}
+      {action?.firstRunGreetingReplyId === message.id && !message.own && (
+        <FirstRunConnections className="mt-(--ak-s2) max-w-[32.5rem]" />
+      )}
       {savedScope && saved && (
         <Tip label={savedCopy.marker}>
           <span className={underText} data-matrix-saved-message>
@@ -1682,20 +1719,17 @@ function MatrixEventMessageBubble() {
           unread={threadSummary.unread}
         />
       )}
-      {threadSummary && !message.thread && action?.openThread && !flat && (
-        <Button
-          className={underText}
-          data-matrix-thread-summary={message.id}
-          onClick={() => action.openThread?.(message.id)}
-          size="sm"
-          variant="text"
-        >
-          <Messages aria-hidden className="size-4" />
-          {threadCopy.replies(threadSummary.replyCount)}
-          {threadSummary.unread && (
-            <span aria-label={threadCopy.unread} className="size-1.5 rounded-full bg-(--atum-accent)" />
-          )}
-        </Button>
+      {!flat && !message.redacted && threadSummary && !message.thread && action?.openThread && (
+        <div className={`w-fit max-w-full ${underText}`}>
+          <TeamSpaceThreadSummary
+            faces={threadSummaryFaces}
+            lastReplyAt={threadSummary.lastActivityAt}
+            messageId={message.id}
+            onOpen={() => action.openThread?.(message.id)}
+            replyCount={threadSummary.replyCount}
+            unread={threadSummary.unread}
+          />
+        </div>
       )}
       {reported && (
         <span className={`text-xs text-(--atum-ink-muted) ${underText}`} role="status">
@@ -2529,7 +2563,12 @@ function MatrixComposer({
   // room without one (a company channel, a chat with people) keeps just the two attach entries.
   const composerAgentPrincipal = room.agentPrincipal ?? (room.assistant ? primaryAgent(snapshot)?.principal : undefined)
 
+  const [richDialog, setRichDialog] = useState<'poll' | 'location'>()
+  const richAvailable = !attachClosed && !teamSpaceBox && !recipient && !botApiRoom && !threadRootId &&
+    !privateCos && !room.appBot && !room.assistant && !notesSelfRoom
   const plusAvailability: ComposerPlusAvailability = {
+    poll: richAvailable,
+    location: richAvailable,
     photos: !attachClosed && !recipient,
     files: !attachClosed && !recipient,
     routines: Boolean(composerAgentPrincipal && window.atumMatrix.routines),
@@ -2548,6 +2587,11 @@ function MatrixComposer({
       case 'files':
         fileInput.current?.click()
 
+        return
+
+      case 'poll':
+      case 'location':
+        setRichDialog(kind)
         return
 
       case 'routines':
@@ -3042,6 +3086,14 @@ function MatrixComposer({
 
   // Notes-to-self integration seam: a former winner or changed audience remains readable but
   // cannot receive another Atum send. The SDK repeats this check at the authority boundary.
+  const voiceNote = useMatrixVoiceNote(room.id, onSent)
+
+  const humanVoiceRoom = matrixHumanVoiceRoom(room, [
+    snapshot.assistant?.userId, ...(snapshot.agents ?? []).map(agent => agent.userId)
+  ])
+
+  const voiceRoom = humanVoiceRoom || cloudAssistant
+
   const disabled = channelArchived || channelUnknown || closedForRoom ||
     (room.roomType === MATRIX_NOTES_SELF_ROOM_TYPE && !notesSelfRoom)
 
@@ -3206,7 +3258,9 @@ function MatrixComposer({
     // A bot-api room's addressed message is an ordinary Matrix message the app's host reads;
     // the old turn API would dispatch it twice. Legacy rooms keep the existing route.
     const routedBotTarget =
-      !botApiRoom && addressedBotTarget?.ready && appBridge && !addressedBotProblem ? addressedBotTarget : undefined
+      !threadRootId && !botApiRoom && addressedBotTarget?.ready && appBridge && !addressedBotProblem
+        ? addressedBotTarget
+        : undefined
 
     // Your words show at once, as in any messaging app, on the two paths that post them as
     // your own message: your assistant's chat (here or in the cloud), and a plain room message.
@@ -3931,6 +3985,9 @@ function MatrixComposer({
           {cloudStop.stopped ? matrixAgentStatusText('stopped', locale) : t.cloud.stopRefused}
         </NoticeBand>
       )}
+      {richDialog && richAvailable && !disabled && (
+        <MatrixRichContentDialog close={() => setRichDialog(undefined)} kind={richDialog} roomId={room.id} sent={onSent} />
+      )}
       <ComposerPrimitive.Root
         className="group/composer relative z-30 mx-auto w-[min(var(--composer-width),calc(100%-2rem))] max-w-full shrink-0 rounded-[1rem] pt-2 pb-[var(--composer-shell-pad-block-end)]"
         data-composer-recipe="t3"
@@ -4003,6 +4060,9 @@ function MatrixComposer({
             )}
           </div>
         )}
+        {voiceNote.state.kind !== 'idle' && (
+          <ComposerSurface input={<MatrixVoiceLedge disabled={Boolean(disabled || paused || !voiceRoom)} voice={voiceNote} />} recipe="t3" />
+        )}
         <ComposerSurface
           actions={
             <>
@@ -4070,6 +4130,10 @@ function MatrixComposer({
                 >
                   <span aria-hidden className="block size-2.5 rounded-[0.1875rem] bg-current" />
                 </button>
+              ) : !disabled && !paused && !sending && !attachClosed && !teamSpaceBox &&
+                !threadRootId && !recipient && !directBotId && !mode && !staged && !draftText.trim() &&
+                voiceRoom && window.atumMatrix.voice ? (
+                <MatrixVoiceStart start={() => void voiceNote.start()} />
               ) : (
                 <MatrixSendButton
                   disabled={disabled || paused || sending}
@@ -4081,6 +4145,7 @@ function MatrixComposer({
               )}
             </>
           }
+          className={voiceNote.state.kind !== 'idle' ? 'hidden' : undefined}
           input={
             <ComposerPrimitive.Input
               aria-describedby={fileTooLarge ? `matrix-file-too-large-${room.id}` : undefined}
@@ -4571,7 +4636,7 @@ function MatrixThreadDetail({
   // The header names the place as the channel's own header does ("#chung"), never the raw room name.
   const placeTitle = useChannelTitle(teamSpaceAccountKey(snapshot.identity), room, (room.name ?? '').trim().replace(/^#/, ''))
   const conversationTitle = useConversationTitle(teamSpaceAccountKey(snapshot.identity), room, room.name?.trim() ?? '')
-  const place = room.companyConversation ? conversationTitle : `#${placeTitle.replace(/^#/, '')}`
+  const place = room.roomType === MATRIX_COMPANY_CHANNEL_TYPE ? `#${placeTitle.replace(/^#/, '')}` : conversationTitle
 
   // The channel's own Chief of Staff: its agent-turns/1.6 working line and interim remarks in this
   // thread are drawn as a personal agent's are in its chat (one live line under the transcript). The
@@ -4780,6 +4845,7 @@ function MatrixThreadDetail({
                 .reverse()
                 .find(message => (message.metadata.custom.matrix as MatrixMessage).own)?.id,
               forward: forwarding.open,
+              pinnedMessages: isTeamSpaceRoom(room) ? undefined : snapshot.pinnedMessages,
               threadRootId: rootId
             }}
           >
@@ -4799,7 +4865,7 @@ function MatrixThreadDetail({
                   ) : undefined
                 }
                 revealMessageId={
-                  historyReveal?.owner === 'company' &&
+                  historyReveal &&
                   historyReveal.roomId === room.id &&
                   historyReveal.threadRootId === rootId &&
                   historyReveal.accountKey === accountKey
@@ -4893,7 +4959,9 @@ function MatrixThreadPanel({
     requestAnimationFrame(() => {
       const target = opener.current?.isConnected
         ? opener.current
-        : document.querySelector<HTMLElement>('[data-matrix-threads-button], [data-matrix-chat-menu="company"]')
+        : document.querySelector<HTMLElement>(
+            '[data-matrix-threads-button], [data-matrix-chat-menu="company"], [data-matrix-side-panel-opens="info"]'
+          )
 
       target?.focus({ preventScroll: true })
     })
@@ -4915,7 +4983,7 @@ function MatrixThreadPanel({
     window.addEventListener('keydown', escape)
 
     return () => window.removeEventListener('keydown', escape)
-  }, [back, close, view.rootId])
+  }, [back, close, view.fromList, view.rootId])
 
   return (
     <aside
@@ -5621,8 +5689,16 @@ function Conversation({
       working
     )
 
+  // The first run: the assistant's generated greeting sits inside the welcome card (with Connections under it), not in the
+  // transcript, until the person writes.
+  const greetingReplyId = snapshot.firstRunGreetingReplyId
+  const greetingInCard = Boolean(
+    room && greetingReplyId && messages.length === 1 && messages[0]?.id === greetingReplyId && matrixFirstRunPlace(snapshot, room.id)
+  )
+  const transcriptMessages = greetingInCard ? [] : messages
+
   const transcript = useExternalStoreRuntime({
-    messages,
+    messages: transcriptMessages,
     convertMessage: (message: (typeof messages)[number]) => message,
     isRunning: false,
     isDisabled: true,
@@ -5662,12 +5738,23 @@ function Conversation({
   const defaultAssistantChat = Boolean(settled && assistantEligible && conversationAgent?.isDefault)
 
   // The new account's first chat: the assistant's welcome opens it, wherever the assistant answers.
+  // The hidden greeting intent and the assistant's answer to it start the room's dialogue, but not the person's: the
+  // welcome (now with the generated greeting) stays until they write (first-run-greeting.ts).
+  const greetingSeedSent = firstRunGreetingSent(room.id)
   const firstRunHere = Boolean(
     room.assistant &&
     assistantEligible &&
-    room.dialogue !== 'started' &&
-    messages.length === 0 &&
+    (room.dialogue !== 'started' || greetingSeedSent) &&
+    (messages.length === 0 || greetingInCard) &&
     matrixFirstRunPlace(snapshot, room.id)
+  )
+  const greetingReply = greetingInCard ? snapshot.messages.find(message => message.id === greetingReplyId) : undefined
+
+  // The hidden opening intent goes once, through the route the composer uses for this room: the local turn on this Mac,
+  // else the ordinary Matrix send to the cloud-placed assistant (<FirstRunGreetingSender>, below).
+  const greetingSend = firstRunHere && !greetingSeedSent && messages.length === 0 ? room.id : null
+  const greetingLocal = Boolean(
+    room.assistant && snapshot.assistantPath !== 'server' && snapshot.readiness && !snapshot.linkedDocument && !cloudRoomAgent(snapshot, room)
   )
 
   const firstRunSkippedHere = Boolean(
@@ -5714,7 +5801,9 @@ function Conversation({
   const notesCopy = matrixTeamSpaceCopy(locale)
   const sidePanelOpen = Boolean(threadView || pinsOpen)
 
-  const openThread = teamSpaceRoom
+  const showThreads = room.membership === 'join' && (teamSpaceRoom || snapshot.threads !== undefined)
+
+  const openThread = showThreads
     ? (rootId: string) => onThreadViewChange({ roomId: room.id, filter: threadView?.filter ?? 'recent', rootId })
     : undefined
 
@@ -5744,6 +5833,9 @@ function Conversation({
             />
           )}
           {room.membership !== 'join' && <ConversationMembership room={room} snapshot={snapshot} />}
+          {room.membership === 'join' && !notesSelfKnownRoom && (room.successor || room.predecessor) && (
+            <RoomUpgradeBand key={room.id} room={room} snapshot={snapshot} />
+          )}
           {snapshot.agentRoster?.state === 'ready' && room.assistant && room.membership === 'join' && !assistantEligible && (
             <NoticeBand tone="notice">{t.matrixShell.assistantHistoryOnly}</NoticeBand>
           )}
@@ -5789,7 +5881,7 @@ function Conversation({
               members: snapshot.members,
               agents: snapshot.agents,
               appBots: snapshot.apps?.apps,
-              threads: teamSpaceRoom ? snapshot.threads : undefined,
+              threads: showThreads ? snapshot.threads : undefined,
               savedMessages: snapshot.savedMessages,
               pinnedMessages: snapshot.pinnedMessages,
               openThread,
@@ -5815,6 +5907,7 @@ function Conversation({
               },
               composer,
               latestAnswerId,
+              firstRunGreetingReplyId: defaultAssistantChat ? snapshot.firstRunGreetingReplyId : undefined,
               latestOwnId,
               firstUnreadId,
               forward: forwarding.open,
@@ -5824,6 +5917,17 @@ function Conversation({
             }}
           >
             <div className="relative min-h-0 flex-1" data-matrix-channel-transcript ref={followTranscriptEnd}>
+              {greetingSend && (
+                <FirstRunGreetingSender
+                  roomId={greetingSend}
+                  seed={firstRunGreetingSeed(locale, snapshot.ownProfile?.displayName)}
+                  send={body =>
+                    greetingLocal
+                      ? window.atumMatrix.sendTurn(greetingSend, body)
+                      : runMatrixCommand({ kind: 'send', roomId: greetingSend, body })
+                  }
+                />
+              )}
               {appHistory.loading && appHistory.entries.length === 0 && (
                 <p className="px-4 py-2 text-xs text-(--atum-ink-muted)" role="status">
                   {appCopy.loading}
@@ -5849,6 +5953,8 @@ function Conversation({
                   ) : firstRunHere || firstRunSkippedHere ? (
                     <MatrixFirstRunCard
                       assistantName={assistantName}
+                      greeting={greetingReply?.body}
+                      greetingPending={firstRunHere && greetingSeedSent && !greetingReply}
                       key={`${snapshot.identity?.userId ?? ''}:${snapshot.identity?.deviceId ?? ''}:${room.id}`}
                       roomId={room.id}
                       skipped={firstRunSkippedHere}
@@ -5887,13 +5993,16 @@ function Conversation({
                 leading={
                   companyChannel && snapshot.historyStart && snapshot.roomId === room.id ? (
                     <ChannelIntroFor accountKey={teamSpaceAccountKey(snapshot.identity)} room={room} />
+                  ) : defaultAssistantChat && snapshot.historyStart && snapshot.roomId === room.id && !snapshot.firstRunGreetingReplyId ? (
+                    // The primary assistant's Connections stay at the start of its chat once it has messages (owner 11-27).
+                    <FirstRunConnections />
                   ) : undefined
                 }
                 loadEarlier={loadEarlier}
                 loadingIndicator={withVideoConsent(
                   firstLearningProgress ? (
                     <MatrixFirstLearningTiles progress={firstLearningProgress} />
-                  ) : agentTyping || workingLine ? (
+                  ) : (agentTyping || workingLine) && !firstRunHere ? (
                     <MatrixAgentWorking
                       agent={companyPresentation ? undefined : conversationAgent}
                       avatarMxc={
@@ -5985,7 +6094,7 @@ function Conversation({
                 cloudOnly={cloudOnly}
                 draftTarget={teamSpaceRoom || notesSelfRoom ? { roomId: room.id } : undefined}
                 fail={fail}
-                key={`${snapshot.identity?.userId ?? ''}:${room.id}`}
+                key={`${snapshot.identity?.userId ?? ''}:${snapshot.identity?.deviceId ?? ''}:${room.id}`}
                 notice={
                   latestOwnId ? undefined : (
                     <MatrixStarterNotice defaultAssistantChat={defaultAssistantChat} locale={locale} snapshot={snapshot} />
@@ -6003,7 +6112,7 @@ function Conversation({
           )}
         </ComposerDock>
       </div>
-      {teamSpaceRoom && threadView && (
+      {showThreads && threadView && (
         <MatrixThreadPanel
           assistantName={assistantName}
           blocked={blocked}
@@ -6018,7 +6127,7 @@ function Conversation({
           view={threadView}
         />
       )}
-      {(companyChannel || companyConversation) && pinsOpen && (
+      {snapshot.pinnedMessages && pinsOpen && (
         <PinnedMessagesPanel
           compact={compact}
           nameOf={userId => userId === snapshot.identity?.userId
@@ -6037,7 +6146,7 @@ function Conversation({
 
             revealMatrixHistoryMessage(room.id, eventId, 'pinned', threadRootId)
           }}
-          pinned={snapshot.pinnedMessages ?? { canChange: false, entries: [] }}
+          pinned={snapshot.pinnedMessages}
         />
       )}
     </div>
@@ -6255,7 +6364,7 @@ function ConversationHeaderActions({
       {/* The header's right is the page's (Atum Kit): pins show while something is pinned (an
           open panel keeps its button), and threads while one has unread replies (they are always
           in "…" too). */}
-      {(companyChannel || companyConversation || privateCos) && onPins &&
+      {onPins &&
         ((snapshot.pinnedMessages?.entries.length ?? 0) > 0 || pinsOpen) && (
         <PinnedMessagesButton
           count={snapshot.pinnedMessages?.entries.length ?? 0}
@@ -6523,6 +6632,20 @@ function MatrixRoster({
   // MatrixAccountView is keyed by identity: presentation state never survives
   // sign-out or an account switch, and typing never writes Matrix navigation.
   const [query, setQuery] = useState('')
+
+  // The filter beside the search, kept per account (roster-filter.ts). One with nothing left to
+  // show reads as All, so the roster never goes blank under it.
+  const rosterFilters = useMemo(
+    () => availableMatrixRosterFilters(projectMatrixRoster(snapshot), snapshot.identity?.userId),
+    [snapshot]
+  )
+
+  const savedRosterFilters = useStore($matrixRosterFilterByAccount)
+
+  const rosterFilter = effectiveMatrixRosterFilter(
+    matrixRememberedRosterFilter(snapshot.identity?.userId, savedRosterFilters),
+    rosterFilters
+  )
 
   const knownHandles = useMatrixHandles(snapshot.identity?.userId)
   const [creating, setCreating] = useState<MatrixRosterCreation | null>(null)
@@ -6830,22 +6953,28 @@ function MatrixRoster({
         <span className="flex-1" />
         {titleBarAction}
       </div>
-      <div className="flex shrink-0 items-center gap-1.5 px-2 pt-1 pb-2" data-atum-search-actions>
-        <SearchField
-          aria-label={t.atum.roster.search}
-          containerClassName="h-[2.125rem] min-w-0 flex-1 rounded-(--control-radius) border-none bg-(--atum-sunk) px-3 text-[0.8125rem] !opacity-100 transition-colors focus-within:bg-(--atum-hover)"
-          inputClassName="min-w-0 flex-1 text-(--atum-ink) placeholder:text-(--atum-ink-faint)"
-          onChange={setQuery}
+      <MatrixPanelSearchRow data-atum-search-actions>
+        <MatrixPanelSearch
+          label={t.atum.roster.search}
+          onValueChange={setQuery}
           placeholder={t.atum.roster.searchPlaceholder}
           value={query}
         />
+        <MatrixRosterFilterButton
+          available={rosterFilters}
+          onValueChange={filter => {
+            if (snapshot.identity?.userId) {
+              rememberMatrixRosterFilter(snapshot.identity.userId, filter)
+            }
+          }}
+          value={rosterFilter}
+        />
         <MatrixStartChatButton
-          canCreateAssistant={Boolean(snapshot.assistant && snapshot.agentCreation)}
           canFindPeople={Boolean(snapshot.domainEnabled && window.atumMatrix?.aliases)}
           disabled={snapshot.state !== 'ready'}
           onCreate={kind => setCreating({ kind })}
         />
-      </div>
+      </MatrixPanelSearchRow>
       <MatrixRosterCreate
         creating={creating}
         onConversationCreated={onConversationCreated}
@@ -6905,12 +7034,16 @@ function MatrixRoster({
           snapshot.domainEnabled &&
           snapshot.state === 'ready' && <AssistantSetupCard state={snapshot.assistantSetup} />}
         <MatrixRosterConversations
-          // New assistant lives in the New chat sheet's footer, not as a row here (Atum Kit mockups).
+          // New assistant is the last row of the Assistants (owner, 2026-11-27).
+          agentActions={matrixCanCreateAssistant(snapshot) ? (
+            <NewAssistantButton disabled={snapshot.state !== 'ready'} onClick={() => setCreating({ kind: 'assistant' })} />
+          ) : undefined}
           assistantOpening={Boolean(assistantOpening)}
           cloudOnly={cloudOnly}
           externalResultCount={externalSearchResultCount}
           externalSearching={globalSearching}
           fail={fail}
+          filter={rosterFilter}
           onAppInfo={onAppInfo}
           onEditAgent={onEditAgent}
           onOpen={() => {
@@ -7040,6 +7173,15 @@ export function MatrixApp({
           activateTeamSpaceCacheAccount(next.identity ? teamSpaceAccountKey(next.identity) : null)
         }
 
+        // Mac-plan views belong to one signed-in session: a new account, signing out, or signing in
+        // again (even as the same person) empties them and retires every read and write still in
+        // flight (agent-plans-store.ts).
+        if (next.identity) {
+          bindAgentPlansAccount(next.identity.userId)
+        } else if (next.state === 'signed_out' || next.state === 'signing_in') {
+          bindAgentPlansAccount(null)
+        }
+
         // Handles (and the contacts reads filling them) belong to this account; signing out
         // tears them down before anything renders for the next one.
         bindMatrixHandleOwnerFromSnapshot(next)
@@ -7145,11 +7287,7 @@ function MatrixAccountView({
   const workActive = useStore($workActive)
 
   // Work's projection from main: the rail shows Work only while there is one for this account.
-  useEffect(() => {
-    loadWorkEnrollmentDeferred()
-
-    return connectWorkBridge(window.atumMatrix.work)
-  }, [])
+  useEffect(() => connectWorkBridge(window.atumMatrix.work), [])
 
   const copy = useMatrixCopy()
   const launch = useLaunchCopy()
@@ -7196,7 +7334,8 @@ function MatrixAccountView({
       return next
     })
 
-    return changed ? { ...projectedSnapshot, rooms } : projectedSnapshot
+    // The hidden first-run greeting intent never shows (first-run-greeting.ts).
+    return withoutFirstRunGreetingSeed(changed ? { ...projectedSnapshot, rooms } : projectedSnapshot)
   }, [privateCosRecords, projectedSnapshot])
 
   const compact = useCompact()
@@ -7241,6 +7380,7 @@ function MatrixAccountView({
     }
   }, [compact])
   const [workspaceScope, setWorkspaceScope] = useState<string | null>(null)
+  const restoreBrowserWorkspace = useCallback((scope: string) => setWorkspaceScope(scope), [])
   // What the side panel holds: the workbench, or a chat with people's conversation info.
   const [workspaceKind, setWorkspaceKind] = useState<'workbench' | 'info'>('workbench')
   const [threadView, setThreadView] = useState<MatrixThreadView | null>(null)
@@ -7251,6 +7391,8 @@ function MatrixAccountView({
   const [documentRequest, setDocumentRequest] = useState(0)
   const [deskRequest, setDeskRequest] = useState(0)
   const [browserRequest, setBrowserRequest] = useState<{ id: string; url: string; scope: string }>()
+  // First run: pick the best plan this Mac already has while the launch screen shows (owner 2026-11-27).
+  useFirstRunAutoPick(snapshot)
   const [terminalRequest, setTerminalRequest] = useState<{ id: string; scope: string; serial: number }>()
   const [appRouteRequest, setAppRouteRequest] = useState<AppBotRouteRequest>()
   const [workspaceExpanded, setWorkspaceExpanded] = useState(false)
@@ -7302,8 +7444,14 @@ function MatrixAccountView({
     profileTarget && snapshot.state === 'ready' && snapshot.identity && profileTarget.kind === 'human'
   )
 
-  // The assistant card (assistant-card/): an assistant's own page, opened from anywhere.
-  const assistantCardOpen = Boolean(useStore($assistantCard))
+  // The assistant card (assistant-card/): an assistant's own page, opened from anywhere. One with a
+  // chat of its own opens as the panel beside that chat (below); only one with none is a sheet.
+  const assistantCardTarget = useStore($assistantCard)
+
+  const cardPanelRoom =
+    assistantCardTarget?.kind === 'agent' ? matrixAssistantPanelRoom(snapshot, assistantCardTarget.principal) : undefined
+
+  const assistantCardOpen = Boolean(assistantCardTarget) && !cardPanelRoom
 
   const mobileCopy = useMobileCopy()
   // The profile editor names the person as the window does: never their raw Matrix ID.
@@ -7591,7 +7739,10 @@ function MatrixAccountView({
     paletteVisible
 
   const signedIn = Boolean(snapshot.identity)
-  useEffect(() => window.atumMatrix.onDocumentClose?.(prepareMatrixDocumentClose), [])
+  useEffect(() => window.atumMatrix.onDocumentClose?.(async updating => {
+    await prepareMatrixDocumentClose()
+    if (updating) {checkpointBrowserForUpdate()}
+  }), [])
   useEffect(() => {
     if (paletteBlocked) {
       setPaletteOpen(false)
@@ -7705,9 +7856,12 @@ function MatrixAccountView({
     }
   }, [snapshot.roomId])
 
-  const currentThreadView = room && threadView?.roomId === room.id ? threadView : null
+  const threadRoom = room?.membership === 'join' &&
+    (room.roomType === MATRIX_COMPANY_CHANNEL_TYPE || isCompanyConversationRoom(room) || snapshot.threads !== undefined)
 
-  const pinsOpen = Boolean(room && pinnedRoomId === room.id)
+  const currentThreadView = threadRoom && threadView?.roomId === room.id ? threadView : null
+
+  const pinsOpen = Boolean(room && snapshot.pinnedMessages && pinnedRoomId === room.id)
 
   // A channel or a company conversation: Team Space's room, shown in the company workspace and in no Personal list.
   const companyChannelBound = isTeamSpaceRoom(room)
@@ -7734,6 +7888,7 @@ function MatrixAccountView({
   const teamSpaceChannelOpen = Boolean(
     workplaceActive && !settingsTrip && !teamSpaceSoon && (companyChannelBound || notesSelfBound)
   )
+
   const conversationShellVisible = (!workplaceActive && !companyChannelBound) || teamSpaceChannelOpen
 
   const roomBot = directAppBot(snapshot)
@@ -7902,6 +8057,20 @@ function MatrixAccountView({
     }
   }
 
+  // Links clicked inside Atum open in the workbench's browser tab (in-app-links.ts). Refs keep the host stable.
+  const inAppBrowserOpen = useRef(openWorkspace)
+  const inAppBrowserScope = useRef(currentWorkbenchScope)
+  inAppBrowserOpen.current = openWorkspace
+  inAppBrowserScope.current = currentWorkbenchScope
+  useEffect(
+    () =>
+      registerInAppBrowser(url => {
+        setBrowserRequest({ id: `link-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, url, scope: inAppBrowserScope.current })
+        inAppBrowserOpen.current()
+      }),
+    []
+  )
+
   // Preserve user-visible identity, state and recovery behavior across connection changes.
   // or a document still opens the workbench, which stays mounted behind the info panel.
   const conversationInfo =
@@ -7964,6 +8133,81 @@ function MatrixAccountView({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- a new conversation is the only trigger.
   }, [currentWorkspaceScope, Boolean(conversationInfo || assistantInfo), workplaceActive, driveActive, workActive])
 
+  // One card place (owner 2026-11-26): the agent's name or face, its roster Info, Settings › its row and
+  // "Add routines" open its panel beside its own chat, not a sheet with the same rows. The chat is
+  // selected first when another is open; the panel opens once that chat is on screen.
+  //
+  // The request belongs to one navigation attempt (review P2-3): a refused selection (the document-save
+  // preflight, a failed select) or a move to some other chat retires it, and nothing (the chat panel
+  // preference, the view, the rename focus) changes until the requested chat is the one on screen.
+  const panelAttempt = useRef(0)
+
+  const [panelRequest, setPanelRequest] = useState<{
+    attempt: number
+    principal: string
+    roomId: string
+    fromRoomId?: string
+    focus?: 'name' | 'routines'
+  }>()
+
+  const [panelFocus, setPanelFocus] = useState<{ principal: string; focus: 'name' | 'routines' }>()
+
+  useEffect(() => {
+    if (assistantCardTarget?.kind !== 'agent' || !cardPanelRoom) {
+      return
+    }
+
+    const { focus, principal } = assistantCardTarget
+    const attempt = ++panelAttempt.current
+    closeAssistantCard()
+    setPanelRequest({
+      attempt,
+      principal,
+      roomId: cardPanelRoom.id,
+      ...(snapshot.roomId ? { fromRoomId: snapshot.roomId } : {}),
+      ...(focus ? { focus } : {})
+    })
+
+    // Selecting also leaves a Store, Team Space or app destination for the chat (Drive, Workplace and
+    // Work are this window's own views; the request leaves them once the chat is the selected room).
+    if (cardPanelRoom.id !== snapshot.roomId || (snapshot.destination && snapshot.destination.kind !== 'room')) {
+      void runMatrixCommand({ kind: 'select', roomId: cardPanelRoom.id }).catch(error => {
+        setPanelRequest(current => (current?.attempt === attempt ? undefined : current))
+        fail(error)
+      })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- a card request is the only trigger.
+  }, [assistantCardTarget, cardPanelRoom?.id])
+
+  useEffect(() => {
+    if (!panelRequest) {
+      return
+    }
+
+    // Superseded: the window went to a chat that is neither the one asked for nor the one it left.
+    if (room?.id && room.id !== panelRequest.roomId && room.id !== panelRequest.fromRoomId) {
+      setPanelRequest(undefined)
+
+      return
+    }
+
+    // The selected room's own agent, read directly: `assistantInfo` is withheld while Drive (or another
+    // view) is in front, and waiting on it would leave the request queued there (review 2026-11-26).
+    if (room?.id !== panelRequest.roomId || (room && matrixAgentDeskAgent(snapshot, room))?.principal !== panelRequest.principal) {
+      return
+    }
+
+    setPanelRequest(undefined)
+    setDriveActive(false)
+    setWorkplaceActive(false)
+    setWorkActive(false)
+    setDrawerOpen(false)
+    setMatrixRightPanel('chat', true)
+    setPanelFocus(panelRequest.focus ? { principal: panelRequest.principal, focus: panelRequest.focus } : undefined)
+    openWorkspace('info')
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- opens once the requested chat is on screen.
+  }, [panelRequest, room?.id, snapshot.agents])
+
   // Drive's folder panel "Ask Atum about it": the primary assistant's own chat, with the folder's place
   // in its box for the person to finish. Nothing is sent and no path leaves the window.
   const askAgent = primaryAgent(snapshot)
@@ -8002,7 +8246,7 @@ function MatrixAccountView({
   }
 
   const openThreads = (rootId?: string) => {
-    if (!room || !isTeamSpaceRoom(room)) {
+    if (!room || !threadRoom) {
       return
     }
 
@@ -8015,7 +8259,7 @@ function MatrixAccountView({
   }
 
   const togglePinnedMessages = () => {
-    if (!room || !isTeamSpaceRoom(room)) {return}
+    if (!room || !snapshot.pinnedMessages) {return}
 
     if (pinsOpen) {
       setPinnedRoomId(null)
@@ -8761,6 +9005,7 @@ function MatrixAccountView({
             closeWorkspace()
           }
 
+          setPinnedRoomId(null)
           setThreadView(next)
         }}
         onWatchDesk={DESK_WATCH_SHOWN && deskEligible && !workspaceOpen ? watchDesk : undefined}
@@ -8955,11 +9200,6 @@ function MatrixAccountView({
           main={() =>
             workOnScreen && work && window.atumMatrix.work ? (
               <WorkScreen
-                agentName={principal => {
-                  const agent = snapshot.agents?.find(each => each.principal === principal)
-
-                  return agent ? matrixRosterAgentName(agent, shell.assistantName) : undefined
-                }}
                 bridge={window.atumMatrix.work}
                 leadsRow={titleBarLeads}
                 obstructed={
@@ -8971,7 +9211,6 @@ function MatrixAccountView({
                 onAddProtons={openTopUp}
                 owner={snapshot.identity?.userId}
                 projection={work}
-                relayChats={work.relayChats}
                 reserveOverlay={facts.overlayWidth > 0}
                 windowControls={
                   // Every page's title bar leads the same way: the lights, the hide-left-panel
@@ -9048,10 +9287,10 @@ function MatrixAccountView({
                         fail={fail}
                         key={`conversation:${room.id}`}
                         onLookPreview={look => setLookPreview({ roomId: room.id, look })}
-                        onPins={isTeamSpaceRoom(room) ? togglePinnedMessages : undefined}
+                        onPins={snapshot.pinnedMessages ? togglePinnedMessages : undefined}
                         onPreview={revealDocument}
                         onThreads={
-                          isTeamSpaceRoom(room)
+                          companyChannelBound && threadRoom
                             ? () => (currentThreadView ? setThreadView(null) : openThreads())
                             : undefined
                         }
@@ -9070,6 +9309,9 @@ function MatrixAccountView({
                         threadsOpen={Boolean(currentThreadView)}
                       />
                     )}
+                    {/* C's mode switch, just left of the panel toggle (layout r1 C; Team Space's Chat ·
+                        Board portals here: company-space-tabs.tsx). */}
+                    <div className="flex items-center empty:hidden" data-atum-page-mode />
                     {neutralPanelScreen && !workspaceOpen ? (
                       // Team Space, Store and Drive: the C toggle shows or hides the screen's neutral panel,
                       // remembered per screen (layout r2 §2).
@@ -9536,12 +9778,7 @@ function MatrixAccountView({
               />
               <div className="atum-rail-foot" data-matrix-rail-foot>
                 <MatrixAttentionAnnouncer agentName={attentionAgentName} snapshot={snapshot} />
-                <MatrixUpdateFooter
-                  onOpenUpdates={() => {
-                    setSettingsPane('help')
-                    setSettingsOpen(true)
-                  }}
-                />
+                <MatrixUpdateFooter />
                 <MatrixRailAccount
                   attention={attentionSection}
                   attentionLabel={attentionSummary.label}
@@ -9577,20 +9814,23 @@ function MatrixAccountView({
           sidebarShowing={sidebarShowing && !workplaceOnScreen && !workOnScreen}
           workspace={motion => (
             <>
-              {infoShown && assistantInfo && !conversationInfo && (
+              {infoShown && assistantInfo && !conversationInfo && room && (
                 <MatrixAssistantInfoPanel
                   agent={assistantInfo}
                   compact={compact}
                   expanded={workspaceExpanded}
+                  {...(panelFocus?.principal === assistantInfo.principal ? { focus: panelFocus.focus } : {})}
                   motion={motion}
                   onClose={() => {
+                    setPanelFocus(undefined)
                     setMatrixRightPanel('chat', false)
                     closeWorkspace()
                   }}
                   onExpand={setWorkspaceExpanded}
                   onPercentChange={setWorkspacePercent}
                   percent={workspacePercent}
-                  snapshot={snapshot}
+                  room={room}
+                  snapshot={roomView}
                   windowControls={
                     compact || !sidebarShowing ? (
                       <AtumWindowControlsSurface
@@ -9619,6 +9859,9 @@ function MatrixAccountView({
                   percent={workspacePercent}
                   room={room}
                   snapshot={snapshot}
+                  threadPreview={conversationInfo.kind === 'group' && snapshot.threads
+                    ? <GroupThreadPreview onOpen={openThreads} threads={snapshot.threads} />
+                    : undefined}
                   windowControls={
                     compact || !sidebarShowing ? (
                       <AtumWindowControlsSurface
@@ -9657,6 +9900,7 @@ function MatrixAccountView({
                     }
                   : undefined
               }
+              onBrowserUpdateRestored={restoreBrowserWorkspace}
               onClose={closeWorkspace}
               onDriveRequestClose={() => setDrivePreviewRequest(undefined)}
               onExpand={setWorkspaceExpanded}
@@ -9787,7 +10031,12 @@ function MatrixAccountView({
           target={profileEditor.target}
         />
       )}
-      <AssistantCardHost compact={compact} openChat={rosterOpen.current} snapshot={snapshot} />
+      <AssistantCardHost
+        compact={compact}
+        inPanel={principal => Boolean(matrixAssistantPanelRoom(snapshot, principal))}
+        openChat={rosterOpen.current}
+        snapshot={snapshot}
+      />
       <MatrixMobileSetup onOpenChange={setMobileOpen} open={mobileOpen} snapshot={snapshot} />
     </>
   )

@@ -302,6 +302,19 @@ describe('Matrix boundary', () => {
       expect(() => parseMatrixCommand(value)).toThrow('matrix_command_invalid')
     }
   })
+  it('accepts only a room ID and a fixed notification mode', () => {
+    for (const mode of ['all', 'mentions', 'nothing', 'inherit']) {
+      const command = { kind: 'roomNotificationMode', roomId: '!r:test', mode }
+
+      expect(parseMatrixCommand({ ...command, actions: ['notify'] })).toEqual(command)
+    }
+
+    expect(() => parseMatrixCommand({ kind: 'roomNotificationMode', roomId: '!r:test', mode: 'invalid' }))
+      .toThrow('matrix_command_invalid')
+    expect(() => parseMatrixCommand({ kind: 'roomNotificationMode', roomId: '#alias:test', mode: 'all' }))
+      .toThrow('matrix_command_invalid')
+  })
+
   it('names a group and sets its topic with one bounded line each; a name is never empty', () => {
     expect(parseMatrixCommand({ kind: 'groupName', roomId: '!g:test', name: '  Weekend\n trip ', topic: 'x' })).toEqual({
       kind: 'groupName',
@@ -483,6 +496,11 @@ describe('Matrix boundary', () => {
       kind: 'forget',
       roomId: '!r:test'
     })
+    // Upgraded room: only the old room's id crosses; the SDK reads the replacement from room state itself.
+    expect(parseMatrixCommand({ kind: 'joinSuccessor', roomId: '!r:test', replacement: '!x:test' })).toEqual({
+      kind: 'joinSuccessor',
+      roomId: '!r:test'
+    })
     expect(parseMatrixCommand({ kind: 'typing', roomId: '!r:test', typing: true, timeout: 999_999 })).toEqual({
       kind: 'typing',
       roomId: '!r:test',
@@ -514,6 +532,7 @@ describe('Matrix boundary', () => {
       { kind: 'react', roomId: '!r:test', eventId: '$m', key: 'a\u0000', reacted: true },
       { kind: 'react', roomId: '!r:test', eventId: '$m', key: 'x'.repeat(65), reacted: true },
       { kind: 'forget' },
+      { kind: 'joinSuccessor', roomId: '#alias:test' },
       { kind: 'forget', roomId: '#alias:test' },
       { kind: 'typing', roomId: '!r:test', typing: 'yes' },
       { kind: 'markUnread', roomId: '!r:test' },

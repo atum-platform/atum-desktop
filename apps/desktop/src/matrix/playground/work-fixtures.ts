@@ -1,6 +1,7 @@
-import { openAccountConnect } from '@/app/connections/store'
-import { $workActive, $workBandOpen } from '@/app/work/store'
+import { $accountConnectProgress, openAccountConnect } from '@/app/connections/store'
+import { $workActive } from '@/app/work/store'
 
+import type { FirstRunLabels } from '../../../shared/first-run-labels'
 import type {
   MatrixWorkBridge,
   MatrixWorkPlanConsent,
@@ -8,37 +9,24 @@ import type {
   MatrixWorkRect
 } from '../../../shared/matrix-work'
 
-/**
- * Self-work slice A (lane DW): the Work page on fixture data.
- *
- * - `?work=ready|starting|unavailable|off|enroll|assistants-off|holding|stale|unreachable|working|protons`
- *   opens the Work page in that state (`enroll` is the D9 text; `working` has agents running).
- * - Slice B (subscriptions): `&connect=offer|connected` opens gate 4a (the first-sign-in step shows for `offer`);
- *   `&plan=off|on` the per-Mac plan switch; `&consent=off|on|on-two-macs` the account's consent; `&sheet` opens the consent sheet;
- *   `&page=chat` leaves the Work page so the app (or Settings, `?view=settings-work`) is what shows.
- * - `&band` opens the assistants band; `&workShot=<url>` paints that image where main would paint the
- *   owner view (the fork's screen), so the page can be judged with something in it.
- */
 const STATES: Record<string, Partial<MatrixWorkProjection>> = {
   ready: {},
   starting: { view: 'starting' },
   unavailable: { view: 'unavailable' },
-  off: { view: 'off', assistants: 'off' },
-  enroll: { assistants: 'needs_grant' },
-  'assistants-off': { assistants: 'off' },
-  holding: { assistants: 'holding' },
-  stale: { assistants: 'stale' },
-  unreachable: { assistants: 'unreachable' },
-  working: {
-    agents: [
-      { principal: 'agent-atum', running: 1, stopping: false },
-      { principal: 'agent-moon', running: 0, stopping: true }
-    ]
-  },
+  off: { view: 'off' },
   protons: { protons: 'empty' }
 }
 
-const READY: MatrixWorkProjection = { view: 'ready', assistants: 'on', agents: [], protons: 'ok' }
+/** The first chat's Connections rows (`?firstRun=one|several|none|free`, `?signing=codex|claude|antigravity`). */
+const FIRST_RUN_LABELS: Record<string, FirstRunLabels> = {
+  one: { claude: { state: 'ready', label: 'Claude Pro' }, codex: { state: 'signed_out' } },
+  several: { claude: { state: 'ready', label: 'Claude Pro' }, codex: { state: 'ready', label: 'ChatGPT Plus' } },
+  none: {},
+  free: { codex: { state: 'ready', label: 'ChatGPT Free' } },
+  connected: { codex: { state: 'ready', label: 'ChatGPT Plus' } }
+}
+
+const READY: MatrixWorkProjection = { view: 'ready', protons: 'ok' }
 
 const THIS_MAC = '00000000-0000-4000-8000-0000000c0a01'
 const OTHER_MAC = '00000000-0000-4000-8000-0000000c0a02'
@@ -112,16 +100,7 @@ export function playgroundWork(params: URLSearchParams): { work?: MatrixWorkBrid
     return {}
   }
 
-  const connect = params.get('connect')
-  const plan = params.get('plan')
-
-  let projection: MatrixWorkProjection = {
-    ...READY,
-    ...STATES[state],
-    ...(connect === 'offer' || connect === 'connected' ? { planConnect: connect } : {}),
-    ...(plan === 'off' || plan === 'on' ? { plan } : {})
-  }
-
+  let projection = { ...READY, ...STATES[state] }
   let consent = consentFixture(params.get('consent'))
   const listeners = new Set<(projection: MatrixWorkProjection | null) => void>()
   const shot = params.get('workShot')
@@ -137,22 +116,27 @@ export function playgroundWork(params: URLSearchParams): { work?: MatrixWorkBrid
   }
 
   $workActive.set(params.get('page') !== 'chat')
-  $workBandOpen.set(params.has('band'))
 
   if (params.has('sheet')) {
     openAccountConnect('codex')
   }
 
-  try {
-    // The Connect step appears once; the playground shows it whenever `connect=offer` asks.
-    localStorage.removeItem('atum.work.plan-connect.seen.v1')
-  } catch {
-    // Storage off: the step shows anyway.
+  const signing = params.get('signing')
+
+  if (signing === 'codex' || signing === 'claude' || signing === 'antigravity') {
+    $accountConnectProgress.set({ plan: signing, phase: 'signing_in' })
   }
+
+  const firstRunLabels = FIRST_RUN_LABELS[params.get('firstRun') ?? ''] ?? FIRST_RUN_LABELS.none!
 
   return {
     work: {
-      getSurfaceMode: async () => null,
+      // `workMode=work|code` stands in for the view's report that a project is open, so the title bar's
+      // Work · Code switch shows.
+      getSurfaceMode: async () =>
+        params.get('workMode') === 'work' || params.get('workMode') === 'code'
+          ? { projectId: 'playground', mode: params.get('workMode') as 'work' | 'code' }
+          : null,
       // `workSidebar=<px>` stands in for the view's thread-list report (its right edge), so the band's
       // bell can be judged against a `workShot`; `runCommand` lets the band show its buttons.
       getSidebar: async () => (sidebarEdge > 0 ? { open: true, edge: sidebarEdge, ...(rightPanel ? { rightPanel } : {}) } : null),
@@ -164,12 +148,9 @@ export function playgroundWork(params: URLSearchParams): { work?: MatrixWorkBrid
       show: async rect => paint(projection.view === 'ready' ? rect : null, shot, live),
       hide: async () => paint(null, shot, live),
       retry: async () => emit({ view: 'ready' }),
-      allowAssistants: async () => emit({ assistants: 'on' }),
-      setAssistants: async on => emit({ assistants: on ? 'on' : 'off' }),
-      setPlan: async on => emit({ plan: on ? 'on' : 'off' }),
       setWork: async on => emit({ view: on ? 'ready' : 'off' }),
-      reconnectAssistants: async () => emit({ assistants: 'on' }),
       openPlanConnect: async () => emit({ view: 'ready' }),
+      readPlanLabels: async () => firstRunLabels,
       readPlanConsent: async () => consent,
       setPlanConsent: async input => {
         consent = {

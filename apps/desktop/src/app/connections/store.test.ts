@@ -43,7 +43,6 @@ function bridge(reads: AccountConnectionsView[]) {
     openPlanConnect: vi.fn(async () => {}),
     readPlanConsent: vi.fn(async () => CONSENT),
     setPlanConsent: vi.fn(async () => ({ ...CONSENT, state: 'on' as const })),
-    setPlan: vi.fn(async () => {})
   }
 }
 
@@ -52,7 +51,6 @@ it('keeps an all-owner grant intact during automatic Connect consent', async () 
   b.readPlanConsent.mockResolvedValue({ ...CONSENT, state: 'on', allOwnerAgents: true })
   await expect(grantAccountPlanUse(b, 'codex')).resolves.toBe(true)
   expect(b.setPlanConsent).not.toHaveBeenCalled()
-  expect(b.setPlan).toHaveBeenCalledWith(true)
 })
 
 it('finishes Allow with an existing all-owner grant', async () => {
@@ -63,17 +61,8 @@ it('finishes Allow with an existing all-owner grant', async () => {
 
   expect($accountConnectProgress.get()).toEqual({ plan: 'codex', phase: 'done' })
   expect(b.setPlanConsent).not.toHaveBeenCalled()
-  expect(b.setPlan).toHaveBeenCalledWith(true)
 })
 
-it('reports failure if the Mac switch cannot enable an existing all-owner grant', async () => {
-  const b = bridge([])
-  b.readPlanConsent.mockResolvedValue({ ...CONSENT, state: 'on', allOwnerAgents: true })
-  b.setPlan.mockRejectedValue(new Error('offline'))
-
-  await expect(grantAccountPlanUse(b, 'codex')).resolves.toBe(false)
-  expect(b.setPlanConsent).not.toHaveBeenCalled()
-})
 
 beforeEach(() => {
   vi.useFakeTimers()
@@ -101,7 +90,6 @@ describe('the one connect flow', () => {
     expect($accountConnectProgress.get()).toEqual({ plan: 'codex', phase: 'done' })
     // Q1: the connect sentence is the consent: every assistant Work knows, this Mac, scheduled work too; this Mac's switch on.
     expect(port.setPlanConsent).toHaveBeenCalledWith({ agents: [RIN, LUNA], macs: [THIS_MAC], alsoWhenScheduled: true }, 'codex')
-    expect(port.setPlan).toHaveBeenCalledWith(true)
 
     await vi.advanceTimersByTimeAsync(3_000)
     expect($accountConnectProgress.get()).toBeNull()
