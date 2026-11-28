@@ -22,6 +22,7 @@ import {
   parseAtumAssistantDefinitionSnapshot,
   parseAtumPortableAssistantRecord
 } from '../../shared/atum-agent-portability'
+import type { DesktopLocale } from '../../shared/desktop-locale'
 import type { MatrixOpenAgentListing } from '../../shared/matrix'
 import { type MatrixPetCatalog, parseMatrixPetCatalog, parseMatrixPetSnapshot } from '../../shared/matrix-pet'
 import {
@@ -30,7 +31,7 @@ import {
 } from '../../shared/matrix-profile'
 
 import type { NativeGrant } from './authorization'
-import { readCloudDisclosureVersion, readDomainJson } from './domain'
+import { ownerLanguageAck, readCloudDisclosureVersion, readDomainJson } from './domain'
 import { TIME_ZONE_ACK_HEADER } from './time-zone'
 
 const REQUEST_TIMEOUT_MS = 10_000
@@ -108,6 +109,7 @@ export interface MatrixAgentRosterOptions {
   headers?: Record<string, string>
   /** The platform's ack, only when it stored the report; the caller records it then. */
   onTimeZoneAck?: (zone: string | undefined) => void
+  onOwnerLanguage?: (language: DesktopLocale) => void
 }
 
 /** Lists canonical assistant records for the native grant's principal. */
@@ -126,9 +128,14 @@ export async function listMatrixAgentDefinitions(
     MAXIMUM_AGENT_RESPONSE_BYTES,
     REQUEST_TIMEOUT_MS,
     options.headers,
-    options.onTimeZoneAck
-      ? headers => options.onTimeZoneAck!(headers.get(TIME_ZONE_ACK_HEADER) ?? undefined)
-      : undefined
+    headers => {
+      options.onTimeZoneAck?.(headers.get(TIME_ZONE_ACK_HEADER) ?? undefined)
+      const language = ownerLanguageAck(headers)
+
+      if (language) {
+        options.onOwnerLanguage?.(language)
+      }
+    }
   )
 
   if (!Array.isArray(value)) {

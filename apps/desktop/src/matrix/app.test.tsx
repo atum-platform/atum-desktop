@@ -12741,6 +12741,21 @@ describe("Home's chat (launch night, second wave)", () => {
       expect(sentSeeds()).toHaveLength(1)
     })
 
+    it('uses the account language for the greeting even when the desktop UI is English', async () => {
+      const fresh: MatrixSnapshot = { ...cloudFresh, ownerLanguage: 'vi' }
+      const { bridge, emit } = fixture(async () => fresh, 'en')
+      bridge.googleConnections = google
+      emit(fresh)
+      await waitFor(() => expect(welcome()).not.toBeNull())
+      act(() => $firstRunPick.set({ kind: 'atum' }))
+
+      const seed = 'io.atum.first-run.greeting/1 vi Minh'
+      await waitFor(() => expect([
+        ...vi.mocked(bridge.sendTurn).mock.calls.filter(call => call[1] === seed),
+        ...vi.mocked(bridge.command).mock.calls.filter(call => (call[0] as { body?: string }).body === seed)
+      ]).toHaveLength(1))
+    })
+
     it('lets the greeting give way to the conversation after the person replies', async () => {
       const firstRun = { allow: vi.fn(async () => {}), decline: vi.fn(async () => {}), finish: vi.fn(async () => {}) }
       const { bridge, emit } = fixture(async () => cloudFresh)

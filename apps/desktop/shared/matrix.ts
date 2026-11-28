@@ -27,6 +27,7 @@ import type {
   ConsumerBrowserPrepareInput,
   ConsumerBrowserPrepareResult
 } from './browser/ipc'
+import type { DesktopLocale } from './desktop-locale'
 import type { MatrixExecutionPolicyBridge, MatrixExecutionPolicyView } from './execution-policy'
 import type { LookPackPublished, LookRoomAccountData } from './look-pack'
 import type { MatrixAgentDeskBridge } from './matrix-agent-desk'
@@ -639,6 +640,8 @@ export interface MatrixSnapshot {
    * Mac or the cloud): the welcome and connector card may show while it is set. Absent once the account has
    * answered, while the marker is unknown, and once this window recorded an answer. */
   firstRunOpen?: true
+  /** The language Platform acknowledged for this signed-in owner. */
+  ownerLanguage?: DesktopLocale
   /** Main-owned ledger projection; absent when the domain wallet is not configured. */
   wallet?: MatrixWalletState
   checkout?: MatrixCheckoutSnapshot

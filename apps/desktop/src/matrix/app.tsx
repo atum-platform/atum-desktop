@@ -5920,7 +5920,7 @@ function Conversation({
               {greetingSend && (
                 <FirstRunGreetingSender
                   roomId={greetingSend}
-                  seed={firstRunGreetingSeed(locale, snapshot.ownProfile?.displayName)}
+                  seed={firstRunGreetingSeed(snapshot.ownerLanguage ?? locale, snapshot.ownProfile?.displayName)}
                   send={body =>
                     greetingLocal
                       ? window.atumMatrix.sendTurn(greetingSend, body)
