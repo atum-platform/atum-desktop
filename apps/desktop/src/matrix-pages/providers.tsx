@@ -47,6 +47,10 @@ export function MatrixProvidersSettings({ client, agentName, onClose }: MatrixPr
   const [adding, setAdding] = useState(false)
   const [endpoint, setEndpoint] = useState(emptyEndpoint)
   const [oauth, setOAuth] = useState<MatrixProviderOAuthSession | null>(null)
+  // This external plan has no managed sign-in route. An existing connection
+  // can still report its status through the snapshot.
+  const providers = snapshot?.providers.filter(row => row.id !== 'nous' || row.current || row.oauth?.connected) ?? []
+  const providerName = (id: string, name = id) => id === 'nous' ? copy.externalProvider : name
   const [code, setCode] = useState('')
   const generation = useRef(0)
   const readGeneration = useRef(0)
@@ -380,12 +384,12 @@ export function MatrixProvidersSettings({ client, agentName, onClose }: MatrixPr
           snapshot && (
             <>
               <SettingsSection icon={Cpu} title={copy.current}>
-                <ListRow description={snapshot.current?.model} title={snapshot.current?.provider ?? copy.notReady} />
+                <ListRow description={snapshot.current?.model} title={snapshot.current ? providerName(snapshot.current.provider) : copy.notReady} />
               </SettingsSection>
               {oauth && (
                 <SettingsSection
                   icon={KeyRound}
-                  title={snapshot.providers.find(row => row.id === oauth.provider)?.name ?? oauth.provider}
+                  title={providerName(oauth.provider, providers.find(row => row.id === oauth.provider)?.name)}
                 >
                   <NoticeBand role="status" tone="notice">
                     {copy.oauthPending}
@@ -448,11 +452,11 @@ export function MatrixProvidersSettings({ client, agentName, onClose }: MatrixPr
                 </SettingsSection>
               )}
               <SettingsSection icon={KeyRound} title={copy.providers}>
-                {!snapshot.providers.length && <EmptyState title={copy.empty} />}
-                {snapshot.providers.map(row => (
+                {!providers.length && <EmptyState title={copy.empty} />}
+                {providers.map(row => (
                   <div key={row.id}>
                     <ProviderGroupLabel>
-                      {row.name} <Pill>{row.ready ? copy.ready : copy.notReady}</Pill>
+                      {providerName(row.id, row.name)} <Pill>{row.ready ? copy.ready : copy.notReady}</Pill>
                     </ProviderGroupLabel>
                     {row.oauth?.acknowledgment && (
                       <p className="text-xs text-(--ui-text-secondary)">
@@ -556,11 +560,11 @@ export function MatrixProvidersSettings({ client, agentName, onClose }: MatrixPr
                                 : undefined
                             }
                             disabled={disabled}
-                            label={`${copy.model} · ${row.name}`}
+                            label={`${copy.model} · ${providerName(row.id, row.name)}`}
                             onChoose={route => void submit(() => client.selectModel(row.id, route.model))}
                             placeholder={copy.chooseModel}
                             routes={row.models.map(model =>
-                              pickerRouteOf({ provider: row.id, providerLabel: row.name, model })
+                              pickerRouteOf({ provider: row.id, providerLabel: providerName(row.id, row.name), model })
                             )}
                             scope={`providers:${agentName}`}
                           />

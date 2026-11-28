@@ -1,0 +1,110 @@
+{
+  "shared/connection-catalog.ts": [
+    "https://hermes-agent.nousresearch.com/docs/user-guide/features/providers/"
+  ],
+  "src/app/chat/composer/composer-surface.tsx": [
+    "t3"
+  ],
+  "src/components/assistant-ui/embeds/social-embed.tsx": [
+    "hermes-ig-embed",
+    "hermes-tt-embed",
+    "hermes-tw-embed"
+  ],
+  "src/components/chat/code-editor-surface.tsx": [
+    ".cm-hermes-active-block",
+    "cm-hermes-active-block"
+  ],
+  "src/components/chat/composer-dock.ts": [
+    "rounded-2xl border border-border/65 shadow-nous text-[length:var(--conversation-tool-font-size)]"
+  ],
+  "src/components/notifications.tsx": [
+    "pointer-events-auto border border-(--stroke-nous) bg-popover/95 shadow-nous backdrop-blur-md"
+  ],
+  "src/components/ui/dialog.tsx": [
+    "fixed left-1/2 top-1/2 z-[130] pointer-events-auto flex max-h-[85vh] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-xl bg-(--ui-chat-bubble-background) text-[length:var(--conversation-text-font-size)] text-foreground shadow-nous duration-200 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95",
+    "fixed left-1/2 top-1/2 z-[130] pointer-events-auto grid max-h-[85vh] -translate-x-1/2 -translate-y-1/2 gap-3 overflow-y-auto rounded-xl border border-(--stroke-nous) bg-(--ui-chat-bubble-background) p-4 text-[length:var(--conversation-text-font-size)] text-foreground shadow-nous duration-200 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95",
+    "relative z-10 overflow-hidden rounded-xl border border-b-0 border-(--stroke-nous) bg-(--ui-chat-bubble-background)"
+  ],
+  "src/hooks/use-image-download.ts": [
+    "No handler registered for 'hermes:saveImageFromUrl'"
+  ],
+  "src/hooks/use-theme-epoch.ts": [
+    "data-hermes-mode",
+    "data-hermes-theme"
+  ],
+  "src/lib/local-tab-close.ts": [
+    "hermes:close-focused-local-tab"
+  ],
+  "src/matrix-pages/providers.tsx": [
+    "nous"
+  ],
+  "src/matrix/agent-desk-model.ts": [
+    "hermes"
+  ],
+  "src/matrix/agent-desk.tsx": [
+    "hermes"
+  ],
+  "src/matrix/app.tsx": [
+    "hermes",
+    "t3"
+  ],
+  "src/matrix/chat-search.tsx": [
+    "[data-matrix-hermes-activity]"
+  ],
+  "src/matrix/cloud-stop.ts": [
+    "hermes"
+  ],
+  "src/matrix/company-project-brief.tsx": [
+    "absolute inset-y-0 end-0 z-20 flex w-[min(30rem,100%)] flex-col border-s border-(--atum-panel-line) bg-(--atum-main-bg) shadow-nous"
+  ],
+  "src/matrix/company-wallet.tsx": [
+    "absolute inset-y-0 end-0 z-20 flex w-[min(27rem,100%)] flex-col border-s border-(--atum-panel-line) bg-(--atum-main-bg) shadow-nous"
+  ],
+  "src/matrix/company-workspace.tsx": [
+    "absolute inset-y-0 end-0 z-30 flex w-[min(26rem,100%)] flex-col border-s border-(--atum-panel-line) bg-(--atum-main-bg) shadow-nous"
+  ],
+  "src/matrix/launch-progress.ts": [
+    "hermes"
+  ],
+  "src/matrix/pet/chat-box.tsx": [
+    "t3"
+  ],
+  "src/matrix/team-space/channel-members-dialog.tsx": [
+    "absolute inset-y-0 end-0 z-30 flex w-[min(26rem,100%)] flex-col border-s border-(--atum-panel-line) bg-(--atum-main-bg) shadow-nous"
+  ],
+  "src/matrix/team-space/detail-pane.ts": [
+    "absolute inset-y-0 end-0 z-30 flex w-[min(26rem,100%)] flex-col border-s border-(--atum-panel-line) bg-(--atum-main-bg) shadow-nous"
+  ],
+  "src/matrix/use-cloud-stop.ts": [
+    "hermes"
+  ],
+  "src/store/beta-features.ts": [
+    "hermes.desktop.atum.beta.profile.v1:"
+  ],
+  "src/store/embed-consent.ts": [
+    "hermes.desktop.embed-allowed",
+    "hermes.desktop.embed-mode"
+  ],
+  "src/store/haptics.ts": [
+    "hermes.desktop.hapticsMuted"
+  ],
+  "src/store/keybinds.ts": [
+    "hermes.desktop.keybinds"
+  ],
+  "src/store/native-app-recency.ts": [
+    "hermes.desktop.atum.nativeApps.lastUsedByAccount.v1"
+  ],
+  "src/store/panes.ts": [
+    "hermes.desktop.paneStates.v1"
+  ],
+  "src/store/surfaces.ts": [
+    "hermes.desktop.atum.surfaces.profile.v1:"
+  ],
+  "src/themes/appearance.ts": [
+    "hermes-boot-background",
+    "hermes-boot-color-scheme"
+  ],
+  "src/themes/presets.ts": [
+    "nous"
+  ]
+}

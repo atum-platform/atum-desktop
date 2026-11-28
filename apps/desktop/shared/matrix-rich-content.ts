@@ -12,9 +12,9 @@ export const MATRIX_VOICE_TRANSCRIPTION_NAMES = {
   deepinfra: 'DeepInfra',
   elevenlabs: 'ElevenLabs',
   groq: 'Groq',
-  local: 'Hermes’s local speech model',
+  local: 'Local speech model',
   mistral: 'Mistral',
-  nous: 'Nous',
+  nous: 'External speech provider',
   openai: 'OpenAI',
   xai: 'xAI'
 } as const

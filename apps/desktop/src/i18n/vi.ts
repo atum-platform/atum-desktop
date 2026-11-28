@@ -1279,6 +1279,9 @@ export const vi = defineLocale({
     }
   },
 
+  billingBlock: {
+    titleNous: 'Đã hết hạn mức của nhà cung cấp'
+  },
   boot: {
     ready: 'Atum đã sẵn sàng',
     desktopBootFailedWithMessage: message => `Không khởi động được Atum: ${message}`,
@@ -1822,8 +1825,16 @@ export const vi = defineLocale({
     gateway: {
       envOverrideDesc: 'Hãy bỏ các biến môi trường kết nối từ xa để dùng cài đặt đã lưu bên dưới.',
       remoteUrlDesc: 'Địa chỉ gốc của dịch vụ từ xa. Có thể dùng địa chỉ kèm đường dẫn.',
-      sshHermesPathDesc: 'Đường dẫn đầy đủ tới chương trình Atum trên máy từ xa. Để trống để tự tìm.',
-      sshErrNotInstalled: 'Máy từ xa chưa cài Atum. Hãy cài Atum trên máy đó hoặc nhập đường dẫn chương trình Atum.'
+      sshHermesPathTitle: 'Đường dẫn chương trình trợ lý (không bắt buộc)',
+      sshHermesPathDesc: 'Đường dẫn đầy đủ tới chương trình trợ lý trên máy từ xa. Để trống để tự tìm.',
+      sshErrNotInstalled: 'Không tìm thấy trợ lý tương thích trên máy từ xa. Hãy cài trợ lý trên máy đó hoặc nhập đường dẫn chương trình đã cài.'
+    },
+    toolsets: {
+      nousIncluded: 'Tính năng này đi kèm gói đăng ký của nhà cung cấp bên ngoài. Hãy đăng nhập để kích hoạt.',
+      nousAuthNeededTitle: 'Đăng nhập với nhà cung cấp',
+      nousAuthNeededMessage: provider => `Đã lưu ${provider}. Hãy đăng nhập với nhà cung cấp để kích hoạt.`,
+      nousAuthDoneTitle: 'Đã kết nối tài khoản nhà cung cấp',
+      nousAuthFailed: 'Chưa đăng nhập được với nhà cung cấp'
     },
     modeOptions: {
       light: { label: 'Sáng', description: 'Giao diện sáng, rõ trên màn hình' },
@@ -1960,7 +1971,7 @@ export const vi = defineLocale({
     edit: 'Sửa',
     archive: 'Lưu trữ',
     skillArchivedTitle: 'Đã lưu trữ kỹ năng',
-    skillArchivedMessage: 'Có thể khôi phục bằng lệnh quản lý kỹ năng của Atum.',
+    skillArchivedMessage: 'Bạn có thể khôi phục kỹ năng đã lưu trữ cho trợ lý này.',
     hub: {
       searchPlaceholder: 'Tìm trong kho kỹ năng',
       search: 'Tìm',
@@ -2228,7 +2239,7 @@ export const vi = defineLocale({
     loadFailed: 'Không tải được danh sách mô hình',
     noAuthenticatedProviders: 'Chưa kết nối nhà cung cấp nào.',
     pro: 'Pro',
-    proNeedsSubscription: 'Mô hình Pro cần gói đăng ký trả phí.',
+    proNeedsSubscription: 'Mô hình Pro cần gói đăng ký trả phí của nhà cung cấp.',
     free: 'Miễn phí',
     freeTier: 'Gói miễn phí',
     priceTitle: 'Giá đầu vào / đầu ra cho mỗi triệu token',

@@ -43,6 +43,12 @@ export function isRemoteConfig(config: DesktopConnectionConfig | null | undefine
   )
 }
 
+/** Raw paths and process names from older agents stay in the on-disk log. */
+export function hasLegacyBootDetail(value: string): boolean {
+  return /(?<![a-z0-9_])(?:hermes|nous|t3)(?![a-z0-9_])|t3code|nousresearch|hermes_home/iu
+    .test(value.normalize('NFKC'))
+}
+
 // True when a boot error is auth-shaped — the refresh token was rejected or the
 // remote couldn't mint a websocket ticket. The Settings indicator can still read
 // "connected" (a stale RT cookie exists), so the error text is part of the
@@ -76,45 +82,47 @@ export function sshFailureMessage(
     sshErrUpdateRequired?: string
     sshErrUnreachable?: string
     sshErrUnknown?: string
-  }
+  },
+  unavailable = 'Could not connect to the agent. Check your connection settings and try again.'
 ): string {
   const raw = String(error || '')
+  const shown = hasLegacyBootDetail(raw) ? unavailable : raw
 
   if (config?.mode !== 'ssh') {
-    return raw
+    return shown
   }
 
   const text = raw.toLowerCase()
 
   if (text.includes('host key')) {
-    return copy.sshErrHostKey || raw
+    return copy.sshErrHostKey || shown
   }
 
   if (text.includes('auth')) {
-    return copy.sshErrAuth || raw
+    return copy.sshErrAuth || shown
   }
 
   if (text.includes('not installed') || text.includes('not found')) {
-    return copy.sshErrNotInstalled || raw
+    return copy.sshErrNotInstalled || shown
   }
 
   if (text.includes('unsupported')) {
-    return copy.sshErrPlatform || raw
+    return copy.sshErrPlatform || shown
   }
 
   if (text.includes('timed out') || text.includes('timeout')) {
-    return copy.sshErrTimeout || raw
+    return copy.sshErrTimeout || shown
   }
 
   if (text.includes('update')) {
-    return copy.sshErrUpdateRequired || raw
+    return copy.sshErrUpdateRequired || shown
   }
 
   if (text.includes('unreachable') || text.includes('could not reach')) {
-    return copy.sshErrUnreachable || raw
+    return copy.sshErrUnreachable || shown
   }
 
-  return copy.sshErrUnknown || raw
+  return copy.sshErrUnknown || shown
 }
 
 export function isRemoteReauthFailure(

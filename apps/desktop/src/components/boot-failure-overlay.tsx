@@ -17,6 +17,7 @@ import { AppViewOverlayHold } from '@/store/use-app-view-overlay'
 import type { RemoteReauth } from './boot-failure-reauth'
 import {
   deriveProviderShape,
+  hasLegacyBootDetail,
   isRemoteConfig,
   isRemoteReauthFailure,
   signInLabel,
@@ -75,7 +76,7 @@ export function BootFailureOverlay() {
 
     void window.hermesDesktop
       ?.getRecentLogs()
-      .then(res => setLogs(res.lines ?? []))
+      .then(res => setLogs((res.lines ?? []).filter(line => !hasLegacyBootDetail(line))))
       .catch(() => undefined)
   }, [boot.error, visible])
 
@@ -372,7 +373,7 @@ export function BootFailureOverlay() {
 
         <div className="grid gap-4 p-5 pt-0">
           <div className="rounded-2xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-xs text-destructive">
-            {sshFailureMessage(connectionConfig, boot.error, t.settings.gateway)}
+            {sshFailureMessage(connectionConfig, boot.error, t.settings.gateway, copy.description)}
           </div>
 
           <div className="grid gap-2">
