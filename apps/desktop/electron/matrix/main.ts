@@ -900,6 +900,7 @@ import {
   matrixSubscriptionsWithProviderConnections,
   requestMatrixProviderConnections
 } from './provider-connections'
+import { authorizeOpenRouterFree } from './openrouter-free-oauth'
 import { createMatrixQuitHandler } from './quit'
 import {
   MATRIX_READINESS_TIMINGS,

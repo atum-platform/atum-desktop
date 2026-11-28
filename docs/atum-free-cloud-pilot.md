@@ -18,3 +18,4 @@ the eligible and ineligible picker paths. The pilot uses loopback directly.
 The connect and disconnect controls use the picker and Connections handler patterns.
 Saved Free choices use the cloud connection status for availability.
 Loopback uses the same Promise API as the existing desktop authorization flow.
+The native main IPC handler imports the loopback exchange directly.
