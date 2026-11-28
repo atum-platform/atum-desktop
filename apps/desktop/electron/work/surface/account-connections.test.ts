@@ -1,8 +1,10 @@
 import { describe, expect, it, vi } from 'vitest'
 
 import { ACCOUNT_CONNECTIONS_FIXTURE, ACCOUNT_CONNECTIONS_PROFILE } from '../../../shared/account-connections'
+import { accountPickerPlans, accountPlanRow } from '../../../src/app/connections/view'
 
 import { readAccountConnections } from './account-connections'
+import { projectPlanCapabilities } from './plan-capabilities'
 
 const THIS_MAC = '11111111-1111-4111-8111-11111111abcd'
 
@@ -35,7 +37,37 @@ describe('readAccountConnections', () => {
     const [, init] = fetch.mock.calls[0] as unknown as [string, RequestInit]
     expect(JSON.parse(String(init.body))).toEqual({ operation: 'account_connections_read' })
     expect((init.headers as Record<string, string>).authorization).toBe('Bearer owner-bearer')
-    expect(d.localCapabilities).not.toHaveBeenCalled()
+    expect(d.localCapabilities).toHaveBeenCalledOnce()
+  })
+
+  it('derives the agent picker and This Mac from Work when the registry omits Antigravity', async () => {
+    const { deps: d } = deps(json({ profile: ACCOUNT_CONNECTIONS_PROFILE, connections: ACCOUNT_CONNECTIONS_FIXTURE.connections }))
+    const native = {
+      instanceId: 'antigravity', driver: 'antigravity', enabled: true, installed: true, status: 'ready',
+      auth: { status: 'authenticated', type: 'oauth-personal' },
+      models: [{ slug: 'gemini-test', name: 'Gemini Test', isCustom: false }]
+    }
+    const view = await readAccountConnections({ ...d, localCapabilities: async () => projectPlanCapabilities([native]) })
+    expect(accountPlanRow(view, 'antigravity')).toMatchObject({ here: true, state: 'connected' })
+    expect(accountPickerPlans(view)).toContainEqual({
+      plan: 'antigravity', kind: 'relay', models: [{ id: 'gemini-test', displayName: 'Gemini Test' }]
+    })
+
+    const signedOut = await readAccountConnections({
+      ...d,
+      fetch: json({ profile: ACCOUNT_CONNECTIONS_PROFILE, connections: view.connections }),
+      localCapabilities: async () => projectPlanCapabilities([{ ...native, auth: { status: 'unauthenticated' } }])
+    })
+    expect(accountPickerPlans(signedOut)).toContainEqual({ plan: 'antigravity', kind: 'connect' })
+  })
+
+  it('keeps other Macs when Work signs this Mac out', async () => {
+    const { deps: d } = deps(json({ profile: ACCOUNT_CONNECTIONS_PROFILE, connections: ACCOUNT_CONNECTIONS_FIXTURE.connections }))
+    const view = await readAccountConnections({ ...d, thisDevice: () => '22222222-2222-4222-8222-22222222abcd',
+      localCapabilities: async () => ({ codex: { state: 'disconnected' } })
+    })
+
+    expect(accountPlanRow(view, 'codex')).toMatchObject({ here: false, state: 'connected' })
   })
 
   it.each([

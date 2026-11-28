@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 import { projectPlanCapabilities } from './plan-capabilities'
 
@@ -49,6 +49,20 @@ describe('projecting T3 plan capabilities', () => {
       null
     ])).toEqual({ claude: { state: 'connected' } })
     expect(projectPlanCapabilities(undefined)).toEqual({})
+  })
+
+  it('reports a safe diagnostic for each built-in plan without publishing a failed native probe', () => {
+    const log = vi.fn()
+
+    expect(projectPlanCapabilities([
+      { ...provider('antigravity', 'oauth-personal'), status: 'error' },
+      { ...provider('claudeAgent', 'pro'), auth: { status: 'unauthenticated' } }
+    ], log)).toEqual({ claude: { state: 'disconnected' } })
+    expect(log.mock.calls).toEqual([
+      ['codex', 'unknown', 'native_status_missing'],
+      ['claude', 'disconnected', 'signed_out'],
+      ['antigravity', 'unknown', 'probe_error']
+    ])
   })
 })
 

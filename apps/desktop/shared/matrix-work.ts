@@ -71,6 +71,8 @@ export interface WorkAgentPlans {
 }
 
 export interface MatrixWorkProjection {
+  /** Changes when native plan facts or cloud publication become available. */
+  planStatusRevision?: number
   planLimits?: readonly WorkRelayLimit[]
   view: MatrixWorkViewState
   /** The Atum provider's balance read (lane S). No figure ever crosses. */

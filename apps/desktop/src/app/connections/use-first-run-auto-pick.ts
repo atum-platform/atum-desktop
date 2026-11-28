@@ -45,6 +45,7 @@ export function useFirstRunAutoPick(snapshot: Pick<MatrixSnapshot, 'agents' | 'i
 
   const connectDone = progress?.phase === 'done'
   const workView = work ? JSON.stringify(work.view) : ''
+  const planStatusRevision = work?.planStatusRevision
 
   useEffect(() => {
     if (!userId || !rosterKey) {
@@ -62,7 +63,7 @@ export function useFirstRunAutoPick(snapshot: Pick<MatrixSnapshot, 'agents' | 'i
     if (connectDone) {
       void loadAccountConnections()
     }
-  }, [userId, rosterKey, workView, repick, enabled, connectDone])
+  }, [userId, rosterKey, workView, planStatusRevision, repick, enabled, connectDone])
 
   useEffect(() => {
     if (!userId) {

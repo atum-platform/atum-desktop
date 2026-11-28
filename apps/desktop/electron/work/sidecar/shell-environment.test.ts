@@ -43,3 +43,11 @@ it('shares one login shell capture for the app run', async () => {
   await first
   expect(loginShellPath()).toBe(first)
 })
+
+it.skipIf(process.platform !== 'darwin')('keeps common macOS CLI locations when Finder provides no shell PATH', () => {
+  const env = workRuntimeEnvironment('/account/work', '/resources')
+
+  expect(env.PATH.split(':')).toEqual(expect.arrayContaining([
+    join(homedir(), '.local', 'bin'), '/opt/homebrew/bin', '/usr/local/bin'
+  ]))
+})

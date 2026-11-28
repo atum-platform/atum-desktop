@@ -14,7 +14,8 @@ const selectionSnapshot = z.object({
 /** The native plan catalog and the existing owner-scoped selection protocol. */
 export function createOwnerRelay(
   readCatalog: () => Promise<Omit<WorkAgentPlans, 'selection'> | null>,
-  platform: () => DeviceServicePlatformOptions
+  platform: () => DeviceServicePlatformOptions,
+  beforeSelect?: () => Promise<void>
 ) {
   async function readSelection(call: ReturnType<typeof deviceServiceCall>, principal: string) {
     return selectionSnapshot.parse(await call('work_selection_read', { agentPrincipal: principal }))
@@ -31,6 +32,7 @@ export function createOwnerRelay(
       return { ...catalog, selection: selection && { ...selection, revision } }
     },
     async select(principal: string, model: string, plan: WorkRelayPlan = 'codex') {
+      await beforeSelect?.()
       const options = platform()
       // The read, write and possible retry all belong to the same signed-in owner.
       const bearer = await options.bearer()

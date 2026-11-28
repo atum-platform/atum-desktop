@@ -98,6 +98,7 @@ export class WorkSurface {
   private protons: MatrixWorkProjection['protons'] = 'unknown'
   private planLimits: MatrixWorkProjection['planLimits']
   private generation = 0
+  private planStatusRevision = 0
   /** T3’s own provider setup screen, opened once the view is painted. */
   private pendingPath: string | undefined
 
@@ -147,9 +148,15 @@ export class WorkSurface {
 
     return {
       ...(this.planLimits?.length ? { planLimits: this.planLimits } : {}),
+      ...(this.planStatusRevision ? { planStatusRevision: this.planStatusRevision } : {}),
       view: this.viewState(parts),
       protons: this.protons
     }
+  }
+
+  planStatusChanged(): void {
+    this.planStatusRevision++
+    this.publish()
   }
 
   /** The renderer's read also refreshes the balance, so the Add Protons action follows a top-up. */
