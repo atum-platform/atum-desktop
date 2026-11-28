@@ -58,12 +58,13 @@ export function AboutSection({
         {!failed && (
           <span className="atum-settings-section-action">
             <Button
+              className="font-semibold text-(--atum-ink)"
               data-assistant-card-about-edit
               disabled={disabled}
               onClick={() => setEditing('main')}
               size="inline"
               type="button"
-              variant="textStrong"
+              variant="text"
             >
               {copy.aboutEdit}
             </Button>

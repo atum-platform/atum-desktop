@@ -201,3 +201,76 @@ describe('Paused: one notice under the header, with Resume', () => {
     expect(window.document.querySelector('[data-assistant-card-paused]')).toBeNull()
   })
 })
+
+describe('Files on the card: the newest three, then Show all files', () => {
+  const now = Date.now()
+  const sentFile = (id: string, body: string, minutesAgo: number) =>
+    ({ id, body, timestamp: now - minutesAgo * 60_000, attachmentSize: 2_000 }) as unknown as MatrixAgentDeskState['sent'][number]
+
+  const withSent = {
+    devices: [],
+    sent: [sentFile('$a', 'Weekly plan.docx', 5), sentFile('$b', 'Meeting notes.pdf', 60)]
+  } as unknown as MatrixAgentDeskState
+
+  function showFiles() {
+    return render(
+      <I18nProvider configClient={null} initialLocale="en">
+        <MatrixAgentDeskFiles active agent={luna} desk={withSent} roomId={room.id} />
+      </I18nProvider>
+    )
+  }
+
+  const rows = [
+    { name: 'Reports', kind: 'folder', size: 0, modifiedAt: now - 30 * 60_000 },
+    { name: 'old.csv', kind: 'file', size: 10, modifiedAt: now - 3 * 86_400_000 }
+  ]
+
+  it('mixes what it sent and what is on its computer, newest first, three at most', async () => {
+    hostDesk({ files: [files(rows)] })
+    showFiles()
+
+    const list = await waitFor(() => {
+      const found = window.document.querySelector<HTMLElement>('[data-agent-card-files]')
+      expect(found?.querySelectorAll('.ak-row').length).toBe(4)
+
+      return found!
+    })
+
+    const names = [...list.querySelectorAll('.ak-row .truncate')].map(each => each.textContent)
+    expect(names).toEqual(['Weekly plan.docx', 'Reports', 'Meeting notes.pdf', 'Show all files'])
+    expect(within(list).getAllByText(/^Sent here · /)).toHaveLength(2)
+    expect(within(list).getByText('On its computer')).toBeTruthy()
+    expect(screen.queryByText('old.csv')).toBeNull()
+  })
+
+  it('saves a sent file from its row', async () => {
+    hostDesk({ files: [files(rows)] })
+    showFiles()
+
+    fireEvent.click(await screen.findByRole('button', { name: en.save('Weekly plan.docx') }))
+    expect(window.atumMatrix.command).toHaveBeenCalledWith({ kind: 'download', roomId: room.id, eventId: '$a' })
+  })
+
+  it('opens the full lists in place, with Save and folders, and Show less folds them back', async () => {
+    hostDesk({ files: [files(rows), files(rows)] })
+    showFiles()
+
+    fireEvent.click(await waitFor(() => screen.getByText('Show all files')))
+    expect(await screen.findByText('old.csv')).toBeTruthy()
+    expect(screen.getAllByRole('button', { name: /^Save / }).length).toBe(2)
+
+    fireEvent.click(screen.getByText(en.less))
+    await waitFor(() => expect(screen.queryByText('old.csv')).toBeNull())
+    expect(screen.getByText('Show all files')).toBeTruthy()
+  })
+
+  it('opens a folder from the short list into the full one', async () => {
+    const { read } = hostDesk({ files: [files(rows), files([{ name: 'q4.xlsx', kind: 'file', size: 10, modifiedAt: now }])] })
+    showFiles()
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Reports' }))
+    await waitFor(() =>
+      expect(read).toHaveBeenLastCalledWith('agent-luna', { read: 'files', path: 'home/Reports' })
+    )
+  })
+})

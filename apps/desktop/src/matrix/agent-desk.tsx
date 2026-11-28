@@ -24,6 +24,7 @@ import {
   matrixAgentDeskSteers,
   type MatrixProgressStep
 } from './agent-desk-model'
+import { useAssistantCardCopy } from './assistant-card/copy'
 import { ModelDestinationsRow } from './assistant-card/model-destinations-row'
 import { openAssistantCard } from './assistant-card/store'
 import { formatDriveSize } from './drive'
@@ -1130,6 +1131,20 @@ export function MatrixAgentDeskNowSection({ cloudStop, desk }: { cloudStop: Matr
   )
 }
 
+/** How many files the card shows before "Show all files". */
+export const MATRIX_AGENT_CARD_FILES = 3
+
+type CardFile =
+  | { kind: 'sent'; at: number; file: MatrixMessage }
+  | { kind: 'own'; at: number; row: MatrixHostDeskFiles['rows'][number] }
+
+/**
+ * Files on the agent's card, last (agent card revamp 2026-11-28): one list, the newest three across
+ * what it sent in this chat and what is on its computer, then "Show all files · N", which opens the
+ * full lists in place (Save on each sent file, folder browsing on its computer). A cloud agent whose
+ * computer can be read always keeps the section (owner 2026-11-27): "No files yet.", or the failed
+ * read with Try again.
+ */
 export function MatrixAgentDeskFiles({
   active,
   agent,
@@ -1142,10 +1157,149 @@ export function MatrixAgentDeskFiles({
   roomId: string
 }) {
   const { locale } = useI18n()
+  const copy = matrixAgentDeskText(locale)
+  const card = useAssistantCardCopy()
+  const own = useOwnFiles(active, agent)
+  const [all, setAll] = useState(false)
+  const sent = desk.sent
+  const root = own.path === undefined ? (own.view?.rows ?? []) : []
+
+  const files: CardFile[] = [
+    ...sent.map(file => ({ kind: 'sent' as const, at: file.timestamp, file })),
+    ...root.map(row => ({ kind: 'own' as const, at: row.modifiedAt, row }))
+  ].sort((a, b) => b.at - a.at)
+
+  const empty = !sent.length && !own.view
+
+  if (empty && !own.hosted) {
+    return null
+  }
+
+  const download = (file: MatrixMessage) =>
+    void window.atumMatrix.command({ kind: 'download', roomId, eventId: file.id }).catch(() => undefined)
+
+  const openFolder = (name: string) => {
+    if (own.view) {
+      own.setPath(`${own.view.root}/${name}`)
+    }
+
+    setAll(true)
+  }
+
+  const retry = own.read === 'failed' && own.hosted && (
+    <p className="atum-settings-section-foot flex items-center gap-2" role="status">
+      <span>{copy.filesUnavailable}</span>
+      <button className="ak-btn ak-btn--sm" data-agent-desk-files-retry onClick={own.reload} type="button">
+        {copy.tryAgain}
+      </button>
+    </p>
+  )
 
   return (
-    <div className="atum-desk atum-card-section empty:hidden" data-agent-panel-files>
-      <FilesSection active={active} agent={agent} always locale={locale} roomId={roomId} sent={desk.sent} />
+    <div className="atum-desk atum-card-section" data-agent-panel-files>
+      <section aria-label={copy.files} data-agent-desk-files={empty ? own.read : ''}>
+        <div className="atum-settings-section-head">
+          <h3 className="ak-section atum-settings-section-title">{copy.files}</h3>
+        </div>
+        {empty && own.read === 'ready' && <p className="atum-settings-section-foot">{copy.noFiles}</p>}
+        {all ? (
+          <>
+            {sent.length > 0 && (
+              <div className="ak-group mt-2" role="list" title={copy.sentHere}>
+                {sent.map(file => (
+                  <SentFileRow
+                    file={file}
+                    key={file.id}
+                    locale={locale}
+                    roomId={roomId}
+                    save={copy.save(file.body)}
+                    saveShort={copy.saveShort}
+                  />
+                ))}
+              </div>
+            )}
+            <OwnFiles own={own} />
+            <div className="ak-group mt-2">
+              <button
+                className="ak-row w-full text-left"
+                data-agent-card-files-less
+                onClick={() => {
+                  setAll(false)
+                  own.setPath(undefined)
+                }}
+                type="button"
+              >
+                <span className="ak-row-main">
+                  <span className="truncate">{copy.less}</span>
+                </span>
+              </button>
+            </div>
+          </>
+        ) : (
+          files.length > 0 && (
+            <div className="ak-group mt-2" data-agent-card-files role="list">
+              {files.slice(0, MATRIX_AGENT_CARD_FILES).map(item =>
+                item.kind === 'sent' ? (
+                  <button
+                    aria-label={copy.save(item.file.body)}
+                    className="ak-row w-full text-left"
+                    data-agent-desk-file={item.file.id}
+                    key={`sent:${item.file.id}`}
+                    onClick={() => download(item.file)}
+                    type="button"
+                  >
+                    <FileIcon aria-hidden className="ak-icon" />
+                    <span className="ak-row-main">
+                      <span className="truncate">{item.file.body}</span>
+                      <span className="ak-row-meta">{card.fileSentHere(relativeWhen(item.at, locale))}</span>
+                    </span>
+                  </button>
+                ) : item.row.kind === 'folder' ? (
+                  <button
+                    aria-label={item.row.name}
+                    className="ak-row w-full text-left"
+                    key={`folder:${item.row.name}`}
+                    onClick={() => openFolder(item.row.name)}
+                    type="button"
+                  >
+                    <FolderIcon aria-hidden className="ak-icon" />
+                    <span className="ak-row-main">
+                      <span className="truncate">{item.row.name}</span>
+                      <span className="ak-row-meta">{copy.onItsComputer}</span>
+                    </span>
+                    <CaretIcon aria-hidden className="ak-icon ak-icon--sm atum-desk-caret" />
+                  </button>
+                ) : (
+                  <div className="ak-row" key={`file:${item.row.name}`} role="listitem">
+                    <FileIcon aria-hidden className="ak-icon" />
+                    <span className="ak-row-main">
+                      <span className="truncate">{item.row.name}</span>
+                      <span className="ak-row-meta">
+                        {copy.onItsComputer} · {relativeWhen(item.at, locale)}
+                      </span>
+                    </span>
+                  </div>
+                )
+              )}
+              {files.length > MATRIX_AGENT_CARD_FILES && (
+                <button
+                  className="ak-row w-full text-left"
+                  data-agent-card-files-all
+                  onClick={() => setAll(true)}
+                  type="button"
+                >
+                  <span className="ak-row-main">
+                    <span className="truncate">{card.filesShowAll}</span>
+                  </span>
+                  <span className="ak-row-meta">{files.length}</span>
+                  <CaretIcon aria-hidden className="ak-icon ak-icon--sm atum-desk-caret" />
+                </button>
+              )}
+            </div>
+          )
+        )}
+        {retry}
+      </section>
     </div>
   )
 }
