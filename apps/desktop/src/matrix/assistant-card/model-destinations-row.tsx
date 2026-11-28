@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { type ReactNode, useEffect, useState } from 'react'
 
 import { useI18n } from '@/i18n'
 import { ChevronRight } from '@/lib/icons'
@@ -45,9 +45,14 @@ const SHOW_DAILY_CAP = false
 export function ModelDestinationsRow({
   agent,
   preferenceScope,
-  cloudOnly = AGENT_HOMES_CLOUD_ONLY
+  cloudOnly = AGENT_HOMES_CLOUD_ONLY,
+  glyph,
+  label: rowLabel
 }: {
   agent: MatrixAgentView
+  /** The card's leading glyph and its label for the one cloud row ("Answers with"). */
+  glyph?: ReactNode
+  label?: string
   /** The same account scope the composer uses, so one set of favorites follows the person. */
   preferenceScope?: string
   cloudOnly?: boolean
@@ -396,7 +401,9 @@ export function ModelDestinationsRow({
             trigger={answering => {
               // A cloud row names what answers now, as the composer's chip does: a Mac plan's
               // model while one is selected, else this choice's own model.
-              const shown = choice.kind === 'cloud' && answering.plan ? answering.plan : label
+              const named = choice.kind === 'cloud' && answering.plan ? answering.plan : label
+              // The level other than the model's default, as the chip says it (T3's trigger).
+              const shown = choice.kind === 'cloud' && answering.effort ? `${named} · ${answering.effort}` : named
 
               return (
               <button
@@ -405,8 +412,9 @@ export function ModelDestinationsRow({
                 data-assistant-card-model-destination={choice.kind}
                 type="button"
               >
+                {glyph}
                 <span className="atum-settings-row-title shrink-0">
-                  {cloudOnly ? copy.modelPicker : destinationName(locale, choice)}
+                  {cloudOnly ? (rowLabel ?? copy.modelPicker) : destinationName(locale, choice)}
                 </span>
                 <span className="atum-card-row-value ms-auto" title={shown}>
                   {shown}

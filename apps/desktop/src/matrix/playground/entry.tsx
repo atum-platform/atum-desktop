@@ -3,6 +3,7 @@ import '../../styles.css'
 import { StrictMode, useEffect, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 
+import { WorkPreviewContext } from '@/app/work/work-preview'
 import { I18nProvider } from '@/i18n'
 
 import { matrixModelDisplayName } from '../../../shared/matrix-model-display-name'
@@ -29,7 +30,7 @@ import { isPlaygroundView, PlaygroundGallery } from './gallery'
 import { playgroundLinkPreviewMode, playgroundLinkPreviews, withPlaygroundLinkPreviews } from './link-preview-fixtures'
 import { playgroundDocumentPreview, playgroundPlaceBridges, playgroundPlaces, withPlaygroundPlaces } from './places-fixtures'
 import { playgroundRelayMode, withPlaygroundRelay } from './relay-fixtures'
-import { playgroundRoutines, playgroundRoutinesMode } from './routine-fixtures'
+import { playgroundBackgroundSweep, playgroundRoutines, playgroundRoutinesMode } from './routine-fixtures'
 import {
   playgroundGoogleConnections,
   playgroundLoginStartup,
@@ -167,6 +168,8 @@ window.atumMatrix = {
   }),
   // Every card's scheduled tasks (?routines=empty|conflict|legacy|unknown).
   routines: playgroundRoutines(playgroundRoutinesMode(params)),
+  // The built-in follow-up sweep, on, first in each card's Routines list (agent card revamp).
+  backgroundSweep: playgroundBackgroundSweep(),
   ...(googleConnections ? { googleConnections } : {}),
   ...(subscriptionsMode ? { subscriptions: playgroundSubscriptions(subscriptionsMode) } : {}),
   // The assistant card's per-destination model rows read the fixture's offer; picks save locally.
@@ -322,7 +325,9 @@ function Playground() {
             <PlaygroundGallery view={view} />
           </main>
         ) : (
-          <MatrixApp />
+          <WorkPreviewContext.Provider value={workPreview}>
+            <MatrixApp />
+          </WorkPreviewContext.Provider>
         )}
       </I18nProvider>
       <div
@@ -375,6 +380,15 @@ function Playground() {
     </>
   )
 }
+
+const workView = params.get('workView')
+const workShot = params.get('workShot')
+
+const workPreview = workView ? (
+  <iframe className="absolute inset-0 h-full w-full border-0" src={workView} title="Work" />
+) : workShot ? (
+  <img alt="" className="pointer-events-none absolute inset-0 h-full w-full object-cover object-left-top" src={workShot} />
+) : null
 
 applyMatrixMaterial()
 store.set(initial)

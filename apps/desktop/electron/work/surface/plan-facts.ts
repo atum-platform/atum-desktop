@@ -56,14 +56,13 @@ function legacyState(root: string) {
 export class WorkPlanFacts {
   private readonly reported = new Map<AccountPlanProvider, Capability & { at: number }>()
   private pending: Promise<void> = Promise.resolve()
-  private ticking?: Promise<void>
   private routeEpoch?: number
   private enrollmentEpoch?: number
   private observedAt = 0
   private readonly path: string
   private readonly state: { enabled: boolean; epoch: number }
 
-  constructor(root: string) {
+  constructor(root: string, private readonly log?: (line: string) => void) {
     this.path = join(root, 'work', 'plan-fact-reporting.json')
     this.state = legacyState(root)
     const saved = readJson(this.path)
@@ -74,15 +73,13 @@ export class WorkPlanFacts {
   enabled(): boolean {return this.state.enabled}
 
   refresh(target: PlanFactTarget, read: () => Promise<PlanCapabilities>): Promise<void> {
-    this.ticking ??= this.enqueue(async () => {
+    return this.enqueue(async () => {
       if (this.enabled()) {
         await this.send(target, await read())
       } else {
         await this.send(target, this.withdrawals())
       }
-    }).finally(() => {this.ticking = undefined})
-
-    return this.ticking
+    })
   }
 
   setEnabled(enabled: boolean): void {
@@ -153,7 +150,16 @@ export class WorkPlanFacts {
 
     const results = await Promise.allSettled(due.map(publish))
 
-    if (results.some(result => result.status === 'rejected')) {throw new Error('work_plan_fact_report_failed')}
+    if (results.some(result => result.status === 'rejected')) {
+      for (const [index, result] of results.entries()) {
+        if (result.status !== 'rejected') {continue}
+        const status = (result.reason as { status?: number } | null)?.status
+        const reason = typeof status === 'number' ? `registry_${status}` : 'registry_request_failed'
+        this.log?.(`[atum-work] plan=${due[index]} state=${capabilities[due[index]]?.state} report=${reason}`)
+      }
+
+      throw new Error('work_plan_fact_report_failed')
+    }
   }
 
   private async enroll(target: PlanFactTarget, call: ReturnType<typeof deviceServiceCall>) {

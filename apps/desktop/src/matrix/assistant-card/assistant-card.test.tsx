@@ -134,6 +134,43 @@ afterEach(() => {
 
 const rosterNames = () => screen.getAllByText((_, element) => element?.hasAttribute('data-roster-name') ?? false).map(each => each.textContent)
 
+/** The header's "…" menu (revamp 2026-11-28), opened as a pointer opens it. */
+async function openMore() {
+  fireEvent.pointerDown(await screen.findByRole('button', { name: 'Thêm' }), { button: 0 })
+
+  return screen.findByRole('menu')
+}
+
+/** The card has its info: About's Edit can be pressed. */
+async function aboutReady() {
+  await waitFor(() => {
+    const edit = window.document.querySelector<HTMLButtonElement>('[data-assistant-card-about-edit]')
+    expect(edit && !edit.disabled).toBe(true)
+  })
+}
+
+/**
+ * About › Edit (revamp 2026-11-28): the editor sheet. Its first field is what the assistant helps
+ * with ("Instructions" for a hand-written persona); the raw text only appears there.
+ */
+async function purposeField(label = 'Lan giúp bạn việc gì') {
+  if (!window.document.querySelector('[data-assistant-card-about-editor]')) {
+    await aboutReady()
+    fireEvent.click(window.document.querySelector<HTMLButtonElement>('[data-assistant-card-about-edit]')!)
+  }
+
+  return screen.findByRole<HTMLTextAreaElement>('textbox', { name: label })
+}
+
+/** Its personality as shown: the editor's field while it is open, else the card's row. */
+async function personalityIs(value: string) {
+  if (window.document.querySelector('[data-assistant-card-about-editor]')) {
+    await waitFor(() => expect((screen.getByRole('textbox', { name: 'Tính cách' }) as HTMLTextAreaElement).value).toBe(value))
+  } else {
+    await screen.findByRole('button', { name: `Tính cách, ${value}` })
+  }
+}
+
 async function openLan(focus?: 'name', base: MatrixSnapshot = snapshot()) {
   render(<Window base={base} />)
   act(() => openAssistantCard({ kind: 'agent', principal: LAN, ...(focus ? { focus } : {}) }))
@@ -152,7 +189,7 @@ describe('background follow-ups on the card', () => {
     save: vi.fn()
   })
 
-  it('shows exactly one short Vietnamese switch for a personal agent beside, not inside, routines', async () => {
+  it('is the first, built-in item of the Routines list, with one short Vietnamese switch', async () => {
     const bridge = backgroundSweep()
 
     const routines = {
@@ -172,17 +209,25 @@ describe('background follow-ups on the card', () => {
 
     await openLan()
 
+    // Owner 2026-11-28 (open question 1): not a card row any more; it waits inside Routines.
+    await waitFor(() => expect(window.document.querySelector('[data-assistant-card-routines]')).toBeTruthy())
+    expect(window.document.querySelector('[data-assistant-card-background-sweep]')).toBeNull()
+    // The row's count is the person's own routines; the built-in one is not counted.
+    await waitFor(() => expect(window.document.querySelector('[data-routine-count]')?.textContent).toBe('Chưa có'))
+    fireEvent.click(window.document.querySelector<HTMLElement>('[data-assistant-card-routines]')!)
+
     const row = await waitFor(() => {
-      const found = document.querySelector<HTMLElement>('[data-assistant-card-background-sweep]')
+      const found = window.document.querySelector<HTMLElement>('[data-assistant-card-background-sweep]')
       expect(found).toBeTruthy()
 
       return found!
     })
 
-    expect(document.querySelectorAll('[data-assistant-card-background-sweep]')).toHaveLength(1)
-    expect(row.textContent).toBe('Theo dõi nền')
-    expect(within(row).getAllByRole('switch', { name: 'Theo dõi nền' })).toHaveLength(1)
-    expect(row.closest('[data-routines-panel]')).toBeNull()
+    expect(window.document.querySelectorAll('[data-assistant-card-background-sweep]')).toHaveLength(1)
+    expect(row.textContent).toBe('Theo dõi việc còn dởCó sẵn')
+    expect(within(row).getAllByRole('switch', { name: 'Theo dõi việc còn dở' })).toHaveLength(1)
+    expect(row.closest('[data-routines-panel]')).toBeTruthy()
+    await waitFor(() => expect(within(row).getByRole('switch').getAttribute('aria-checked')).toBe('true'))
   })
 
   it('uses the same server setting for the Main assistant even when it answers from cloud', async () => {
@@ -195,7 +240,8 @@ describe('background follow-ups on the card', () => {
     act(() => openAssistantCard({ kind: 'agent', principal: ATUM }))
     await waitFor(() => expect(bridge.read).toHaveBeenCalledWith(ATUM))
 
-    const toggle = screen.getByRole('switch', { name: 'Theo dõi nền' })
+    // No routines list in this window: follow-ups keep a row of their own.
+    const toggle = screen.getByRole('switch', { name: 'Theo dõi việc còn dở' })
     await waitFor(() => expect(toggle.getAttribute('aria-checked')).toBe('true'))
   })
 })
@@ -292,7 +338,7 @@ it('uses the routine snapshot as the sole authority even when legacy check-in se
       ...checkInRoutine,
       title: input.title,
       instruction: input.instruction,
-      schedule: input.schedule,
+      schedule: input.schedule ?? checkInRoutine.schedule,
       timezone: input.timezone,
       enabled: input.enabled,
       notifications: input.notifications,
@@ -563,7 +609,7 @@ it('steps back one level per Esc: the field first, then the sheet', async () => 
 
 it('saves "what it does" as part of the persona, keeping the sections the card does not show', async () => {
   await openLan()
-  const field = await screen.findByRole('textbox', { name: 'Lan giúp bạn việc gì?' })
+  const field = await purposeField()
   await waitFor(() => expect((field as HTMLTextAreaElement).value).toBe('Lo lịch họp.'))
   fireEvent.focus(field)
   fireEvent.change(field, { target: { value: 'Lo lịch họp và email.' } })
@@ -594,7 +640,10 @@ function editPurpose(field: HTMLElement, value: string) {
 }
 
 async function editPersonality(value: string) {
-  fireEvent.click(screen.getByRole('button', { name: /^Tính cách,/ }))
+  if (!window.document.querySelector('[data-assistant-card-about-editor]')) {
+    fireEvent.click(screen.getByRole('button', { name: /^Tính cách,/ }))
+  }
+
   const field = await screen.findByRole('textbox', { name: 'Tính cách' })
   fireEvent.change(field, { target: { value } })
   fireEvent.blur(field)
@@ -604,7 +653,7 @@ it('merges rapid edits to both fields and undoes only the last one', async () =>
   const firstSave = pendingCardSave()
   assistants.save.mockReturnValueOnce(firstSave.promise)
   await openLan()
-  const field = await screen.findByRole('textbox', { name: 'Lan giúp bạn việc gì?' })
+  const field = await purposeField()
   editPurpose(field, 'Lo lịch họp và email.')
   await editPersonality('Vui vẻ.')
 
@@ -619,7 +668,7 @@ it('merges rapid edits to both fields and undoes only the last one', async () =>
     expectedIdentityRevision: 2,
     soul: both
   }))
-  await screen.findByRole('button', { name: 'Tính cách, Vui vẻ.' })
+  await personalityIs('Vui vẻ.')
   fireEvent.click(screen.getByRole('button', { name: 'Hoàn tác' }))
 
   await waitFor(() => expect(assistants.save).toHaveBeenNthCalledWith(3, expect.objectContaining({ soul: firstSoul })))
@@ -633,7 +682,7 @@ it('retries a persona edit using the other field from the conflict snapshot', as
     card: card(LAN, { soul: latest, definitionRevision: 7 })
   })
   await openLan()
-  editPurpose(await screen.findByRole('textbox', { name: 'Lan giúp bạn việc gì?' }), 'Lo lịch họp và email.')
+  editPurpose(await purposeField(), 'Lo lịch họp và email.')
 
   await screen.findByText('Đã lưu')
   expect(assistants.save).toHaveBeenCalledTimes(2)
@@ -649,7 +698,7 @@ it('rejects a queued edit when another writer already changed that field', async
   const firstSave = pendingCardSave()
   assistants.save.mockReturnValueOnce(firstSave.promise)
   await openLan()
-  editPurpose(await screen.findByRole('textbox', { name: 'Lan giúp bạn việc gì?' }), 'Lo lịch họp và email.')
+  editPurpose(await purposeField(), 'Lo lịch họp và email.')
   await editPersonality('Vui vẻ.')
 
   const latest = SOUL.replace('Điềm tĩnh.', 'Thẳng thắn.')
@@ -661,7 +710,7 @@ it('rejects a queued edit when another writer already changed that field', async
     expectedDefinitionRevision: 7,
     soul: latest.replace('Lo lịch họp.', 'Lo lịch họp và email.')
   }))
-  expect(screen.getByRole('button', { name: 'Tính cách, Thẳng thắn.' })).toBeTruthy()
+  await personalityIs('Thẳng thắn.')
 })
 
 it('keeps the latest saved value when the same persona field changed elsewhere', async () => {
@@ -672,7 +721,7 @@ it('keeps the latest saved value when the same persona field changed elsewhere',
     card: card(LAN, { soul: latest, definitionRevision: 7 })
   })
   await openLan()
-  const field = await screen.findByRole<HTMLTextAreaElement>('textbox', { name: 'Lan giúp bạn việc gì?' })
+  const field = await purposeField()
   editPurpose(field, 'Lo lịch họp và email.')
 
   await screen.findByText('Mục này đã thay đổi trong lúc bạn chỉnh sửa. Đang hiển thị bản mới nhất.')
@@ -685,13 +734,13 @@ it('keeps a focused draft tied to the value the editor originally showed', async
   assistants.save.mockReturnValueOnce(firstSave.promise)
   await openLan()
   await editPersonality('Vui vẻ.')
-  const field = await screen.findByRole<HTMLTextAreaElement>('textbox', { name: 'Lan giúp bạn việc gì?' })
+  const field = await purposeField()
   fireEvent.focus(field)
   fireEvent.change(field, { target: { value: 'Lo lịch họp và email.' } })
 
   const latest = SOUL.replace('Lo lịch họp.', 'Quản lý dự án.')
   firstSave.resolve({ ok: false, error: 'conflict', card: card(LAN, { soul: latest, definitionRevision: 7 }) })
-  await screen.findByRole('button', { name: 'Tính cách, Vui vẻ.' })
+  await personalityIs('Vui vẻ.')
   expect(field.value).toBe('Lo lịch họp và email.')
   fireEvent.blur(field)
 
@@ -702,7 +751,7 @@ it('keeps a focused draft tied to the value the editor originally showed', async
 
 it('undo preserves an other-device edit to the sibling field', async () => {
   await openLan()
-  editPurpose(await screen.findByRole('textbox', { name: 'Lan giúp bạn việc gì?' }), 'Lo lịch họp và email.')
+  editPurpose(await purposeField(), 'Lo lịch họp và email.')
   const undo = await screen.findByRole('button', { name: 'Hoàn tác' })
   const latest = SOUL.replace('Lo lịch họp.', 'Lo lịch họp và email.').replace('Điềm tĩnh.', 'Thẳng thắn.')
   assistants.save.mockResolvedValueOnce({
@@ -717,7 +766,7 @@ it('undo preserves an other-device edit to the sibling field', async () => {
     expectedDefinitionRevision: 7,
     soul: SOUL.replace('Điềm tĩnh.', 'Thẳng thắn.')
   }))
-  await screen.findByRole('button', { name: 'Tính cách, Thẳng thắn.' })
+  await personalityIs('Thẳng thắn.')
 })
 
 it('shows a muted hint only after the saved persona exceeds the shared default character budget', async () => {
@@ -726,7 +775,7 @@ it('shows a muted hint only after the saved persona exceeds the shared default c
   const purpose = '🙂'.repeat(budget - prefix.length)
   assistants.read.mockResolvedValueOnce({ ok: true, card: card(LAN, { soul: prefix + purpose }) })
   await openLan()
-  const field = await screen.findByRole<HTMLTextAreaElement>('textbox', { name: 'Lan giúp bạn việc gì?' })
+  const field = await purposeField()
   await waitFor(() => expect(field.value).toBe(purpose))
   const hint = 'Trợ lý có thể chỉ đọc một phần hướng dẫn này.'
   expect(screen.queryByText(hint)).toBeNull()
@@ -735,18 +784,23 @@ it('shows a muted hint only after the saved persona exceeds the shared default c
   await screen.findByText(hint)
 })
 
-it('shows the standard fields for custom text and changes only its personality section', async () => {
+it('shows custom text whole only in the editor, as Instructions, and changes only its personality section', async () => {
   assistants.read.mockResolvedValueOnce({ ok: true, card: card(LAN, { inherited: false, soul: CUSTOM_SOUL }) })
   await openLan()
+  await aboutReady()
 
-  const main = (await screen.findByRole('textbox', { name: 'Lan giúp bạn việc gì?' })) as HTMLTextAreaElement
+  // The card shows its first paragraph as prose; the raw text with its sections is the editor's.
+  expect(window.document.querySelector('[data-assistant-card-about]')?.textContent).toBe("You are Lan, Minh's research partner.")
+  expect(screen.queryByRole('textbox')).toBeNull()
+
+  const main = await purposeField('Hướng dẫn')
   expect(main.value).toBe(
     "You are Lan, Minh's research partner.\n\n## Rules\n\nKeep citations exact.\n\n## Memory\n\nRemember durable decisions."
   )
-  expect(screen.queryByRole('textbox', { name: 'Hướng dẫn' })).toBeNull()
+  expect(screen.queryByRole('textbox', { name: 'Lan giúp bạn việc gì' })).toBeNull()
 
-  fireEvent.click(screen.getByRole('button', { name: 'Tính cách, Warm and candid.' }))
   const personality = await screen.findByRole('textbox', { name: 'Tính cách' })
+  expect((personality as HTMLTextAreaElement).value).toBe('Warm and candid.')
   fireEvent.change(personality, { target: { value: 'Calm under pressure.' } })
   fireEvent.blur(personality)
 
@@ -758,7 +812,7 @@ it('replaces custom main text while preserving its personality section', async (
   assistants.read.mockResolvedValueOnce({ ok: true, card: card(LAN, { inherited: false, soul: CUSTOM_SOUL }) })
   await openLan()
 
-  const main = (await screen.findByRole('textbox', { name: 'Lan giúp bạn việc gì?' })) as HTMLTextAreaElement
+  const main = await purposeField('Hướng dẫn')
   fireEvent.focus(main)
   fireEvent.change(main, { target: { value: 'A new brief.\n\n## Boundaries\n\nAsk before sending.' } })
   fireEvent.blur(main)
@@ -824,7 +878,9 @@ it('removes an agent photo through the canonical assistant bridge', async () => 
   act(() => openAssistantCard({ kind: 'agent', principal: LAN }))
   await waitFor(() => expect(assistants.read).toHaveBeenCalledWith(LAN))
 
-  fireEvent.click(await screen.findByRole('button', { name: 'Gỡ ảnh' }))
+  // Remove photo lives in the "…" menu now, not as a link under the face.
+  expect(screen.queryByRole('button', { name: 'Gỡ ảnh' })).toBeNull()
+  fireEvent.click(within(await openMore()).getByRole('menuitem', { name: 'Gỡ ảnh' }))
   await waitFor(() => expect(assistants.avatar).toHaveBeenCalledExactlyOnceWith({ principal: LAN, avatar: null }))
 })
 
@@ -891,7 +947,7 @@ describe('where an assistant answers is said once, in its read-only place row (U
     Object.assign(window.atumMatrix, { cloudAgent })
     openWith([agent(ATUM, 'Atum'), agent(LAN, 'Lan', { ready: false, answering: 'cloud', readiness: undefined })], LAN)
     await waitFor(() => expect(assistants.read).toHaveBeenCalledWith(LAN))
-    await screen.findByRole('textbox', { name: 'Lan giúp bạn việc gì?' })
+    await aboutReady()
     const card = window.document.querySelector<HTMLElement>('[data-assistant-card]')!
 
     // Cloud-only: every assistant lives in the cloud, so no row says so (owner 2026-11-26: "obsolete"),
@@ -928,7 +984,7 @@ describe('where an assistant answers is said once, in its read-only place row (U
     // Main would still allow the move here; every assistant is cloud-first now, so nothing offers it.
     openWith([agent(ATUM, 'Atum'), agent(LAN, 'Lan')], LAN)
     await waitFor(() => expect(assistants.read).toHaveBeenCalledWith(LAN))
-    await screen.findByRole('textbox', { name: 'Lan giúp bạn việc gì?' })
+    await aboutReady()
     const card = window.document.querySelector<HTMLElement>('[data-assistant-card]')!
 
     expect(card.querySelector('[data-assistant-card-avatar]')).toBeTruthy()
@@ -976,7 +1032,7 @@ describe('a cloud-route assistant this Mac runs', () => {
       )
 
       await waitFor(() => expect(assistants.read).toHaveBeenCalledWith(LAN))
-      await screen.findByRole('textbox', { name: 'Lan giúp bạn việc gì?' })
+      await aboutReady()
       expect(Boolean(window.document.querySelector('[data-assistant-card-setup]'))).toBe(setup)
     }
   )
@@ -984,77 +1040,90 @@ describe('a cloud-route assistant this Mac runs', () => {
   it('offers no setup for one that is ready, or that no Mac runs', async () => {
     openWith([agent(ATUM, 'Atum'), agent(LAN, 'Lan', { ready: true, answering: 'cloud', macRole: 'answering' })], LAN)
     await waitFor(() => expect(assistants.read).toHaveBeenCalledWith(LAN))
-    await screen.findByRole('textbox', { name: 'Lan giúp bạn việc gì?' })
+    await aboutReady()
     expect(window.document.querySelector('[data-assistant-card-setup]')).toBeNull()
     cleanup()
     $assistantCard.set(null)
 
     openWith([agent(ATUM, 'Atum'), agent(LAN, 'Lan', { ready: false, answering: 'cloud', readiness: undefined })], LAN)
-    await screen.findByRole('textbox', { name: 'Lan giúp bạn việc gì?' })
+    await aboutReady()
     expect(window.document.querySelector('[data-assistant-card-setup]')).toBeNull()
   })
 })
 
 async function openWhatItDoes() {
   await openLan()
-  const field = (await screen.findByRole('textbox', { name: 'Lan giúp bạn việc gì?' })) as HTMLTextAreaElement
+  const field = await purposeField()
   await waitFor(() => expect(field.value).toBe('Lo lịch họp.'))
   act(() => field.focus())
 
   return field
 }
 
-function expandedEditor() {
-  const editor = window.document.querySelector<HTMLElement>('[data-assistant-card-field-dialog]')
+const aboutEditor = () => window.document.querySelector<HTMLElement>('[data-assistant-card-about-editor]')
 
-  return editor
-    ? {
-        editor,
-        large: within(editor).getByRole('textbox', { name: 'Lan giúp bạn việc gì?' }) as HTMLTextAreaElement
-      }
-    : undefined
-}
+it('shows what it helps with as plain prose, and Edit opens the editor with the raw field', async () => {
+  await openLan()
+  await aboutReady()
 
-async function openExpanded() {
-  fireEvent.click(window.document.querySelector('[data-assistant-card-field-expand]')!)
-  await waitFor(() => expect(expandedEditor()).toBeTruthy())
+  expect(window.document.querySelector('[data-assistant-card-about]')?.textContent).toBe('Lo lịch họp.')
+  expect(screen.queryByRole('textbox')).toBeNull()
 
-  return expandedEditor()!
-}
-
-it('gives the instructions field eight lines and a window-sized editor that saves on ⌘Return', async () => {
-  const field = await openWhatItDoes()
-  expect(field.rows).toBe(8)
-
-  const { large } = await openExpanded()
-  expect(large.value).toBe('Lo lịch họp.')
-
-  fireEvent.change(large, { target: { value: 'Lo lịch họp và email.' } })
-  fireEvent.keyDown(large, { key: 'Enter', metaKey: true })
-
-  await waitFor(() => expect(expandedEditor()).toBeUndefined())
-  await screen.findByText('Đã lưu')
-  expect(assistants.save.mock.calls[0]![0].soul).toContain('## What you do\n\nLo lịch họp và email.')
-  expect(field.value).toBe('Lo lịch họp và email.')
+  const field = await purposeField()
+  expect(screen.getByRole('dialog', { name: 'Về Lan' })).toBeTruthy()
+  expect(window.document.activeElement).toBe(field)
+  // The footnote moved into the editor.
+  expect(within(aboutEditor()!).getByText('Thay đổi áp dụng từ tin nhắn tiếp theo.')).toBeTruthy()
 })
 
-it('saves the large editor on close, and Esc there puts it back without saving', async () => {
+it('says "Not set yet." when there is nothing to show, and Edit is still there', async () => {
+  assistants.read.mockResolvedValueOnce({ ok: true, card: card(LAN, { soul: '# Lan\n\n## Who you are\n\nĐiềm tĩnh.\n\n## What you do\n\n' }) })
+  await openLan()
+  await aboutReady()
+
+  expect(window.document.querySelector('[data-assistant-card-about]')?.textContent).toBe('Chưa có.')
+})
+
+it('opens the editor on its personality from the Personality row', async () => {
+  await openLan()
+  await aboutReady()
+  fireEvent.click(screen.getByRole('button', { name: 'Tính cách, Điềm tĩnh.' }))
+
+  const field = await screen.findByRole('textbox', { name: 'Tính cách' })
+  await waitFor(() => expect(window.document.activeElement).toBe(field))
+})
+
+it('saves "what it does" on ⌘Return in the editor', async () => {
   const field = await openWhatItDoes()
+  fireEvent.change(field, { target: { value: 'Lo lịch họp và email.' } })
+  fireEvent.keyDown(field, { key: 'Enter', metaKey: true })
 
-  let editor = await openExpanded()
-  fireEvent.change(editor.large, { target: { value: 'Lo lịch họp và email.' } })
-  fireEvent.keyDown(editor.large, { key: 'Escape' })
+  await screen.findByText('Đã lưu')
+  expect(assistants.save.mock.calls[0]![0].soul).toContain('## What you do\n\nLo lịch họp và email.')
+})
 
-  await waitFor(() => expect(expandedEditor()).toBeUndefined())
+it('saves on Done, and Esc in a field puts it back; the next Esc closes the editor, not the card', async () => {
+  const field = await openWhatItDoes()
+  fireEvent.change(field, { target: { value: 'Lo lịch họp và email.' } })
+  fireEvent.keyDown(field, { key: 'Escape' })
+
   expect(field.value).toBe('Lo lịch họp.')
+  expect(aboutEditor()).toBeTruthy()
   expect(assistants.save).not.toHaveBeenCalled()
 
-  editor = await openExpanded()
-  fireEvent.change(editor.large, { target: { value: 'Lo lịch họp và email.' } })
-  fireEvent.click(within(editor.editor).getByRole('button', { name: 'Xong' }))
+  fireEvent.keyDown(window.document.activeElement ?? window.document.body, { key: 'Escape' })
+  await waitFor(() => expect(aboutEditor()).toBeNull())
+  expect($assistantCard.get()).not.toBeNull()
+
+  const again = await purposeField()
+  act(() => again.focus())
+  fireEvent.change(again, { target: { value: 'Lo lịch họp và email.' } })
+  fireEvent.click(within(aboutEditor()!).getByRole('button', { name: 'Xong' }))
 
   await waitFor(() => expect(assistants.save).toHaveBeenCalledOnce())
   expect(assistants.save.mock.calls[0]![0].soul).toContain('## What you do\n\nLo lịch họp và email.')
+  await waitFor(() => expect(aboutEditor()).toBeNull())
+  await waitFor(() => expect(window.document.querySelector('[data-assistant-card-about]')?.textContent).toBe('Lo lịch họp và email.'))
 })
 
 it('Esc in "what it does" puts back what was saved and leaves the card open, writing nothing', async () => {
@@ -1092,6 +1161,7 @@ it('keeps what was typed when the card closes with the field still open', async 
 
 it('keeps an open personality draft when the card closes', async () => {
   await openLan()
+  await aboutReady()
   fireEvent.click(await screen.findByRole('button', { name: /^Tính cách/ }))
   const field = await screen.findByRole('textbox', { name: 'Tính cách' })
   fireEvent.change(field, { target: { value: 'Vui vẻ.' } })
@@ -1193,7 +1263,11 @@ describe('the assistant’s public handle', () => {
     render(<Window base={withDirectory(snapshot())} />)
     act(() => openAssistantCard({ kind: 'agent', principal: LAN }))
 
-    // The same two names as the "Trợ lý mới" sheet: the display name above, the bot handle here.
+    // The same two names as the "Trợ lý mới" sheet: the display name above, the bot handle from
+    // the "…" menu (revamp 2026-11-28), in the same editor, in a popover.
+    expect(window.document.querySelector('[data-assistant-card-handle]')).toBeNull()
+    fireEvent.click(within(await openMore()).getByRole('menuitem', { name: 'Đổi @tên…' }))
+
     const section = await waitFor(() => {
       const found = window.document.querySelector<HTMLElement>('[data-assistant-card-handle]')
       expect(found).toBeTruthy()
@@ -1201,8 +1275,7 @@ describe('the assistant’s public handle', () => {
       return found!
     })
 
-    expect(within(section).getByRole('heading', { name: 'Tên bot' })).toBeTruthy()
-    expect(within(section).getByText('Người khác gõ @tên này để tìm và nhắc đến trợ lý.')).toBeTruthy()
+    expect(section.getAttribute('aria-label')).toBe('Tên bot')
     expect(screen.getByRole('button', { name: 'Tên hiển thị, Lan. Nhấn để đổi' })).toBeTruthy()
     expect(await screen.findByText('Chưa có tên bot')).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: 'Chọn tên bot' }))
@@ -1216,7 +1289,8 @@ describe('the assistant’s public handle', () => {
     expect(dialog.textContent).toContain('@lan_bot sẽ là tên bot của Lan.')
     fireEvent.click(screen.getByRole('button', { name: 'Dùng tên' }))
 
-    expect(await screen.findByText('@lan_bot')).toBeTruthy()
+    // Shown under the name too, with what it is for as its tooltip.
+    await waitFor(() => expect(window.document.querySelector('[data-assistant-card-handle-line]')?.textContent).toBe('@lan_bot'))
     expect(requests.filter(request => request.action === 'claim')).toEqual([
       expect.objectContaining({ action: 'claim', handle: 'lan_bot', assistantId: LAN_ASSISTANT })
     ])
@@ -1226,6 +1300,7 @@ describe('the assistant’s public handle', () => {
     directory()
     render(<Window base={withDirectory(snapshot())} />)
     act(() => openAssistantCard({ kind: 'agent', principal: LAN }))
+    fireEvent.click(within(await openMore()).getByRole('menuitem', { name: 'Đổi @tên…' }))
     fireEvent.click(await screen.findByRole('button', { name: 'Chọn tên bot' }))
     fireEvent.keyDown(screen.getByRole('textbox', { name: 'Tên bot' }), { key: 'Escape' })
 
@@ -1239,6 +1314,91 @@ describe('the assistant’s public handle', () => {
     expect(screen.getByRole('button', { name: 'Tên hiển thị, Lan. Nhấn để đổi' })).toBeTruthy()
     expect(screen.queryByText('Chưa có tên bot')).toBeNull()
     expect(screen.queryByRole('button', { name: 'Chọn tên bot' })).toBeNull()
+    expect(within(await openMore()).queryByRole('menuitem', { name: 'Đổi @tên…' })).toBeNull()
+  })
+
+  it('copies the handle it holds from the "…" menu', async () => {
+    directory()
+    const writeText = vi.fn(async () => {})
+    window.atumMatrix = { ...window.atumMatrix, clipboard: { writeText } } as unknown as MatrixUiBridge
+    const aliases = window.atumMatrix.aliases!
+    vi.mocked(aliases.request).mockImplementation(async input =>
+      input.action === 'current'
+        ? { ok: true as const, value: { kind: 'current' as const, alias: { handle: 'lan_bot', generation: 1 } } }
+        : { ok: false as const, error: 'unavailable' as const }
+    )
+    render(<Window base={withDirectory(snapshot())} />)
+    act(() => openAssistantCard({ kind: 'agent', principal: LAN }))
+
+    await waitFor(() => expect(window.document.querySelector('[data-assistant-card-handle-line]')?.textContent).toBe('@lan_bot'))
+    fireEvent.click(within(await openMore()).getByRole('menuitem', { name: 'Sao chép @lan_bot' }))
+    await waitFor(() => expect(writeText).toHaveBeenCalledWith('@lan_bot'))
+  })
+})
+
+describe('the header’s "…" menu', () => {
+  it('holds rename and delete for an assistant, and Rename opens the name field', async () => {
+    await openLan()
+    await screen.findByText('Xong')
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Tên hiển thị, Lan. Nhấn để đổi' }).hasAttribute('disabled')).toBe(false))
+
+    // Delete is not a row on the card any more.
+    expect(window.document.querySelector('[data-assistant-card-delete]')).toBeNull()
+    const menu = await openMore()
+    expect(within(menu).getByRole('menuitem', { name: 'Xóa Lan…' })).toBeTruthy()
+
+    fireEvent.click(within(menu).getByRole('menuitem', { name: 'Đổi tên…' }))
+    await waitFor(() => expect(screen.getByRole('textbox', { name: 'Tên hiển thị' })).toBeTruthy())
+  })
+
+  it('opens the delete confirmation from its last item', async () => {
+    await openLan()
+    await screen.findByText('Xong')
+    fireEvent.click(within(await openMore()).getByRole('menuitem', { name: 'Xóa Lan…' }))
+
+    expect(await screen.findByRole('dialog', { name: /Lan/ })).toBeTruthy()
+    expect(screen.queryByRole('dialog', { name: 'Lan info' })).toBeNull()
+  })
+
+  it('gives the primary no Delete', async () => {
+    render(<Window base={snapshot()} />)
+    act(() => openAssistantCard({ kind: 'agent', principal: ATUM }))
+    await waitFor(() => expect(assistants.read).toHaveBeenCalledWith(ATUM))
+    await screen.findByText('Xong')
+
+    const menu = await openMore().catch(() => null)
+    expect(menu ? within(menu).queryByRole('menuitem', { name: /^Xóa/ }) : null).toBeNull()
+  })
+})
+
+describe('the pet row', () => {
+  const withStore = (base: MatrixSnapshot) => ({ ...base, apps: { apps: [] }, petScope: 'scope' }) as unknown as MatrixSnapshot
+
+  it('is absent until a pet is chosen; "Choose a pet…" is in the menu', async () => {
+    window.atumMatrix = { ...window.atumMatrix, pets: { read: vi.fn(async () => ({ sprite: null })) } } as unknown as MatrixUiBridge
+    await openLan(undefined, withStore(snapshot()))
+    await screen.findByText('Xong')
+
+    expect(window.document.querySelector('[data-assistant-card-pet]')).toBeNull()
+    expect(within(await openMore()).getByRole('menuitem', { name: 'Chọn thú cưng…' })).toBeTruthy()
+  })
+
+  it('shows its pet by name once chosen, and the menu offers to change it', async () => {
+    window.atumMatrix = {
+      ...window.atumMatrix,
+      pets: { read: vi.fn(async () => ({ sprite: { enabled: true, displayName: 'Pip' } })) }
+    } as unknown as MatrixUiBridge
+    await openLan(undefined, withStore(snapshot()))
+
+    const row = await waitFor(() => {
+      const found = window.document.querySelector<HTMLElement>('[data-assistant-card-pet]')
+      expect(found?.textContent).toContain('Pip')
+
+      return found!
+    })
+
+    expect(row.closest('[data-assistant-card-section="chat"]')).toBeTruthy()
+    expect(within(await openMore()).getByRole('menuitem', { name: 'Đổi thú cưng…' })).toBeTruthy()
   })
 })
 
@@ -1455,8 +1615,13 @@ describe('one assistant card, the primary included', () => {
   }
 
   const rowsOf = () =>
-    [...window.document.querySelectorAll<HTMLElement>('[data-assistant-card-rows] > *')].map(row => {
+    [...window.document.querySelectorAll<HTMLElement>('.atum-card-body .atum-settings-group > *')]
+      // The primary's privilege: no Delete. Every other row is the same.
+      .filter(row => !row.hasAttribute('data-assistant-card-delete'))
+      .map(row => {
       const tag = row.tagName.toLowerCase()
+      // Its section too (revamp 2026-11-28): the same row in another section is not the same card.
+      const section = row.closest('[data-assistant-card-section]')?.getAttribute('data-assistant-card-section') ?? 'notice'
 
       const attributes = [
         'data-assistant-card-home',
@@ -1474,7 +1639,7 @@ describe('one assistant card, the primary included', () => {
         .sort()
         .join(',')
 
-      return `${tag}:${row.getAttribute('data-agent-home-row') ?? ''}:${attributes}`
+      return `${section}/${tag}:${row.getAttribute('data-agent-home-row') ?? ''}:${attributes}`
     })
 
   const personaRows = () =>
@@ -1570,7 +1735,7 @@ describe('one assistant card, the primary included', () => {
     await openCard('agent-mai', withModel)
     const custom = rowsOf()
     const customPersona = personaRows()
-    const customField = screen.getByRole('textbox', { name: 'Mai giúp bạn việc gì?' }) as HTMLTextAreaElement
+    const customField = await purposeField('Hướng dẫn')
 
     // The documented privilege: the primary has no Delete row (it lives outside the rows group).
     expect(primary).toEqual(template)
@@ -1584,11 +1749,11 @@ describe('one assistant card, the primary included', () => {
     cleanup()
 
     await openCard(ATUM, withModel)
-    expect(window.document.querySelector('[data-assistant-card-delete]')).toBeNull()
+    expect(within(await openMore()).queryByRole('menuitem', { name: /^Xóa/ })).toBeNull()
     cleanup()
 
     await openCard(LAN, withModel)
-    expect(window.document.querySelector('[data-assistant-card-delete]')).not.toBeNull()
+    expect(within(await openMore()).getByRole('menuitem', { name: 'Xóa Lan…' })).toBeTruthy()
   })
 
   it('shows the primary’s “Tính cách” row even when its card carries the built-in persona', async () => {
@@ -1602,9 +1767,11 @@ describe('one assistant card, the primary included', () => {
     }))
 
     await openCard(ATUM, each => ({ ...each, home }))
+    await aboutReady()
 
     expect(screen.getByRole('button', { name: /^Tính cách/ })).toBeTruthy()
-    const field = screen.getByRole('textbox', { name: 'Atum giúp bạn việc gì?' }) as HTMLTextAreaElement
+    expect(window.document.querySelector('[data-assistant-card-about]')?.textContent).toBe('Be warm and brief.')
+    const field = await purposeField('Atum giúp bạn việc gì')
     expect(field.value).toBe('Be warm and brief.')
   })
 })

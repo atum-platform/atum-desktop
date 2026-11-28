@@ -24,6 +24,7 @@ import {
   matrixAgentDeskSteers,
   type MatrixProgressStep
 } from './agent-desk-model'
+import { useAssistantCardCopy } from './assistant-card/copy'
 import { ModelDestinationsRow } from './assistant-card/model-destinations-row'
 import { openAssistantCard } from './assistant-card/store'
 import { formatDriveSize } from './drive'
@@ -661,7 +662,11 @@ type JobState = Jobs[number]['state']
 const LIVE: ReadonlySet<JobState> = new Set(['scheduled', 'running'])
 
 /** Paused when it has routines and none of them can start on its own. */
-export function matrixAgentDeskPaused(jobs: Jobs | undefined): boolean {
+export function matrixAgentDeskPaused(jobs: Jobs | undefined, globallyPaused?: boolean): boolean {
+  if (globallyPaused !== undefined) {
+    return globallyPaused
+  }
+
   return Boolean(jobs?.some(job => job.state === 'paused') && !jobs.some(job => LIVE.has(job.state)))
 }
 
@@ -671,17 +676,19 @@ export const MATRIX_AGENT_CONTROL_RETRY_MS = 10_500
 /**
  * Its native schedule as the host reads it (desk H1), plus its controls through the host
  * agent-control route: Pause / Resume (native cron pause, resume with no catch-up) and each
- * routine on or off. Optimistic: the switch moves at once and rolls back if the host refuses
- * or changes nothing; a busy reply (the shared cooldown) is retried once after it.
+ * routine on or off. Every successful control re-reads native state. A busy reply
+ * (the shared cooldown) is retried once after it.
  */
 function useAgentSchedule(active: boolean, agent: MatrixAgentView) {
   const desk = window.atumMatrix.agentDesk
-  const [jobs, setJobs] = useState<Jobs>()
+  const [snapshot, setSnapshot] = useState<MatrixHostDeskSchedule>()
+  const [controlling, setControlling] = useState(false)
   const [problem, setProblem] = useState<'failed' | 'stopped'>()
   // Whether the last read of its schedule answered: a failed read says so instead of hiding Pause.
   const [read, setRead] = useState<'loading' | 'ready' | 'failed'>('loading')
   const [attempt, setAttempt] = useState(0)
   const live = useRef(true)
+  const reload = () => setAttempt(each => each + 1)
 
   useEffect(() => {
     live.current = true
@@ -696,12 +703,28 @@ function useAgentSchedule(active: boolean, agent: MatrixAgentView) {
       return
     }
 
+    const refresh = () => setAttempt(each => each + 1)
+
+    window.addEventListener('focus', refresh)
+    window.addEventListener('matrix-native-routines-changed', refresh)
+
+    return () => {
+      window.removeEventListener('focus', refresh)
+      window.removeEventListener('matrix-native-routines-changed', refresh)
+    }
+  }, [active, agent.runtime, desk])
+
+  useEffect(() => {
+    if (!active || !desk || agent.runtime !== 'hermes') {
+      return
+    }
+
     let current = true
     setRead('loading')
-    void desk.read(agent.principal, { read: 'schedule' as const }).then(
+    void desk.read(agent.principal, { read: 'schedule', summary: true }).then(
       next => {
         if (current) {
-          setJobs(next.jobs)
+          setSnapshot(next)
           setRead('ready')
         }
       },
@@ -713,23 +736,22 @@ function useAgentSchedule(active: boolean, agent: MatrixAgentView) {
     }
   }, [active, agent.principal, agent.runtime, attempt, desk])
 
-  const control = (request: MatrixHostAgentControl, optimistic: (jobs: Jobs) => Jobs) => {
+  const control = (request: MatrixHostAgentControl) => {
     const send = desk?.control
 
-    if (!send || !jobs) {
+    if (!send || !snapshot?.jobs.length || controlling || read !== 'ready') {
       return
     }
 
-    const before = jobs
     setProblem(undefined)
-    setJobs(optimistic(jobs))
+    setControlling(true)
 
     const attempt = (retry: boolean): Promise<void> =>
       send(agent.principal, request).then(
-        reply => {
-          // Resume that changed nothing (its routines were turned off one by one) is no resume.
-          if (live.current && reply.changed === 0 && request.action !== 'pause') {
-            setJobs(before)
+        () => {
+          if (live.current) {
+            setRead('loading')
+            window.dispatchEvent(new Event('matrix-native-routines-changed'))
           }
         },
         (error: unknown) => {
@@ -742,33 +764,32 @@ function useAgentSchedule(active: boolean, agent: MatrixAgentView) {
           }
 
           if (live.current) {
-            setJobs(before)
             setProblem(code === 'matrix_host_control_stopped' ? 'stopped' : 'failed')
           }
         }
       )
 
-    void attempt(true)
+    void attempt(true).finally(() => {
+      if (live.current) {
+        setControlling(false)
+      }
+    })
   }
 
-  const setState = (from: (state: JobState) => boolean, to: JobState, only?: string) => (list: Jobs) =>
-    list.map(job => ((only === undefined || job.id === only) && from(job.state) ? { ...job, state: to } : job))
-
   return {
-    jobs,
+    jobs: snapshot?.jobs,
+    globallyPaused: snapshot?.globallyPaused,
+    remaining: snapshot?.remaining,
+    truncated: snapshot?.truncated,
     problem,
     read,
-    reload: () => setAttempt(each => each + 1),
-    /** The host route reads and changes this agent's schedule (a native Hermes cloud agent). */
+    reload,
     hosted: Boolean(desk?.read && desk.control && agent.runtime === 'hermes'),
-    canControl: Boolean(desk?.control && jobs?.length),
-    pause: () => control({ action: 'pause' }, setState(state => LIVE.has(state), 'paused')),
-    resume: () => control({ action: 'resume' }, setState(state => state === 'paused', 'scheduled')),
-    routine: (job: string, on: boolean) =>
-      control(
-        on ? { action: 'routine_on', job } : { action: 'routine_off', job },
-        on ? setState(state => state === 'paused', 'scheduled', job) : setState(state => LIVE.has(state), 'paused', job)
-      )
+    canControl: Boolean(desk?.control && snapshot?.jobs.length),
+    pending: controlling || read === 'loading',
+    pause: () => control({ action: 'pause' }),
+    resume: () => control({ action: 'resume' }),
+    routine: (job: string, on: boolean) => control(on ? { action: 'routine_on', job } : { action: 'routine_off', job })
   }
 }
 
@@ -778,7 +799,7 @@ function Routines({ schedule }: { schedule: ReturnType<typeof useAgentSchedule> 
   const copy = matrixAgentDeskText(locale)
   const { jobs } = schedule
 
-  if (!jobs?.length) {
+  if (!schedule.hosted && !jobs?.length && !schedule.truncated) {
     return null
   }
 
@@ -795,7 +816,10 @@ function Routines({ schedule }: { schedule: ReturnType<typeof useAgentSchedule> 
   return (
     <>
       <div className="atum-desk-subhead">{copy.routines}</div>
-      {jobs.map(job => {
+      <button className="ak-btn ak-btn--sm" disabled={schedule.pending} onClick={schedule.reload} type="button">
+        {copy.refresh}
+      </button>
+      {jobs?.map(job => {
         const switchable = schedule.canControl && (LIVE.has(job.state) || job.state === 'paused')
         const switchedOff = job.state === 'paused' && job.pausedReason === 'owner_routine_off'
         // A switched-off routine already reads off on its own switch, so it adds nothing; every
@@ -813,12 +837,18 @@ function Routines({ schedule }: { schedule: ReturnType<typeof useAgentSchedule> 
               <Switch
                 aria-label={job.name}
                 checked={job.state !== 'paused'}
+                disabled={schedule.pending}
                 onCheckedChange={on => schedule.routine(job.id, on)}
               />
             )}
           </div>
         )
       })}
+      {schedule.truncated && (
+        <p className="atum-desk-quiet" role="status">
+          {copy.moreRoutines(schedule.remaining)}
+        </p>
+      )}
     </>
   )
 }
@@ -868,7 +898,7 @@ function Controls({
   const { muted, toggle } = useMatrixRoomMute(room)
   const [more, setMore] = useState(false)
   const schedule = useAgentSchedule(active, agent)
-  const paused = matrixAgentDeskPaused(schedule.jobs)
+  const paused = matrixAgentDeskPaused(schedule.jobs, schedule.globallyPaused)
 
   return (
     <section aria-label={copy.controls} data-agent-desk-controls>
@@ -892,6 +922,7 @@ function Controls({
             <Switch
               aria-label={copy.pause}
               checked={paused}
+              disabled={schedule.pending}
               onCheckedChange={on => (on ? schedule.pause() : schedule.resume())}
             />
           </label>
@@ -1130,6 +1161,20 @@ export function MatrixAgentDeskNowSection({ cloudStop, desk }: { cloudStop: Matr
   )
 }
 
+/** How many files the card shows before "Show all files". */
+export const MATRIX_AGENT_CARD_FILES = 3
+
+type CardFile =
+  | { kind: 'sent'; at: number; file: MatrixMessage }
+  | { kind: 'own'; at: number; row: MatrixHostDeskFiles['rows'][number] }
+
+/**
+ * Files on the agent's card, last (agent card revamp 2026-11-28): one list, the newest three across
+ * what it sent in this chat and what is on its computer, then "Show all files · N", which opens the
+ * full lists in place (Save on each sent file, folder browsing on its computer). A cloud agent whose
+ * computer can be read always keeps the section (owner 2026-11-27): "No files yet.", or the failed
+ * read with Try again.
+ */
 export function MatrixAgentDeskFiles({
   active,
   agent,
@@ -1142,10 +1187,149 @@ export function MatrixAgentDeskFiles({
   roomId: string
 }) {
   const { locale } = useI18n()
+  const copy = matrixAgentDeskText(locale)
+  const card = useAssistantCardCopy()
+  const own = useOwnFiles(active, agent)
+  const [all, setAll] = useState(false)
+  const sent = desk.sent
+  const root = own.path === undefined ? (own.view?.rows ?? []) : []
+
+  const files: CardFile[] = [
+    ...sent.map(file => ({ kind: 'sent' as const, at: file.timestamp, file })),
+    ...root.map(row => ({ kind: 'own' as const, at: row.modifiedAt, row }))
+  ].sort((a, b) => b.at - a.at)
+
+  const empty = !sent.length && !own.view
+
+  if (empty && !own.hosted) {
+    return null
+  }
+
+  const download = (file: MatrixMessage) =>
+    void window.atumMatrix.command({ kind: 'download', roomId, eventId: file.id }).catch(() => undefined)
+
+  const openFolder = (name: string) => {
+    if (own.view) {
+      own.setPath(`${own.view.root}/${name}`)
+    }
+
+    setAll(true)
+  }
+
+  const retry = own.read === 'failed' && own.hosted && (
+    <p className="atum-settings-section-foot flex items-center gap-2" role="status">
+      <span>{copy.filesUnavailable}</span>
+      <button className="ak-btn ak-btn--sm" data-agent-desk-files-retry onClick={own.reload} type="button">
+        {copy.tryAgain}
+      </button>
+    </p>
+  )
 
   return (
-    <div className="atum-desk atum-card-section empty:hidden" data-agent-panel-files>
-      <FilesSection active={active} agent={agent} always locale={locale} roomId={roomId} sent={desk.sent} />
+    <div className="atum-desk atum-card-section" data-agent-panel-files>
+      <section aria-label={copy.files} data-agent-desk-files={empty ? own.read : ''}>
+        <div className="atum-settings-section-head">
+          <h3 className="ak-section atum-settings-section-title">{copy.files}</h3>
+        </div>
+        {empty && own.read === 'ready' && <p className="atum-settings-section-foot">{copy.noFiles}</p>}
+        {all ? (
+          <>
+            {sent.length > 0 && (
+              <div className="ak-group mt-2" role="list" title={copy.sentHere}>
+                {sent.map(file => (
+                  <SentFileRow
+                    file={file}
+                    key={file.id}
+                    locale={locale}
+                    roomId={roomId}
+                    save={copy.save(file.body)}
+                    saveShort={copy.saveShort}
+                  />
+                ))}
+              </div>
+            )}
+            <OwnFiles own={own} />
+            <div className="ak-group mt-2">
+              <button
+                className="ak-row w-full text-left"
+                data-agent-card-files-less
+                onClick={() => {
+                  setAll(false)
+                  own.setPath(undefined)
+                }}
+                type="button"
+              >
+                <span className="ak-row-main">
+                  <span className="truncate">{copy.less}</span>
+                </span>
+              </button>
+            </div>
+          </>
+        ) : (
+          files.length > 0 && (
+            <div className="ak-group mt-2" data-agent-card-files role="list">
+              {files.slice(0, MATRIX_AGENT_CARD_FILES).map(item =>
+                item.kind === 'sent' ? (
+                  <button
+                    aria-label={copy.save(item.file.body)}
+                    className="ak-row w-full text-left"
+                    data-agent-desk-file={item.file.id}
+                    key={`sent:${item.file.id}`}
+                    onClick={() => download(item.file)}
+                    type="button"
+                  >
+                    <FileIcon aria-hidden className="ak-icon" />
+                    <span className="ak-row-main">
+                      <span className="truncate">{item.file.body}</span>
+                      <span className="ak-row-meta">{card.fileSentHere(relativeWhen(item.at, locale))}</span>
+                    </span>
+                  </button>
+                ) : item.row.kind === 'folder' ? (
+                  <button
+                    aria-label={item.row.name}
+                    className="ak-row w-full text-left"
+                    key={`folder:${item.row.name}`}
+                    onClick={() => openFolder(item.row.name)}
+                    type="button"
+                  >
+                    <FolderIcon aria-hidden className="ak-icon" />
+                    <span className="ak-row-main">
+                      <span className="truncate">{item.row.name}</span>
+                      <span className="ak-row-meta">{copy.onItsComputer}</span>
+                    </span>
+                    <CaretIcon aria-hidden className="ak-icon ak-icon--sm atum-desk-caret" />
+                  </button>
+                ) : (
+                  <div className="ak-row" key={`file:${item.row.name}`} role="listitem">
+                    <FileIcon aria-hidden className="ak-icon" />
+                    <span className="ak-row-main">
+                      <span className="truncate">{item.row.name}</span>
+                      <span className="ak-row-meta">
+                        {copy.onItsComputer} · {relativeWhen(item.at, locale)}
+                      </span>
+                    </span>
+                  </div>
+                )
+              )}
+              {files.length > MATRIX_AGENT_CARD_FILES && (
+                <button
+                  className="ak-row w-full text-left"
+                  data-agent-card-files-all
+                  onClick={() => setAll(true)}
+                  type="button"
+                >
+                  <span className="ak-row-main">
+                    <span className="truncate">{card.filesShowAll}</span>
+                  </span>
+                  <span className="ak-row-meta">{files.length}</span>
+                  <CaretIcon aria-hidden className="ak-icon ak-icon--sm atum-desk-caret" />
+                </button>
+              )}
+            </div>
+          )
+        )}
+        {retry}
+      </section>
     </div>
   )
 }

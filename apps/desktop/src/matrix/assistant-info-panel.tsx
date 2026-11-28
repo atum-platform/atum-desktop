@@ -11,7 +11,7 @@ import { isAssistantRoom } from '../../shared/matrix-assistant-room'
 
 import { MatrixAgentDeskFiles, MatrixAgentDeskNowSection, useMatrixAgentDesk } from './agent-desk'
 import { matrixAgentDeskAgent } from './agent-desk-model'
-import { AssistantCardControls } from './assistant-card/agent-controls'
+import { useAssistantCardControls } from './assistant-card/agent-controls'
 import { AssistantCard } from './assistant-card/assistant-card'
 import { resolveProjectedConversation } from './conversation-marker'
 import { matrixAgentTyping } from './local-turns'
@@ -103,6 +103,7 @@ export function MatrixAssistantInfoPanel({
   })
 
   const desk = useMatrixAgentDesk({ active: true, agent, cloudStop, room, snapshot })
+  const controls = useAssistantCardControls({ active: true, agent, desk, room })
 
   return (
     <AtumWorkspaceSurface
@@ -133,7 +134,7 @@ export function MatrixAssistantInfoPanel({
         <AssistantCard
           agent={agent}
           compact
-          controls={<AssistantCardControls active agent={agent} desk={desk} room={room} />}
+          controls={controls}
           focusName={focus === 'name'}
           focusRoutines={focus === 'routines'}
           key={`${agent.principal}:${focus ?? ''}`}

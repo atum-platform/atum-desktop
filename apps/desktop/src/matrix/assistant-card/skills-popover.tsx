@@ -1,4 +1,5 @@
 import { useStore } from '@nanostores/react'
+import type { ReactNode } from 'react'
 
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { useI18n } from '@/i18n'
@@ -15,7 +16,16 @@ export function skillLabel(name: string): string {
 }
 
 /** Card 2's "Skills · N": a short read-only list, and the way to find more. */
-export function SkillsRow({ onFindMore, skills }: { onFindMore?(): void; skills: readonly string[] }) {
+export function SkillsRow({
+  glyph,
+  onFindMore,
+  skills
+}: {
+  /** The card's leading glyph for the row. */
+  glyph?: ReactNode
+  onFindMore?(): void
+  skills: readonly string[]
+}) {
   const copy = useAssistantCardCopy()
   const { t } = useI18n()
   // Finding skills waits for beta accounts (store/beta-features.ts); the skills it has stay listed.
@@ -34,6 +44,7 @@ export function SkillsRow({ onFindMore, skills }: { onFindMore?(): void; skills:
           data-assistant-card-skills
           type="button"
         >
+          {glyph}
           <span className="atum-settings-row-title min-w-0 flex-1">{copy.skills}</span>
           <span className="atum-card-row-value">{skills.length}</span>
           <ChevronRight aria-hidden className="atum-settings-chevron" />

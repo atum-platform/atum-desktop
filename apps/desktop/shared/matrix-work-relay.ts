@@ -1,4 +1,4 @@
-/** Plans available through native Work providers. */
+/** Plans available to the cloud relay. Copilot and Kiro are interactive Work only. */
 export const WORK_RELAY_PLANS = ['codex', 'claude', 'antigravity'] as const
 export type WorkRelayPlan = (typeof WORK_RELAY_PLANS)[number]
 export const WORK_RELAY_PROVIDER = {
@@ -16,7 +16,51 @@ export interface WorkRelaySelection {
   provider: 'atum-work'
   plan: WorkRelayPlan
   model: string
+  /**
+   * How hard the plan model thinks, when the platform keeps a level for plan selections. Absent is
+   * the model's own default. Only set once the read advertises levels (`WorkAgentPlans.efforts`).
+   */
+  effort?: WorkRelayEffort
   revision: number
+}
+
+/** The conversation levels a plan selection can carry (the same three every Atum picker saves). */
+export const WORK_RELAY_EFFORTS = ['low', 'medium', 'high'] as const
+export type WorkRelayEffort = (typeof WORK_RELAY_EFFORTS)[number]
+
+/**
+ * T3's machine kinds (packages/contracts EnvironmentMachineKind), as the picker draws them. A Mac's
+ * kind comes from its owner-visible model name ("MacBook Air" is a laptop, "Mac mini" a mini).
+ */
+export type WorkRelayMachineKind = 'laptop' | 'mac-mini' | 'mac-studio' | 'desktop'
+
+/**
+ * One of the owner's Macs that reports a plan (`work_subscription_read` facts): the plan answers
+ * through any of them that is online. Only non-secret identity and state cross to the window.
+ */
+export interface WorkRelayMachine {
+  /** The Mac's device service id. */
+  id: string
+  /** Its owner-visible name ("MacBook Air"); the model, never the Computer Name. */
+  name: string
+  kind: WorkRelayMachineKind
+  /** The plan is signed in there and the Mac reported recently. */
+  online: boolean
+  /** The plan models that Mac lists, when it reported them; absent means every model of the plan. */
+  models?: readonly string[]
+}
+
+/** The kind of Mac a model name names; an unknown name reads as a desktop, T3's generic machine. */
+export function workRelayMachineKind(name: string | undefined): WorkRelayMachineKind {
+  if (!name) {return 'desktop'}
+
+  if (/\bMacBook\b/iu.test(name)) {return 'laptop'}
+
+  if (/\bMac\s?mini\b/iu.test(name)) {return 'mac-mini'}
+
+  if (/\bMac\s?(?:Studio|Pro)\b/iu.test(name)) {return 'mac-studio'}
+
+  return 'desktop'
 }
 
 export type WorkRelayPhase = 'admitted' | 'running' | 'held' | 'answered' | 'stopped' | 'failed' | 'empty' | 'cut'

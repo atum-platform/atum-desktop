@@ -1,7 +1,8 @@
 import { type AccountConnectionsView } from './account-connections'
 import type { FirstRunLabels } from './first-run-labels'
 import { WORK_RELAY_PLANS, type WorkRelayPlan } from './matrix-work-relay'
-import type { WorkRelayLimit, WorkRelaySelection } from './matrix-work-relay'
+import { WORK_RELAY_EFFORTS } from './matrix-work-relay'
+import type { WorkRelayEffort, WorkRelayLimit, WorkRelayMachine, WorkRelaySelection } from './matrix-work-relay'
 
 /**
  * The Work surface (self-work slice A, lane DW): what the Matrix window may know about Work on this Mac.
@@ -21,7 +22,7 @@ export const MATRIX_WORK_IPC = {
 export type MatrixWorkViewState =
   /** The server is starting or the view is signing in. */
   | 'starting'
-  /** The view is painted over the page's host region. */
+  /** The Work guest is signed in and ready to render. */
   | 'ready'
   /** It could not start or sign in: one line and "Try again". */
   | 'unavailable'
@@ -68,21 +69,32 @@ export interface WorkAgentPlans {
     models?: readonly { id: string; displayName: string }[]
   }>>
   selection: WorkRelaySelection | null
+  /**
+   * The owner's Macs that report each plan, so a plan row can show which Mac serves it (dimmed
+   * while that Mac is off). Absent when the account read failed: the rows then show no Macs.
+   */
+  machines?: Partial<Record<WorkRelayPlan, readonly WorkRelayMachine[]>>
+  /**
+   * The thinking levels the platform keeps with a plan selection. Absent until the platform's
+   * selection carries a level: the picker then offers no thinking column for plan models.
+   */
+  efforts?: readonly WorkRelayEffort[]
 }
 
 export interface MatrixWorkProjection {
+  guest?: MatrixWorkGuest
+  /** Changes when native plan facts or cloud publication become available. */
+  planStatusRevision?: number
   planLimits?: readonly WorkRelayLimit[]
   view: MatrixWorkViewState
   /** The Atum provider's balance read (lane S). No figure ever crosses. */
   protons: 'ok' | 'empty' | 'unknown'
 }
 
-/** The page's host region in CSS pixels of the Matrix window, before zoom. */
-export interface MatrixWorkRect {
-  x: number
-  y: number
-  width: number
-  height: number
+/** A one-use mount descriptor for an inert guest. WorkSession navigates it from main. */
+export interface MatrixWorkGuest {
+  partition: string
+  src: string
 }
 
 export interface WorkSurfaceModeSnapshot { projectId: string; mode: 'work' | 'code' }
@@ -142,6 +154,8 @@ export function parseWorkAttention(value: unknown): WorkAttentionSnapshot | null
 export const WORK_BAND_COMMANDS = ['sidebar.toggle', 'chat.new', 'chat.newWorktree', 'project.add', 'history.back', 'history.forward', 'rightPanel.toggle'] as const
 export type WorkBandCommand = (typeof WORK_BAND_COMMANDS)[number]
 
+import { isWorkLocalPlan, isWorkLocalPlanAction, type WorkLocalPlan, type WorkLocalPlanAction, type WorkLocalPlanStates } from './work-local-plans'
+
 export type MatrixWorkRequest =
   | { kind: 'getSurfaceMode' }
   | { kind: 'getSidebar' }
@@ -149,10 +163,9 @@ export type MatrixWorkRequest =
   | { kind: 'runCommand'; command: WorkBandCommand }
   | { kind: 'setSurfaceMode'; projectId: string; mode: 'work' | 'code' }
   | { kind: 'readAgentPlans'; principal: string }
-  | { kind: 'selectRelay'; principal: string; model: string; plan?: WorkRelayPlan }
+  | { kind: 'selectRelay'; principal: string; model: string; plan?: WorkRelayPlan; effort?: WorkRelayEffort }
   | { kind: 'read' }
-  | { kind: 'show'; rect: MatrixWorkRect }
-  | { kind: 'hide' }
+  | { kind: 'open' }
   | { kind: 'retry' }
   /** Gate 4a: open T3's own Codex connect screen inside Work. Atum never sees the login. */
   | { kind: 'openPlanConnect'; plan?: WorkRelayPlan }
@@ -162,6 +175,8 @@ export type MatrixWorkRequest =
   | { kind: 'readConnections' }
   /** First run: this Mac's four connections and their plan names, as T3 reports them (local only). */
   | { kind: 'readPlanLabels' }
+  | { kind: 'readLocalPlans' }
+  | { kind: 'localPlanAction'; plan: WorkLocalPlan; action: WorkLocalPlanAction }
   /** Settings: Work itself on or off for this account on this Mac (§8.5). */
   | { kind: 'setWork'; on: boolean }
 
@@ -178,13 +193,11 @@ export interface MatrixWorkBridge {
   getAttention?(): Promise<WorkAttentionSnapshot | null>
   onAttentionChanged?(listener: (snapshot: WorkAttentionSnapshot | null) => void): () => void
   readAgentPlans?(principal: string): Promise<WorkAgentPlans | null>
-  selectRelay?(principal: string, model: string, plan?: WorkRelayPlan): Promise<WorkRelaySelection>
+  selectRelay?(principal: string, model: string, plan?: WorkRelayPlan, effort?: WorkRelayEffort): Promise<WorkRelaySelection>
   /** Null: Work is not available for this account on this build, so the rail has no Work entry. */
   read(): Promise<MatrixWorkProjection | null>
-  /** Paint (or move) the owner view over this region. The first call opens and signs the view in. */
-  show(rect: MatrixWorkRect): Promise<void>
-  /** Take the view off the window, keeping its sign-in. */
-  hide(): Promise<void>
+  /** Start Work immediately, without waiting for background prewarm. */
+  open(): Promise<void>
   /** After `unavailable`: restart the server and sign the view in again. */
   retry(): Promise<void>
   /** Open T3's own Codex connect screen in Work's view (the caller shows the Work page). */
@@ -194,6 +207,8 @@ export interface MatrixWorkBridge {
   readConnections?(): Promise<AccountConnectionsView | null>
   /** First run: this Mac's four connections (ChatGPT, Claude, Antigravity, OpenCode) and T3's plan names. */
   readPlanLabels?(): Promise<FirstRunLabels>
+  readLocalPlans?(): Promise<WorkLocalPlanStates>
+  localPlanAction?(plan: WorkLocalPlan, action: WorkLocalPlanAction): Promise<string | void>
   /** One tap, every Mac: revoke the platform's account-wide consent record. */
   revokePlanConsent(plan?: WorkRelayPlan): Promise<MatrixWorkPlanConsent>
   /** Turn Work on or off on this Mac. Off stops what runs and refuses to start it; on lets it start again. */
@@ -232,10 +247,6 @@ function parseConsentInput(value: unknown): MatrixWorkPlanConsentInput | null {
   return agents && macs ? { agents, macs, alsoWhenScheduled: row.alsoWhenScheduled } : null
 }
 
-function isFiniteNonNegative(value: unknown): value is number {
-  return typeof value === 'number' && Number.isFinite(value) && value >= 0
-}
-
 /** Main's check of what a renderer may ask. Anything else is refused, not trimmed. */
 export function parseMatrixWorkRequest(value: unknown): MatrixWorkRequest | null {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
@@ -269,18 +280,23 @@ export function parseMatrixWorkRequest(value: unknown): MatrixWorkRequest | null
     case 'selectRelay': {
       if (row.plan !== undefined && !relayPlan) {return null}
 
-      return keys.length === ('plan' in row ? 4 : 3) && typeof row.principal === 'string' && UUID.test(row.principal) && typeof row.model === 'string' && row.model.length > 0 && row.model.length <= 200
-        ? { kind: 'selectRelay', principal: row.principal, model: row.model, ...(relayPlan ? { plan: relayPlan } : {}) } : null
+      const effort = WORK_RELAY_EFFORTS.find(each => each === row.effort)
+
+      if (row.effort !== undefined && !effort) {return null}
+
+      return keys.length === 3 + ('plan' in row ? 1 : 0) + ('effort' in row ? 1 : 0) && typeof row.principal === 'string' && UUID.test(row.principal) && typeof row.model === 'string' && row.model.length > 0 && row.model.length <= 200
+        ? { kind: 'selectRelay', principal: row.principal, model: row.model, ...(relayPlan ? { plan: relayPlan } : {}), ...(effort ? { effort } : {}) } : null
     }
 
     case 'read':
 
-    case 'hide':
+    case 'open':
 
     case 'retry':
 
     case 'readConnections':
 
+    case 'readLocalPlans':
     case 'readPlanLabels':
       return keys.length === 1 ? { kind: row.kind } : null
 
@@ -298,27 +314,12 @@ export function parseMatrixWorkRequest(value: unknown): MatrixWorkRequest | null
         ? { kind: 'setPlanConsent', consent, ...(relayPlan ? { plan: relayPlan } : {}) } : null
     }
 
+    case 'localPlanAction':
+      return keys.length === 3 && isWorkLocalPlan(row.plan) && isWorkLocalPlanAction(row.plan, row.action)
+        ? { kind: 'localPlanAction', plan: row.plan, action: row.action } : null
+
     case 'setWork':
       return keys.length === 2 && typeof row.on === 'boolean' ? { kind: 'setWork', on: row.on } : null
-    case 'show': {
-      const rect = row.rect as Record<string, unknown> | null
-
-      if (
-        keys.length !== 2 ||
-        !rect ||
-        typeof rect !== 'object' ||
-        Object.keys(rect).length !== 4 ||
-        !isFiniteNonNegative(rect.x) ||
-        !isFiniteNonNegative(rect.y) ||
-        !isFiniteNonNegative(rect.width) ||
-        !isFiniteNonNegative(rect.height)
-      ) {
-        return null
-      }
-
-      return { kind: 'show', rect: { x: rect.x, y: rect.y, width: rect.width, height: rect.height } }
-    }
-
     default:
       return null
   }

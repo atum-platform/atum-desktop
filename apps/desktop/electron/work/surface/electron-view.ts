@@ -1,14 +1,12 @@
-import { type BrowserWindow, session as electronSession, WebContentsView } from 'electron'
+import { randomUUID } from 'node:crypto'
 
-import type { MatrixWorkRect } from '../../../shared/matrix-work'
+import type { Session, WebContents, WebPreferences } from 'electron'
+
+import type { MatrixWorkGuest } from '../../../shared/matrix-work'
 import { createElectronOwnerView, installWorkViewPolicy, partitionFor } from '../session'
 import type { WorkIncarnation } from '../sidecar/process'
 
-import { placeOwnerView } from './place-view'
-import type { WorkViewHandle } from './surface'
-
-// The pinned Work chrome can also render Update Everything for provider-only offers.
-// Suppress its two footer menu states in this embed. Its separate CLI provider pill is outside the menu.
+// The pinned Work chrome can render its own Update Everything for provider-only offers.
 const EMBEDDED_WORK_UPDATE_STYLE = `
   [data-sidebar="footer"] [data-slot="sidebar-menu-item"].ml-auto.shrink-0,
   [data-sidebar="footer"] [data-slot="sidebar-menu-item"][class~="@container/sidebar-update"] {
@@ -16,103 +14,124 @@ const EMBEDDED_WORK_UPDATE_STYLE = `
   }
 `
 
-/**
- * The real owner view: a `WebContentsView` on the account's own partition, with R's policy and S's
- * isolated preload, painted over the Work page's host region of the Matrix window.
- */
-export function createWorkViewFactory(input: {
-  log?(phase: string, ms: number): void
-  window: () => BrowserWindow | null
-  /** S's isolated `dist/electron-work-preload.js`. */
+export function createWorkGuestHost(input: {
+  contents(): WebContents | undefined
+  sessionFromPartition(partition: string): Session
   preload: string
-  zoomFactor?: () => number
-  /** Corner radius of the region in CSS pixels (Work: the panel radius, WORK_VIEW_RADIUS). */
-  radius?: number
+  log?(phase: string, ms: number): void
   onBlocked?: (kind: string, origin: string) => void
-}): (incarnation: WorkIncarnation) => WorkViewHandle {
-  return incarnation => {
-    const startedAt = Date.now()
-    const partition = partitionFor(incarnation.accountKey)
-    const session = electronSession.fromPartition(partition)
+}) {
+  let pending: { host: WebContents; guest: MatrixWorkGuest; accepted: boolean } | undefined
 
-    const view = new WebContentsView({
-      webPreferences: {
-        partition,
-        // Pairing and client hydration must run at foreground speed while the view is detached.
-        backgroundThrottling: false,
+  return {
+    /** This is the only exception to Matrix's consumer-only webview rule. */
+    allowAttach(host: WebContents, preferences: WebPreferences, params: Record<string, unknown>): boolean {
+      if (!pending || pending.host !== host || pending.accepted ||
+          params.partition !== pending.guest.partition || params.src !== pending.guest.src) {
+        return false
+      }
+
+      pending.accepted = true
+
+      // The renderer supplies an element and the one-use mount descriptor. Main owns every preference.
+      for (const key of Object.keys(preferences) as (keyof WebPreferences)[]) {
+        delete preferences[key]
+      }
+
+      Object.assign(preferences, {
+        partition: pending.guest.partition,
         preload: input.preload,
         sandbox: true,
         contextIsolation: true,
         nodeIntegration: false,
-        webviewTag: false
-      }
-    })
-
-    const contents = view.webContents
-
-    const throttle = setTimeout(() => {
-      if (!contents.isDestroyed()) {
-        contents.setBackgroundThrottling(true)
-      }
-    }, 15_000)
-
-    throttle.unref?.()
-
-    input.log?.('view-created', Date.now() - startedAt)
-    contents.on('dom-ready', () => {
-      void contents.insertCSS(EMBEDDED_WORK_UPDATE_STYLE, { cssOrigin: 'user' }).catch(() => undefined)
-      input.log?.('page-dom-ready', Date.now() - startedAt)
-    })
-    contents.on('did-finish-load', () => input.log?.('page-load', Date.now() - startedAt))
-
-    // A detached preload still needs a desktop viewport, rather than a zero-width mobile layout.
-    const initialWindow = input.window()
-    const bounds = initialWindow && !initialWindow.isDestroyed() ? initialWindow.getContentBounds() : null
-
-    if (bounds) {
-      view.setBounds({ x: 0, y: 0, width: bounds.width, height: bounds.height })
-    }
-
-    // Transparent, so the window's frame (and its vibrancy) shows in the gaps between T3's panels.
-    view.setBackgroundColor('#00000000')
-
-    // Electron's overloaded `on`/`removeListener` signatures don't narrow to R's structural targets.
-    const disposePolicy = installWorkViewPolicy(contents, session as unknown as Parameters<typeof installWorkViewPolicy>[1], {
-      origin: incarnation.origin,
-      onBlocked: input.onBlocked
-    })
-
-    let host: BrowserWindow | null = null
-
-    const place = (rect: MatrixWorkRect | null) => {
-      const window = rect && !contents.isDestroyed() ? input.window() : null
-      const canPlace = window && !window.isDestroyed()
-
-      host = placeOwnerView({
-        view,
-        host,
-        window: canPlace ? window : null,
-        rect,
-        zoom: canPlace ? (input.zoomFactor?.() ?? 1) : 1,
-        radius: input.radius ?? 0
+        webviewTag: false,
+        webSecurity: true,
+        backgroundThrottling: false,
+        zoomFactor: host.getZoomFactor(),
+        disablePopups: true
       })
-    }
+      delete params.httpreferrer
+      delete params.useragent
 
-    // Electron can clear view.webContents before emitting 'destroyed' on contents.
-    contents.once('destroyed', () => {
-      clearTimeout(throttle)
-      disposePolicy()
-      place(null)
-    })
+      return true
+    },
+    async createView(incarnation: WorkIncarnation, signal: AbortSignal, publishGuest: (guest: MatrixWorkGuest) => void) {
+      const host = input.contents()
 
-    return {
-      port: createElectronOwnerView({ contents, session, origin: incarnation.origin }),
-      place,
-      focus: () => {
-        if (!contents.isDestroyed()) {
-          contents.focus()
+      if (!host || host.isDestroyed() || pending || signal.aborted) {throw new Error('work_guest_unavailable')}
+
+      const startedAt = Date.now()
+      const partition = partitionFor(incarnation.accountKey)
+      const session = input.sessionFromPartition(partition)
+      const request = { host, guest: { partition, src: `about:blank#${randomUUID()}` }, accepted: false }
+      pending = request
+
+      return new Promise<ReturnType<typeof createElectronOwnerView>>((resolve, reject) => {
+        let guestContents: WebContents | undefined
+
+        const finish = () => {
+          clearTimeout(timeout)
+          signal.removeEventListener('abort', cancel)
+          host.removeListener('destroyed', cancel)
+          host.removeListener('did-attach-webview', attached)
+          guestContents?.removeListener('destroyed', cancel)
+          guestContents?.removeListener('did-finish-load', ready)
+          pending = undefined
         }
-      }
+
+        const cancel = () => {
+          finish()
+
+          if (guestContents && !guestContents.isDestroyed()) {guestContents.close()}
+          reject(new Error('work_guest_unavailable'))
+        }
+
+        const attached = (_event: unknown, contents: WebContents) => {
+          if (!request.accepted || contents.session !== session) {return}
+          guestContents = contents
+          input.log?.('view-created', Date.now() - startedAt)
+
+          // Electron starts the inert URL just before did-attach-webview. Fence the guest now,
+          // and wait for that navigation to finish before WorkSession loads the pairing grant.
+          const disposePolicy = installWorkViewPolicy(contents, session as unknown as Parameters<typeof installWorkViewPolicy>[1], {
+            origin: incarnation.origin,
+            onBlocked: input.onBlocked
+          })
+
+          const throttle = setTimeout(() => {
+            if (!contents.isDestroyed()) {contents.setBackgroundThrottling(true)}
+          }, 15_000)
+
+          throttle.unref?.()
+          contents.once('destroyed', () => {
+            clearTimeout(throttle)
+            disposePolicy()
+          })
+          contents.on('render-process-gone', () => {
+            if (!contents.isDestroyed()) {contents.close()}
+          })
+          contents.once('destroyed', cancel)
+          contents.once('did-finish-load', ready)
+        }
+
+        const ready = () => {
+          const contents = guestContents!
+          finish()
+          contents.on('dom-ready', () => {
+            void contents.insertCSS(EMBEDDED_WORK_UPDATE_STYLE, { cssOrigin: 'user' }).catch(() => undefined)
+            input.log?.('page-dom-ready', Date.now() - startedAt)
+          })
+          contents.on('did-finish-load', () => input.log?.('page-load', Date.now() - startedAt))
+          resolve(createElectronOwnerView({ contents, session, origin: incarnation.origin }))
+        }
+
+        const timeout = setTimeout(cancel, 10_000)
+        timeout.unref?.()
+        host.on('did-attach-webview', attached)
+        host.once('destroyed', cancel)
+        signal.addEventListener('abort', cancel, { once: true })
+        publishGuest(request.guest)
+      })
     }
   }
 }

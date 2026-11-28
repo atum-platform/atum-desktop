@@ -30,7 +30,7 @@ export interface AccountPlanRow {
   here: boolean
 }
 
-function planRow(connection: AccountPlanConnection | undefined, plan: AccountPlan, thisDevice?: string): AccountPlanRow {
+function planRow(connection: AccountPlanConnection | undefined, plan: AccountPlan, view?: AccountConnectionsView | null): AccountPlanRow {
   if (!connection) {
     return { plan, state: 'not_connected', macs: [], models: [], here: false }
   }
@@ -38,15 +38,18 @@ function planRow(connection: AccountPlanConnection | undefined, plan: AccountPla
   const macs = connection.devices.map(device => ({
     id: device.deviceServiceId,
     name: device.displayName,
-    thisMac: device.deviceServiceId === thisDevice,
+    thisMac: device.deviceServiceId === view?.thisDevice,
     stale: device.status === 'stale'
   }))
+  const enrollingHere = view?.localPlans?.includes(plan) === true
 
   // This Mac first, then fresh Macs, then stale ones.
   macs.sort((left, right) => Number(right.thisMac) - Number(left.thisMac) || Number(left.stale) - Number(right.stale))
 
   const state: AccountPlanState =
-    connection.status === 'needs_attention'
+    enrollingHere
+      ? 'connected'
+      : connection.status === 'needs_attention'
       ? 'needs_attention'
       : connection.status === 'not_connected' || macs.length === 0
         ? 'not_connected'
@@ -59,7 +62,7 @@ function planRow(connection: AccountPlanConnection | undefined, plan: AccountPla
     state,
     macs,
     models: state === 'not_connected' ? [] : connection.models.map(({ id, displayName }) => ({ id, displayName })),
-    here: macs.some(mac => mac.thisMac && !mac.stale)
+    here: enrollingHere || macs.some(mac => mac.thisMac && !mac.stale)
   }
 }
 
@@ -73,7 +76,7 @@ export function accountPlanRows(view: AccountConnectionsView | null | undefined)
 
   const rank: Record<AccountPlanState, number> = { connected: 0, needs_attention: 1, stale: 2, not_connected: 3 }
 
-  return ACCOUNT_PLANS.map(plan => planRow(byPlan.get(plan), plan, view?.thisDevice)).sort(
+  return ACCOUNT_PLANS.map(plan => planRow(byPlan.get(plan), plan, view)).sort(
     (left, right) => rank[left.state] - rank[right.state]
   )
 }
@@ -84,7 +87,11 @@ export function accountPlanRow(view: AccountConnectionsView | null | undefined, 
 
 /** The Mac names a plan row reads, "this Mac" for this one, joined with commas. */
 export function accountPlanMacNames(row: AccountPlanRow, thisMac: string): string {
-  return row.macs.map(mac => (mac.thisMac ? thisMac : mac.name)).join(', ')
+  const names = row.macs.map(mac => (mac.thisMac ? thisMac : mac.name))
+
+  if (row.here && !row.macs.some(mac => mac.thisMac)) {names.unshift(thisMac)}
+
+  return names.join(', ')
 }
 
 /** Cloud rows the pane lists itself (Google keeps its own sign-in section). Owner chats always, home hubs as the registry has them. */

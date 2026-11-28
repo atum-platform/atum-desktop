@@ -31,7 +31,9 @@ interface RpcFrame {
 }
 
 /** Follow the paired owner's native provider catalog. Write only the environment default through T3's settings RPC. */
-export async function watchWorkModelDefault(origin: string, owner: OwnerFetch, signal: AbortSignal, current: () => boolean): Promise<void> {
+export async function watchWorkModelDefault(
+  origin: string, owner: OwnerFetch, signal: AbortSignal, current: () => boolean, onProviders?: (providers: unknown[]) => void
+): Promise<void> {
   try {
     const url = await workOwnerSocketUrl(origin, owner, signal)
 
@@ -87,18 +89,23 @@ export async function watchWorkModelDefault(origin: string, owner: OwnerFetch, s
           const frame = JSON.parse(event.data) as RpcFrame
 
           if (frame._tag === 'Chunk' && frame.requestId === '1') {
+            let providersChanged = false
+
             for (const update of frame.values ?? []) {
               if (update.type === 'snapshot') {
                 saved = update.config?.settings?.defaultModelSelection
                 providers = update.config?.providers
+                providersChanged = true
               } else if (update.type === 'providerStatuses') {
                 providers = update.payload?.providers
+                providersChanged = true
               } else if (update.type === 'settingsUpdated') {
                 saved = update.payload?.settings?.defaultModelSelection
               }
             }
 
             socket.send(JSON.stringify({ _tag: 'Ack', requestId: '1' }))
+            if (providersChanged && Array.isArray(providers)) {onProviders?.(providers)}
             reconcile()
           } else if (frame._tag === 'Exit' && writing && frame.requestId === writing.id) {
             if (frame.exit?._tag !== 'Success' || !sameModel(frame.exit.value?.defaultModelSelection, writing.selection)) {return close()}

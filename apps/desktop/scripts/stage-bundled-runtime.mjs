@@ -27,6 +27,7 @@ import RUNTIME_TOOLS from '../runtime-tools.json' with { type: 'json' }
 import { RESTRICTED_RUNTIME_SOURCE_PATHS } from './restricted-runtime-skills.mjs'
 import { pruneGooglePreviewDiscoveryDocuments, pruneNonRuntimeSource, runIsolatedImportProbe } from './slim-runtime.mjs'
 import { isMain } from './utils.mjs'
+import RESVG from './work-design/resvg-lock.json' with { type: 'json' }
 
 export const BUNDLED_PYTHON_VERSION = '3.14.7'
 export const BUNDLED_RUNTIME_SCHEMA_VERSION = 3
@@ -39,6 +40,7 @@ const workDocxRequirements = join(here, 'work-docx.requirements.txt')
 const workMemoScript = join(here, 'work-memo.py')
 const workFormatsRequirements = join(here, 'work-formats.requirements.txt')
 const workFormatValidators = ['validate-xlsx.py', 'validate-pptx.py']
+const workDesignSkill = join(here, 'work-design', 'SKILL.md')
 
 const TARGETS = Object.freeze({
   arm64: {
@@ -572,6 +574,32 @@ function stageRuntimeTools({
   return { schemaVersion: config.schemaVersion, ...staged }
 }
 
+export function stageWorkDesign(scratchRoot, arch, download = downloadVerifiedArchive) {
+  const target = RESVG.targets[arch]
+  const upstream = 'https://github.com/linebender/resvg/releases/download/v' + RESVG.version
+  const source = 'https://raw.githubusercontent.com/linebender/resvg/v' + RESVG.version
+  const directory = join(scratchRoot, 'work-authoring')
+  const skill = join(directory, 'work-design', 'SKILL.md')
+  const archive = join(scratchRoot, target.archive)
+  const resvgRoot = join(directory, 'resvg')
+  const resvg = join(resvgRoot, 'resvg')
+
+  mkdirSync(dirname(skill), { recursive: true })
+  mkdirSync(resvgRoot)
+  cpSync(workDesignSkill, skill)
+  download({ url: `${upstream}/${target.archive}`, sha256: target.sha256, destination: archive })
+  run('tar', ['-xf', archive, '-C', resvgRoot, 'resvg'])
+  unlinkSync(archive)
+  if (sha256File(resvg) !== target.executableSha256) {throw new Error('staged resvg digest mismatch')}
+  chmodSync(resvg, 0o755)
+
+  for (const [name, sha256] of Object.entries(RESVG.licenses)) {
+    download({ url: `${source}/${name}`, sha256, destination: join(resvgRoot, name) })
+  }
+
+  return { skillSha256: sha256File(skill), resvg: { version: RESVG.version, ...target, licenses: RESVG.licenses } }
+}
+
 function probeStagedBrowserRuntime({ browserRoot, config, expectedArch }) {
   const node = join(browserRoot, 'node', config.node.executable)
   const agentBrowser = join(browserRoot, 'bin', 'agent-browser')
@@ -938,6 +966,7 @@ export function stageBundledRuntime({
     for (const validator of workFormatValidators) {
       cpSync(join(here, validator), join(scratchRoot, 'work-authoring', validator))
     }
+    const design = stageWorkDesign(scratchRoot, arch)
     archiveHermesSource({ repoRoot, commit, destination: sourceRoot, scratchRoot })
     const privateSourceInputs = applyRuntimeOverlay({ repoRoot, destination: sourceRoot })
     const excludedSourcePaths = excludeRestrictedStagedSkills(sourceRoot)
@@ -995,7 +1024,8 @@ export function stageBundledRuntime({
         requirementsSha256: sha256File(workDocxRequirements),
         memoScriptSha256: sha256File(workMemoScript),
         formatsRequirementsSha256: sha256File(workFormatsRequirements),
-        validatorsSha256: Object.fromEntries(workFormatValidators.map(name => [name, sha256File(join(here, name))]))
+        validatorsSha256: Object.fromEntries(workFormatValidators.map(name => [name, sha256File(join(here, name))])),
+        design
       },
       browser,
       tools

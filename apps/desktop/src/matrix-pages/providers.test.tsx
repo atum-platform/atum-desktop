@@ -132,9 +132,22 @@ describe('selected-agent provider presentation', () => {
       expect(screen.getByText(copy.scope('Ada'))).toBeTruthy()
       expect(screen.getByRole('button', { name: copy.signIn })).toBeTruthy()
       expect(screen.getByRole('button', { name: copy.replaceKey })).toBeTruthy()
-      expect(screen.queryByRole('button', { name: new RegExp(`^${copy.model} · Nous`) })).toBeNull()
+      expect(screen.queryByText(/Nous/i)).toBeNull()
+      expect(screen.queryByText(copy.externalProvider)).toBeNull()
     }
   )
+
+  it('keeps a connected external account visible without offering a managed login', async () => {
+    const providers = snapshot.providers.map(row => row.id === 'nous' && row.oauth
+      ? { ...row, oauth: { ...row.oauth, connected: true } }
+      : row)
+    const { api } = setup({ snapshot: vi.fn().mockResolvedValue({ ...snapshot, providers }) })
+
+    expect(await screen.findByText(providersCopy.en.externalProvider)).toBeTruthy()
+    expect(screen.queryByText(/Nous/i)).toBeNull()
+    expect(screen.getAllByRole('button', { name: providersCopy.en.signIn })).toHaveLength(1)
+    expect(api.startOAuth).not.toHaveBeenCalled()
+  })
 
   it('selects a different provider through the typed client and reports preserved auxiliary slots', async () => {
     const { api } = setup()

@@ -540,7 +540,7 @@ it('rejects a non-boolean roaming projection instead of converting it to the def
   await expect(setup(new Map(), reader).instance.read(target)).rejects.toThrow('matrix_pet_invalid')
 })
 
-it('aborts a superseded roaming read so it cannot hold the per-agent queue', async () => {
+it('keeps a selected sprite visible to both consumers when a second read supersedes roaming', async () => {
   const signals: AbortSignal[] = []
 
   const reader = vi.fn((_scope: MatrixPetScope, signal: AbortSignal) => {
@@ -561,7 +561,13 @@ it('aborts a superseded roaming read so it cannot hold the per-agent queue', asy
   await vi.waitFor(() => expect(reader).toHaveBeenCalledTimes(1))
   const latest = deps.instance.read(target)
 
-  await expect(superseded).rejects.toThrow('matrix_pet_cancelled')
-  await expect(latest).resolves.toMatchObject({ roaming: false })
+  await expect(superseded).resolves.toMatchObject({
+    roaming: true,
+    sprite: { enabled: true, slug: 'gigi' }
+  })
+  await expect(latest).resolves.toMatchObject({
+    roaming: false,
+    sprite: { enabled: true, slug: 'gigi' }
+  })
   expect(signals[0]?.aborted).toBe(true)
 })

@@ -16,17 +16,18 @@ export function registerMatrixWorkIpc(
     | 'setSurfaceMode'
     | 'readAgentPlans'
     | 'selectRelay'
-    | 'hide'
+    | 'open'
     | 'openPlanConnect'
     | 'read'
     | 'readConnections'
     | 'readPlanLabels'
+    | 'readLocalPlans'
+    | 'localPlanAction'
     | 'readPlanConsent'
     | 'retry'
     | 'revokePlanConsent'
     | 'setPlanConsent'
     | 'setWork'
-    | 'show'
   >,
   requireUi: (event: IpcMainInvokeEvent) => void
 ): void {
@@ -51,17 +52,14 @@ export function registerMatrixWorkIpc(
 
       case 'readAgentPlans': return surface.readAgentPlans(request.principal)
 
-      case 'selectRelay': return surface.selectRelay(request.principal, request.model, request.plan)
+      case 'selectRelay': return surface.selectRelay(request.principal, request.model, request.plan, request.effort)
 
 
       case 'read':
         return surface.read()
 
-      case 'show':
-        return surface.show(request.rect)
-
-      case 'hide':
-        return surface.hide()
+      case 'open':
+        return surface.open()
 
       case 'retry':
         return surface.retry()
@@ -77,6 +75,12 @@ export function registerMatrixWorkIpc(
 
       case 'readPlanLabels':
         return surface.readPlanLabels()
+
+      case 'readLocalPlans':
+        return surface.readLocalPlans()
+
+      case 'localPlanAction':
+        return surface.localPlanAction(request.plan, request.action)
 
       case 'readPlanConsent':
         return request.plan ? surface.readPlanConsent(request.plan) : surface.readPlanConsent()

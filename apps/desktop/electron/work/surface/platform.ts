@@ -27,7 +27,11 @@ export function deviceServiceCall(options: DeviceServicePlatformOptions) {
     const response = await doFetch(options.endpoint, {
       method: 'POST',
       redirect: 'error',
-      headers: { 'content-type': 'application/json', authorization: `Bearer ${await options.bearer()}` },
+      headers: {
+        'content-type': 'application/json',
+        authorization: `Bearer ${await options.bearer()}`,
+        ...(operation === 'work_selection_read' ? { 'x-atum-work-selection-effort': '1' } : {})
+      },
       body: JSON.stringify({ operation, ...body }),
       signal: AbortSignal.timeout(20_000)
     })

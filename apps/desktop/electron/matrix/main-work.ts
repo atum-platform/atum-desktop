@@ -12,6 +12,7 @@ import type { StagedWorkUpdate } from '../atum-staged-swap/state'
 import type { SafeStorageLike } from '../encrypted-store'
 import { admitConnector } from '../work/connector/admission'
 import { ConnectorHttp } from '../work/connector/http'
+import { submitWorkLearning } from '../work/connector/learning'
 import { matrixConnector, type OwnerSdkHost } from '../work/connector/matrix'
 import { ConnectorService } from '../work/connector/service'
 import type { ShellMcpOptions } from '../work/connector/shell-mcp'
@@ -27,15 +28,16 @@ import { createKeychainSecretStore } from '../work/sidecar/secret-store'
 import { T3McpWithdrawalError, WorkT3McpPublication } from '../work/sidecar/t3-mcp'
 import { createT3PairingCodes } from '../work/sidecar/t3-mcp-session'
 import {
-  createWorkViewFactory,
+  createWorkGuestHost,
   registerMatrixWorkIpc,
   WorkSurface,
   type WorkSurfaceParts
 } from '../work/surface'
 import { readAccountConnections } from '../work/surface/account-connections'
+import { readLocalPlanStates, setupWorkLocalPlan } from '../work/surface/local-plans'
 import { watchWorkModelDefault } from '../work/surface/model-default'
 import { projectPlanCapabilities, projectPlanLabels } from '../work/surface/plan-capabilities'
-import { WorkPlanFacts } from '../work/surface/plan-facts'
+import { type PlanCapabilities, WorkPlanFacts } from '../work/surface/plan-facts'
 import { readPlanUsage } from '../work/surface/plan-usage'
 import { createWorkConsentClient, deviceServiceCall } from '../work/surface/platform'
 import { readWorkProviders } from '../work/surface/provider-config'
@@ -44,9 +46,6 @@ import { createOwnerRelay } from '../work/surface/relay'
 import type { WorkDeliverables } from './work-deliverable'
 import { WorkDeliverableHost } from './work-deliverable-host'
 import { MatrixWorkLifecycle, type WorkAccount, workAccountFor } from './work-lifecycle'
-
-/** Atum's panel radius (`--atum-r-panel`, styles.css): Work's native view is rounded to it. */
-export const WORK_VIEW_RADIUS = 14
 
 // The Matrix composition's Work (self-work slice A, lane W). Everything Work needs from the Matrix window is a port
 // here, so this file holds no account logic of its own: it builds the app-wide objects once (host, session,
@@ -87,7 +86,6 @@ export interface MatrixWorkDeps {
   ipcMain: Pick<IpcMain, 'handle'>
   /** Main's own check that a request comes from the Matrix UI frame. */
   requireUi(event: IpcMainInvokeEvent): void
-  zoomFactor(): number
   sessionFromPartition(partition: string): Session
   model: MatrixWorkModelPort
   /** The owner's balance. `GET /v1/models` through the proxy proves catalog access, not that Protons exist. */
@@ -112,6 +110,7 @@ export interface MatrixWorkDeps {
   ownerHost(): OwnerSdkHost | undefined
   /** The Matrix user of the active agent with this principal (`account.agents()`), or null. */
   agentMatrixUser(principal: string): Promise<string | null>
+  primaryWorkAssistant?(): string | undefined
   /** The signed-in owner’s active assistants, from the account roster. */
   eligiblePlanAgents(): Promise<string[]>
   /** The owner's top-up page (what `openTopUp` opens). */
@@ -125,6 +124,7 @@ export interface MatrixWorkDeps {
 }
 
 export interface MatrixWork {
+  allowGuestAttach: ReturnType<typeof createWorkGuestHost>['allowAttach']
   prepareUpdate(resources: string): Promise<StagedWorkUpdate | null>
   cancelPreparedUpdate(): void
   resumeUpdate(): Promise<void>
@@ -414,10 +414,20 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
   const revokedDevices = new Map<string, Promise<void>>()
   let workStopping = false
   let facts: { key: string; reporter: WorkPlanFacts } | undefined
+  let nativePlans: {
+    incarnation: NonNullable<ReturnType<WorkHost['current']>>
+    capabilities: PlanCapabilities
+    labels: ReturnType<typeof projectPlanLabels>
+  } | undefined
+  let nativeRefresh: { incarnation: NonNullable<ReturnType<WorkHost['current']>>; at: number } | undefined
+  let nativeOwner: NonNullable<ReturnType<WorkHost['current']>> | undefined
 
   const stopT3Mcp = () => {
     clearInterval(mcpTimer)
     mcpTimer = undefined
+    nativePlans = undefined
+    nativeRefresh = undefined
+    nativeOwner = undefined
     t3Mcp.stop()
   }
 
@@ -444,7 +454,7 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
     if (!endpoint) {throw new Error('work_plan_fact_unavailable')}
     const key = JSON.stringify([bound.key, bound.generation, deviceServiceId])
 
-    if (facts?.key !== key) {facts = { key, reporter: new WorkPlanFacts(bound.root) }}
+    if (facts?.key !== key) {facts = { key, reporter: new WorkPlanFacts(bound.root, deps.log) }}
 
     const enrollmentEpoch = deps.deviceServiceId() === deviceServiceId ? deps.deviceEnrollmentEpoch() : undefined
     const eligible = () => current?.() !== false &&
@@ -523,12 +533,16 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
     if (!planFactTarget(active, deviceServiceId).reporter.enabled()) {return}
     const ownerPartition = deps.sessionFromPartition(partitionFor(active.key))
 
+    const store = mcpStore(active)
+    const wasPublished = t3Mcp.isPublished(store, deviceServiceId)
     void t3Mcp.refresh({
       ...mcpCustody(active),
       deviceServiceId, workOrigin: running.origin, current,
       call: deviceCall(endpoint, scope, current),
       ownerFetch: ownerPartition.fetch.bind(ownerPartition),
       assertion: () => deps.connectAssertion?.() ?? Promise.reject(new Error('work_connect_unavailable'))
+    }).then(() => {
+      if (current() && t3Mcp.isPublished(store, deviceServiceId) !== wasPublished) {surface.planStatusChanged()}
     }).catch(error => logMcpFailure(error, 't3_mcp_refresh_failed'))
   }
 
@@ -570,33 +584,55 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
     // The owner view reads Work’s balance through the model proxy.
     readAccess: () => readWorkAccess(deps.model, deps.wallet),
     openProtons: deps.openProtons,
+    submitLearning: (owner, value, current) => submitWorkLearning(value, {
+      owner: deps.ownerHost,
+      primary: () => deps.primaryWorkAssistant?.(),
+      agent: deps.agentMatrixUser,
+      server: () => {
+        const deviceId = deps.deviceServiceId()
+        const bound = account()
+        if (deviceId && bound?.key === owner.key && !workStopping &&
+            !revokedDevices.has(deviceId) && t3Mcp.isPublished(mcpStore(bound), deviceId)) {
+          return 'work-' + deviceId.slice(0, 8).toLowerCase()
+        }
+      },
+      document: value => deliverables.learningDocument(owner, value),
+      current: () => !deps.closing() && current()
+    }),
     deliverableMessage: (owner, message, current, signal) => deliverables.message(owner, message, current, signal),
     deliverableStatus: (owner, identity) => deliverables.status(owner, identity),
     openDeliverable: (owner, identity, current) => deliverables.open(owner, identity, current)
   })
 
-  const readNativePlanCapabilities = async (bound: WorkAccount) => {
+  const currentNativePlans = (bound: WorkAccount) => {
     const running = host.current()
-
-    if (!running || !host.enabled() || running.accountKey !== bound.key || running.generation !== bound.generation) {return {}}
-
-    const providers = await readWorkProviders(running.origin, deps.sessionFromPartition(partitionFor(bound.key)))
     const active = account()
 
-    if (host.current()?.id !== running.id || active?.key !== bound.key || active.generation !== bound.generation) {return {}}
+    if (!running || nativePlans?.incarnation !== running || workStopping || !host.enabled() ||
+        running.accountKey !== bound.key || running.generation !== bound.generation ||
+        active?.key !== bound.key || active.generation !== bound.generation) {return undefined}
 
-    const observed = projectPlanCapabilities(providers)
-    const deviceServiceId = deps.deviceServiceId()
+    return nativePlans
+  }
 
-    if (deviceServiceId && Object.keys(observed).length) {
-      try {
-        t3Mcp.planCatalog(mcpStore(bound), deviceServiceId, observed)
-      } catch {
-        deps.log('[atum-work] t3_mcp_plan_catalog_store_failed')
-      }
-    }
+  const observeNativePlans = (running: NonNullable<ReturnType<WorkHost['current']>>, providers: unknown) => {
+    const active = account()
 
-    return observed
+    if (!active || host.current() !== running || !host.enabled() || workStopping ||
+        active.key !== running.accountKey || active.generation !== running.generation) {return}
+
+    const capabilities = projectPlanCapabilities(providers, (plan, state, reason) => {
+      deps.log(`[atum-work] plan=${plan} state=${state} reason=${reason}`)
+    })
+
+    if (!Array.isArray(providers)) {return}
+    const labels = projectPlanLabels(providers)
+    const previous = currentNativePlans(active)
+
+    if (previous && JSON.stringify([previous.capabilities, previous.labels]) === JSON.stringify([capabilities, labels])) {return}
+    nativePlans = { incarnation: running, capabilities, labels }
+    surface.planStatusChanged()
+    void refreshPlanFacts().catch(() => deps.log('[atum-work] plan_fact_refresh_failed'))
   }
 
   const refreshPlanFacts = async () => {
@@ -610,10 +646,24 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
       deps.deviceServiceId() === deviceServiceId && !revokedDevices.has(deviceServiceId)
     const { reporter, target } = planFactTarget(active, deviceServiceId, current)
 
-    await reporter.refresh(target, () => readNativePlanCapabilities(active))
+    await reporter.refresh(target, async () => currentNativePlans(active)?.capabilities ?? {})
   }
 
   const refreshWorkPublication = () => {
+    const running = host.current()
+
+    if (running && nativeOwner === running && host.enabled() && !workStopping &&
+        (nativeRefresh?.incarnation !== running || Date.now() - nativeRefresh.at >= 5 * 60_000)) {
+      nativeRefresh = { incarnation: running, at: Date.now() }
+      // Refresh the actual CLI probes (and the login shell PATH) through T3. The stream also
+      // delivers in-app sign-ins immediately. The reply covers a dropped stream.
+      void readWorkProviders(running.origin, deps.sessionFromPartition(partitionFor(running.accountKey)), true)
+        .then(providers => {
+          if (!Array.isArray(providers) && nativeRefresh?.incarnation === running) {nativeRefresh = undefined}
+          observeNativePlans(running, providers)
+        })
+    }
+
     void refreshPlanFacts().catch(() => deps.log('[atum-work] plan_fact_refresh_failed'))
 
     try {
@@ -657,6 +707,14 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
     }
   })
 
+  const guestHost = createWorkGuestHost({
+    contents: () => deps.ui()?.webContents,
+    preload: deps.workPreload,
+    sessionFromPartition: deps.sessionFromPartition,
+    log: (phase, ms) => deps.log(`[atum-work] startup phase=${phase} ms=${ms} at=${Date.now()}`),
+    onBlocked: (kind, origin) => deps.log(`[atum-work] view_blocked ${kind} ${origin}`)
+  })
+
   const surface = new WorkSurface({
     canPrewarm: () => (!deps.plannedUpdate || Boolean(deps.plannedUpdate.work)) && loadavg()[0] < availableParallelism(),
     getSurfaceMode: () => host.getSurfaceMode(),
@@ -664,15 +722,7 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
     getAttention: () => host.attention(),
     runCommand: command => host.runCommand(command),
     setSurfaceMode: (projectId, mode) => host.setSurfaceMode(projectId, mode),
-    createView: createWorkViewFactory({
-      window: () => deps.ui() ?? null,
-      preload: deps.workPreload,
-      zoomFactor: deps.zoomFactor,
-      log: (phase, ms) => deps.log(`[atum-work] startup phase=${phase} ms=${ms} at=${Date.now()}`),
-      // The panel radius (--atum-r-panel): the view sits in the shared panel frame like every screen.
-      radius: WORK_VIEW_RADIUS,
-      onBlocked: (kind, origin) => deps.log(`[atum-work] view_blocked ${kind} ${origin}`)
-    }),
+    createView: guestHost.createView,
     publish: projection => {
       const window = deps.ui()
 
@@ -724,13 +774,15 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
 
     return {
       session: {
-        async openOwnerView(createView) {
-          const outcome = await session.openOwnerView(createView)
+        async openOwnerView(createView, signal) {
+          const outcome = await session.openOwnerView(createView, signal)
 
           // First launch needs the freshly paired owner cookie; the server-ready tick may have preceded it.
           if (outcome.state !== 'failed') {
-            refreshWorkPublication()
             const running = outcome.incarnation
+            // The initial server-ready tick can precede the owner cookie on a fresh install.
+            nativeOwner = running
+            refreshWorkPublication()
 
             if (modelDefault?.incarnation !== running.id) {
               const scope = new AbortController()
@@ -738,7 +790,8 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
               modelDefault = {
                 incarnation: running.id,
                 ready: watchWorkModelDefault(running.origin, deps.sessionFromPartition(partitionFor(bound.key)), scope.signal,
-                  () => !deps.closing() && host.current() === running && host.enabled())
+                  () => !deps.closing() && host.current() === running && host.enabled(),
+                  providers => observeNativePlans(running, providers))
               }
             }
 
@@ -764,24 +817,23 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
         endpoint: () => deps.deviceServicesEndpoint(),
         bearer: () => options().bearer(),
         thisDevice: () => deps.deviceServiceId(),
-        localCapabilities: () => {
-          const active = account()
-
-          return active?.key === bound.key && active.generation === bound.generation
-            ? readNativePlanCapabilities(bound) : Promise.resolve({})
-        }
+        localCapabilities: async () => currentNativePlans(bound)?.capabilities ?? {}
       }),
       // First run: the four connections and T3's plan names. Local to this Mac; never reported to the account.
-      async readPlanLabels() {
+      readPlanLabels: async () => currentNativePlans(bound)?.labels ?? {},
+      readLocalPlans: () => readLocalPlanStates(
+        host.current(), bound, deps.sessionFromPartition(partitionFor(bound.key)), () => host.current()
+      ),
+      async setupLocalPlan(plan, action) {
         const running = host.current()
-        const active = account()
 
-        if (!running || !host.enabled() || active?.key !== bound.key || active.generation !== bound.generation ||
-            running.accountKey !== bound.key) {return {}}
+        if (!running || !host.enabled() || running.accountKey !== bound.key || running.generation !== bound.generation) {
+          throw new Error('work_setup_unavailable')
+        }
 
-        const providers = await readWorkProviders(running.origin, deps.sessionFromPartition(partitionFor(bound.key)))
-
-        return host.current() === running ? projectPlanLabels(providers) : {}
+        const scope = new AbortController()
+        void running.exited.then(() => scope.abort())
+        return setupWorkLocalPlan(running.origin, deps.sessionFromPartition(partitionFor(bound.key)), plan, action, scope.signal)
       },
       deviceServiceId: () => deps.deviceServiceId(),
       relay: createOwnerRelay(async () => {
@@ -789,7 +841,6 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
 
         if (!deviceServiceId || revokedDevices.has(deviceServiceId)) {return null}
 
-        const observed = await readNativePlanCapabilities(bound)
         const active = account()
 
         if (active?.key !== bound.key || active.generation !== bound.generation ||
@@ -800,9 +851,11 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
         return {
           published: host.enabled() && !workStopping && planFactTarget(bound, deviceServiceId).reporter.enabled() &&
             t3Mcp.isPublished(store, deviceServiceId),
-          plans: t3Mcp.planCatalog(store, deviceServiceId, observed)
+          plans: currentNativePlans(bound)?.capabilities ?? {}
         }
-      }, options),
+      }, options, undefined, async () => {
+        await refreshPlanFacts().catch(() => deps.log('[atum-work] plan_fact_refresh_failed'))
+      }),
       async eligiblePlanAgents() {
         const agents = await deps.eligiblePlanAgents()
         const active = account()
@@ -855,6 +908,7 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
   })
 
   return {
+    allowGuestAttach: guestHost.allowAttach,
     activate: async () => {
       // keys() drops a key whose account or generation is no longer the signed-in one, and cancels its forwards
       modelKeys.keys()

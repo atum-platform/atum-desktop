@@ -13,6 +13,7 @@ import {
   type WorkSidebarSnapshot,
   type WorkSurfaceModeSnapshot
 } from '../../../shared/matrix-work'
+import { WORK_LEARNING_CHANNEL } from '../../../shared/work-question'
 import { writeFileDurably } from '../session/files'
 import type { WorkSessionPaths } from '../session/paths'
 import type { PinHost } from '../session/update'
@@ -54,6 +55,7 @@ interface WorkHostOptions {
   readAccess(): Promise<WorkAccess>
   connectAssertion?(): Promise<string>
   openProtons(): Promise<void>
+  submitLearning?(account: Account, input: unknown, current: () => boolean): Promise<unknown>
   deliverableMessage(account: Account, message: unknown, current: () => boolean, signal: AbortSignal): Promise<WorkDeliverableReply | undefined>
   deliverableStatus(account: Account, identity: unknown): Promise<WorkDeliverableStatus | null>
   openDeliverable(account: Account, identity: unknown, current: () => boolean): Promise<boolean>
@@ -331,6 +333,15 @@ export class WorkHost {
   }
 
   registerOwnerPreload(): void {
+    ipcMain.handle(WORK_LEARNING_CHANNEL, async (event, value: unknown) => {
+      const view = this.ownerCaller(event)
+      const account = this.binding?.account
+      const current = () => this.ownerCaller(event) === view
+
+      if (!view || !account || !this.options.submitLearning) {return { status: 'unavailable' }}
+
+      return this.options.submitLearning(account, value, current)
+    })
     ipcMain.handle(WORK_ASSERTION_CHANNEL, async event => {
       const view = this.ownerCaller(event)
       const account = this.options.account()

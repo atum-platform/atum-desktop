@@ -7,14 +7,13 @@ import { Switch } from '@/components/ui/switch'
 import { Tip } from '@/components/ui/tooltip'
 import { useI18n } from '@/i18n'
 import { ATUM_AVATAR_ACCEPT } from '@/lib/atum-avatar'
-import { Check, ChevronRight, MessageCircle } from '@/lib/icons'
+import { AlertCircle, CalendarCheck, Check, ChevronRight, MessageCircle, MessageQuestion, PawPrint, PuzzlePiece, Sparkles } from '@/lib/icons'
 import { cn } from '@/lib/utils'
 
 import contextFileLimits from '../../../../../hermes_cli/data/context-file-limits.json'
 import { appCatalogNames } from '../../../shared/app-catalog'
 import type { MatrixAgentView, MatrixSnapshot } from '../../../shared/matrix'
 import { matrixAgentActions, matrixAgentAnswersInCloud, matrixAgentNeedsLocalSetup } from '../../../shared/matrix-agent-actions'
-import { matrixAliasCopy } from '../../../shared/matrix-alias-copy'
 import type { MatrixAssistantCard, MatrixAssistantCardError } from '../../../shared/matrix-assistant-card'
 import {
   type AssistantNameProblem,
@@ -26,24 +25,24 @@ import { MatrixAgentHomeRow, MatrixAgentPlaceRow } from '../agent-home-control'
 import { agentStatus, RetireAgent } from '../agent-roster'
 import { changeMatrixCheckIns } from '../check-in-card'
 import { matrixCheckInTime } from '../check-ins-copy'
-import { MatrixHandleEditor } from '../handle-editor'
-import { suggestMatrixAgentHandle } from '../handle-rules'
 import { MainAgentBadge } from '../main-agent-badge'
-import { rememberAgentHandle } from '../person-handles'
 import { MatrixProfileAvatar } from '../profile-avatar'
 import { matrixRosterAgentName } from '../roster-model'
 import { SettingsSection } from '../settings-row'
 import { $matrixStoreShelfRequest } from '../store/top-up'
 import { runMatrixCommand } from '../text-document-actions'
 
+import { AboutSection, type PersonaChange } from './about-section'
+import type { AssistantCardControlSlots } from './agent-controls'
 import { BackgroundSweepRow } from './background-sweep-row'
+import { CardHandle, CardMenu, type CardPhotoActions, useAgentHandle } from './card-menu'
 import { type AssistantCardCopy, useAssistantCardCopy } from './copy'
 import { ModelDestinationsRow } from './model-destinations-row'
 import { InlineNameField } from './name-field'
-import { type PersonaChange, PersonaFields } from './persona-fields'
 import type { PreparedPhoto } from './photo'
 import { PhotoCropDialog } from './photo-crop'
 import { RoutinesRow } from './routines-panel'
+import { CardNotice, RowGlyph } from './row-glyph'
 import { SkillsRow } from './skills-popover'
 import { setAssistantNameOverride } from './store'
 
@@ -109,8 +108,8 @@ export function AssistantCard({
 }: {
   agent: MatrixAgentView
   compact: boolean
-  /** The panel's live controls for this chat (notifications, devices, Pause), rows under Model. */
-  controls?: ReactNode
+  /** The panel's live controls for this chat, each placed in its section (notifications, devices, Pause). */
+  controls?: AssistantCardControlSlots
   focusName: boolean
   /** What it is doing now, under its name; only while it works or waits (the panel's). */
   lead?: ReactNode
@@ -142,6 +141,12 @@ export function AssistantCard({
   const [refusal, setRefusal] = useState<{ message: string; draft: string }>()
   const [retiring, setRetiring] = useState(false)
   const [editingName, setEditingName] = useState(false)
+  // "Rename…" in the "…" menu opens the name field again each time (a new token).
+  const [renameRequest, setRenameRequest] = useState(0)
+  const [photo, setPhoto] = useState<CardPhotoActions>()
+  const handle = useAgentHandle(agent, snapshot)
+  const pet = useAgentPetName(agent, snapshot)
+  const store = Boolean(snapshot.apps)
   const cardRef = useRef<MatrixAssistantCard | undefined>(undefined)
   const queue = useRef<Promise<unknown>>(Promise.resolve())
   const live = useRef(true)
@@ -393,6 +398,12 @@ export function AssistantCard({
   const status = agentStatus(agent)
   const name = shownName
 
+  const openShelf = (shelf: 'pets' | 'skills') => {
+    $matrixStoreShelfRequest.set(shelf)
+    onClose()
+    void runMatrixCommand({ kind: 'discoverApps' }).catch(() => $matrixStoreShelfRequest.set(null))
+  }
+
   return (
     <>
       {placement === 'sheet' && (
@@ -404,12 +415,26 @@ export function AssistantCard({
       )}
       <div className="atum-card-body" data-compact={compact || undefined} data-placement={placement}>
         <header className="atum-card-header" data-editing-name={editingName || undefined}>
+          <CardMenu
+            agent={agent}
+            handle={{ editable: handle.editable, value: handle.handle }}
+            name={name}
+            onDelete={primary ? undefined : () => setRetiring(true)}
+            onHandleChanged={next => handle.setHandle(next)}
+            onPet={store ? () => openShelf('pets') : undefined}
+            onRename={nameLocked || !editable ? undefined : () => setRenameRequest(value => value + 1)}
+            pet={pet}
+            photo={photo}
+            ready={ready}
+            snapshot={snapshot}
+          />
           <CardAvatar
             agent={agent}
             compact={compact}
             copy={copy}
             key={`${snapshot.petScope ?? ''}/${snapshot.identity?.userId}/${snapshot.identity?.deviceId}/${agent.principal}`}
             name={name}
+            onActions={setPhoto}
             onFailed={() => setBand({ kind: 'photo' })}
             snapshot={snapshot}
           />
@@ -433,14 +458,12 @@ export function AssistantCard({
               onCommit={next => rename(next)}
               onEditingChange={setEditingName}
               refusal={refusal}
-              startEditing={focusName}
+              startEditing={renameRequest || focusName}
             />
           )}
+          <CardHandle handle={handle.handle} />
           {agent.title && <p className="atum-card-caption text-center" data-assistant-card-title>{agent.title}</p>}
           {noteLine('name')}
-          <p className="atum-card-privacy" id="assistant-card-privacy">
-            {copy.privacy(name)}
-          </p>
           {placement === 'sheet' && (
             <div className="atum-card-pills">
               <button className="atum-card-pill" data-assistant-card-message onClick={onMessage} type="button">
@@ -473,109 +496,48 @@ export function AssistantCard({
         )}
         {offline && <p className="atum-card-caption text-center">{copy.offline}</p>}
         {lead}
-        <AgentHandle agent={agent} name={name} ready={ready} snapshot={snapshot} />
-        <section className="atum-card-section">
-          {loadFailed ? (
-            <div className="atum-settings-group">
-              <div className="atum-settings-row atum-settings-row-quiet">
-                <span className="atum-settings-row-text atum-settings-row-title">{copy.loadFailed(name)}</span>
-                <Button onClick={() => setLoadAttempt(value => value + 1)} size="inline" variant="textStrong">
-                  {copy.retry}
-                </Button>
+        <CardStateNotice agent={agent} band={Boolean(band)} copy={copy} paused={controls?.paused} status={status} />
+        <AboutSection
+          disabled={!card || !ready}
+          failed={
+            loadFailed ? (
+              <div className="atum-settings-group">
+                <div className="atum-settings-row atum-settings-row-quiet">
+                  <span className="atum-settings-row-text atum-settings-row-title">{copy.loadFailed(name)}</span>
+                  <Button onClick={() => setLoadAttempt(value => value + 1)} size="inline" variant="textStrong">
+                    {copy.retry}
+                  </Button>
+                </div>
               </div>
-            </div>
-          ) : (
-            <PersonaFields
-              disabled={!card || !ready}
-              name={name}
-              note={
-                note && note.field !== 'name' && note.field !== 'checkIns'
-                  ? { field: note.field, node: <CardNote copy={copy} note={note} onUndo={() => setNote(undefined)} /> }
-                  : undefined
-              }
-              onSave={change => savePersona(change)}
-              persona={persona ?? parsePersona('')}
-              rejected={band?.kind === 'elsewhere' && band.field ? band : undefined}
-            />
-          )}
-          <p className="atum-settings-section-foot">{copy.footnote}</p>
-          {longPersona && <p className="atum-settings-section-foot" role="status">{copy.longPersona}</p>}
-        </section>
-        <CardRows
+            ) : undefined
+          }
+          longPersona={longPersona}
+          name={name}
+          note={
+            note && note.field !== 'name' && note.field !== 'checkIns'
+              ? { field: note.field, node: <CardNote copy={copy} note={note} onUndo={() => setNote(undefined)} /> }
+              : undefined
+          }
+          onSave={change => savePersona(change)}
+          persona={persona ?? parsePersona('')}
+          rejected={band?.kind === 'elsewhere' && band.field ? band : undefined}
+        />
+        <CardSections
           agent={agent}
           card={card}
           controls={controls}
           copy={copy}
           focusRoutines={focusRoutines}
           locale={locale}
-          onClose={onClose}
+          name={name}
+          openShelf={openShelf}
+          pet={pet}
           snapshot={snapshot}
-          status={status}
         />
         {trail}
-        {!primary && (
-          <section className="atum-card-section">
-            <div className="atum-settings-group">
-              <button
-                className="atum-settings-row atum-card-danger"
-                data-assistant-card-delete
-                disabled={snapshot.state !== 'ready'}
-                onClick={() => setRetiring(true)}
-                type="button"
-              >
-                {copy.deleteRow(name)}
-              </button>
-            </div>
-          </section>
-        )}
       </div>
       {!primary && <RetireAgent agent={agent} name={name} onClose={() => setRetiring(false)} open={retiring} />}
     </>
-  )
-}
-
-/**
- * The assistant's bot handle ("Tên bot", spec/public-handles/v1): how people find and @mention
- * it, beside its display name in the header. Shown where the directory exists; chosen or changed
- * in place, the platform deciding what is free. One editor per account and assistant.
- */
-function AgentHandle({
-  agent,
-  name,
-  ready,
-  snapshot
-}: {
-  agent: MatrixAgentView
-  name: string
-  ready: boolean
-  snapshot: MatrixSnapshot
-}) {
-  const { locale } = useI18n()
-  const copy = matrixAliasCopy(locale)
-  const bridge = window.atumMatrix?.aliases
-
-  if (!bridge || !snapshot.domainEnabled || !snapshot.identity || !agent.assistantId) {
-    return null
-  }
-
-  return (
-    <SettingsSection
-      className="atum-card-section"
-      data-assistant-card-handle
-      help={copy.botNameHelp}
-      title={copy.botName}
-    >
-      <MatrixHandleEditor
-        assistantId={agent.assistantId}
-        bridge={bridge}
-        disabled={!ready}
-        key={`${snapshot.identity.userId}:${agent.assistantId}`}
-        name={name}
-        names={snapshot.agents}
-        onChanged={(handle, previous) => rememberAgentHandle(agent.userId, handle, previous)}
-        suggestion={suggestMatrixAgentHandle(name)}
-      />
-    </SettingsSection>
   )
 }
 
@@ -616,6 +578,7 @@ function CardAvatar({
   compact,
   copy,
   name,
+  onActions,
   onFailed,
   snapshot
 }: {
@@ -623,6 +586,8 @@ function CardAvatar({
   compact: boolean
   copy: AssistantCardCopy
   name: string
+  /** What the "…" menu can do with the photo, or nothing where it cannot change here. */
+  onActions(actions: CardPhotoActions | undefined): void
   onFailed(): void
   snapshot: MatrixSnapshot
 }) {
@@ -653,6 +618,22 @@ function CardAvatar({
       setPending(false)
     }
   }
+
+  // The menu's Change photo / Remove photo do what a click on the face and the old link did.
+  useEffect(() => {
+    onActions(
+      canEdit
+        ? {
+            hasPhoto: Boolean(avatarUrl),
+            pending,
+            change: () => input.current?.click(),
+            remove: () => void change()
+          }
+        : undefined
+    )
+    // `change` reads the latest state through its closure each render; the menu only needs these.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [avatarUrl, canEdit, onActions, pending])
 
   const face = (
     <MatrixProfileAvatar
@@ -700,11 +681,6 @@ function CardAvatar({
           {copy.avatarBand}
         </span>
       </button>
-      {avatarUrl && (
-        <Button disabled={pending} onClick={() => void change()} size="inline" variant="text">
-          {copy.photoRemove}
-        </Button>
-      )}
       <input
         accept={ATUM_AVATAR_ACCEPT}
         aria-hidden
@@ -733,36 +709,108 @@ function CardAvatar({
   )
 }
 
-/** Card 2: its pet, its skills, its authoritative routines, and whether it still needs setting up. */
-function CardRows({
+/** Whether this assistant is still on a Mac or moving: only then does its home row say anything. */
+function awayFromCloud(agent: MatrixAgentView): boolean {
+  // Cloud-only (AGENT_HOMES_CLOUD_ONLY): every assistant lives in the cloud, so "Lives on: The cloud"
+  // says nothing and the row goes (owner 2026-11-26: "obsolete now"); the Macs it can use are the
+  // panel's Your devices row. Only an assistant still on a Mac, or one moving, keeps it: there it is
+  // the way to the cloud, and the place it answers from is news.
+  const placed = agent.home?.placement
+
+  return agent.home
+    ? agent.home.lives.kind !== 'cloud' ||
+        Boolean(agent.home.move || agent.home.issue) ||
+        (placed !== undefined && placed.current !== 'cloud')
+    : !matrixAgentAnswersInCloud(agent)
+}
+
+/**
+ * The one state notice under the header, in the revamp's priority (2026-11-28): a save failure (the
+ * band, drawn by the card) > not set up > off the cloud or moving > paused. Now (working or waiting)
+ * is not a notice and sits above it.
+ */
+function CardStateNotice({
+  agent,
+  band,
+  copy,
+  paused,
+  status
+}: {
+  agent: MatrixAgentView
+  band: boolean
+  copy: AssistantCardCopy
+  paused?: ReactNode
+  status: ReturnType<typeof agentStatus>
+}) {
+  if (band) {
+    return null
+  }
+
+  // A cloud assistant no Mac runs has nothing to set up here, and where it answers is not said
+  // (0.19.4 Q4). One this Mac runs for it (answering or standing by, `macRole`) has a local runtime
+  // that can be not ready, so it offers the same setup as any local assistant.
+  if (!agent.ready && matrixAgentNeedsLocalSetup(agent)) {
+    return <SetupNotice agent={agent} copy={copy} status={status} />
+  }
+
+  // `agent.home` is main's data boundary for a migrated D1 assistant. Only then does this card show
+  // the authoritative home, its owner-placement readiness, and manual moves.
+  const homeBridge = window.atumMatrix.agentHome
+
+  if (awayFromCloud(agent)) {
+    return (
+      <section className="atum-card-section">
+        <div className="atum-settings-group">
+          {agent.home && homeBridge ? (
+            <MatrixAgentHomeRow
+              agentName={agent.name}
+              agentPrincipal={agent.principal}
+              bridge={homeBridge}
+              view={agent.home}
+            />
+          ) : (
+            <MatrixAgentPlaceRow agent={agent} />
+          )}
+        </div>
+      </section>
+    )
+  }
+
+  return paused ? <div className="atum-card-section">{paused}</div> : null
+}
+
+/**
+ * The card's settings, grouped by what they are about (agent card revamp 2026-11-28): "On its own"
+ * (routines, Pause), "In this chat" (the model that answers, notifications, its pet; the privacy line
+ * at its foot), "Can use" (your devices, its skills). A section with nothing in it is absent. Every
+ * assistant shows the same rows; the primary keeps its privileges, never extra rows.
+ */
+function CardSections({
   agent,
   card,
   controls,
   copy,
   focusRoutines,
   locale,
-  onClose,
-  snapshot,
-  status
+  name,
+  openShelf,
+  pet,
+  snapshot
 }: {
   agent: MatrixAgentView
   card?: MatrixAssistantCard
-  controls?: ReactNode
+  controls?: AssistantCardControlSlots
   copy: AssistantCardCopy
   focusRoutines: boolean
   locale: string
-  onClose(): void
+  name: string
+  openShelf(shelf: 'pets' | 'skills'): void
+  /** Its pet's name, once it has one; choosing one lives in the "…" menu. */
+  pet?: string
   snapshot: MatrixSnapshot
-  status: ReturnType<typeof agentStatus>
 }) {
   const store = Boolean(snapshot.apps)
-  const pet = useAgentPetName(agent, snapshot)
-
-  const openShelf = (shelf: 'pets' | 'skills') => {
-    $matrixStoreShelfRequest.set(shelf)
-    onClose()
-    void runMatrixCommand({ kind: 'discoverApps' }).catch(() => $matrixStoreShelfRequest.set(null))
-  }
+  const homeBridge = window.atumMatrix.agentHome
 
   // The routines panel's "Chuyển lên đám mây" opens the card's one placement surface (D1 home).
   const openAnswerWhere = () => {
@@ -774,119 +822,142 @@ function CardRows({
     }
   }
 
-  const rows: ReactNode[] = []
-  // `agent.home` is main's data boundary for a migrated D1 assistant. Only then does this card show
-  // the authoritative home, its owner-placement readiness, and manual moves.
-  const homeBridge = window.atumMatrix.agentHome
+  const own: ReactNode[] = []
+  const sweepBridge = window.atumMatrix?.backgroundSweep
 
-  // Cloud-only (AGENT_HOMES_CLOUD_ONLY): every assistant lives in the cloud, so "Lives on: The cloud"
-  // says nothing and the row goes (owner 2026-11-26: "obsolete now"); the Macs it can use are the
-  // panel's Your devices row. Only an assistant still on a Mac, or one moving, keeps it: there it is
-  // the way to the cloud, and the place it answers from is news.
-  const placed = agent.home?.placement
-  const awayFromCloud = agent.home
-    ? agent.home.lives.kind !== 'cloud' ||
-      Boolean(agent.home.move || agent.home.issue) ||
-      (placed !== undefined && placed.current !== 'cloud')
-    : !matrixAgentAnswersInCloud(agent)
-
-  if (agent.home && homeBridge && awayFromCloud) {
-    rows.push(
-      <MatrixAgentHomeRow
-        agentName={agent.name}
+  const followups = (variant: 'routine' | 'row') =>
+    snapshot.identity && sweepBridge ? (
+      <BackgroundSweepRow
         agentPrincipal={agent.principal}
-        bridge={homeBridge}
-        key="agent-home"
-        view={agent.home}
+        bridge={sweepBridge}
+        copy={copy}
+        glyph={variant === 'row' ? <RowGlyph icon={MessageQuestion} /> : undefined}
+        key="background-sweep"
+        ownerKey={`${snapshot.identity.userId}\n${snapshot.identity.deviceId}`}
+        variant={variant}
+      />
+    ) : undefined
+
+  if (window.atumMatrix?.routines) {
+    own.push(
+      <RoutinesRow
+        agent={agent}
+        builtIn={followups('routine')}
+        copy={copy}
+        glyph={<RowGlyph icon={CalendarCheck} />}
+        initiallyOpen={focusRoutines}
+        key="routines"
+        locale={locale}
+        onMoveToCloud={agent.home && homeBridge ? openAnswerWhere : undefined}
+        paused={controls?.routinesPaused}
       />
     )
-  } else if (!(agent.home && homeBridge) && awayFromCloud) {
-    rows.push(<MatrixAgentPlaceRow agent={agent} key="agent-home" />)
+  } else {
+    if (agent.isDefault && snapshot.checkIns && snapshot.identity) {
+      // A window without the routines bridge keeps the check-in row where it was: one list needs
+      // the native routine client, and an older runtime must not lose its only check-in control.
+      own.push(<CheckInsRow copy={copy} key="check-ins" locale={locale} snapshot={snapshot} />)
+    }
+
+    // No routines list to hold it: follow-ups keep a row of their own, so the switch is never lost.
+    const row = followups('row')
+
+    if (row) {
+      own.push(row)
+    }
   }
 
+  if (controls?.pause) {
+    own.push(<Fragment key="pause">{controls.pause}</Fragment>)
+  }
+
+  const chat: ReactNode[] = []
+
   if (agent.modelDestinations) {
-    rows.push(
+    chat.push(
       <ModelDestinationsRow
         agent={agent}
+        glyph={<RowGlyph icon={Sparkles} />}
         key="model-destinations"
+        label={copy.answersWith}
         preferenceScope={`account:${snapshot.identity?.userId ?? 'signed-out'}`}
       />
     )
   }
 
-  if (controls) {
-    rows.push(<Fragment key="controls">{controls}</Fragment>)
+  if (controls?.notifications) {
+    chat.push(<Fragment key="notifications">{controls.notifications}</Fragment>)
   }
 
-  if (store) {
-    rows.push(
+  // Owner 2026-11-28 (open question 2, yes): the row shows once a pet is chosen; until then
+  // "Choose a pet…" is in the "…" menu, so the card carries no upsell row.
+  if (store && pet) {
+    chat.push(
       <button
-        aria-label={`${copy.pet}, ${pet ?? copy.petChoose}`}
+        aria-label={`${copy.pet}, ${pet}`}
         className="atum-settings-row atum-settings-link"
         data-assistant-card-pet
         key="pet"
         onClick={() => openShelf('pets')}
         type="button"
       >
+        <RowGlyph icon={PawPrint} />
         <span className="atum-settings-row-title min-w-0 flex-1">{copy.pet}</span>
-        <span className="atum-card-row-value">{pet ?? copy.petChoose}</span>
+        <span className="atum-card-row-value">{pet}</span>
         <ChevronRight aria-hidden className="atum-settings-chevron" />
       </button>
     )
   }
 
+  const canUse: ReactNode[] = []
+
+  if (controls?.devices) {
+    canUse.push(<Fragment key="devices">{controls.devices}</Fragment>)
+  }
+
   if (card?.skills.length) {
-    rows.push(
-      <SkillsRow key="skills" onFindMore={store ? () => openShelf('skills') : undefined} skills={card.skills} />
-    )
-  }
-
-  if (snapshot.identity && window.atumMatrix?.backgroundSweep) {
-    rows.push(
-      <BackgroundSweepRow
-        agentPrincipal={agent.principal}
-        bridge={window.atumMatrix.backgroundSweep}
-        copy={copy}
-        key="background-sweep"
-        ownerKey={`${snapshot.identity.userId}\n${snapshot.identity.deviceId}`}
+    canUse.push(
+      <SkillsRow
+        glyph={<RowGlyph icon={PuzzlePiece} />}
+        key="skills"
+        onFindMore={store ? () => openShelf('skills') : undefined}
+        skills={card.skills}
       />
     )
   }
 
-  if (window.atumMatrix?.routines) {
-    rows.push(
-      <RoutinesRow
-        agent={agent}
-        copy={copy}
-        initiallyOpen={focusRoutines}
-        key="routines"
-        locale={locale}
-        onMoveToCloud={agent.home && homeBridge ? openAnswerWhere : undefined}
-      />
-    )
-  } else if (agent.isDefault && snapshot.checkIns && snapshot.identity) {
-    // A window without the routines bridge keeps the check-in row where it was: one list needs
-    // the native routine client, and an older runtime must not lose its only check-in control.
-    rows.push(<CheckInsRow copy={copy} key="check-ins" locale={locale} snapshot={snapshot} />)
-  }
-
-  // A cloud assistant no Mac runs has nothing to set up here, and where it answers is not said
-  // (0.19.4 Q4). One this Mac runs for it (answering or standing by, `macRole`) has a local runtime
-  // that can be not ready, so it offers the same setup as any local assistant.
-  if (!agent.ready && matrixAgentNeedsLocalSetup(agent)) {
-    rows.push(<SetupRow agent={agent} copy={copy} key="setup" status={status} />)
-  }
-
-  if (!rows.length) {
-    return null
-  }
+  const privacy = (
+    <span data-assistant-card-privacy id="assistant-card-privacy">
+      {copy.privacy(name)}
+    </span>
+  )
 
   return (
-    <section className="atum-card-section">
-      <div className="atum-settings-group" data-assistant-card-rows>
-        {rows}
-      </div>
-    </section>
+    <>
+      {own.length > 0 && (
+        <SettingsSection className="atum-card-section" data-assistant-card-section="own" title={copy.sectionOwn}>
+          {own}
+        </SettingsSection>
+      )}
+      {chat.length > 0 ? (
+        <SettingsSection
+          className="atum-card-section"
+          data-assistant-card-section="chat"
+          foot={privacy}
+          title={copy.sectionChat}
+        >
+          {chat}
+        </SettingsSection>
+      ) : (
+        // The trust line stays even when this chat has no rows of its own.
+        <p className="atum-card-section atum-settings-section-foot">{privacy}</p>
+      )}
+      {canUse.length > 0 && (
+        <SettingsSection className="atum-card-section" data-assistant-card-section="can-use" title={copy.sectionCanUse}>
+          {canUse}
+        </SettingsSection>
+      )}
+    </>
   )
 }
 
@@ -936,6 +1007,7 @@ function CheckInsRow({
 
   return (
     <label className="atum-settings-row cursor-pointer" data-assistant-card-check-ins>
+      <RowGlyph icon={CalendarCheck} />
       <span className="atum-settings-row-text">
         <span className="atum-settings-row-title">{copy.checkIns}</span>
         {on && (
@@ -959,8 +1031,8 @@ function CheckInsRow({
   )
 }
 
-/** Shown only while an assistant that runs here is not ready, with the roster's own action. */
-function SetupRow({
+/** Shown only while an assistant that runs here is not ready: a notice with the roster's own action. */
+function SetupNotice({
   agent,
   copy,
   status
@@ -974,23 +1046,25 @@ function SetupRow({
   const settingUp = status === 'agentSettingUp' && (agent.setup === 'working' || agent.readiness?.phase === 'starting')
 
   return (
-    <div className="atum-settings-row" data-assistant-card-setup>
-      <span className="atum-settings-row-title min-w-0 flex-1">{copy.setupRow}</span>
-      <span className="atum-card-row-value">{settingUp ? copy.setupRowWorking : copy.setupRowNotReady}</span>
-      {!settingUp && (
-        <Button
-          disabled={pending}
-          onClick={() => {
-            setPending(true)
-            const request = agent.isDefault ? window.atumMatrix.setupAssistant() : window.atumMatrix.retryReadiness()
-            void request.catch(() => {}).finally(() => setPending(false))
-          }}
-          size="sm"
-          variant="secondary"
-        >
-          {copy.setUp}
-        </Button>
-      )}
+    <div className="atum-card-section">
+      <CardNotice
+        action={
+          settingUp
+            ? undefined
+            : {
+                label: copy.setUp,
+                disabled: pending,
+                onClick: () => {
+                  setPending(true)
+                  const request = agent.isDefault ? window.atumMatrix.setupAssistant() : window.atumMatrix.retryReadiness()
+                  void request.catch(() => {}).finally(() => setPending(false))
+                }
+              }
+        }
+        data-assistant-card-setup
+        icon={AlertCircle}
+        title={settingUp ? copy.setupRowWorking : copy.setupRowNotReady}
+      />
     </div>
   )
 }

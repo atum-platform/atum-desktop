@@ -352,7 +352,12 @@ import {
   type MatrixReenrollReason,
   reenrollMatrixAgent
 } from './agent-reenroll'
-import { MatrixAgentRoutines, registerMatrixAgentRoutinesIpc } from './agent-routines'
+import {
+  MatrixAgentRoutines,
+  MatrixNativeAgentRoutines,
+  registerMatrixAgentRoutinesIpc,
+  requestNativeAgentRoutines
+} from './agent-routines'
 import {
   matrixAgentHomeRoom,
   matrixDefaultAgent,
@@ -824,6 +829,7 @@ import { logNotesSelfOpenFailures } from './notes-self-log'
 import { createMatrixNotifications } from './notifications'
 import { MatrixOfficialAccountsController } from './official-accounts'
 import { createMatrixOpenSourceNotices, MATRIX_NOTICES_DIRECTORY } from './open-source-notices'
+import { authorizeOpenRouterFree } from './openrouter-free-oauth'
 import {
   nodeOperatorFiles,
   OPERATOR_MOVE_TICK_MS,
@@ -974,6 +980,7 @@ import { matrixEndedSession, matrixHumanSnapshot, matrixSavedIdentity, matrixWin
 import { MatrixWindowedLog } from './windowed-log'
 import { MatrixWordDocument } from './word-document'
 import { WorkDeliverables } from './work-deliverable'
+import { workDesignRenderer, workDesignThumbnail } from './work-design-preview'
 import { MatrixWebPreviewOffers } from './workbench-preview'
 import { readMatrixWorkspaceDriveRoots } from './workspace-root-facts'
 import { MatrixWorkspaceStartup } from './workspace-startup'
@@ -1144,6 +1151,9 @@ const matrixConsumerBrowser = createConsumerBrowserController({
   // Matrix's consumer tabs are ephemeral and never inherit an app/account
   // partition or the legacy app-partition cleanup capability.
   consumerOnly: true,
+  allowTrustedGuest: (contents, preferences, params) =>
+    contents === ui?.webContents && contents.getURL() === UI_URL &&
+    (work?.allowGuestAttach(contents, preferences, params) ?? false),
   sessionFromPartition: partition => session.fromPartition(partition),
   // A browser tab's download asks where to save (FR27), starting in Downloads.
   downloads: {
@@ -2150,6 +2160,8 @@ let cloudEnrollments: CloudAgentEnrollment | undefined
 let executionPolicies: MatrixExecutionPolicyController | undefined
 let cloudModelChoices: MatrixCloudModelChoices | undefined
 let providerConnections: MatrixProviderConnections | undefined
+let atumFreeConnection: MatrixProviderConnections | undefined
+let atumFreeAuthorization: AbortController | undefined
 let chatGptCarry: ChatGptCarry | undefined
 let chatGptTraining: MatrixChatGptTrainingConfirmation | undefined
 let videoConsent: MatrixVideoGenerationConsent | undefined
@@ -2979,7 +2991,8 @@ function agentHomeView(principal: string): MatrixAgentHomeView | undefined {
   const savedCloud = modelDestinations?.snapshot(principal)?.choices.find(choice => choice.destination === 'cloud')
 
   const cloudModel = cloudDestinationChoice?.external
-    ? cloudDestinationChoice.external.source === 'chatgpt_plan' || cloudDestinationChoice.external.source === 'opencode_go'
+    ? cloudDestinationChoice.external.source === 'chatgpt_plan' || cloudDestinationChoice.external.source === 'opencode_go' ||
+      cloudDestinationChoice.external.source === 'openrouter_free'
       ? {
           source: cloudDestinationChoice.external.source,
           model: cloudDestinationChoice.external.model,
@@ -6895,6 +6908,7 @@ function publish(next: MatrixSnapshot) {
 
   executionPolicies?.activate(!closing && next.identity ? (account?.appScope() ?? null) : null)
   cloudModelChoices?.activate(!closing && next.identity ? (account?.appScope() ?? null) : null)
+  atumFreeConnection?.activate(!closing && next.identity ? (account?.appScope() ?? null) : null)
   providerConnections?.activate(!closing && next.identity ? (account?.appScope() ?? null) : null)
   chatGptTraining?.activate(!closing && next.identity ? (account?.appScope() ?? null) : null)
   videoConsent?.activate(!closing && next.identity ? (account?.appScope() ?? null) : null)
@@ -7306,8 +7320,8 @@ function hermesState(agentRuntime: MatrixAgentRuntime): NonNullable<MatrixSnapsh
 function cloudModelView(principal: string) {
   const base = cloudModelChoices?.view(principal)
   const choice = modelDestinations?.cloudChoice(principal)
-  const connection = providerConnections?.view()?.connection
-  const subscription = choice?.source === 'opencode_go' || choice?.source === 'chatgpt_plan' ? choice : undefined
+  const connection = (choice?.source === 'openrouter_free' ? atumFreeConnection : providerConnections)?.view()?.connection
+  const subscription = choice?.source === 'opencode_go' || choice?.source === 'chatgpt_plan' || choice?.source === 'openrouter_free' ? choice : undefined
 
   // No Mac serves a ChatGPT plan to a cloud assistant any more (the SSH relay is gone, self-work plan §12): a plan choice has no
   // connection to read here, and the picker greys it (D6). A plan on this Mac is used through Work, never by the relay.
@@ -7338,7 +7352,8 @@ function cloudModelView(principal: string) {
             source: subscription.source,
             model: subscription.model,
             effort: subscription.effort,
-            displayName: models.find(model => model.id === subscription.model)?.displayName ?? subscription.model
+            displayName: subscription.source === 'openrouter_free'
+              ? 'Atum Free' : models.find(model => model.id === subscription.model)?.displayName ?? subscription.model
           }
         }
       : {}),
@@ -13157,6 +13172,17 @@ const assistantCards = new MatrixAssistantCards({
  * Main maps the window's principal to the platform's assistant id and holds the bearer; the
  * window only sees closed routines. The request ledger makes a retried draft one mutation.
  */
+const nativeAgentRoutines = new MatrixNativeAgentRoutines({
+  request: (principal, command, signal) => account.s1Request(
+    (token, base, requestSignal) =>
+      requestNativeAgentRoutines(base, token, principal, command, requestSignal, (url, init) => session.defaultSession.fetch(url, init)),
+    signal
+  ),
+  readLegacy: (assistantId, signal) => account.agentRoutines(assistantId, signal),
+  mutateLegacy: (assistantId, input, signal) => account.mutateAgentRoutine(assistantId, input, signal),
+  runsLegacy: (assistantId, routineId, signal) => account.agentRoutineRuns(assistantId, routineId, signal)
+})
+
 const agentRoutines = new MatrixAgentRoutines({
   agents: () =>
     allAgents().flatMap(each =>
@@ -13164,9 +13190,15 @@ const agentRoutines = new MatrixAgentRoutines({
         ? [{ principal: each.agentPrincipal, assistantId: each.assistantId }]
         : []
     ),
-  read: (assistantId, signal) => account.agentRoutines(assistantId, signal),
-  mutate: (assistantId, input, signal) => account.mutateAgentRoutine(assistantId, input, signal),
-  runs: (assistantId, routineId, signal) => account.agentRoutineRuns(assistantId, routineId, signal),
+  read: (assistantId, signal, principal) => hostRuntimeAgents.has(principal)
+    ? nativeAgentRoutines.read(assistantId, principal, signal)
+    : account.agentRoutines(assistantId, signal),
+  mutate: (assistantId, input, signal, principal) => hostRuntimeAgents.has(principal)
+    ? nativeAgentRoutines.mutate(assistantId, principal, input, signal)
+    : account.mutateAgentRoutine(assistantId, input, signal),
+  runs: (assistantId, id, signal, principal) => hostRuntimeAgents.has(principal)
+    ? nativeAgentRoutines.runs(assistantId, principal, id, signal)
+    : account.agentRoutineRuns(assistantId, id, signal),
   ownerZone: () => account.ownerTimeZone()
 })
 
@@ -18695,6 +18727,15 @@ async function start() {
       })
     : undefined
 
+  atumFreeConnection = config.domain ? new MatrixProviderConnections({
+    scope: () => account.appScope(),
+    call: (action, signal, body) => account.s1Request(
+      (accessToken, resource) => requestMatrixProviderConnections(resource, accessToken, action, signal, body, 'openrouter_free'),
+      signal
+    ),
+    changed: () => publish(state)
+  }, 'openrouter_free') : undefined
+
   chatGptCarry = config.domain ? new ChatGptCarry({
     scope: () => account.appScope(),
     home: subscriptionAuthHome,
@@ -20691,7 +20732,8 @@ async function start() {
         remaining: () => workDrive.importQuota()?.remaining,
         manifestFor: paths => workDrive.manifestFor(paths),
         open: (relativePath, identity) => workDrive.openWorkDeliverable(relativePath, identity)
-      }) : undefined,
+      }, workDesignRenderer(path.join(process.resourcesPath, 'runtime', 'work-authoring', 'resvg', 'resvg')),
+      workDesignThumbnail) : undefined,
       userData: app.getPath('userData'),
       home: app.getPath('home'),
       resources: process.resourcesPath,
@@ -20705,7 +20747,6 @@ async function start() {
       ui: () => ui,
       ipcMain,
       requireUi: event => requireMatrixCaller(event, ui?.webContents, UI_URL),
-      zoomFactor: () => ui?.webContents.getZoomFactor() ?? 1,
       sessionFromPartition: partition => session.fromPartition(partition),
       model: {
         baseUrl: () => managedModel?.baseUrl,
@@ -20777,6 +20818,11 @@ async function start() {
         )
 
         return agent?.matrixUser ?? null
+      },
+      primaryWorkAssistant: () => {
+        const primary = productAgent()
+
+        return primary && isCloudOnlyAgent(primary) ? cloudPrincipal(primary) : undefined
       },
       eligiblePlanAgents: async () => (await account.agents(AbortSignal.timeout(15_000)))
         .filter(agent => agent.status === 'active').map(agent => agent.principal).sort().slice(0, 256),
@@ -23769,9 +23815,12 @@ async function start() {
         }
 
         const local = matrixSubscriptionsStatus({ accountAuthHome: subscriptionAuthHome(), keys: subscriptionKeys() })
-        const platform = await providerConnections?.refresh()
+        const [platform, free] = await Promise.all([providerConnections?.refresh(), atumFreeConnection?.refresh()])
 
-        return matrixSubscriptionsWithProviderConnections(local, platform)
+        return {
+          ...matrixSubscriptionsWithProviderConnections(local, platform),
+          ...(free ? { atumFree: free.connection } : {})
+        }
       }
 
       if (request?.kind === 'subscriptionCatalog') {
@@ -24016,6 +24065,44 @@ async function start() {
 
       if (request?.kind === 'videoConsentRevoke') {
         return videoConsent ? videoConsent.revoke() : { status: 'unavailable' as const }
+      }
+
+      if (request?.kind === 'subscriptionAtumFreeConnect') {
+        const scope = account?.appScope()
+
+        if (!scope || !atumFreeConnection || atumFreeAuthorization) {
+          return false
+        }
+
+        const controller = new AbortController()
+        atumFreeAuthorization = controller
+        try {
+          if (!await atumFreeConnection.refresh()) {
+            return false
+          }
+          const key = await authorizeOpenRouterFree({
+            openExternal: url => shell.openExternal(url),
+            signal: controller.signal
+          })
+          const current = account?.appScope()
+
+          return !controller.signal.aborted && !closing && current?.accountKey === scope.accountKey &&
+            current.generation === scope.generation && await atumFreeConnection.connect(key)
+        } catch {
+          return false
+        } finally {
+          atumFreeAuthorization = undefined
+        }
+      }
+
+      if (request?.kind === 'subscriptionAtumFreeCancel') {
+        atumFreeAuthorization?.abort()
+
+        return
+      }
+
+      if (request?.kind === 'subscriptionAtumFreeDisconnect') {
+        return atumFreeConnection?.disconnect() ?? false
       }
 
       if (request?.kind === 'subscriptionOpenCodeSave') {
@@ -24414,6 +24501,7 @@ async function start() {
         // home. Only roster `runtime: 'hermes'` agents; the Shell resolves the owner from the bearer.
         const principal = typeof request.agentPrincipal === 'string' ? request.agentPrincipal : ''
         const read = request.read
+        const summary = 'summary' in request && request.summary === true
         const path = typeof request.path === 'string' ? request.path : undefined
         const scope = account.appScope()
 
@@ -24427,7 +24515,7 @@ async function start() {
 
         const result = await account.s1Request(
           (token, base, signal) =>
-            requestHostDesk(base, token, principal, read === 'files' ? { read, ...(path !== undefined ? { path } : {}) } : { read },
+            requestHostDesk(base, token, principal, read === 'files' ? { read, ...(path !== undefined ? { path } : {}) } : read === 'schedule' && summary ? { read, summary: true } : { read },
               signal, (url, init) => session.defaultSession.fetch(url, init)),
           AbortSignal.timeout(15_000), { timeoutMs: 15_000 })
 

@@ -188,13 +188,17 @@ export function matrixAgentDeskNow(input: MatrixAgentDeskNowInput): MatrixAgentD
   return { state: 'free' }
 }
 
+export function isNativeMatrixAgentRuntime(runtime: MatrixAgentView['runtime']): boolean {
+  return runtime === 'hermes'
+}
+
 /**
  * A message typed now changes what it is doing: a Mac-run agent's own run, or a native Hermes
  * agent in the cloud, whose gateway handles a message that arrives during a turn with
  * `busy_input_mode` (default `interrupt`, gateway/run.py). The old cloud path queued it instead.
  */
 export function matrixAgentDeskSteers(input: { runtime?: MatrixAgentView['runtime']; running: boolean }): boolean {
-  return input.running || input.runtime === 'hermes'
+  return input.running || isNativeMatrixAgentRuntime(input.runtime)
 }
 
 /** How many files the desk's Files section shows at rest. */

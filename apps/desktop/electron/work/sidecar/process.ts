@@ -1,5 +1,6 @@
 import { type ChildProcessByStdio, execFile, spawn } from 'node:child_process'
 import { createHmac, randomBytes, randomUUID } from 'node:crypto'
+import { existsSync } from 'node:fs'
 import { mkdir, readFile } from 'node:fs/promises'
 import { homedir, tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -9,7 +10,7 @@ import { setTimeout as delay } from 'node:timers/promises'
 import { promisify } from 'node:util'
 
 import { MATRIX_DEFAULT_MODEL } from '../../../shared/matrix-models'
-import { PLAN_PROVIDER_DEFAULTS } from '../plan-providers'
+import { LOCAL_PLAN_PROVIDER_DEFAULTS, PLAN_PROVIDER_DEFAULTS } from '../plan-providers'
 import type { TrialContext, TrialHandle } from '../session/update'
 
 import type { WorkDeliverableReply } from './deliverable-contract'
@@ -86,6 +87,8 @@ export function workProvider(python: string, home: string) {
 }
 
 export function workRuntimeEnvironment(root: string, resources: string, shellPath = ''): Record<string, string> {
+  const macPath = process.platform === 'darwin' ? [join(homedir(), '.local', 'bin'), '/opt/homebrew/bin', '/usr/local/bin'] : []
+
   return {
     HOME: homedir(),
     TMPDIR: tmpdir(),
@@ -93,11 +96,12 @@ export function workRuntimeEnvironment(root: string, resources: string, shellPat
     ...(process.env.LOGNAME ? { LOGNAME: process.env.LOGNAME } : {}),
     ...(process.env.SHELL ? { SHELL: process.env.SHELL } : {}),
     ...Object.fromEntries(['XDG_CONFIG_HOME', 'XDG_CACHE_HOME', 'XDG_DATA_HOME', 'CODEX_HOME', 'CLAUDE_CONFIG_DIR'].flatMap(name => process.env[name] ? [[name, process.env[name]!]] : [])),
-    PATH: [join(resources, 'work-runtime'), shellPath, '/usr/bin', '/bin', '/usr/sbin', '/sbin'].filter(Boolean).join(':'),
+    PATH: [...new Set([join(resources, 'work-runtime'), ...shellPath.split(':'), ...macPath, join(homedir(), '.local', 'bin'), join(root, 'server', 'tools', 'kiro-free'), '/usr/bin', '/bin', '/usr/sbin', '/sbin'].filter(Boolean))].join(':'),
     PYTHONPATH: join(resources, 'runtime', 'hermes-agent'),
     LANG: 'en_US.UTF-8',
     NO_PROXY: 'localhost,127.0.0.1,::1',
     T3CODE_HOME: join(root, 'server'),
+    ATUM_WORK_KIRO_SETUP: '1',
     T3CODE_TELEMETRY_ENABLED: 'false',
     OTEL_SDK_DISABLED: 'true'
   }
@@ -149,6 +153,7 @@ async function startProcess(options: WorkProcessOptions, { continuation, trial }
   } : undefined
   // Keep Node IPC in slot 3 so the desktop control pipes remain on fds 4 and 5.
   const nodeIpc = trial || options.deliverableMessage ? 'ipc' : 'ignore'
+  const designSkill = join(resources, 'runtime', 'work-authoring', 'work-design', 'SKILL.md')
 
   const child = spawn(python, ['-P', '-B', '-X', 'utf8', join(resources, 'work-runtime', 'supervisor.py')], {
     env: environment,
@@ -182,7 +187,7 @@ async function startProcess(options: WorkProcessOptions, { continuation, trial }
       textGenerationModelSelection: managedModel,
       providerInstances: { [ATUM_WORK_PROVIDER]: workProvider(python, profile) }
     },
-    planProviderDefaults: { ...PLAN_PROVIDER_DEFAULTS, opencode: { driver: 'opencode', enabled: true } },
+    planProviderDefaults: { ...PLAN_PROVIDER_DEFAULTS, ...LOCAL_PLAN_PROVIDER_DEFAULTS, opencode: { driver: 'opencode', enabled: true } },
     trial,
     continuation,
     desktop,
@@ -202,7 +207,8 @@ async function startProcess(options: WorkProcessOptions, { continuation, trial }
       ...workThreadMcpEnvironment(WORK_THREAD_MCP_ORIGINS),
       ...(options.deliverableMessage ? {
         ATUM_WORK_MEMO_PYTHON: python,
-        ATUM_WORK_MEMO_SCRIPT: join(resources, 'runtime', 'work-authoring', 'memo.py')
+        ATUM_WORK_MEMO_SCRIPT: join(resources, 'runtime', 'work-authoring', 'memo.py'),
+        ...(existsSync(designSkill) ? { ATUM_WORK_DESIGN_SKILL: designSkill } : {})
       } : {}),
       ...(credentials.ATUM_WORK_CONNECTOR_URL
       ? { ATUM_WORK_CONNECTOR_URL: credentials.ATUM_WORK_CONNECTOR_URL }

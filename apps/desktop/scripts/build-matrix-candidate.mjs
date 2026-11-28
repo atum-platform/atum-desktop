@@ -116,6 +116,7 @@ await renderer({
   plugins: [bundledPackages.plugin(), matrixPetCompositionEvidence(root)],
   build: { outDir: out, emptyOutDir: false, rolldownOptions: { input: path.join(root, 'matrix-pet.html') } }
 })
+execFileSync(process.execPath, [path.join(root, 'scripts/renderer-brand.mjs'), out], { stdio: 'inherit' })
 for (const name of ['main', 'ui-preload', 'sdk-preload', 'pages-preload', 'app-panel-preload', 'pet-overlay-preload', 'work-preload']) {
   const result = await bundle({
     entryPoints: [path.join(root, name === 'work-preload' ? 'electron/work/sidecar/preload.ts' : `electron/matrix/${name}.ts`)],

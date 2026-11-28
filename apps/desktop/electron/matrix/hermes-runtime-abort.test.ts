@@ -61,7 +61,7 @@ describe("a starting Hermes that the app's own abort ends (G1-13)", () => {
     // The agent's host, still connecting, ended the model check's slot.
     abort.abort()
 
-    await expect(opening).rejects.toThrow('Hermes backend: exited before port announcement (SIGTERM)')
+    await expect(opening).rejects.toThrow('Atum backend: exited before port announcement (SIGTERM)')
     expect(child.kill).toHaveBeenCalledWith('SIGTERM')
   })
 

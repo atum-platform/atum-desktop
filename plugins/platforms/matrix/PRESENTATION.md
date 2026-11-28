@@ -58,6 +58,12 @@ the transport principal, and derive the sender from that principal. Do not map a
 caller-supplied authentication flag into this argument. Do not expose this Python
 entry point directly as an unauthenticated endpoint.
 
+The desktop targets the bound agent's live progress reply first, then uses the
+confirmed cloud question event or the unanswered room event. A remark marked
+as interim keeps that question open. A target known only from live progress
+clears when the line ends, even with another question queued. Stop carries the
+Matrix source event even when Hermes executes the turn on a linked device.
+
 What the owner sees during a turn matches the desktop controller. Admission posts nothing:
 the native read receipt and the native typing indicator (`m.typing`, refreshed for the whole
 turn by the base adapter) say the agent is working. The extension never speaks in the agent's

@@ -39,7 +39,7 @@ import { $matrixFeedbackOpen, MatrixDesktopSettings, MatrixUpdateSettings } from
 import { MatrixDisplaySettings, MatrixNotificationSettings, useMatrixDisplaySetting } from './display-settings'
 import { AssistantRepair, DomainIdentity } from './domain'
 import { FounderContactUs } from './founder/contact-us'
-import { MatrixGoogleConnectionSettings } from './google-connection-settings'
+import { accountUsesAtumFree, MatrixGoogleConnectionSettings } from './google-connection-settings'
 import { HermesSetup } from './hermes-setup'
 import { IgnoredPeople } from './ignored-people'
 import { MatrixKeepAwakeSettings } from './keep-awake-settings'
@@ -427,6 +427,7 @@ function ConnectionsPane({ onClose, snapshot }: { onClose(): void; snapshot: Mat
           assistant={snapshot.googleAssistant}
           identity={snapshot.identity}
           key={`google:${snapshot.identity.userId}:${snapshot.identity.deviceId}`}
+          usesAtumFree={accountUsesAtumFree(snapshot.agents)}
         />
       ) : (
         <SettingsSection title={copy.google}>

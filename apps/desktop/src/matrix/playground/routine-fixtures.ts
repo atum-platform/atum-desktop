@@ -3,6 +3,11 @@ import type {
   MatrixAgentRoutinesSnapshot,
   MatrixRoutinesBridge
 } from '../../../shared/agent-routines'
+import {
+  MATRIX_BACKGROUND_SWEEP_SETTING_PROFILE,
+  type MatrixBackgroundSweepBridge,
+  type MatrixBackgroundSweepSetting
+} from '../../../shared/background-sweep'
 
 /**
  * Routines in the design playground (?routines=three|empty|conflict|legacy|unknown), the
@@ -192,12 +197,12 @@ export function playgroundRoutines(mode: PlaygroundRoutinesMode): MatrixRoutines
         ...current,
         title: input.title,
         instruction: input.instruction,
-        schedule: input.schedule,
+        schedule: input.schedule ?? current.schedule,
         timezone: input.timezone,
         enabled: input.enabled,
         notifications: input.notifications,
         revision: current.revision + 1,
-        nextRunAt: input.enabled ? nextFor(input.schedule) : null
+        nextRunAt: input.enabled ? nextFor(input.schedule ?? current.schedule) : null
       }
 
       routines = routines.map(each => (each.id === routine.id ? routine : each))
@@ -254,5 +259,29 @@ export function playgroundRoutines(mode: PlaygroundRoutinesMode): MatrixRoutines
         ]
       }
     })
+  }
+}
+
+/** The platform's follow-up setting on fixture data: on, and a switch that saves locally. */
+export function playgroundBackgroundSweep(): MatrixBackgroundSweepBridge {
+  const settings = new Map<string, MatrixBackgroundSweepSetting>()
+
+  const current = (principal: string): MatrixBackgroundSweepSetting =>
+    settings.get(principal) ?? {
+      profile: MATRIX_BACKGROUND_SWEEP_SETTING_PROFILE,
+      assistantId: principal,
+      enabled: true,
+      revision: 1,
+      activeForOwner: true
+    }
+
+  return {
+    read: async principal => current(principal),
+    save: async (principal, write) => {
+      const next = { ...current(principal), enabled: write.enabled, revision: current(principal).revision + 1 }
+      settings.set(principal, next)
+
+      return { status: 'saved', setting: next }
+    }
   }
 }

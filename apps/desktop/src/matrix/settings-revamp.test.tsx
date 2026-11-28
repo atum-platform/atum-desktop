@@ -50,7 +50,8 @@ vi.mock('./domain', () => ({
   DomainIdentity: () => <button>Technical identity</button>
 }))
 vi.mock('./founder/contact-us', () => ({ FounderContactUs: () => <button>Contact Atum</button> }))
-vi.mock('./google-connection-settings', () => ({
+vi.mock('./google-connection-settings', async importOriginal => ({
+  ...(await importOriginal<Record<string, unknown>>()),
   MatrixGoogleConnectionSettings: () => <button>Google connection</button>
 }))
 vi.mock('./hermes-setup', () => ({ HermesSetup: () => <button>Providers and ChatGPT</button> }))

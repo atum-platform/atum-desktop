@@ -25,7 +25,7 @@ export async function workOwnerSocketUrl(origin: string, owner: OwnerFetch, sign
 /** Read-only Work owner RPC. The pinned T3 exposes authentication and usage in server.getConfig.
  * The ticket and Effect RPC frame shapes are exercised by fixtures/t3-plan-config.json.
  */
-export async function readWorkProviders(origin: string, owner: OwnerFetch): Promise<unknown> {
+export async function readWorkProviders(origin: string, owner: OwnerFetch, refresh = false): Promise<unknown> {
   try {
     const url = await workOwnerSocketUrl(origin, owner)
 
@@ -40,10 +40,12 @@ export async function readWorkProviders(origin: string, owner: OwnerFetch): Prom
         socket.close()
       }
 
-      const timer = setTimeout(finish, 2_000)
+      const timer = setTimeout(finish, refresh ? 30_000 : 5_000)
 
       socket.addEventListener('open', () => {
-        socket.send(JSON.stringify({ _tag: 'Request', id: '1', tag: 'server.getConfig', payload: {}, headers: [] }))
+        const tag = refresh ? 'server.refreshProviders' : 'server.getConfig'
+
+        socket.send(JSON.stringify({ _tag: 'Request', id: '1', tag, payload: {}, headers: [] }))
       }, { once: true })
       socket.addEventListener('message', event => {
         if (typeof event.data !== 'string' || event.data.length > 4_000_000) {return finish()}

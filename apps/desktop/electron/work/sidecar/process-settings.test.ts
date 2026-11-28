@@ -87,7 +87,8 @@ actual.run = run
 actual.Children.stop = lambda self: None
 actual.main()
 `)
-      const blocked = (driver: string) => ({ driver, enabled: false, config: { binaryPath: '/usr/bin/false' } })
+      // A stub the person re-enabled in Settings still points at /usr/bin/false.
+      const blocked = (driver: string) => ({ driver, enabled: true, config: { binaryPath: '/usr/bin/false' } })
       await writeFile(settingsPath, JSON.stringify({
         providerInstances: { codex: { driver: 'codex', enabled: true, config: { setupMode: 'managed' } }, claudeAgent: blocked('claudeAgent') }
       }))
@@ -105,7 +106,14 @@ actual.main()
       expect(settings.providerInstances.codex).toEqual({ driver: 'codex', enabled: true, config: { setupMode: 'existing' } })
       expect(settings.providerInstances.claudeAgent).toEqual({ driver: 'claudeAgent', enabled: true })
       expect(settings.providerInstances.antigravity).toEqual({ driver: 'antigravity', enabled: true })
-      expect(settings.providerInstances.opencode).toEqual({ driver: 'opencode', enabled: true })
+      expect(settings.providerInstances.opencode).toEqual({
+        driver: 'opencode', enabled: true
+      })
+      expect(settings.providerInstances.copilot).toMatchObject({
+        driver: 'acpRegistry', enabled: true, config: { source: 'local', commandPath: 'copilot', commandArgs: ['--acp'] }
+      })
+      expect(settings.providerInstances.kiro).toEqual({ driver: 'kiro', enabled: true })
+      expect(settings.providerInstances['openrouter-free']).toMatchObject({ driver: 'opencode', enabled: true })
       expect(settings.providerInstances['atum-managed-delegated']).toBeUndefined()
       expect(settings.providerInstances['atum-relay-codex']).toBeUndefined()
       expect(settings.providerInstances['atum-managed'].environment.some((entry: { name: string }) => entry.name === 'HOME')).toBe(false)

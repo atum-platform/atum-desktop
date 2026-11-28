@@ -9,6 +9,7 @@ export interface ProvidersCopy {
   providers: string
   ready: string
   notReady: string
+  externalProvider: string
   deferred: string
   signIn: string
   disconnect: string
@@ -56,7 +57,8 @@ export const providersCopy: Record<Locale, ProvidersCopy> = {
     providers: 'Available providers',
     ready: 'Ready',
     notReady: 'Not configured',
-    deferred: 'Set up with the provider’s existing tools. Nous routing is not available here yet.',
+    externalProvider: 'External provider account',
+    deferred: 'Set up with the provider’s existing tools.',
     signIn: 'Sign in',
     disconnect: 'Disconnect',
     key: 'API key',
@@ -101,7 +103,8 @@ export const providersCopy: Record<Locale, ProvidersCopy> = {
     providers: 'Nhà cung cấp khả dụng',
     ready: 'Sẵn sàng',
     notReady: 'Chưa cấu hình',
-    deferred: 'Thiết lập bằng công cụ hiện có của nhà cung cấp. Định tuyến Nous chưa khả dụng ở đây.',
+    externalProvider: 'Tài khoản nhà cung cấp bên ngoài',
+    deferred: 'Thiết lập bằng công cụ hiện có của nhà cung cấp.',
     signIn: 'Đăng nhập',
     disconnect: 'Ngắt kết nối',
     key: 'Khóa API',
@@ -145,7 +148,8 @@ export const providersCopy: Record<Locale, ProvidersCopy> = {
     providers: '利用可能なプロバイダー',
     ready: '準備完了',
     notReady: '未設定',
-    deferred: 'プロバイダーの既存ツールで設定してください。Nous のルーティングはまだここでは利用できません。',
+    externalProvider: '外部プロバイダーのアカウント',
+    deferred: 'プロバイダーの既存ツールで設定してください。',
     signIn: 'ログイン',
     disconnect: '接続解除',
     key: 'API キー',
@@ -189,7 +193,8 @@ export const providersCopy: Record<Locale, ProvidersCopy> = {
     providers: '可用提供商',
     ready: '就绪',
     notReady: '未配置',
-    deferred: '请使用提供商现有工具设置。此处尚不支持 Nous 路由。',
+    externalProvider: '外部提供商账户',
+    deferred: '请使用提供商现有工具设置。',
     signIn: '登录',
     disconnect: '断开连接',
     key: 'API 密钥',
@@ -231,7 +236,8 @@ export const providersCopy: Record<Locale, ProvidersCopy> = {
     providers: '可用供應商',
     ready: '就緒',
     notReady: '尚未設定',
-    deferred: '請使用供應商現有工具設定。此處尚不支援 Nous 路由。',
+    externalProvider: '外部供應商帳戶',
+    deferred: '請使用供應商現有工具設定。',
     signIn: '登入',
     disconnect: '中斷連線',
     key: 'API 金鑰',

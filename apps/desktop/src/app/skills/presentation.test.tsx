@@ -368,7 +368,7 @@ describe('SkillsPresentation', () => {
 
     fireEvent.click(await screen.findByRole('button', { name: 'Archive' }))
     const dialog = await screen.findByRole('dialog')
-    expect(within(dialog).getByText('Restorable via hermes curator restore.')).toBeTruthy()
+    expect(within(dialog).getByText('An archived skill can be restored for this agent.')).toBeTruthy()
     fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }))
     expect(archiveLearnedSkill).not.toHaveBeenCalled()
 

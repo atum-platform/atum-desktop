@@ -128,15 +128,16 @@ const bridge: MatrixUiBridge = {
       return () => { ipcRenderer.removeListener(MATRIX_WORK_IPC.sidebarChanged, receive) }
     },
     read: () => ipcRenderer.invoke(MATRIX_WORK_IPC.request, { kind: 'read' }),
-    show: rect => ipcRenderer.invoke(MATRIX_WORK_IPC.request, { kind: 'show', rect }),
-    hide: () => ipcRenderer.invoke(MATRIX_WORK_IPC.request, { kind: 'hide' }),
+    open: () => ipcRenderer.invoke(MATRIX_WORK_IPC.request, { kind: 'open' }),
     retry: () => ipcRenderer.invoke(MATRIX_WORK_IPC.request, { kind: 'retry' }),
     setWork: on => ipcRenderer.invoke(MATRIX_WORK_IPC.request, { kind: 'setWork', on }),
     openPlanConnect: plan => ipcRenderer.invoke(MATRIX_WORK_IPC.request, plan ? { kind: 'openPlanConnect', plan } : { kind: 'openPlanConnect' }),
     readConnections: () => ipcRenderer.invoke(MATRIX_WORK_IPC.request, { kind: 'readConnections' }),
+    readLocalPlans: () => ipcRenderer.invoke(MATRIX_WORK_IPC.request, { kind: 'readLocalPlans' }),
+    localPlanAction: (plan, action) => ipcRenderer.invoke(MATRIX_WORK_IPC.request, { kind: 'localPlanAction', plan, action }),
     readPlanLabels: () => ipcRenderer.invoke(MATRIX_WORK_IPC.request, { kind: 'readPlanLabels' }),
     readAgentPlans: principal => ipcRenderer.invoke(MATRIX_WORK_IPC.request, { kind: 'readAgentPlans', principal }),
-    selectRelay: (principal, model, plan) => ipcRenderer.invoke(MATRIX_WORK_IPC.request, { kind: 'selectRelay', principal, model, ...(plan ? { plan } : {}) }),
+    selectRelay: (principal, model, plan, effort) => ipcRenderer.invoke(MATRIX_WORK_IPC.request, { kind: 'selectRelay', principal, model, ...(plan ? { plan } : {}), ...(effort ? { effort } : {}) }),
     readPlanConsent: plan => ipcRenderer.invoke(MATRIX_WORK_IPC.request, { kind: 'readPlanConsent', ...(plan ? { plan } : {}) }),
     setPlanConsent: (consent, plan) => ipcRenderer.invoke(MATRIX_WORK_IPC.request, { kind: 'setPlanConsent', consent, ...(plan ? { plan } : {}) }),
     revokePlanConsent: plan => ipcRenderer.invoke(MATRIX_WORK_IPC.request, { kind: 'revokePlanConsent', ...(plan ? { plan } : {}) }),
@@ -252,6 +253,9 @@ const bridge: MatrixUiBridge = {
       ipcRenderer.invoke(channel.ui, { kind: 'videoConsentAllow' }) as Promise<MatrixVideoConsentAllowResult>,
     revokeVideoConsent: () =>
       ipcRenderer.invoke(channel.ui, { kind: 'videoConsentRevoke' }) as Promise<MatrixVideoConsentRevokeResult>,
+    connectAtumFree: () => ipcRenderer.invoke(channel.ui, { kind: 'subscriptionAtumFreeConnect' }),
+    cancelAtumFree: () => ipcRenderer.invoke(channel.ui, { kind: 'subscriptionAtumFreeCancel' }),
+    disconnectAtumFree: () => ipcRenderer.invoke(channel.ui, { kind: 'subscriptionAtumFreeDisconnect' }),
     connectOpenCode: value =>
       ipcRenderer.invoke(channel.ui, { kind: 'subscriptionOpenCodeSave', value }) as Promise<MatrixSubscriptionKeyResult>,
     disconnectOpenCode: async () => {
@@ -627,6 +631,7 @@ const bridge: MatrixUiBridge = {
         kind: 'agentDesk',
         agentPrincipal,
         read: request.read,
+        ...(request.read === 'schedule' && request.summary ? { summary: true } : {}),
         ...(request.read === 'files' && request.path !== undefined ? { path: request.path } : {})
       })
   },
