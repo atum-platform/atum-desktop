@@ -1,0 +1,308 @@
+[
+  {
+    "id": "01-welcome-story",
+    "n": 1,
+    "title": "Before sign-in",
+    "at": "signup",
+    "caption": "First launch on this Mac: the welcome story plays once.",
+    "theme": "light",
+    "png": "01-welcome-story-light.png"
+  },
+  {
+    "id": "02-sign-in",
+    "n": 2,
+    "title": "Sign in",
+    "at": "signup",
+    "caption": "The story ends on two choices. Each opens the browser.",
+    "theme": "light",
+    "png": "02-sign-in-light.png"
+  },
+  {
+    "id": "02-sign-in",
+    "n": 2,
+    "title": "Sign in",
+    "at": "signup",
+    "caption": "The story ends on two choices. Each opens the browser.",
+    "theme": "dark",
+    "png": "02-sign-in-dark.png"
+  },
+  {
+    "id": "03-sign-up-captcha",
+    "n": 3,
+    "title": "Sign up with email",
+    "at": "signup",
+    "caption": "Email sign-up in the browser checks for a human (Turnstile) before the account exists.",
+    "theme": "light",
+    "png": "03-sign-up-captcha-light.png"
+  },
+  {
+    "id": "04-launch",
+    "n": 4,
+    "title": "Launch screen",
+    "at": "signup",
+    "caption": "Account created. While this shows (\u22482.6 s) Atum reads this Mac\u2019s AI plans and picks the best one.",
+    "theme": "light",
+    "png": "04-launch-light.png"
+  },
+  {
+    "id": "04-launch",
+    "n": 4,
+    "title": "Launch screen",
+    "at": "signup",
+    "caption": "Account created. While this shows (\u22482.6 s) Atum reads this Mac\u2019s AI plans and picks the best one.",
+    "theme": "dark",
+    "png": "04-launch-dark.png"
+  },
+  {
+    "id": "05-writing",
+    "n": 5,
+    "title": "Nova is writing",
+    "at": "t0",
+    "caption": "The chat opens and the welcome request goes out. The chip already shows the plan Atum picked.",
+    "theme": "light",
+    "png": "05-writing-light.png"
+  },
+  {
+    "id": "06-retrying",
+    "n": 6,
+    "title": "Taking longer",
+    "at": "t0",
+    "caption": "No welcome after 20 s: Atum asks once more. No ready-made greeting stands in.",
+    "theme": "light",
+    "png": "06-retrying-light.png"
+  },
+  {
+    "id": "07-quiet-state",
+    "n": 7,
+    "title": "Still no answer",
+    "at": "t0",
+    "caption": "The retry also went unanswered: one quiet line and Try again. Connections still work.",
+    "theme": "light",
+    "png": "07-quiet-state-light.png"
+  },
+  {
+    "id": "08-welcome",
+    "n": 8,
+    "title": "The welcome",
+    "at": "t6",
+    "caption": "Nova\u2019s own welcome arrives. This starts the 48-hour clock. One Connections list follows it.",
+    "theme": "light",
+    "png": "08-welcome-light.png"
+  },
+  {
+    "id": "08-welcome",
+    "n": 8,
+    "title": "The welcome",
+    "at": "t6",
+    "caption": "Nova\u2019s own welcome arrives. This starts the 48-hour clock. One Connections list follows it.",
+    "theme": "dark",
+    "png": "08-welcome-dark.png"
+  },
+  {
+    "id": "09-connect-google",
+    "n": 9,
+    "title": "Connect Google",
+    "at": "t2m",
+    "caption": "One browser trip per provider: Google gives Nova mail, calendar and Drive.",
+    "theme": "light",
+    "png": "09-connect-google-light.png"
+  },
+  {
+    "id": "10-mac-folders",
+    "n": 10,
+    "title": "This Mac: folders",
+    "at": "t2m",
+    "caption": "Folders \u2192 Connect. macOS asks for each folder in turn, from this row only.",
+    "theme": "light",
+    "png": "10-mac-folders-light.png"
+  },
+  {
+    "id": "11-mac-reach",
+    "n": 11,
+    "title": "This Mac: use the Mac",
+    "at": "t2m",
+    "caption": "Use this Mac \u2192 Connect. One password prompt turns on Remote Login. Messages waits on Full Disk Access.",
+    "theme": "light",
+    "png": "11-mac-reach-light.png"
+  },
+  {
+    "id": "12-connections-settled",
+    "n": 12,
+    "title": "Everything answered",
+    "at": "t2m",
+    "caption": "Every row is connected or skipped. The list stays in the chat as a past item.",
+    "theme": "light",
+    "png": "12-connections-settled-light.png"
+  },
+  {
+    "id": "12-connections-settled",
+    "n": 12,
+    "title": "Everything answered",
+    "at": "t2m",
+    "caption": "Every row is connected or skipped. The list stays in the chat as a past item.",
+    "theme": "dark",
+    "png": "12-connections-settled-dark.png"
+  },
+  {
+    "id": "13-first-learning",
+    "n": 13,
+    "title": "First learning",
+    "at": "t2m",
+    "caption": "The first Connect starts learning. Nova reports what it found on the Mac and in chats.",
+    "theme": "light",
+    "png": "13-first-learning-light.png"
+  },
+  {
+    "id": "13-first-learning",
+    "n": 13,
+    "title": "First learning",
+    "at": "t2m",
+    "caption": "The first Connect starts learning. Nova reports what it found on the Mac and in chats.",
+    "theme": "dark",
+    "png": "13-first-learning-dark.png"
+  },
+  {
+    "id": "14-learning-deeper",
+    "n": 14,
+    "title": "Learning goes deeper",
+    "at": "t2m",
+    "caption": "Google arrived, so the same run reads the calendar and mail too. No second run.",
+    "theme": "light",
+    "png": "14-learning-deeper-light.png"
+  },
+  {
+    "id": "15-nudge-5",
+    "n": 15,
+    "title": "Nudge 1 \u00b7 +5 min",
+    "at": "t5m",
+    "caption": "Warm-up nudge 1, 5 min after the welcome, built on what Nova has learned.",
+    "theme": "light",
+    "png": "15-nudge-5-light.png"
+  },
+  {
+    "id": "15-nudge-5",
+    "n": 15,
+    "title": "Nudge 1 \u00b7 +5 min",
+    "at": "t5m",
+    "caption": "Warm-up nudge 1, 5 min after the welcome, built on what Nova has learned.",
+    "theme": "dark",
+    "png": "15-nudge-5-dark.png"
+  },
+  {
+    "id": "16-nudge-15",
+    "n": 16,
+    "title": "Nudge 2 \u00b7 +15 min",
+    "at": "t15m",
+    "caption": "Nudge 2: nothing worth saying, so it stays silent.",
+    "theme": "light",
+    "png": "16-nudge-15-light.png"
+  },
+  {
+    "id": "17-nudge-35",
+    "n": 17,
+    "title": "Nudge 3 \u00b7 +35 min",
+    "at": "t35m",
+    "caption": "Nudge 3 offers the next useful thing.",
+    "theme": "light",
+    "png": "17-nudge-35-light.png"
+  },
+  {
+    "id": "18-nudge-60-phone",
+    "n": 18,
+    "title": "Nudge 4 \u00b7 +60 min",
+    "at": "t60m",
+    "caption": "Nudge 4 reaches the phone when the Mac is away.",
+    "theme": "light",
+    "png": "18-nudge-60-phone-light.png"
+  },
+  {
+    "id": "19-day1-evening",
+    "n": 19,
+    "title": "Day 1 evening",
+    "at": "eve",
+    "caption": "Day-1 check-ins run hourly in daytime. Most stay silent; this one has something.",
+    "theme": "light",
+    "png": "19-day1-evening-light.png"
+  },
+  {
+    "id": "20-morning-brief",
+    "n": 20,
+    "title": "Morning brief",
+    "at": "brief",
+    "caption": "08:00 next day: the morning brief.",
+    "theme": "light",
+    "png": "20-morning-brief-light.png"
+  },
+  {
+    "id": "20-morning-brief",
+    "n": 20,
+    "title": "Morning brief",
+    "at": "brief",
+    "caption": "08:00 next day: the morning brief.",
+    "theme": "dark",
+    "png": "20-morning-brief-dark.png"
+  },
+  {
+    "id": "21-morning-brief-phone",
+    "n": 21,
+    "title": "Morning brief on the phone",
+    "at": "brief",
+    "caption": "The same brief, on the phone.",
+    "theme": "light",
+    "png": "21-morning-brief-phone-light.png"
+  },
+  {
+    "id": "21-morning-brief-phone",
+    "n": 21,
+    "title": "Morning brief on the phone",
+    "at": "brief",
+    "caption": "The same brief, on the phone.",
+    "theme": "dark",
+    "png": "21-morning-brief-phone-dark.png"
+  },
+  {
+    "id": "22-quiet-suggestion",
+    "n": 22,
+    "title": "Quiet suggestion",
+    "at": "quiet",
+    "caption": "11:30: at most one quiet suggestion a day.",
+    "theme": "light",
+    "png": "22-quiet-suggestion-light.png"
+  },
+  {
+    "id": "23-day2-taper",
+    "n": 23,
+    "title": "Day 2 taper",
+    "at": "day2",
+    "caption": "From hour 32, check-ins every 2 hours until hour 48.",
+    "theme": "light",
+    "png": "23-day2-taper-light.png"
+  },
+  {
+    "id": "24-steady-48h",
+    "n": 24,
+    "title": "Steady state",
+    "at": "h48",
+    "caption": "From hour 48: the ordinary follow-up sweep (every 2 h, 09:00\u201320:00), the 08:00 brief, 11:30 suggestion.",
+    "theme": "light",
+    "png": "24-steady-48h-light.png"
+  },
+  {
+    "id": "24-steady-48h",
+    "n": 24,
+    "title": "Steady state",
+    "at": "h48",
+    "caption": "From hour 48: the ordinary follow-up sweep (every 2 h, 09:00\u201320:00), the 08:00 brief, 11:30 suggestion.",
+    "theme": "dark",
+    "png": "24-steady-48h-dark.png"
+  },
+  {
+    "id": "25-phone-first",
+    "n": 25,
+    "title": "Phone first",
+    "at": "t0",
+    "caption": "Someone who starts on the phone: no welcome request, so their first message starts the clock.",
+    "theme": "light",
+    "png": "25-phone-first-light.png"
+  }
+]
