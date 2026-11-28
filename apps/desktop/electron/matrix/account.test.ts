@@ -82,7 +82,7 @@ const ownerReaderExecutor = '00000000-0000-4000-8000-cf4c4732fd3b'
 const ownerReaderEnrollment = '00000000-0000-4000-8000-ecbad70593ee'
 const ownerReaderPrincipal = '00000000-0000-4000-8000-0d23e78bd190'
 
-function ownerReaderFixture() {
+function ownerReaderFixture(signupLanguage?: 'en' | 'vi') {
   const directory = mkdtempSync(path.join(tmpdir(), 'atum-owner-reader-test-'))
   directories.push(directory)
 
@@ -102,6 +102,7 @@ function ownerReaderFixture() {
     storageKey: Buffer.alloc(32, 2).toString('base64'),
     accessToken: 'synthetic-access',
     refreshToken: 'synthetic-refresh',
+    ...(signupLanguage ? { signupLanguage } : {}),
     domain: {
       issuer: ownerReaderConfig.issuer,
       subject: 'owner-subject',
@@ -1230,6 +1231,31 @@ describe('signing out on purpose', () => {
     await expect(account.signOut()).rejects.toThrow()
     expect(log).toHaveBeenLastCalledWith({ event: 'user_sign_out', result: 'pending', code: 'unexpected' })
     expect(JSON.stringify(log.mock.calls)).not.toContain('synthetic-')
+  })
+})
+
+describe('the account language on the Matrix roster read', () => {
+  it('retries an unacknowledged signup language and uses the stored language for this owner', async () => {
+    const { account } = ownerReaderFixture('en')
+    const requests: Array<string | null> = []
+
+    const request = vi.fn<typeof globalThis.fetch>(async (_input, init) => {
+      requests.push(new Headers(init?.headers).get('Atum-Language'))
+
+      return Response.json([], { headers: requests.length === 2 ? { 'Atum-Language-Ack': 'vi' } : {} })
+    })
+
+    vi.stubGlobal('fetch', request)
+    const identity = account.identity()!
+    const signal = new AbortController().signal
+
+    await account.agents(signal)
+    expect(account.ownerLanguage(identity)).toBeUndefined()
+    await account.agents(signal)
+    expect(account.ownerLanguage(identity)).toBe('vi')
+    expect(account.ownerLanguage({ ...identity, userId: '@another:test' })).toBeUndefined()
+    await account.agents(signal)
+    expect(requests).toEqual(['en', 'en', null])
   })
 })
 

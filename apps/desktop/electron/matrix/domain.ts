@@ -1,9 +1,20 @@
 import { AGENT_HOMES_CLOUD_ONLY } from '../../shared/agent-home-cloud-only'
 import { readBetaFeatures } from '../../shared/beta-features'
+import { type DesktopLocale, isDesktopLocale } from '../../shared/desktop-locale'
 import type { MatrixDomainIdentity } from '../../shared/matrix'
 
 import type { NativeGrant } from './authorization'
 import { currentIanaTimeZone, TIME_ZONE_REQUEST_HEADER } from './time-zone'
+
+export function ownerLanguageReport(language: unknown): Record<string, string> {
+  return isDesktopLocale(language) ? { 'Atum-Language': language, 'Atum-Language-Source': 'reported' } : {}
+}
+
+export function ownerLanguageAck(headers: Headers): DesktopLocale | undefined {
+  const value = headers.get('Atum-Language-Ack')
+
+  return isDesktopLocale(value) ? value : undefined
+}
 
 /** One named resource, no renderer-selected URL and no token-bearing redirects. */
 export async function readDomainIdentity(resource: string, grant: NativeGrant): Promise<MatrixDomainIdentity | null> {
@@ -107,8 +118,9 @@ async function readCloudDisclosureVersionOnce(resource: string, grant: NativeGra
  */
 export async function ensureDomainAssistant(
   resource: string,
-  grant: NativeGrant
-): Promise<{ agentPrincipal: string; matrixUser: string } | null> {
+  grant: NativeGrant,
+  signupLanguage?: DesktopLocale
+): Promise<{ agentPrincipal: string; matrixUser: string; ownerLanguage?: DesktopLocale } | null> {
   const disclosureVersion = await readCloudDisclosureVersion(resource, grant)
   const timeZone = currentIanaTimeZone()
 
@@ -118,6 +130,7 @@ export async function ensureDomainAssistant(
       headers: {
         Authorization: `Bearer ${grant.accessToken}`,
         'Content-Type': 'application/json',
+        ...ownerLanguageReport(signupLanguage),
         ...(timeZone ? { [TIME_ZONE_REQUEST_HEADER]: timeZone } : {})
       },
       body,
@@ -156,7 +169,9 @@ export async function ensureDomainAssistant(
     throw new Error('matrix_domain_invalid')
   }
 
-  return { agentPrincipal: data.agentPrincipal, matrixUser: data.matrixUser }
+  const ownerLanguage = ownerLanguageAck(response.headers)
+
+  return { agentPrincipal: data.agentPrincipal, matrixUser: data.matrixUser, ...(ownerLanguage ? { ownerLanguage } : {}) }
 }
 
 /** Bounded response reader shared by the named domain operations. */

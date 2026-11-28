@@ -7122,6 +7122,7 @@ function publish(next: MatrixSnapshot) {
     // new account's primary is cloud-placed), until the marker is answered or this window records
     // the answer. `view` is already empty for both.
     ...(firstRunIsOpen ? { firstRunOpen: true as const } : {}),
+    ownerLanguage: firstRunIsOpen && next.identity ? account?.ownerLanguage(next.identity) : undefined,
     wallet: wallet?.snapshot(),
     store: store?.snapshot(),
     checkout: checkout?.snapshot(),

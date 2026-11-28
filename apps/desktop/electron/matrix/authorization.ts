@@ -2,6 +2,8 @@ import { createServer, type ServerResponse } from 'node:http'
 
 import * as oidc from 'openid-client'
 
+import { type DesktopLocale, desktopLocaleFor } from '../../shared/desktop-locale'
+
 import { MATRIX_CALLBACK_PAGE_HEADERS, type MatrixCallbackPage, matrixCallbackPage } from './callback-page'
 
 /** Ends a callback request on one of Atum's own pages (callback-page.ts). */
@@ -15,6 +17,23 @@ export interface NativeGrant {
   issuer: string
   subject: string
   expiresAt?: number
+}
+
+/** Report a supported browser preference from the MAS sign-in trip, without retaining the header. */
+function browserSignInLanguage(header: string | undefined): DesktopLocale | undefined {
+  const languages = (header ?? '').split(',').map(entry => {
+    const [tag = '', parameter] = entry.trim().split(';')
+    const weight = parameter === undefined ? 1 : Number(parameter.trim().replace(/^q=/i, ''))
+
+    return { tag: tag.trim(), weight }
+  })
+
+  return desktopLocaleFor(
+    languages
+      .filter(({ tag, weight }) => /^[a-z]{2,3}(?:-[a-z0-9]{2,8})*$/i.test(tag) && weight > 0 && weight <= 1)
+      .sort((a, b) => b.weight - a.weight)
+      .map(({ tag }) => tag)
+  )
 }
 
 /** Library-owned OAuth; this adapter owns only the callback and commit lifetime. */
@@ -37,7 +56,7 @@ export async function authorizeNative<T>({
   issuer: string
   scope: string
   port: number
-  prepare: (grant: NativeGrant) => Promise<T>
+  prepare: (grant: NativeGrant, browserLanguage?: DesktopLocale) => Promise<T>
   commit: (value: T) => void
   discard: (grant: NativeGrant) => Promise<void>
   /** Next authorization in the same browser tab (one trip for both grants), if any. It may
@@ -143,7 +162,7 @@ export async function authorizeNative<T>({
         throw new Error('invalid_identity')
       }
 
-      const value = await prepare(grant)
+      const value = await prepare(grant, browserSignInLanguage(req.headers['accept-language']))
 
       if (!live) {
         throw new Error('expired_callback')

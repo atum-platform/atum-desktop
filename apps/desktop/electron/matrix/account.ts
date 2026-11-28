@@ -25,6 +25,7 @@ import type {
   MatrixBackgroundSweepSetting,
   MatrixBackgroundSweepSettingWrite
 } from '../../shared/background-sweep'
+import type { DesktopLocale } from '../../shared/desktop-locale'
 import { LOOK_PACK_NEGOTIATION_HEADER, LOOK_PACK_NEGOTIATION_VALUE } from '../../shared/look-pack'
 import type {
   MatrixAppEnrollment,
@@ -127,7 +128,7 @@ import { requestMatrixCompanyPrivateCos } from './company-private-cos'
 import { requestMatrixCompanyBrain } from './company-project-brain'
 import { type MatrixConfig, matrixConfigurationKey } from './config'
 import type { MatrixDiskReserve } from './disk-reserve'
-import { ensureDomainAssistant, readDomainIdentity, readDomainJson } from './domain'
+import { ensureDomainAssistant, ownerLanguageReport, readDomainIdentity, readDomainJson } from './domain'
 import type { NativeCloudFileGrant } from './drive-task'
 import {
   agentCredential,
@@ -306,6 +307,8 @@ interface AccountRecord extends NativeGrant, MatrixIdentity {
   version: 1
   configurationKey: string
   storageKey: string
+  /** Supported language from the first MAS browser sign-in, for the owner-language report. */
+  signupLanguage?: DesktopLocale
   /** Validated explicit recovery, encrypted by native safeStorage with this account. */
   ownerRecoveryKey?: string
   /** `device`: the key was made quietly on this first Mac (owner-recovery.ts) and the person
@@ -586,6 +589,7 @@ export class MatrixAccount {
   private refreshFailures: Partial<Record<MatrixAccountClient, string>> = {}
   private orphanReconcile?: Promise<{ attempted: boolean; cleared: number; remaining: number }>
   /** A38: one acknowledged time zone per account, carried by the roster read. */
+  private languageAck?: { accountKey: string; generation: number; language: DesktopLocale }
   private readonly timeZoneReports: OwnerTimeZoneReports
 
   constructor(
@@ -1376,7 +1380,7 @@ export class MatrixAccount {
         port: this.config.callbackPort,
         scope: `openid urn:matrix:org.matrix.msc2967.client:api:* urn:matrix:org.matrix.msc2967.client:device:${deviceId}`,
         ...(method === 'create' ? { prompt: 'create' as const } : {}),
-        prepare: async grant => {
+        prepare: async (grant, signupLanguage) => {
           const response = await fetch(`${this.config.server}/_matrix/client/v3/account/whoami`, {
             headers: { Authorization: `Bearer ${grant.accessToken}` },
             redirect: 'error',
@@ -1399,7 +1403,8 @@ export class MatrixAccount {
             configurationKey: matrixConfigurationKey(this.config),
             userId: identity.user_id,
             deviceId,
-            storageKey: randomBytes(32).toString('base64')
+            storageKey: randomBytes(32).toString('base64'),
+            ...(signupLanguage ? { signupLanguage } : {})
           }
         },
         commit: record => {
@@ -1605,7 +1610,8 @@ export class MatrixAccount {
         refreshToken: grant.refreshToken,
         expiresAt: grant.expiresAt,
         deviceId: grant.deviceId,
-        storageKey: grant.storageKey
+        storageKey: grant.storageKey,
+        ...(grant.signupLanguage && !current.signupLanguage ? { signupLanguage: grant.signupLanguage } : {})
       },
       replaced: current,
       ...(dropped ? { droppedDomain: heldDropped ? [dropped, heldDropped] : [dropped] } : {})
@@ -2696,6 +2702,32 @@ export class MatrixAccount {
       return { accountKey: this.accountKey(owner), generation: this.generation }
     } catch {
       return null
+    }
+  }
+
+  /** The platform's acknowledgement, bound to the signed-in account and grant generation. */
+  ownerLanguage(identity: MatrixIdentity): DesktopLocale | undefined {
+    const scope = this.appScope()
+
+    if (!this.languageAck || !scope) {
+      return undefined
+    }
+
+    const current = this.identity()
+
+    if (current?.userId === identity.userId && current.deviceId === identity.deviceId &&
+        this.languageAck.accountKey === scope.accountKey && this.languageAck.generation === scope.generation) {
+      return this.languageAck.language
+    }
+
+    return undefined
+  }
+
+  private acknowledgeOwnerLanguage(scope: ReturnType<MatrixAccount['appScope']>, language: DesktopLocale) {
+    const current = this.appScope()
+
+    if (scope && scope.accountKey === current?.accountKey && scope.generation === current.generation) {
+      this.languageAck = { ...scope, language }
     }
   }
 
@@ -4178,11 +4210,21 @@ export class MatrixAccount {
   /** The person's agents (roster, 0146): main-only, with the current domain grant. It is also
    * the one carrier of the Mac's time zone when it changed since this account's last ack (A38). */
   async agents(signal: AbortSignal): Promise<MatrixAgentDefinitionRecord[]> {
+    const owner = this.domainOwner()
+    const scope = this.appScope()
     const grant = await this.agentGrant()
+
+    if (!scope || scope.generation !== this.generation || scope.accountKey !== this.appScope()?.accountKey) {
+      throw new Error('matrix_login_cancelled')
+    }
+
     const report = this.timeZoneReports.begin()
+    const language = this.ownerLanguage(owner) ? undefined : owner.signupLanguage
 
     return listMatrixAgentDefinitions(this.config.domain!.resource, grant, signal, {
-      ...(report ? { headers: report.headers, onTimeZoneAck: ack => report.settle(ack) } : {})
+      headers: { ...report?.headers, ...ownerLanguageReport(language) },
+      onTimeZoneAck: ack => report?.settle(ack),
+      onOwnerLanguage: language => this.acknowledgeOwnerLanguage(scope, language)
     })
   }
 
@@ -5215,7 +5257,9 @@ export class MatrixAccount {
     // A new person has no agent account yet; the platform creates it (idempotently)
     // before any enrollment intent is recorded, so a failure leaves nothing pending.
     if (!app && agent === undefined && !participantAgentPrincipal(this.domainOwner())) {
-      const ensured = await ensureDomainAssistant(this.config.domain!.resource, this.domainOwner().domain!)
+      const record = this.domainOwner()
+      const scope = this.appScope()
+      const ensured = await ensureDomainAssistant(this.config.domain!.resource, record.domain!, record.signupLanguage)
 
       if (generation !== this.generation) {
         throw new Error('matrix_login_cancelled')
@@ -5223,6 +5267,10 @@ export class MatrixAccount {
 
       if (!ensured) {
         throw new Error('matrix_assistant_unavailable')
+      }
+
+      if (ensured.ownerLanguage) {
+        this.acknowledgeOwnerLanguage(scope, ensured.ownerLanguage)
       }
 
       initialPrincipal = ensured.agentPrincipal

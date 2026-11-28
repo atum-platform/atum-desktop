@@ -40,6 +40,23 @@ describe('native callback lifetime', () => {
     claims: () => ({ iss: 'https://id.example', sub: 'subject' })
   })
 
+  it.each([
+    ['en;q=0.4, vi-VN;q=0.9, ja;q=0', 'vi'],
+    ['zh-TW, en;q=0.8', 'zh-hant'],
+    ['fr-FR, en;q=0', undefined]
+  ])('takes a supported signup preference from the authenticated browser callback (%s)', async (header, language) => {
+    vi.mocked(oidc.authorizationCodeGrant).mockResolvedValue(token() as never)
+    const input = options()
+    const flow = await authorizeNative(input)
+    flows.push(flow)
+    const redirect = new URL(flow.authorizationUrl).searchParams.get('redirect_uri')!
+    const response = await fetch(`${redirect}?state=state&code=code`, { headers: { 'Accept-Language': header } })
+
+    expect(response.status).toBe(200)
+    expect(await flow.completed).toBe('prepared')
+    expect(input.prepare).toHaveBeenCalledWith(expect.objectContaining({ subject: 'subject' }), language)
+  })
+
   it('continues the same browser tab into the next authorization after committing', async () => {
     vi.mocked(oidc.authorizationCodeGrant).mockResolvedValue(token() as never)
     const input = { ...options(), continueTo: () => 'https://id.example/authorize?client_id=domain' }

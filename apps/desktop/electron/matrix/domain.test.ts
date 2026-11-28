@@ -88,6 +88,18 @@ describe('main-only domain resource', () => {
 describe('first sign-in assistant provisioning', () => {
   const assistant = { agentPrincipal: '22345678-1234-1234-1234-123456789abc', matrixUser: '@agent-0123456789abcdef0123:test' }
 
+  it('reports the browser signup language and returns only the validated stored language', async () => {
+    const request = vi.fn(async () => Response.json(assistant, { headers: { 'Atum-Language-Ack': 'ja' } }))
+    vi.stubGlobal('fetch', request)
+    expect(await ensureDomainAssistant('https://api.test/atum', grant, 'vi')).toEqual({ ...assistant, ownerLanguage: 'ja' })
+    expect(request).toHaveBeenCalledWith('https://api.test/atum/assistant', expect.objectContaining({
+      headers: expect.objectContaining({ 'Atum-Language': 'vi', 'Atum-Language-Source': 'reported' })
+    }))
+
+    vi.stubGlobal('fetch', async () => Response.json(assistant, { headers: { 'Atum-Language-Ack': 'unknown' } }))
+    expect(await ensureDomainAssistant('https://api.test/atum', grant, 'vi')).toEqual(assistant)
+  })
+
   it('posts the current IANA zone on the first assistant request and returns only the validated agent', async () => {
     deviceTimeZone('America/Los_Angeles')
     const request = vi.fn(async () => Response.json({ ...assistant, starter: { state: 'granted', amount: 1 } }))
