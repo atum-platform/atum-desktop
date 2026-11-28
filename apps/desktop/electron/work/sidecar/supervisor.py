@@ -209,10 +209,12 @@ def work_provider_instances(saved, defaults, brokers):
     instances = {**defaults, **saved, **brokers}
     for instance_id in ("atum-managed-delegated", "atum-relay-codex"):
         instances.pop(instance_id, None)
-    # Migrate the exact legacy Codex and Claude stubs. Other configs belong to the account.
+    # Migrate the legacy Codex and Claude stubs, enabled or not (re-enabling a stub
+    # in Settings kept the /usr/bin/false binary). Other configs belong to the account.
     for instance_id in ("codex", "claudeAgent"):
         instance = saved.get(instance_id)
-        if instance == {"driver": instance_id, "enabled": False, "config": {"binaryPath": "/usr/bin/false"}}:
+        if (isinstance(instance, dict) and instance.get("driver") == instance_id
+                and instance.get("config") == {"binaryPath": "/usr/bin/false"}):
             instances[instance_id] = defaults[instance_id]
     codex = instances["codex"]
     if isinstance(codex, dict) and codex.get("driver") == "codex" and codex.get("config") == {"setupMode": "managed"}:
