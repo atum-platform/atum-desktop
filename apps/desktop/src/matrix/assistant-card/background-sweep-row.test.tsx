@@ -63,7 +63,7 @@ describe('the assistant card background follow-up switch', () => {
     const toggle = await screen.findByRole('switch', { name: 'Follows up on open threads' })
     await waitFor(() => expect(toggle.getAttribute('aria-checked')).toBe('true'))
     expect(screen.getByText('Follows up on open threads')).toBeTruthy()
-    expect(document.querySelector('[data-assistant-card-background-sweep]')?.textContent).toBe('Follows up on open threads')
+    expect(window.document.querySelector('[data-assistant-card-background-sweep]')?.textContent).toBe('Follows up on open threads')
   })
 
   it('draws as a built-in routine inside the Routines list, with the same switch', async () => {
@@ -76,7 +76,7 @@ describe('the assistant card background follow-up switch', () => {
 
     const toggle = await screen.findByRole('switch', { name: 'Follows up on open threads' })
     await waitFor(() => expect(toggle.getAttribute('aria-checked')).toBe('true'))
-    const item = document.querySelector<HTMLElement>('[data-routine-built-in]')!
+    const item = window.document.querySelector<HTMLElement>('[data-routine-built-in]')!
     expect(item.tagName).toBe('LI')
     expect(item.textContent).toBe('Follows up on open threadsBuilt in')
   })

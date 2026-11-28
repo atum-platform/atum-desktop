@@ -1,6 +1,7 @@
 # Agent card revamp (design proposal, 2026-11-28)
 
-**Status:** proposal for the owner to approve. Nothing is built yet.
+**Status:** approved by the owner 2026-11-28 ("go with your judgement" on the three questions: all
+three yes). Built on `feat/agent-card-revamp`; the build record is `docs/agent-card-revamp-1128.md`.
 **Authorization:** owner, 2026-11-28: "In general I think the agent card needs a UI revamp - it was
 cobbled together from multiple things and now look scrappy and busy, hard to understand."
 **Scope:** the assistant card (`apps/desktop/src/matrix/assistant-card/*`), both where it opens:
@@ -252,3 +253,14 @@ copy.
 Decided here without asking (reversible): the privacy line moves to the foot of "In this chat";
 "Model" is renamed "Answers with"; Delete moves into "…"; the handle editor moves from a body
 section into a popover from "…".
+
+## 8. Owner decisions (2026-11-28)
+
+1. Follow-ups fold into Routines as a built-in routine: **yes**, built (S4).
+2. The Pet row shows only once a pet is chosen: **yes**, built (S2).
+3. Pause also stops follow-ups: **yes**, but not reachable from the desktop. The follow-up sweep is
+   scheduled by the platform (`atum_private.agent_jobs`, `clock_state='external'`, source
+   `sys_followup_sweep_v1`) and claimed by the controller, outside the agent's own cron `jobs.json`
+   that the host's Pause pauses (`packages/cloud-sandbox/host/native_agent_control.py`). It needs a
+   platform change (the sweep claim refuses while the owner has paused the agent, or Pause also holds
+   the sweep and Resume restores it). Open; see the build record.

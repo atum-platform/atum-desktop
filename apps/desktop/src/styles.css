@@ -7881,7 +7881,8 @@ body:has(.atum-shell) .atum-assistant-card-compact[data-slot='dialog-content'] {
 .atum-card-about {
   display: -webkit-box;
   overflow: hidden;
-  padding: 0.6875rem 0.875rem;
+  /* Margins, not padding: a clamped box clips at its padding edge, so padding would show a 4th line. */
+  margin: 0.6875rem 0.875rem;
   color: var(--atum-ink);
   line-height: 1.45;
   overflow-wrap: anywhere;

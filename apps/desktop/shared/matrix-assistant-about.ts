@@ -127,14 +127,16 @@ function clamp(text: string): string {
 
 /**
  * The card's About text (agent card revamp 2026-11-28): what the assistant helps with, as a person
- * reads it. The template's "what it helps with" field (the primary's built-in paragraph too) whole;
- * for a hand-written persona only its first paragraph of prose. Markdown marks, headings, code and
+ * reads it. The template's "what it helps with" field whole; for a hand-written persona or the
+ * primary's built-in instructions only the first paragraph of prose. Markdown marks, headings, code and
  * lines that are only paths go; whitespace collapses. Empty means nothing to show ("Not set yet.").
  * The raw text is only ever shown in the editor.
  */
 export function matrixAssistantAboutSummary(persona: Pick<ParsedPersona, 'kind' | 'what' | 'instructions'>): string {
   const found = paragraphs(persona.kind === 'custom' ? persona.instructions : persona.what)
-  const text = persona.kind === 'custom' ? (found[0] ?? '') : found.join(' ')
+  // The template's field is the person's own short answer; a hand-written persona and the
+  // primary's built-in instructions are long, so their first paragraph speaks for them.
+  const text = persona.kind === 'template' ? found.join(' ') : (found[0] ?? '')
 
   return clamp(text)
 }

@@ -6637,7 +6637,9 @@ describe('isolated Matrix composition', () => {
     fireEvent.click(screen.getByRole('menuitem', { name: 'Edit assistant… Lan' }))
     await screen.findByRole('dialog', { name: 'Lan info' })
     await waitFor(() => expect(assistants.read).toHaveBeenCalledWith(principal))
-    expect(await screen.findByRole('textbox', { name: 'What does Lan help you with?' })).toBeTruthy()
+    // About shows what it helps with as prose; the raw field opens from Edit (revamp 2026-11-28).
+    expect(await screen.findByRole('button', { name: 'Edit' })).toBeTruthy()
+    expect(window.document.querySelector('[data-assistant-card-about]')).toBeTruthy()
     expect(screen.getByText('Not ready yet')).toBeTruthy()
 
     emit({ ...ready, agents: [] })

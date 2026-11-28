@@ -493,6 +493,16 @@ permission missing) uses these patterns; the canvas's States board lists them.
   sections, no explanatory text. The panel never opens by itself; the
   chat's working line has a plain **Watch** that opens it on the agent's
   tab.
+  (2026-11-28, agent card revamp) The agent's tab is its card, shaped like
+  a profile: face 64 px, name in Title, @handle in Body ink-3, a "…" menu
+  for photo, rename, handle, pet and Delete (danger ink, after a
+  separator). Now, then one state notice (`.ak-notice`) at most, then
+  About (three plain lines, Edit opens the editor), then **On its own**,
+  **In this chat** and **Can use** as `.ak-section` labels over grouped
+  rows with an 18 px Phosphor Light glyph in ink-2 and the hairline from
+  the label, then **Files** (newest three, Show all files). 24 px sides,
+  24 px between sections. No balances, no placement words, no
+  explanatory paragraphs.
 - **Connections sources**: one row per source, its glyph in a small sunk tile
   before the name (body-strong) and one line, the switch at the end
   (2026-10-31). Documents read as a page, never as

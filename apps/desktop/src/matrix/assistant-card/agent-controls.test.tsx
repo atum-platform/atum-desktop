@@ -204,6 +204,7 @@ describe('Paused: one notice under the header, with Resume', () => {
 
 describe('Files on the card: the newest three, then Show all files', () => {
   const now = Date.now()
+
   const sentFile = (id: string, body: string, minutesAgo: number) =>
     ({ id, body, timestamp: now - minutesAgo * 60_000, attachmentSize: 2_000 }) as unknown as MatrixAgentDeskState['sent'][number]
 

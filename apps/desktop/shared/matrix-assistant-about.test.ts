@@ -72,6 +72,11 @@ describe('the About summary', () => {
       inherited: false,
       primary: false
     })
+
     expect(matrixAssistantAboutSummary(mai)).toBe('You are Mai, a hand-written research partner.')
+
+    expect(matrixAssistantAboutSummary({ kind: 'primary', what: 'You can do real work.\n\nBe warm and brief.', instructions: '' })).toBe(
+      'You can do real work.'
+    )
   })
 })

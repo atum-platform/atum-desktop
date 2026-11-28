@@ -37,28 +37,21 @@ export interface AssistantCardCopy {
   privacy(name: string): string
   message: string
   openApp(app: string): string
-  purposeLabel(name: string): string
   purposePlaceholder: string
   personality: string
   personalityEmpty: string
   personalityPlaceholder: string
   instructions: string
-  /** The small button beside an instruction field that opens the window-sized editor. */
-  expandField(label: string): string
-  /** The expanded editor's one line: how to save and how to put it back. */
-  fieldKeys: string
   footnote: string
   longPersona: string
   personaConflict: string
   pet: string
-  petChoose: string
   skills: string
   skillsLabel(count: number): string
   findSkills: string
   checkIns: string
   checkInsBrief(time: string): string
   checkInsOff: string
-  backgroundFollowups: string
   routines: string
   addRoutine: string
   routineEmpty: string
@@ -133,8 +126,7 @@ export interface AssistantCardCopy {
   routineSkipped: string
   routineFailed: string
   routineWaiting: string
-  /** The row an assistant that runs here shows while it is not ready (never a place). */
-  setupRow: string
+  /** The notice an assistant that runs here shows while it is not ready (never a place). */
   setupRowWorking: string
   setupRowNotReady: string
   setUp: string
@@ -240,26 +232,21 @@ const en: AssistantCardCopy = {
   privacy: name => `In groups, ${name} answers only you.`,
   message: 'Message',
   openApp: app => `Open ${app}`,
-  purposeLabel: name => `What does ${name} help you with?`,
   purposePlaceholder: 'e.g. handles my meetings and work email',
   personality: 'Personality',
   personalityEmpty: 'Not set',
   personalityPlaceholder: 'e.g. calm, keeps it short',
   instructions: 'Instructions',
-  expandField: label => `Edit ${label} in a larger window`,
-  fieldKeys: '⌘Return saves · Esc puts it back · Closing saves too',
   footnote: 'Changes apply from your next message.',
   longPersona: 'Your agent may only load part of these instructions.',
   personaConflict: 'This field changed while you were editing. Showing the latest version.',
   pet: 'Pet',
-  petChoose: 'Choose',
   skills: 'Skills',
   skillsLabel: count => `Skills, ${count}`,
   findSkills: 'Find more skills',
   checkIns: 'Check-ins',
   checkInsBrief: time => `Brief at ${time}`,
   checkInsOff: 'Off',
-  backgroundFollowups: 'Background follow-ups',
   routines: 'Routines',
   addRoutine: 'Add routine',
   routineEmpty: 'No routines yet.',
@@ -333,7 +320,6 @@ const en: AssistantCardCopy = {
   routineSkipped: 'Skipped',
   routineFailed: 'Failed',
   routineWaiting: 'Waiting',
-  setupRow: 'Status',
   setupRowWorking: 'Setting up…',
   setupRowNotReady: 'Not ready yet',
   setUp: 'Set up',
@@ -415,26 +401,21 @@ const vi: AssistantCardCopy = {
   privacy: name => `Trong nhóm, ${name} chỉ trả lời bạn.`,
   message: 'Nhắn tin',
   openApp: app => `Mở ${app}`,
-  purposeLabel: name => `${name} giúp bạn việc gì?`,
   purposePlaceholder: 'Ví dụ: lo lịch họp và email công việc',
   personality: 'Tính cách',
   personalityEmpty: 'Chưa đặt',
   personalityPlaceholder: 'Ví dụ: điềm tĩnh, nói ngắn gọn',
   instructions: 'Hướng dẫn',
-  expandField: label => `Sửa ${label} trong cửa sổ lớn`,
-  fieldKeys: '⌘Return để lưu · Esc để hoàn tác · Đóng cũng lưu',
   footnote: 'Thay đổi áp dụng từ tin nhắn tiếp theo.',
   longPersona: 'Trợ lý có thể chỉ đọc một phần hướng dẫn này.',
   personaConflict: 'Mục này đã thay đổi trong lúc bạn chỉnh sửa. Đang hiển thị bản mới nhất.',
   pet: 'Thú cưng',
-  petChoose: 'Chọn',
   skills: 'Kỹ năng',
   skillsLabel: count => `Kỹ năng, ${count}`,
   findSkills: 'Tìm thêm kỹ năng',
   checkIns: 'Hỏi thăm',
   checkInsBrief: time => `Bản tin lúc ${time}`,
   checkInsOff: 'Tắt',
-  backgroundFollowups: 'Theo dõi nền',
   routines: 'Lịch tự động',
   addRoutine: 'Thêm lịch',
   routineEmpty: 'Chưa có lịch tự động.',
@@ -508,7 +489,6 @@ const vi: AssistantCardCopy = {
   routineSkipped: 'Đã bỏ qua',
   routineFailed: 'Không thành công',
   routineWaiting: 'Đang chờ',
-  setupRow: 'Trạng thái',
   setupRowWorking: 'Đang thiết lập…',
   setupRowNotReady: 'Chưa sẵn sàng',
   setUp: 'Thiết lập',
@@ -590,26 +570,21 @@ const ja: AssistantCardCopy = {
   privacy: name => `グループでは、${name}はあなたにだけ返信します。`,
   message: 'メッセージ',
   openApp: app => `${app}を開く`,
-  purposeLabel: name => `${name}は何を手伝いますか？`,
   purposePlaceholder: '例：会議と仕事のメールを担当',
   personality: '性格',
   personalityEmpty: '未設定',
   personalityPlaceholder: '例：落ち着いていて、簡潔',
   instructions: '指示',
-  expandField: label => `「${label}」を大きなウィンドウで編集`,
-  fieldKeys: '⌘Return で保存 · Esc で元に戻す · 閉じても保存',
   footnote: '変更は次のメッセージから適用されます。',
   longPersona: 'エージェントが読み込むのは、この指示の一部だけになることがあります。',
   personaConflict: '編集中にこの項目が変更されました。最新の内容を表示しています。',
   pet: 'ペット',
-  petChoose: '選ぶ',
   skills: 'スキル',
   skillsLabel: count => `スキル、${count}`,
   findSkills: 'スキルをさらに探す',
   checkIns: 'チェックイン',
   checkInsBrief: time => `${time}にブリーフ`,
   checkInsOff: 'オフ',
-  backgroundFollowups: 'バックグラウンドのフォローアップ',
   routines: 'ルーティン',
   addRoutine: 'ルーティンを追加',
   routineEmpty: 'ルーティンはまだありません。',
@@ -683,7 +658,6 @@ const ja: AssistantCardCopy = {
   routineSkipped: 'スキップ',
   routineFailed: '失敗',
   routineWaiting: '待機中',
-  setupRow: '状態',
   setupRowWorking: '設定中…',
   setupRowNotReady: 'まだ準備できていません',
   setUp: '設定',
@@ -765,26 +739,21 @@ const zh: AssistantCardCopy = {
   privacy: name => `在群组中，${name} 只回复你。`,
   message: '发消息',
   openApp: app => `打开 ${app}`,
-  purposeLabel: name => `${name} 帮你做什么？`,
   purposePlaceholder: '例如：处理我的会议和工作邮件',
   personality: '性格',
   personalityEmpty: '未设置',
   personalityPlaceholder: '例如：冷静，说话简短',
   instructions: '说明',
-  expandField: label => `在更大的窗口中编辑“${label}”`,
-  fieldKeys: '⌘Return 保存 · Esc 撤回 · 关闭也会保存',
   footnote: '更改将从下一条消息开始生效。',
   longPersona: '助手可能只会加载部分指令。',
   personaConflict: '此项在编辑时发生了更改。已显示最新版本。',
   pet: '宠物',
-  petChoose: '选择',
   skills: '技能',
   skillsLabel: count => `技能，${count}`,
   findSkills: '查找更多技能',
   checkIns: '问候',
   checkInsBrief: time => `${time} 简报`,
   checkInsOff: '关闭',
-  backgroundFollowups: '后台跟进',
   routines: '定时任务',
   addRoutine: '添加定时任务',
   routineEmpty: '还没有定时任务。',
@@ -858,7 +827,6 @@ const zh: AssistantCardCopy = {
   routineSkipped: '已跳过',
   routineFailed: '失败',
   routineWaiting: '等待中',
-  setupRow: '状态',
   setupRowWorking: '正在设置…',
   setupRowNotReady: '还没准备好',
   setUp: '设置',
@@ -940,26 +908,21 @@ const zhHant: AssistantCardCopy = {
   privacy: name => `在群組中，${name} 只回覆你。`,
   message: '傳訊息',
   openApp: app => `開啟 ${app}`,
-  purposeLabel: name => `${name} 幫你做什麼？`,
   purposePlaceholder: '例如：處理我的會議和工作郵件',
   personality: '個性',
   personalityEmpty: '未設定',
   personalityPlaceholder: '例如：冷靜，說話簡短',
   instructions: '說明',
-  expandField: label => `在更大的視窗中編輯「${label}」`,
-  fieldKeys: '⌘Return 儲存 · Esc 復原 · 關閉也會儲存',
   footnote: '變更將從下一則訊息開始生效。',
   longPersona: '助理可能只會載入部分指令。',
   personaConflict: '此欄在編輯時發生變更。已顯示最新版本。',
   pet: '寵物',
-  petChoose: '選擇',
   skills: '技能',
   skillsLabel: count => `技能，${count}`,
   findSkills: '尋找更多技能',
   checkIns: '問候',
   checkInsBrief: time => `${time} 簡報`,
   checkInsOff: '關閉',
-  backgroundFollowups: '背景追蹤',
   routines: '排程任務',
   addRoutine: '新增排程任務',
   routineEmpty: '還沒有排程任務。',
@@ -1033,7 +996,6 @@ const zhHant: AssistantCardCopy = {
   routineSkipped: '已略過',
   routineFailed: '失敗',
   routineWaiting: '等待中',
-  setupRow: '狀態',
   setupRowWorking: '正在設定…',
   setupRowNotReady: '還沒準備好',
   setUp: '設定',
