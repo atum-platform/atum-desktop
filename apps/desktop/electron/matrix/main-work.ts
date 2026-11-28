@@ -33,13 +33,13 @@ import {
   type WorkSurfaceParts
 } from '../work/surface'
 import { readAccountConnections } from '../work/surface/account-connections'
+import { readLocalPlanStates, setupWorkLocalPlan } from '../work/surface/local-plans'
 import { watchWorkModelDefault } from '../work/surface/model-default'
 import { projectPlanCapabilities, projectPlanLabels } from '../work/surface/plan-capabilities'
 import { WorkPlanFacts } from '../work/surface/plan-facts'
 import { readPlanUsage } from '../work/surface/plan-usage'
 import { createWorkConsentClient, deviceServiceCall } from '../work/surface/platform'
 import { readWorkProviders } from '../work/surface/provider-config'
-import { readLocalPlanStates, setupWorkLocalPlan } from '../work/surface/local-plans'
 import { createOwnerRelay } from '../work/surface/relay'
 
 import type { WorkDeliverables } from './work-deliverable'

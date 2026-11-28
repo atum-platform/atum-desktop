@@ -287,7 +287,10 @@ export class WorkSurface {
       return
     }
 
-    if (this.phase !== 'ready') {await this.open()}
+    if (this.phase !== 'ready') {
+      clearTimeout(this.prewarmTimer)
+      await this.open()
+    }
     if (this.parts !== parts || !parts?.enabled() || !parts.setupLocalPlan) {
       throw new Error('work_setup_unavailable')
     }

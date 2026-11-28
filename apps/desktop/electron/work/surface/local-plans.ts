@@ -3,11 +3,12 @@ import { z } from 'zod'
 import { isWorkLocalPlan, WORK_LOCAL_PLANS, type WorkLocalPlan, type WorkLocalPlanStates } from '../../../shared/work-local-plans'
 import type { WorkIncarnation } from '../sidecar/process'
 
-import { readWorkProviders, workOwnerSocketUrl, type OwnerFetch } from './provider-config'
+import { type OwnerFetch, readWorkProviders, workOwnerSocketUrl } from './provider-config'
 
 const nativeStatus = z.object({
   instanceId: z.string(), driver: z.string(), enabled: z.boolean(), installed: z.boolean(),
-  auth: z.object({ status: z.string(), type: z.string().optional() })
+  auth: z.object({ status: z.string(), type: z.string().optional() }),
+  usageLimits: z.object({ windows: z.array(z.object({ id: z.string(), label: z.string() })) }).optional()
 })
 
 export function projectLocalPlanStates(providers: unknown): WorkLocalPlanStates {
@@ -18,11 +19,16 @@ export function projectLocalPlanStates(providers: unknown): WorkLocalPlanStates 
 
     if (!parsed.success) {continue}
 
-    const { instanceId, driver, enabled, installed, auth } = parsed.data
+    const { instanceId, driver, enabled, installed, auth, usageLimits } = parsed.data
 
     if (!isWorkLocalPlan(instanceId) || driver !== WORK_LOCAL_PLANS[instanceId].driver || !enabled) {continue}
 
-    states[instanceId] = !installed ? 'not_installed' : auth.status === 'authenticated' && auth.type !== 'api_key' ? 'ready' : 'signed_out'
+    const state = !installed ? 'not_installed' : auth.status === 'authenticated' && auth.type !== 'api_key' ? 'ready' : 'signed_out'
+    const allowance = instanceId === 'openrouter-free'
+      ? usageLimits?.windows.find(window => window.id === 'openrouter-free-daily')?.label
+      : undefined
+
+    states[instanceId] = { state, ...(allowance && /^\d+ free requests left today$/u.test(allowance) ? { allowance } : {}) }
   }
 
   return states

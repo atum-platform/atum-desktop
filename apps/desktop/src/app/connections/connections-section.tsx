@@ -107,7 +107,7 @@ export function AccountSubscriptionsSection({
   scopeKey
 }: {
   bridge?: Pick<ConnectionsBridge, 'openPlanConnect'> &
-    Partial<Pick<MatrixWorkBridge, 'readPlanConsent' | 'revokePlanConsent' | 'readPlanLabels' | 'readLocalPlans' | 'localPlanAction'>>
+    Partial<Pick<MatrixWorkBridge, 'readPlanConsent' | 'revokePlanConsent' | 'readPlanLabels' | 'readLocalPlans' | 'localPlanAction' | 'subscribe'>>
   /** Closes Settings so the owner lands on Work. */
   onLeave?: () => void
   scopeKey?: string
@@ -223,7 +223,7 @@ export function AccountSubscriptionsSection({
         help={firstRun.autoLine}
         title={firstRun.autoTitle}
       />
-      <LocalPlanRows bridge={bridge} manageLabel={copy.manage} onLeave={onLeave} />
+      <LocalPlanRows bridge={bridge} key={scopeKey} manageLabel={copy.manage} onLeave={onLeave} />
       {keyDialog === 'connect' && (
         <SubscriptionConnectDialog
           onClose={() => setKeyDialog(null)}

@@ -105,7 +105,15 @@ actual.main()
       expect(settings.providerInstances.codex).toEqual({ driver: 'codex', enabled: true, config: { setupMode: 'existing' } })
       expect(settings.providerInstances.claudeAgent).toEqual({ driver: 'claudeAgent', enabled: true })
       expect(settings.providerInstances.antigravity).toEqual({ driver: 'antigravity', enabled: true })
-      expect(settings.providerInstances.opencode).toEqual({ driver: 'opencode', enabled: true })
+      expect(settings.providerInstances.opencode).toEqual({
+        driver: 'opencode', enabled: true,
+        environment: [{ name: 'OPENCODE_CONFIG_CONTENT', value: '{"disabled_providers":["openrouter"]}' }]
+      })
+      expect(settings.providerInstances.copilot).toMatchObject({
+        driver: 'acpRegistry', enabled: true, config: { source: 'local', commandPath: 'copilot', commandArgs: ['--acp'] }
+      })
+      expect(settings.providerInstances.kiro).toEqual({ driver: 'kiro', enabled: true })
+      expect(settings.providerInstances['openrouter-free']).toMatchObject({ driver: 'opencode', enabled: true })
       expect(settings.providerInstances['atum-managed-delegated']).toBeUndefined()
       expect(settings.providerInstances['atum-relay-codex']).toBeUndefined()
       expect(settings.providerInstances['atum-managed'].environment.some((entry: { name: string }) => entry.name === 'HOME')).toBe(false)

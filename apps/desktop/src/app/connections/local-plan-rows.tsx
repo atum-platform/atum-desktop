@@ -8,7 +8,7 @@ import type { MatrixWorkBridge } from '../../../shared/matrix-work'
 import { WORK_LOCAL_PLANS, type WorkLocalPlan, type WorkLocalPlanStates } from '../../../shared/work-local-plans'
 
 interface LocalPlanRowsProps {
-  bridge?: Pick<MatrixWorkBridge, 'readLocalPlans' | 'localPlanAction'>
+  bridge?: Pick<MatrixWorkBridge, 'readLocalPlans' | 'localPlanAction'> & Partial<Pick<MatrixWorkBridge, 'subscribe'>>
   manageLabel: string
   onLeave?: () => void
 }
@@ -26,10 +26,15 @@ export function LocalPlanRows({ bridge, manageLabel, onLeave }: LocalPlanRowsPro
     )
 
     refresh()
+    const unwatch = bridge?.subscribe?.(projection => {
+      if (projection?.view === 'ready') {refresh()}
+    })
+
     window.addEventListener('focus', refresh)
 
     return () => {
       active = false
+      unwatch?.()
       window.removeEventListener('focus', refresh)
     }
   }, [bridge])
@@ -52,20 +57,25 @@ export function LocalPlanRows({ bridge, manageLabel, onLeave }: LocalPlanRowsPro
 
   return (Object.keys(WORK_LOCAL_PLANS) as WorkLocalPlan[]).map(plan => {
     const { title } = WORK_LOCAL_PLANS[plan]
-    const state = busy === plan ? 'installing' : states[plan]
+    const status = states[plan]
+    const state = busy === plan ? 'installing' : status?.state
+    const openRouter = plan === 'openrouter-free'
     const ready = state === 'ready'
     const help = failed === plan ? 'Setup didn’t finish. Try again.'
-      : state === 'ready' ? 'Connected on this Mac'
+      : state === 'ready' ? status?.allowance ?? 'Connected on this Mac'
         : state === 'installing' ? 'Follow the sign-in instructions in your browser.'
           : state === 'not_installed' ? 'Install to use in Work'
             : state === 'signed_out' ? 'Sign in to use in Work' : 'Checking availability…'
+    const line = openRouter && state === 'signed_out'
+      ? 'For a few chats a day. Use a workspace without upstream provider keys.'
+      : openRouter && state === 'not_installed' ? 'OpenCode 2.3.2 is required' : help
 
     return (
       <SettingsRow
         control={
           <button
             className={ready ? 'ak-btn ak-btn--sm ak-btn--plain' : 'ak-btn ak-btn--sm'}
-            disabled={busy !== undefined}
+            disabled={busy !== undefined || (openRouter && state !== 'ready' && state !== 'signed_out')}
             onClick={() => {
               if (!ready) {void setup(plan); return}
               onLeave?.()
@@ -74,12 +84,12 @@ export function LocalPlanRows({ bridge, manageLabel, onLeave }: LocalPlanRowsPro
             }}
             type="button"
           >
-            {ready ? manageLabel : state === 'installing' ? 'Setting up…' : state === 'signed_out' ? 'Sign in' : 'Install & sign in'}
+            {ready ? manageLabel : state === 'installing' ? 'Setting up…' : openRouter ? 'Connect' : state === 'signed_out' ? 'Sign in' : 'Install & sign in'}
           </button>
         }
         data-atum-connection={plan}
         data-atum-connection-state={state ?? 'unknown'}
-        help={help}
+        help={line}
         key={plan}
         lead={<ProviderMark provider={{ id: plan, label: title }} size="sm" />}
         title={title}
