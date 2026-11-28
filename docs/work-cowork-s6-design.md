@@ -65,4 +65,6 @@ WORK_DESIGN_ELECTRON=/path/to/Electron WORK_DESIGN_RESVG=/path/to/resvg \
 Use the repository's pinned Electron and the matching resvg pin above. The
 tests check malformed, active, external and oversized input, real HTML and
 SVG raster output, quota interruption, partial sync, replay, and a
-same-thread title-size revision that preserves the original.
+same-thread title-size revision that preserves the original. The standalone
+Electron test process has a separate startup allowance from the renderer's
+production deadline.

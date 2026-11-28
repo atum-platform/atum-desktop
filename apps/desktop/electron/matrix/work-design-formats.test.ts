@@ -139,7 +139,7 @@ it.skipIf(posix || !electron || !resvg)('settles native HTML and SVG raster proo
     const env = { ...process.env }
     delete env.ELECTRON_RUN_AS_NODE
     await runElectron(electron!, [entry, resvg!, directory, format, String(width), String(height)], {
-      env, timeout: 15_000, killSignal: 'SIGKILL'
+      env, timeout: 25_000, killSignal: 'SIGKILL'
     })
     return readdirSync(directory).includes('raster') ? readFileSync(path.join(directory, 'raster')) : null
   })
@@ -178,11 +178,13 @@ it.skipIf(posix || !electron || !resvg)('settles native HTML and SVG raster proo
   writeFileSync(path.join(thumbnailDirectory, 'source'), readFileSync(path.join(s.folder, 'Design.html.png')))
   const env = { ...process.env }
   delete env.ELECTRON_RUN_AS_NODE
-  await runElectron(electron!, [entry, resvg!, thumbnailDirectory, 'thumbnail'], { env, timeout: 15_000 })
+  await runElectron(electron!, [entry, resvg!, thumbnailDirectory, 'thumbnail'], {
+    env, timeout: 25_000, killSignal: 'SIGKILL'
+  })
   const dataUrl = readFileSync(path.join(thumbnailDirectory, 'thumbnail'), 'utf8')
   expect(dataUrl).toMatch(/^data:image\/png;base64,/u)
   const thumbnail = Buffer.from(dataUrl.split(',')[1], 'base64')
   expect(thumbnail.length).toBeLessThanOrEqual(512 * 1024)
   expect([thumbnail.readUInt32BE(16), thumbnail.readUInt32BE(20)]).toEqual([360, 480])
   expect(readFileSync(path.join(s.folder, 'Design (2).html.png'))).not.toEqual(readFileSync(path.join(s.folder, 'Design.html.png')))
-}, 60_000)
+}, 90_000)
