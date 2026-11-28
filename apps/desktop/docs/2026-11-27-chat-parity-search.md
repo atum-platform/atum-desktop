@@ -33,3 +33,9 @@ The product's candidate and release builder configurations exclude `node_modules
 Use a real homeserver and two clients. Send the same term to a plain assistant DM, people group and company channel, then search from desktop and phone. Check matching IDs, source label, the ring on a deep event and disappearance after leave. Repeat with a private canary and capture client requests from all sources. Confirm the private scope clears on sign-out and coverage rebuilds from the newly loaded SDK timeline. Exercise historical thread replies after assembling the thread lane. Element X device interop, platform configuration and an installed signed Atum build are pending.
 
 Local checks passed for desktop typecheck, ESLint with zero errors, 72 focused SDK/controller/IPC tests, and 11 focused renderer tests. The renderer fixture covers the three-room corpus and company label, a room disappearing after leave, and the private result opening the exact row when another row has the same body. The SDK fixture checks the native cursor, context URL and request body.
+
+## Integration with group threads and pins
+
+The SDK returns the thread root when it projects a search hit into a Team Space or human-group thread. The roster uses that root to open the thread and reveal the exact reply. A search hit rendered inline still opens the room transcript. The selected thread can draw a bounded historical reply window while the room keeps its live window and pending echoes. Room-level searches retain their event-centered window. Thread reveals from roster search, company search and pins all carry the current account scope.
+
+The SDK regression fixture covers a historical group reply and a personal DM reply shown inline. The renderer fixture checks that a private roster hit highlights the exact row in either transcript.

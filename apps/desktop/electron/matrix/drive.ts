@@ -1844,6 +1844,19 @@ export class MatrixDrive {
     }
   }
 
+  /** Distinguish the durable enrollment from the account generation, which restarts with main. */
+  workDeliverableTarget() {
+    const target = this.importTarget()
+
+    if (!target || !this.binding || !this.owner) {return undefined}
+
+    try {
+      return { ...target, bindingKey: JSON.stringify([this.key, this.bindingSpace(this.binding, this.owner)]) }
+    } catch {
+      return undefined
+    }
+  }
+
   async read(): Promise<MatrixDriveView> {
     this.activate()
     const revision = this.revision
@@ -3572,6 +3585,23 @@ export class MatrixDrive {
 
     if (await this.options.openPath(row.path)) {
       throw new Error('matrix_drive_open_failed')
+    }
+  }
+
+  /** Main-only. Resolve a revalidated Work receipt using the same opaque row and native opener. */
+  async openWorkDeliverable(relativePath: string, identity: { dev: number; ino: number }): Promise<void> {
+    this.activate()
+    const root = this.requiredLocalBrowseRoot()
+    const file = path.join(root, relativePath)
+    const id = randomUUID()
+    const row: Row = { path: file, kind: 'file', dev: identity.dev, ino: identity.ino }
+
+    this.rows.set(id, this.recheck(row, root))
+
+    try {
+      await this.open(id)
+    } finally {
+      this.rows.delete(id)
     }
   }
 

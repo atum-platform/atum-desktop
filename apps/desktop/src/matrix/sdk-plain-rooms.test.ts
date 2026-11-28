@@ -1753,6 +1753,40 @@ describe('bot-api media', () => {
 })
 
 describe('standard threads in the owner window', () => {
+  it('projects a historical group thread hit beside the unchanged room timeline', async () => {
+    let room!: Room
+    const f = await sdkFor(owner, client => { room = holdRoom(client, '!group:test') })
+    const event = (eventId: string, ts: number, threadRootId?: string) => new MatrixEvent({
+      type: EventType.RoomMessage, room_id: room.roomId, event_id: eventId, sender: owner, origin_server_ts: ts,
+      content: { msgtype: 'm.text', body: eventId,
+        ...(threadRootId ? { 'm.relates_to': { rel_type: 'm.thread', event_id: threadRootId } } : {}) }
+    })
+    const root = event('$root', 1)
+    const hit = event('$hit', 2, '$root')
+
+    await room.addLiveEvents([root, event('$room-latest', 3)], { addToState: false })
+    const thread = room.createThread('$root', root, [], true)
+    const context = thread.timelineSet.addTimeline()
+    thread.timelineSet.addEventsToTimeline([hit], false, false, context)
+    expect(thread.events).not.toContain(hit)
+
+    await f.sdk.command({ kind: 'select', roomId: room.roomId })
+    const liveIds = f.latest().messages.map(message => message.id)
+    const liveThreads = f.latest().threads
+
+    expect(liveThreads).toMatchObject([{ root: { id: '$root' }, replies: [] }])
+
+    await expect(f.sdk.command({
+      kind: 'selectSearchEvent', scope: 'plain', roomId: room.roomId, eventId: '$hit', threadRootId: '$root'
+    })).resolves.toBe('$root')
+    expect(f.latest().messages.map(message => message.id)).toEqual(liveIds)
+    expect(f.latest().threads).toMatchObject([{ root: { id: '$root' }, replies: [{ id: '$hit', thread: true }] }])
+
+    await f.sdk.command({ kind: 'select', roomId: room.roomId })
+    expect(f.latest().threads).toEqual(liveThreads)
+    expect(f.latest()).not.toHaveProperty('historyFocused')
+  })
+
   it('shows another client’s personal-DM reply inline and acknowledges it only once that transcript is attended', async () => {
     const friend = '@friend:test'
     let room!: Room
@@ -1801,9 +1835,17 @@ describe('standard threads in the owner window', () => {
       replyTo: '$personal-root'
     })
     expect(f.latest().messages[1]).not.toHaveProperty('thread')
-    expect(f.latest().threads).toEqual([])
+    expect(f.latest()).not.toHaveProperty('threads')
     expect(write).not.toHaveBeenCalled()
 
+    await expect(f.sdk.command({
+      kind: 'selectSearchEvent', scope: 'plain', roomId: room.roomId,
+      eventId: '$personal-reply', threadRootId: '$personal-root'
+    })).resolves.toBeNull()
+    expect(f.latest().messages.map(message => message.id)).toContain('$personal-reply')
+    expect(f.latest()).not.toHaveProperty('threads')
+
+    await f.sdk.command({ kind: 'select', roomId: room.roomId })
     await f.sdk.command({ kind: 'attend', roomId: room.roomId })
     await vi.waitFor(() => expect(write).toHaveBeenCalledExactlyOnceWith(
       room.roomId,

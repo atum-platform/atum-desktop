@@ -692,9 +692,9 @@ export interface MatrixSnapshot {
   firstRunGreetingReplyId?: string
   /** The room's `m.fully_read` event captured before this visit advances receipts. */
   readMarkerEventId?: string
-  /** Shared pins for the selected Team Space room. Absent in personal chats. */
+  /** Shared message pins for the selected eligible room. */
   pinnedMessages?: MatrixPinnedMessages
-  /** Threads for the open Team Space channel, newest activity first. */
+  /** Threads for the selected Team Space or human group room, newest activity first. */
   threads?: MatrixThread[]
   /** Joins and departures of the open Team Space channel, oldest first (absent in every other room). */
   membershipLines?: MatrixMembershipLine[]

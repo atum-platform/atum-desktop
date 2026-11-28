@@ -7,25 +7,33 @@ import {
   NotificationCountType,
   ReceiptType,
   RelationType,
-  type Room
+  type Room,
+  threadIdForReceipt
 } from 'matrix-js-sdk'
 
 import type { MatrixCompanyThread, MatrixMessage, MatrixRoom, MatrixThread } from '../../shared/matrix'
 import { MATRIX_COMPANY_CHANNEL_TYPE, MATRIX_COMPANY_CONVERSATION_TYPE } from '../../shared/matrix-company-channel-room'
 
-/** Ordinary rooms have no thread panel, so flatten every loaded SDK thread event into their
- * bounded room window. Team Space rooms keep SDK threads separate for their thread panel. */
+import { matrixThreadRoom, matrixThreadRoomKind } from './thread-room'
+
+/** Threads stay on their own timeline. Flat rooms still surface loaded replies as before. */
 export function matrixRoomTimelineEvents(
   room: Room,
   timeline: EventTimeline = room.getLiveTimeline(),
   events: MatrixEvent[] = timeline.getEvents()
 ): MatrixEvent[] {
-  if (
-    events.length === 0 ||
-    [MATRIX_COMPANY_CHANNEL_TYPE, MATRIX_COMPANY_CONVERSATION_TYPE].includes(room.getType() ?? '')
-  ) {
+  const kind = matrixThreadRoomKind(room)
+
+  if (events.length === 0 || kind === 'team') {
     return events
   }
+
+  if (kind === 'group') {
+    // Old assistant results used the thread relation for ordinary answers.
+    events = events.filter(event => event.isThreadRoot || !event.threadRootId || legacyAssistantReply(event))
+  }
+
+  if (events.length === 0) {return events}
 
   const oldest = events[0]!.getTs()
   const newest = timeline === room.getLiveTimeline() ? Infinity : (events.at(-1)?.getTs() ?? 0)
@@ -36,6 +44,7 @@ export function matrixRoomTimelineEvents(
     .filter(event => {
       const id = event.getId()
       const eligible =
+        (kind !== 'group' || legacyAssistantReply(event)) &&
         event.getTs() >= oldest &&
         event.getTs() <= newest &&
         (!id || !ids.has(id))
@@ -67,6 +76,10 @@ export function matrixRoomTimelineEvents(
   return merged.concat(threadEvents.slice(threadIndex))
 }
 
+function legacyAssistantReply(event: MatrixEvent): boolean {
+  return Boolean(event.getOriginalContent()['io.atum.result'])
+}
+
 /** Per-user room account data. It changes attention, never channel access. */
 export const MATRIX_THREAD_ATTENTION = 'io.atum.thread_attention.v1'
 export const MATRIX_THREADS_MAX = 100
@@ -80,6 +93,11 @@ const EVENT_ID = /^\$.{1,1023}$/u
 interface ThreadAttention {
   followed: Set<string>
   unfollowed: Set<string>
+}
+
+interface FocusedThread {
+  rootId: string
+  events: readonly MatrixEvent[]
 }
 
 function record(value: unknown): Record<string, unknown> | undefined {
@@ -141,8 +159,8 @@ function requireServerMessage(room: Room, eventId: string): MatrixEvent {
   return event
 }
 
-function requireTeamSpaceThreadRoom(room: Room, writable = false): void {
-  if (![MATRIX_COMPANY_CHANNEL_TYPE, MATRIX_COMPANY_CONVERSATION_TYPE].includes(room.getType() ?? '') ||
+function requireThreadRoom(room: Room, writable = false): void {
+  if (!matrixThreadRoom(room) ||
     room.getMyMembership() !== 'join' || writable && !room.maySendMessage()) {
     throw new Error('matrix_thread_unavailable')
   }
@@ -202,7 +220,7 @@ export async function sendMatrixThreadReply(
   room: Room,
   body: string,
   rootId: string,
-  replyTo = rootId,
+  replyTo?: string,
   mentions?: readonly string[],
   roomMention = false
 ): Promise<string> {
@@ -210,21 +228,23 @@ export async function sendMatrixThreadReply(
     throw new Error('matrix_command_invalid')
   }
 
-  // Archived channels and read-only company conversations close Matrix message power. Recheck
-  // native state at the final write boundary so a stale thread composer cannot publish.
-  requireTeamSpaceThreadRoom(room, true)
+  requireThreadRoom(room, true)
 
   requireFlatThreadTarget(room, rootId, replyTo)
 
+  // Until the first reply creates an SDK Thread, the SDK has no last reply to use as a
+  // fallback. Anchor that first fallback to the root. Subsequent sends use the SDK's target.
+  const relation = replyTo
+    ? { 'm.in_reply_to': { event_id: replyTo } }
+    : room.getThread(rootId)
+      ? undefined
+      : { rel_type: RelationType.Thread, event_id: rootId, is_falling_back: true, 'm.in_reply_to': { event_id: rootId } }
+
   return responseEventId(
-    await client.sendEvent(room.roomId, EventType.RoomMessage, {
+    await client.sendMessage(room.roomId, rootId, {
       msgtype: MsgType.Text,
       body,
-      'm.relates_to': {
-        rel_type: RelationType.Thread,
-        event_id: rootId,
-        'm.in_reply_to': { event_id: replyTo }
-      },
+      ...(relation ? { 'm.relates_to': relation } : {}),
       ...matrixMentions(mentions, roomMention)
     })
   )
@@ -236,7 +256,7 @@ export async function setMatrixThreadFollow(
   rootId: string,
   followed: boolean
 ): Promise<void> {
-  requireTeamSpaceThreadRoom(room)
+  requireThreadRoom(room)
   requireThreadRoot(room, rootId)
   // Matrix room account data is last-write-wins across devices. This bounded preference is
   // attention-only; sync remains authoritative and a later device can supersede an earlier
@@ -269,7 +289,7 @@ export async function setMatrixThreadFollow(
 }
 
 export async function readMatrixThread(client: MatrixClient, room: Room, rootId: string): Promise<void> {
-  requireTeamSpaceThreadRoom(room)
+  requireThreadRoom(room)
   requireThreadRoot(room, rootId)
   const thread = room.getThread(rootId)
 
@@ -279,7 +299,7 @@ export async function readMatrixThread(client: MatrixClient, room: Room, rootId:
 
   const latest = [...thread.events]
     .reverse()
-    .find(event => event.getId() !== rootId && event.status == null && event.getId()?.startsWith('$'))
+    .find(event => event.status == null && event.getId()?.startsWith('$') && threadIdForReceipt(event) === rootId)
 
   if (!latest) {
     return
@@ -362,9 +382,11 @@ function projectMatrixThreads(
   userId: string,
   project: (event: MatrixEvent) => MatrixMessage | null,
   sdkThreads: readonly MatrixSdkThread[],
-  attention: ThreadAttention
+  attention: ThreadAttention,
+  group = false,
+  focus?: FocusedThread
 ): MatrixThread[] {
-  return sdkThreads
+  const threads = sdkThreads
     .flatMap(thread => {
       const rootEvent = thread.rootEvent ?? room.findEventById(thread.id)
       const root = rootEvent ? project(rootEvent) : null
@@ -373,11 +395,17 @@ function projectMatrixThreads(
         return []
       }
 
-      const events = thread.events
+      const children = thread.events
         .filter(event => event.getId() !== root.id)
+      const events = (group ? children.filter(event => !legacyAssistantReply(event)) : children)
         .sort((left, right) => left.getTs() - right.getTs())
-      const replies = events
-        .slice(-MATRIX_THREAD_REPLIES_MAX)
+      const replyCount = thread.length - (children.length - events.length)
+      const focused = focus?.rootId === root.id ? focus.events : undefined
+
+      if (group && replyCount <= 0 && !events.length && !focused) {
+        return []
+      }
+      const replies = (focused ? focused.filter(event => event.getId() !== root.id) : events.slice(-MATRIX_THREAD_REPLIES_MAX))
         .map(event => {
           const message = project(event)
 
@@ -396,26 +424,36 @@ function projectMatrixThreads(
         Boolean(rootEvent && mentioned(rootEvent, userId)) ||
         events.some(event => mentioned(event, userId))
       const followed = attention.unfollowed.has(root.id) ? false : attention.followed.has(root.id) || automatic
-      const lastActivityAt = thread.replyToEvent?.getTs() ?? replies.at(-1)?.timestamp ?? root.timestamp
+      const lastReply = thread.replyToEvent
+      const lastActivityAt = lastReply && (!group || !legacyAssistantReply(lastReply))
+        ? lastReply.getTs()
+        : replies.at(-1)?.timestamp ?? root.timestamp
       const participantIds = [...new Set([root.sender, ...replies.map(reply => reply.sender)])].slice(0, 100)
 
       return [
-        { root, replies, participantIds, replyCount: thread.length, lastActivityAt, unread, highlights, followed }
+        { root, replies, participantIds, replyCount: Math.max(replyCount, focused ? replies.length : 0),
+          lastActivityAt, unread, highlights, followed }
       ]
     })
     .sort((left, right) => right.lastActivityAt - left.lastActivityAt || left.root.id.localeCompare(right.root.id))
-    .slice(0, MATRIX_THREADS_MAX)
+
+  const focusedIndex = focus ? threads.findIndex(thread => thread.root.id === focus.rootId) : -1
+
+  return focusedIndex >= MATRIX_THREADS_MAX
+    ? [...threads.slice(0, MATRIX_THREADS_MAX - 1), threads[focusedIndex]!]
+    : threads.slice(0, MATRIX_THREADS_MAX)
 }
 
 /** Bounded display projection of the room's known server threads. */
 export function matrixThreads(
   room: Room,
   userId: string,
-  project: (event: MatrixEvent) => MatrixMessage | null
+  project: (event: MatrixEvent) => MatrixMessage | null,
+  focus?: FocusedThread
 ): MatrixThread[] {
   const attention = matrixThreadAttention(room)
 
-  return projectMatrixThreads(room, userId, project, room.getThreads(), attention)
+  return projectMatrixThreads(room, userId, project, room.getThreads(), attention, matrixThreadRoomKind(room) === 'group', focus)
 }
 
 function cachedCompanyRoomThreads(

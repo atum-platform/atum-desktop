@@ -396,7 +396,8 @@ export function matrixMessage(
   ignored: ReadonlySet<string>,
   room?: Room,
   petLive = false,
-  plainConfirmed = false
+  plainConfirmed = false,
+  groupThreads = false
 ): MatrixMessage | null {
   if (ignored.has(event.getSender() ?? '')) {
     return null
@@ -466,16 +467,17 @@ export function matrixMessage(
   const relation = relationOf(event)
   const resultFor = matrixReplyRoot(original) ?? (relation ? matrixReplyRoot({ 'm.relates_to': relation }) : undefined)
 
-  // Old answers are thread relations; any other thread message comes from another app. Only
-  // Team Space rooms expose it as a panel thread. Ordinary rooms flatten it as a rich reply.
+  // Old assistant results used the thread relation for flat answers. Keep them in the main chat.
   const standardThread =
     !failed && relation?.rel_type === 'm.thread' && typeof relation.event_id === 'string' && !original['io.atum.result']
 
   const thread = standardThread &&
-    [MATRIX_COMPANY_CHANNEL_TYPE, MATRIX_COMPANY_CONVERSATION_TYPE].includes(room?.getType() ?? '')
+    (groupThreads || [MATRIX_COMPANY_CHANNEL_TYPE, MATRIX_COMPANY_CONVERSATION_TYPE].includes(room?.getType() ?? ''))
   const threadRootId = thread ? (relation.event_id as string) : undefined
   const threadReply = thread ? record(relation?.['m.in_reply_to']) : undefined
-  const replyTo = thread && typeof threadReply?.event_id === 'string' ? threadReply.event_id : resultFor
+  const replyTo = thread
+    ? relation.is_falling_back !== true && typeof threadReply?.event_id === 'string' ? threadReply.event_id : undefined
+    : resultFor
 
   // A protected company reference is never Matrix media. Its marker opts out of
   // ordinary attachment handling even when malformed, so a marker plus mxc URL or
