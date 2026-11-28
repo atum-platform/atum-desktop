@@ -588,6 +588,9 @@ export function parseMatrixCommand(value: unknown): MatrixCommand {
 
     // Delete chat: the SDK re-reads the room and its own membership before it leaves and forgets.
     case 'forget':
+
+    // Upgraded room: the SDK re-reads the tombstone and the replacement's create event itself.
+    case 'joinSuccessor':
       return { kind: row.kind, roomId: roomId() }
 
     case 'join':
