@@ -1,4 +1,5 @@
-import { Attachment, initAsync } from '@matrix-org/matrix-sdk-crypto-wasm'
+import opus from '@audio/encode-opus'
+import { Attachment, EncryptedAttachment, initAsync } from '@matrix-org/matrix-sdk-crypto-wasm'
 import { cleanup, render, screen } from '@testing-library/react'
 import {
   ClientEvent,
@@ -6,6 +7,7 @@ import {
   EventStatus,
   EventType,
   type MatrixClient,
+  MatrixError,
   MatrixEvent,
   NotificationCountType,
   Room,
@@ -35,6 +37,7 @@ import {
   MATRIX_COMPANY_CHANNEL_ROOM_VERSION,
   MATRIX_COMPANY_CHANNEL_TYPE
 } from '../../shared/matrix-company-channel-room'
+import { MATRIX_VOICE_TRANSCRIPTION_PROFILE } from '../../shared/matrix-rich-content'
 
 import { authorizedBotApi } from './app-bots/bot-api'
 import { MatrixBotApiPhotoView } from './app-bots/bot-photo'
@@ -488,6 +491,132 @@ describe('sending a file', () => {
     await expect(f.sdk.command({ kind: 'download', roomId: '!room:test', eventId: eventId as string })).resolves.toEqual({
       name: 'notes.txt',
       bytes
+    })
+  })
+
+  it.each([false, true])('sends native voice metadata and protects media in an encrypted room (%s)', async encrypted => {
+    const f = await sdkFor(owner, client => holdRoom(client, '!room:test', { encrypted }))
+    const server = homeserver(f.client)
+    const encoder = await opus({ sampleRate: 48_000 })
+    const pcm = Float32Array.from({ length: 24_000 }, (_, i) => Math.sin(i / 10) / 4)
+    const pages = [encoder.encode([pcm]), encoder.flush()]
+    encoder.free()
+    const voiceBytes = new Uint8Array(pages[0]!.length + pages[1]!.length)
+    voiceBytes.set(pages[0]!)
+    voiceBytes.set(pages[1]!, pages[0]!.length)
+    const voiceNote = { duration: 500, waveform: [20, 240, 35] }
+
+    const eventId = await f.sdk.command({
+      kind: 'attach', roomId: '!room:test', voiceNote, name: 'Voice note.ogg', bytes: voiceBytes
+    }) as string
+    const content = server.send.mock.calls[0]![2]
+    expect(content).toMatchObject({
+      msgtype: 'm.audio',
+      body: 'Voice note.ogg',
+      info: { mimetype: 'audio/ogg', duration: 500, size: voiceBytes.length },
+      'org.matrix.msc3245.voice': {},
+      'org.matrix.msc1767.audio': voiceNote
+    })
+    const uploaded = server.media.get('mxc://test/media1')!
+    if (!encrypted) {
+      expect(uploaded).toEqual(voiceBytes)
+      await expect(f.sdk.command({ kind: 'download', roomId: '!room:test', eventId, inline: true })).resolves.toEqual({
+        name: 'Voice note.ogg', bytes: voiceBytes
+      })
+      return
+    }
+
+    expect(content).not.toHaveProperty('url')
+    expect(uploaded).not.toEqual(voiceBytes)
+    const file = new EncryptedAttachment(uploaded, JSON.stringify((content as unknown as { file: unknown }).file))
+    try {
+      expect(Attachment.decrypt(file)).toEqual(voiceBytes)
+    } finally {
+      file.free()
+    }
+  })
+
+  it('rejects WebM bytes pretending to be an Ogg voice note before upload', async () => {
+    const f = await sdkFor(owner, client => holdRoom(client, '!room:test'))
+    const server = homeserver(f.client)
+    await expect(f.sdk.command({
+      kind: 'attach', roomId: '!room:test', name: 'Voice note.ogg', voiceNote: { duration: 800, waveform: [] },
+      bytes: new Uint8Array([26, 69, 223, 163])
+    })).rejects.toThrow('matrix_file_invalid')
+    expect(server.upload).not.toHaveBeenCalled()
+  })
+
+  it('gates assistant upload with synced, per-provider Matrix account data', async () => {
+    const assistant = '@agent:test'
+    const roomId = '!assistant:test'
+    const type = 'io.atum.assistant'
+    const f = await sdkFor(owner, client => holdRoom(client, roomId, { type, members: { [assistant]: 'join' } }))
+    const server = homeserver(f.client)
+    vi.spyOn(f.client, 'getJoinedRooms').mockResolvedValue({ joined_rooms: [roomId] })
+    vi.spyOn(f.client, 'roomState').mockResolvedValue([
+      { type: EventType.RoomCreate, state_key: '', sender: owner, content: { type } },
+      { type: EventType.RoomHistoryVisibility, state_key: '', content: { history_visibility: 'joined' } },
+      { type: EventType.RoomMember, state_key: owner, content: { membership: 'join' } },
+      { type: EventType.RoomMember, state_key: assistant, content: { membership: 'join' } }
+    ] as never)
+    vi.spyOn(f.client, 'isVersionSupported').mockResolvedValue(true)
+    let provider = 'groq'
+    const grants = new Map<string, unknown>()
+    const requests = vi.mocked(f.client.http.authedRequest).mockImplementation(async (method, path, _, body) => {
+      if (path === '/profile/%40agent%3Atest') {
+        return { [MATRIX_VOICE_TRANSCRIPTION_PROFILE]: provider }
+      }
+      expect(path).toMatch(/^\/user\/%40owner%3Atest\/account_data\/io\.atum\.voice_transcription_consent\.[a-f0-9]{64}$/)
+      if (method === 'PUT') {
+        grants.set(path, body)
+        return {}
+      }
+      if (!grants.has(path)) {
+        throw new MatrixError({ errcode: 'M_NOT_FOUND' })
+      }
+      return grants.get(path)
+    })
+
+    const bytes = new Uint8Array(48)
+    const encoder = new TextEncoder()
+    bytes.set(encoder.encode('OggS'))
+    bytes[26] = 1
+    bytes.set(encoder.encode('OpusHead'), 28)
+    const send = (transcriptionProvider?: 'groq') => f.sdk.command({
+      kind: 'attach', roomId, name: 'Voice note.ogg', bytes,
+      voiceNote: { duration: 500, waveform: [] }, voiceNoteAssistant: assistant,
+      ...(transcriptionProvider ? { transcriptionProvider } : {})
+    })
+
+    await expect(send()).resolves.toEqual({ kind: 'transcriptionRequired', provider: 'groq' })
+    expect(server.upload).not.toHaveBeenCalled()
+    expect(grants.size).toBe(0)
+    await expect(send('groq')).resolves.toBe('$sent1')
+    expect([...grants.values()]).toEqual([{ allowed: true }])
+    expect(server.send.mock.calls[0]?.[2]).toHaveProperty(MATRIX_VOICE_TRANSCRIPTION_PROFILE, 'groq')
+    await expect(send()).resolves.toBe('$sent2')
+
+    provider = 'openai'
+    await expect(send('groq')).resolves.toEqual({ kind: 'transcriptionRequired', provider: 'openai' })
+    await expect(send()).resolves.toEqual({ kind: 'transcriptionRequired', provider: 'openai' })
+    expect(server.upload).toHaveBeenCalledTimes(2)
+    expect(requests.mock.calls.filter(([method]) => method === 'PUT')).toHaveLength(1)
+
+    provider = ''
+    await expect(send()).resolves.toEqual({ kind: 'transcriptionUnavailable' })
+    expect(server.upload).toHaveBeenCalledTimes(2)
+  })
+
+  it('sends a static Matrix location with a readable fallback and pinned asset type', async () => {
+    const f = await sdkFor(owner, client => holdRoom(client, '!room:test'))
+    const server = homeserver(f.client)
+    await f.sdk.command({ kind: 'locationSend', roomId: '!room:test', geoUri: 'geo:10.5,106.4' })
+    expect(server.send.mock.calls[0]![2]).toMatchObject({
+      msgtype: 'm.location',
+      body: 'Location: 10.5,106.4',
+      geo_uri: 'geo:10.5,106.4',
+      'org.matrix.msc3488.location': { uri: 'geo:10.5,106.4' },
+      'org.matrix.msc3488.asset': { type: 'm.pin' }
     })
   })
 
@@ -1672,7 +1801,7 @@ describe('standard threads in the owner window', () => {
       replyTo: '$personal-root'
     })
     expect(f.latest().messages[1]).not.toHaveProperty('thread')
-    expect(f.latest().threads).toEqual([])
+    expect(f.latest()).not.toHaveProperty('threads')
     expect(write).not.toHaveBeenCalled()
 
     await f.sdk.command({ kind: 'attend', roomId: room.roomId })

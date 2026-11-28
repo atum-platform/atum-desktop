@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto'
 import { lstatSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, renameSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { afterEach, expect, it, vi } from 'vitest'
 
@@ -12,7 +12,6 @@ import { workSessionPaths } from '../work/session/paths'
 import type { NativeWorkDriveTarget } from './drive-import-native'
 import { type WorkDeliverableResult, WorkDeliverables } from './work-deliverable'
 import { WorkDeliverableHost } from './work-deliverable-host'
-import { convertOffice } from './work-office-proof.test-support'
 
 const python = process.env.WORK_DOCX_PYTHON ?? 'python3'
 const native = it.skipIf(!['darwin', 'linux'].includes(process.platform))
@@ -269,9 +268,12 @@ it.skipIf(!process.env.WORK_DOCX_PYTHON)('dry-runs the actual runtime memo throu
   execFileSync(python, ['-I', '-B', script, memo, s.source])
 
   if (process.env.WORK_DOCX_SOFFICE) {
-    const proof = convertOffice(process.env.WORK_DOCX_SOFFICE, s.home, s.source, 'pdf')
+    const profile = pathToFileURL(path.join(s.home, 'office-profile')).href
+    execFileSync(process.env.WORK_DOCX_SOFFICE, [
+      `-env:UserInstallation=${profile}`, '--headless', '--convert-to', 'pdf', '--outdir', s.home, s.source
+    ], { timeout: 45_000 })
 
-    const pages = execFileSync('pdftotext', ['-layout', proof, '-'], { encoding: 'utf8' })
+    const pages = execFileSync('pdftotext', ['-layout', path.join(s.home, 'Memo.pdf'), '-'], { encoding: 'utf8' })
       .split('\f').filter(page => page.trim())
 
     expect(pages).toHaveLength(2)

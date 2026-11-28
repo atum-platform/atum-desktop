@@ -233,6 +233,7 @@ import type {
   MatrixProviderOAuthSession,
   MatrixProviderWriteResult
 } from '../../shared/matrix-provider-settings'
+import { matrixHumanVoiceRoom } from '../../shared/matrix-rich-content'
 import { matrixRuntimeConfirmationCopy } from '../../shared/matrix-runtime-copy'
 import type {
   MatrixOwnDevices,
@@ -19514,17 +19515,28 @@ async function start() {
 
     return binding.scope.request(operation)
   })
-  ipcMain.handle(MATRIX_VOICE_IPC.microphone, async (event, roomId: unknown) => {
+  ipcMain.handle(MATRIX_VOICE_IPC.microphone, async (event, roomId: unknown, mode: unknown) => {
     requireMatrixCaller(event, ui?.webContents, UI_URL)
     microphoneConsent = undefined
-    const binding = await bindMatrixVoice(voiceSource, roomId)
-    const granted = process.platform !== 'darwin' || (await systemPreferences.askForMediaAccess('microphone'))
-
-    if (!granted || !binding.isCurrent()) {
+    const owner = hosts.get('human')
+    const voiceNoteCurrent = () =>
+      Boolean(owner && hosts.get('human') === owner && !closing && !anyOperation() &&
+        state.state === 'ready' && state.roomId === roomId &&
+        state.rooms.some(room => room.id === roomId && room.membership === 'join'))
+    const isCurrent = mode === 'voiceNote'
+      ? voiceNoteCurrent
+      : (await bindMatrixVoice(voiceSource, roomId)).isCurrent
+    if (!isCurrent()) {
       return false
     }
 
-    microphoneConsent = binding.isCurrent
+    const granted = process.platform !== 'darwin' || (await systemPreferences.askForMediaAccess('microphone'))
+
+    if (!granted || !isCurrent()) {
+      return false
+    }
+
+    microphoneConsent = isCurrent
 
     return true
   })
@@ -25369,6 +25381,26 @@ async function start() {
           }
         }
 
+        if (teamSpaceRoom && (
+          input.kind === 'pollCreate' || input.kind === 'pollVote' || input.kind === 'pollEnd' || input.kind === 'locationSend'
+        )) {
+          throw new Error('matrix_command_invalid')
+        }
+
+        if (input.kind === 'attach' && input.voiceNote) {
+          const voiceAgent = agentOfRoom(input.roomId)
+
+          if (!teamSpaceRoom && voiceAgent?.userId && !voiceAgent.closed &&
+            isCloudAgent(voiceAgent) && cloudAgentMacRole(voiceAgent) !== 'answering') {
+            return command({ ...input, voiceNoteAssistant: voiceAgent.userId })
+          }
+
+          if (teamSpaceRoom || input.transcriptionProvider ||
+            !matrixHumanVoiceRoom(commandRoom, allAgents().map(agent => agent.userId))) {
+            throw new Error('matrix_voice_unavailable')
+          }
+        }
+
         if (input.kind === 'attach' && teamSpaceRoom) {
           if (!owner || !companyFiles || sdkBusy || state.state !== 'ready') {
             throw new Error(companyFiles ? 'matrix_company_file_unavailable' : 'matrix_company_file_unsupported')
@@ -25848,6 +25880,10 @@ async function start() {
             file.bytes.byteLength > MATRIX_MAX_FILE_BYTES
           ) {
             throw new Error('matrix_file_invalid')
+          }
+
+          if (input.inline) {
+            return file.bytes
           }
 
           const target = await dialog.showSaveDialog(ui!, {

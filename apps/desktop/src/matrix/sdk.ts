@@ -1,11 +1,13 @@
 import { Attachment } from '@matrix-org/matrix-sdk-crypto-wasm'
 import {
   ClientEvent,
+  ContentHelpers,
   createClient,
   Direction,
   EventStatus,
   EventType,
   IndexedDBStore,
+  LocationAssetType,
   type MatrixClient,
   MatrixEvent,
   MatrixEventEvent,
@@ -71,6 +73,7 @@ import { MATRIX_GOOGLE_PROVENANCE_KEY } from '../../shared/matrix-google-tools'
 import { MATRIX_GROUP_AGENT_LIMIT } from '../../shared/matrix-group-room'
 import { MATRIX_MODEL_ACCOUNT_DATA, matrixModelChoiceContent, parseMatrixModel } from '../../shared/matrix-models'
 import { MATRIX_NOTES_SELF_ROOM_TYPE } from '../../shared/matrix-notes-self'
+import { isMatrixOggOpus, MATRIX_VOICE_MIME, MATRIX_VOICE_TRANSCRIPTION_PROFILE, matrixGeoPoint, matrixVoiceNote } from '../../shared/matrix-rich-content'
 import { createMatrixSyncHealth, matrixSyncTokenRefused } from '../../shared/matrix-sync-health'
 import { MATRIX_TASK_FILES_KEY, parseMatrixTaskFilesPromise } from '../../shared/matrix-task-files'
 import type { MatrixUndecryptableObservation } from '../../shared/matrix-undecryptable'
@@ -219,6 +222,7 @@ import { readPeoplePrivacy, searchMatrixPeople, writePeoplePrivacy } from './peo
 import { createPetLiveEvents } from './pet/live-events'
 import { changeMatrixMessagePin, matrixPinnedMessages } from './pinned-events'
 import { confirmedPlainRoom, plainRoomAnswer, withJoinedWireType } from './plain-room'
+import { matrixPollCommand } from './poll/model'
 import { matrixPresence } from './presence'
 import { matrixProfile } from './profile'
 import { prepareMatrixResult, publishMatrixGroupNotice, publishMatrixNotice, publishMatrixResult } from './publish-result'
@@ -227,7 +231,9 @@ import { matrixReadReceipts } from './read-receipts'
 import { readMatrixResult } from './read-result'
 import { publicReaders } from './read-state'
 import { readMatrixReplyQuote } from './reply-quote'
+import { matrixRichMedia } from './rich-media'
 import { roomSelection } from './room-navigation'
+import { writeRoomNotificationMode } from './room-notification-mode'
 import { matrixRoomPolicy } from './room-policy'
 import { readMatrixRoomShared, readMatrixRoomSharedThumbnail } from './room-shared'
 import { matrixSavedMessages } from './saved-messages'
@@ -236,6 +242,7 @@ import { loadDeviceForVerification } from './sdk-device-verification'
 import { matrixSecurity, recoveryKeyCache } from './security'
 import { matrixStarterOnboarding } from './starter-onboarding'
 import { matrixStoreRuns } from './store-runs'
+import { matrixThreadRoomKind } from './thread-room'
 import { MATRIX_COMPANY_THREADS_MAX, matrixCompanyThreads, matrixRoomTimelineEvents, matrixThreads, readMatrixThread, sendMatrixThreadReply, setMatrixThreadFollow } from './threads'
 import {
   MATRIX_TIMELINE_EVENT_BOUND,
@@ -248,6 +255,7 @@ import {
 import { matrixTimelineKeyRetry } from './timeline-key-retry'
 import { findMatrixTurn, prepareMatrixCron, publishMatrixCron, sendMatrixTurn, sendWithTransaction } from './turn'
 import { observeMatrixUndecryptable } from './undecryptable'
+import { matrixVoiceConsent } from './voice-note/consent'
 import { readWorkHistory } from './work-history'
 import { readWorkAnswer, sendWorkQuestion } from './work-question'
 
@@ -848,6 +856,7 @@ export async function startMatrixSdk(
   const systemLanguage = desktopLocaleFor(globalThis.navigator?.languages) ?? DEFAULT_DESKTOP_LOCALE
   const displayPreferences = matrixDisplayPreferences(client, configuration, () => !stopped, systemLanguage)
   const notificationPolicy = matrixNotificationPolicy(client, configuration, () => !stopped && state === 'ready')
+  const changingNotificationModes = new Set<string>()
   let privateCosNotificationRoomIds = initialPrivateCosNotificationRoomIds
 
   const receipts = matrixReadReceipts(client, {
@@ -987,14 +996,15 @@ export async function startMatrixSdk(
     return known === true
   }
 
-  const message = (event: MatrixEvent, ignored: ReadonlySet<string>, room: Room): MatrixMessage | null =>
+  const message = (event: MatrixEvent, ignored: ReadonlySet<string>, room: Room, groupThreads = false): MatrixMessage | null =>
     matrixMessage(
       keyRetry.project(event),
       client.getUserId(),
       ignored,
       room,
       petLive.has(event, room.roomId),
-      plainConfirmed(room)
+      plainConfirmed(room),
+      groupThreads
     )
 
   // Company inbox room caches keep one stable projector across publishes. The explicit revision
@@ -1015,8 +1025,7 @@ export async function startMatrixSdk(
   }
 
   const ensureThreadList = (room: Room) => {
-    if (![MATRIX_COMPANY_CHANNEL_TYPE, MATRIX_COMPANY_CONVERSATION_TYPE].includes(room.getType() ?? '') ||
-      threadRooms.has(room)) {
+    if (threadRooms.has(room)) {
       return
     }
 
@@ -1072,13 +1081,16 @@ export async function startMatrixSdk(
     const ignored = new Set(ignoredUsers)
     activityIgnored = ignored
 
+    const threadKind = room?.getMyMembership() === 'join' ? matrixThreadRoomKind(room) : undefined
+    const showThreads = threadKind === 'team' || threadKind === 'group'
+
     for (const threaded of threadRooms) {
-      if (threaded !== room || threaded.getMyMembership() !== 'join') {
+      if (threaded !== room || !showThreads) {
         forgetThreadRoom(threaded)
       }
     }
 
-    if (room?.getMyMembership() === 'join') {
+    if (room && showThreads) {
       ensureThreadList(room)
     }
 
@@ -1159,14 +1171,11 @@ export async function startMatrixSdk(
           ? matrixRoomTimelineEvents(
               room,
               history.timeline,
-              // Cut the room timeline first: ordinary-room thread events may fill gaps inside
-              // this window, but never move its boundary or displace a pending local echo.
+              // Cut the room window first. Compatibility replies may only fill gaps inside it.
               history.timeline.getEvents().slice(-history.limit)
             )
-              .map(event => message(event, ignored, room))
+              .map(event => message(event, ignored, room, threadKind === 'group'))
               .filter((m): m is MatrixMessage => m !== null)
-              // Team Space replies remain panel rows. Ordinary-room SDK threads were flattened
-              // above and project as normal rich replies because those rooms have no panel.
               .filter(value => value.thread !== true)
               .map(value => {
                 const event = value.own ? room.findEventById(value.id) : undefined
@@ -1175,15 +1184,12 @@ export async function startMatrixSdk(
               })
           : [],
       ...(readMarkerEventId ? { readMarkerEventId } : {}),
-      ...(room?.getMyMembership() === 'join' &&
-      [MATRIX_COMPANY_CHANNEL_TYPE, MATRIX_COMPANY_CONVERSATION_TYPE].includes(room.getType() ?? '')
-        ? { pinnedMessages: matrixPinnedMessages(room, configuration.userId, event => message(event, ignored, room)) }
+      ...(room && threadKind
+        ? { pinnedMessages: matrixPinnedMessages(room, configuration.userId, event => message(event, ignored, room, threadKind === 'group')) }
         : {}),
-      threads:
-        room?.getMyMembership() === 'join' &&
-        [MATRIX_COMPANY_CHANNEL_TYPE, MATRIX_COMPANY_CONVERSATION_TYPE].includes(room.getType() ?? '')
-          ? matrixThreads(room, configuration.userId, event => message(event, ignored, room))
-          : [],
+      ...(room && showThreads
+        ? { threads: matrixThreads(room, configuration.userId, event => message(event, ignored, room, threadKind === 'group')) }
+        : {}),
       // Who came in and who is no longer in, from the channel's own membership events (the same
       // bound as the messages). Only a Team Space channel room has them.
       ...(room && history && room.getType() === MATRIX_COMPANY_CHANNEL_TYPE
@@ -3753,16 +3759,37 @@ export async function startMatrixSdk(
         return null
       }
 
+      case 'roomNotificationMode':
       case 'mute': {
-        const room = client.getRoom(command.roomId)
+        const targetRoomId = command.roomId
 
-        if (state !== 'ready' || !room || room.getMyMembership() !== 'join') {
+        const active = () => !stopped && state === 'ready' &&
+          client.getRoom(targetRoomId)?.getMyMembership() === 'join'
+
+        if (!active() || changingNotificationModes.has(targetRoomId)) {
           throw new Error('matrix_mute_unavailable')
         }
 
-        // The SDK's own muting rule; the projection follows the synced push rules.
-        await client.setRoomMutePushRule('global', command.roomId, command.muted)
-        snapshot()
+        const mode = command.kind === 'roomNotificationMode'
+          ? command.mode
+          : command.muted ? 'nothing' : 'inherit'
+
+        changingNotificationModes.add(targetRoomId)
+
+        try {
+          await writeRoomNotificationMode(client, targetRoomId, mode, active)
+
+          if (notificationPolicy.snapshot(true).channelOverrides[targetRoomId] !== undefined) {
+            await notificationPolicy.change({
+              identity: configuration, scope: 'channel', roomId: targetRoomId, level: 'inherit'
+            })
+          }
+
+          await client.getPushRules()
+        } finally {
+          changingNotificationModes.delete(targetRoomId)
+          snapshot()
+        }
 
         return null
       }
@@ -3851,12 +3878,7 @@ export async function startMatrixSdk(
       case 'threadFollow': {
         const room = client.getRoom(command.roomId)
 
-        if (
-          state !== 'ready' ||
-          !room ||
-          room.getMyMembership() !== 'join' ||
-          ![MATRIX_COMPANY_CHANNEL_TYPE, MATRIX_COMPANY_CONVERSATION_TYPE].includes(room.getType() ?? '')
-        ) {
+        if (state !== 'ready' || !room) {
           throw new Error('matrix_thread_unavailable')
         }
 
@@ -3876,12 +3898,7 @@ export async function startMatrixSdk(
       case 'threadRead': {
         const room = client.getRoom(command.roomId)
 
-        if (
-          state !== 'ready' ||
-          !room ||
-          room.getMyMembership() !== 'join' ||
-          ![MATRIX_COMPANY_CHANNEL_TYPE, MATRIX_COMPANY_CONVERSATION_TYPE].includes(room.getType() ?? '')
-        ) {
+        if (state !== 'ready' || !room) {
           throw new Error('matrix_thread_unavailable')
         }
 
@@ -3918,11 +3935,18 @@ export async function startMatrixSdk(
 
         return null
 
-      case 'pinMessage':
-        await changeMatrixMessagePin(client, joinedRoom(command.roomId), command.eventId, command.pinned)
+      case 'pinMessage': {
+        const room = joinedRoom(command.roomId)
+
+        if (!matrixThreadRoomKind(room)) {
+          throw new Error('matrix_pin_forbidden')
+        }
+
+        await changeMatrixMessagePin(client, room, command.eventId, command.pinned)
         snapshot()
 
         return null
+      }
 
       case 'react':
         await reactToMatrixMessage(
@@ -4972,6 +4996,35 @@ export async function startMatrixSdk(
         )
       }
 
+      case 'pollRead':
+        return matrixPollCommand(client, joinedRoom(command.roomId), configuration.userId, command, changed)
+
+      case 'pollCreate':
+      case 'pollVote':
+      case 'pollEnd':
+      case 'locationSend': {
+        const room = joinedRoom(command.roomId)
+        if (room.getType() === MATRIX_NOTES_SELF_ROOM_TYPE) {
+          notesSelfAssertSend(command.roomId)
+        }
+        await requireMatrixRoomPeerTrust(client, command.roomId, configuration.deviceIsolation, () => !stopped && state === 'ready')
+        await founderChat.beforeSend(command.roomId)
+
+        if (command.kind !== 'locationSend') {
+          return matrixPollCommand(client, room, configuration.userId, command, changed)
+        }
+
+        const geoUri = matrixGeoPoint(command.geoUri)
+        if (!geoUri) {
+          throw new Error('matrix_command_invalid')
+        }
+        const content = ContentHelpers.makeLocationContent(
+          `Location: ${geoUri.slice(4)}`, geoUri, undefined, undefined, LocationAssetType.Pin
+        )
+
+        return client.sendEvent(command.roomId, EventType.RoomMessage, { ...content, msgtype: MsgType.Location, info: {} })
+      }
+
       case 'attach': {
         if (client.getRoom(command.roomId)?.getType() === MATRIX_NOTES_SELF_ROOM_TYPE) {
           notesSelfAssertSend(command.roomId)
@@ -4991,7 +5044,42 @@ export async function startMatrixSdk(
           throw new Error('matrix_command_invalid')
         }
 
-        const info = { mimetype: 'application/octet-stream', size: command.bytes.byteLength }
+        const voice = matrixVoiceNote(command.voiceNote)
+
+        if (command.voiceNote !== undefined && (!voice || !isMatrixOggOpus(command.bytes))) {
+          throw new Error('matrix_file_invalid')
+        }
+
+        let transcriptionProvider
+
+        if (voice && 'voiceNoteAssistant' in command) {
+          const active = () => !stopped && state === 'ready'
+
+          await readAssistantRoom(client, {
+            roomId: command.roomId, ownerId: configuration.userId, agentId: command.voiceNoteAssistant, forTurn: true
+          }, active)
+
+          const consent = await matrixVoiceConsent(client, command.voiceNoteAssistant, command.transcriptionProvider)
+
+          if (consent.kind !== 'transcriptionAllowed') {
+            return consent
+          }
+
+          if (!active()) {
+            throw new Error('matrix_not_ready')
+          }
+
+          transcriptionProvider = consent.provider
+        }
+
+        const info = voice
+          ? { mimetype: MATRIX_VOICE_MIME, size: command.bytes.byteLength, duration: voice.duration }
+          : { mimetype: 'application/octet-stream', size: command.bytes.byteLength }
+        const media = voice
+          ? { msgtype: MsgType.Audio as const, body: command.name, info,
+              'org.matrix.msc3245.voice': {}, 'org.matrix.msc1767.audio': voice,
+              ...(transcriptionProvider ? { [MATRIX_VOICE_TRANSCRIPTION_PROFILE]: transcriptionProvider } : {}) }
+          : { msgtype: MsgType.File as const, body: command.name, info }
 
         // A room without encryption (every 0.20 chat): the bytes as they are and a plain mxc URL,
         // the form phones and Element X send and show there. A room with encryption keeps the
@@ -5007,7 +5095,7 @@ export async function startMatrixSdk(
           return client.sendEvent(
             command.roomId,
             EventType.RoomMessage,
-            { msgtype: MsgType.File, body: command.name, filename: command.name, url: upload.content_uri, info },
+            { ...media, filename: command.name, url: upload.content_uri },
             command.matrixTransactionId
           )
         }
@@ -5031,10 +5119,8 @@ export async function startMatrixSdk(
               command.roomId,
               EventType.RoomMessage,
               {
-                msgtype: MsgType.File,
-                body: command.name,
-                file: { ...JSON.parse(encrypted.mediaEncryptionInfo!), url: upload.content_uri },
-                info
+                ...media,
+                file: { ...JSON.parse(encrypted.mediaEncryptionInfo!), url: upload.content_uri }
               },
               command.matrixTransactionId
             )
@@ -5064,7 +5150,17 @@ export async function startMatrixSdk(
           throw new Error('matrix_file_unavailable')
         }
 
-        return downloadMatrixAttachment(client, event.getContent(), { plain })
+        const content = event.getContent()
+        const media = matrixRichMedia(event.getType(), content)
+
+        if (command.inline && (Object.hasOwn(content, MATRIX_COMPANY_FILE) ||
+          (media?.kind !== 'voice' && media?.kind !== 'sticker'))) {
+          throw new Error('matrix_file_unavailable')
+        }
+
+        return downloadMatrixAttachment(client, media?.kind === 'sticker'
+          ? { ...content, msgtype: MsgType.Image }
+          : content, { plain })
       }
 
       case 'roomShared': {

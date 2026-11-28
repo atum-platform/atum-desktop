@@ -306,17 +306,34 @@ describe('company channel header menu', () => {
     expect(document.querySelector('[data-matrix-chat-awareness]')).toBeNull()
   })
 
-  it('stores a channel notification level without leaving, forgetting or muting the room', async () => {
+  it('sets the homeserver mode from the channel menu', async () => {
     const command = setup(channelRoom('!general:test'))
     const notifications = screen.getByRole('menuitem', { name: 'Notifications' })
     fireEvent.keyDown(notifications, { key: 'ArrowRight' })
-    fireEvent.click(await screen.findByRole('menuitemradio', { name: 'Nothing' }))
+    fireEvent.click(await screen.findByRole('menuitemradio', { name: 'Off' }))
     await waitFor(() => expect(command).toHaveBeenCalledExactlyOnceWith({
-      kind: 'notificationPolicy',
-      identity: { userId: '@me:test', deviceId: 'D' },
-      scope: 'channel',
+      kind: 'roomNotificationMode',
       roomId: '!general:test',
-      level: 'nothing'
+      mode: 'nothing'
+    }))
+  })
+
+  it('shows the synced explicit mode separately from the effective default', async () => {
+    const command = setup({
+      ...channelRoom('!general:test'),
+      notificationMode: { mode: 'all', defaultLevel: 'mentions' }
+    })
+
+    fireEvent.keyDown(screen.getByRole('menuitem', { name: 'Notifications' }), { key: 'ArrowRight' })
+
+    const all = await screen.findByRole('menuitemradio', { name: 'All' })
+    const restore = screen.getByRole('menuitemradio', { name: 'Restore default' })
+    expect(all.getAttribute('aria-checked')).toBe('true')
+    expect(restore.getAttribute('aria-checked')).toBe('false')
+    expect(restore.getAttribute('aria-description')).toBe('Mentions & keywords')
+    fireEvent.click(restore)
+    await waitFor(() => expect(command).toHaveBeenCalledExactlyOnceWith({
+      kind: 'roomNotificationMode', roomId: '!general:test', mode: 'inherit'
     }))
   })
 

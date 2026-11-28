@@ -30,7 +30,7 @@ export type MatrixVoiceOperation =
 export type MatrixVoiceRequest = MatrixVoiceOperation & { roomId: string }
 
 export interface MatrixVoiceBridge {
-  microphone(roomId: string): Promise<boolean>
+  microphone(roomId: string, mode?: 'voiceNote'): Promise<boolean>
   settings(roomId: string): Promise<MatrixVoiceSettings>
   transcribe(roomId: string, dataUrl: string, mimeType: string): Promise<string>
   speak(roomId: string, text: string): Promise<MatrixVoiceAudio>

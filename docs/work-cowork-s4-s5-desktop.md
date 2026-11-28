@@ -69,9 +69,10 @@ supplied master and receives a one-line revision on slide two. Both original
 files stay byte-identical after saving revisions. All ten rendered pages were
 inspected locally.
 
-The settlement and replay fixtures from S1 run alongside the Office proof
-suite. The DOCX dry run uses the same isolated LibreOffice conversion helper
-as the XLSX and PPTX proofs.
+After merging the S1 squash from `main`, the settlement and replay tests use
+the merged S1 suite. The separate S4 and S5 proofs use an isolated LibreOffice
+profile for each conversion. The runtime staging merge adds the format lock,
+validators, and their manifest digests to the merged DOCX staging.
 
 Installed acceptance still needs the Work authoring skill and settlement
 integration for both formats, provider-run revisions, and a clean signed Mac

@@ -91,7 +91,12 @@ import type {
 import type { MatrixNativeAppsBridge } from './matrix-native-apps'
 import type { MatrixNativeMacBridge } from './matrix-native-mac'
 import type { MatrixNotesSelfSnapshot } from './matrix-notes-self'
-import type { MatrixNotificationPolicy, MatrixNotificationPolicyChange } from './matrix-notification-policy'
+import type {
+  MatrixNotificationOverride,
+  MatrixNotificationPolicy,
+  MatrixNotificationPolicyChange,
+  MatrixRoomNotificationMode
+} from './matrix-notification-policy'
 import type { MatrixOwnerLocationBridge } from './matrix-owner-location'
 import type { MatrixPagesBridge } from './matrix-pages'
 import type { MatrixPeopleSearchBridge, MatrixPeopleSearchSdkCommand } from './matrix-people-search'
@@ -102,6 +107,7 @@ import type { MatrixPetIntentEnvelope, MatrixPetIntentProjection } from './matri
 import type { MatrixPresenceSnapshot, MatrixStatusInput } from './matrix-presence'
 import type { MatrixProfileMetadata, MatrixProfilesBridge, MatrixProfileSdkCommand } from './matrix-profile'
 import type { MatrixProgressMarker, MatrixProgressPresentation, MatrixScheduleIdentity } from './matrix-progress-marker'
+import type { MatrixPollCommand, MatrixRichMessage, MatrixVoiceNote, MatrixVoiceTranscriptionProvider } from './matrix-rich-content'
 import type { MatrixRoomSharedSection } from './matrix-room-shared'
 import type { MatrixSavedMessagesSnapshot } from './matrix-saved-messages'
 import type { MatrixNativeSecurityCommand, MatrixSecurity, MatrixSecurityCommand } from './matrix-security'
@@ -267,7 +273,9 @@ export interface MatrixRoom {
   firstLine?: string
   /** When the room was created (its create event), for a dated title. Display only. */
   createdAt?: number
-  /** Muted with a room-specific push rule: no banners and no unread count. Display only. */
+  /** Explicit homeserver mode and the default for this room type. */
+  notificationMode?: MatrixRoomNotificationMode
+  /** An Off override suppresses all pushes, including mentions. Display only. */
   muted?: boolean
   /** Marked unread by its owner (standard `m.marked_unread` room account data, MSC2867):
    * it reads as unread until it is opened or marked read. Display only. */
@@ -393,6 +401,7 @@ export interface MatrixMessage {
    * "Sent". Display only; never a delivery or read claim. */
   sent?: true
   attachment: boolean
+  rich?: MatrixRichMessage
   /** Strict company-Drive reference; display/routing hint only, native re-reads the event. */
   companyFile?: true
   /** The file's size from its own event, when it says (display only). */
@@ -682,9 +691,9 @@ export interface MatrixSnapshot {
   firstRunGreetingReplyId?: string
   /** The room's `m.fully_read` event captured before this visit advances receipts. */
   readMarkerEventId?: string
-  /** Shared pins for the selected Team Space room. Absent in personal chats. */
+  /** Shared message pins for the selected eligible room. */
   pinnedMessages?: MatrixPinnedMessages
-  /** Threads for the open Team Space channel, newest activity first. */
+  /** Threads for the selected Team Space or human group room, newest activity first. */
   threads?: MatrixThread[]
   /** Joins and departures of the open Team Space channel, oldest first (absent in every other room). */
   membershipLines?: MatrixMembershipLine[]
@@ -1636,11 +1645,15 @@ export type MatrixCommand =
       name: string
       contentType?: string
       bytes: Uint8Array
+      voiceNote?: MatrixVoiceNote
+      transcriptionProvider?: MatrixVoiceTranscriptionProvider
       matrixTransactionId?: string
       threadRootId?: string
       replyTo?: string
     }
-  | { kind: 'download'; roomId: string; eventId: string; companyFile?: true }
+  | { kind: 'download'; roomId: string; eventId: string; companyFile?: true; inline?: true }
+  | { kind: 'locationSend'; roomId: string; geoUri: string }
+  | MatrixPollCommand
   /** One bounded read of what a chat has shared (shared/matrix-room-shared.ts): a few `/messages`
    * pages, filtered by the server where the room has no encryption, decrypted on this device where
    * it has. `from` continues where the previous read stopped. Answers `MatrixRoomSharedPage`. */
@@ -1650,7 +1663,8 @@ export type MatrixCommand =
   | { kind: 'roomSharedThumbnail'; roomId: string; eventId: string }
   /** One of your own messages that didn't send (its local id): send it again, or drop it. */
   | { kind: 'resend' | 'discard'; roomId: string; eventId: string }
-  /** The SDK's own room muting (a room-specific push rule): no banners, no unread count. */
+  /** A portable room notification mode. Existing mute controls select Off or restore the default. */
+  | { kind: 'roomNotificationMode'; roomId: string; mode: MatrixNotificationOverride }
   | { kind: 'mute'; roomId: string; muted: boolean }
   /** Your own name for a chat, private to you (room account data); empty clears it. */
   | { kind: 'chatTitle'; roomId: string; title: string }
@@ -1737,6 +1751,7 @@ export type MatrixPublishResultFields = MatrixPublishResultBase &
 export type MatrixSdkCommand =
   | MatrixAwarenessControlCommand
   | MatrixCommand
+  | (Extract<MatrixCommand, { kind: 'attach' }> & { voiceNoteAssistant: string })
   | MatrixCompanyAISdkCommand
   | MatrixCompanyChannelRoomCommand
   | MatrixCompanyPrivateCosRoomCommand

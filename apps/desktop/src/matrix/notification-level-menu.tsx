@@ -10,7 +10,7 @@ import {
 import { useI18n } from '@/i18n'
 import { Bell } from '@/lib/icons'
 
-import type { MatrixSnapshot } from '../../shared/matrix'
+import type { MatrixRoom, MatrixSnapshot } from '../../shared/matrix'
 import { matrixNotificationCopy } from '../../shared/matrix-notification-copy'
 import {
   type MatrixNotificationOverride,
@@ -30,7 +30,7 @@ export function MatrixNotificationLevelMenu({
 }: {
   fail(cause?: unknown): void
   roomId: string
-  rootId?: string
+  rootId: string
   snapshot: MatrixSnapshot
   value: MatrixNotificationOverride
 }) {
@@ -61,9 +61,10 @@ export function MatrixNotificationLevelMenu({
             void runMatrixCommand({
               kind: 'notificationPolicy',
               identity: snapshot.identity,
-              ...(rootId
-                ? { scope: 'thread', roomId, rootId, level: next }
-                : { scope: 'channel', roomId, level: next })
+              scope: 'thread',
+              roomId,
+              rootId,
+              level: next
             }).catch(cause => {
               setPending(undefined)
               fail(cause)
@@ -76,6 +77,71 @@ export function MatrixNotificationLevelMenu({
               {copy.overrides[level]}
             </DropdownMenuRadioItem>
           ))}
+        </DropdownMenuRadioGroup>
+      </DropdownMenuSubContent>
+    </DropdownMenuSub>
+  )
+}
+
+export function MatrixRoomNotificationMenu({
+  fail,
+  room,
+  snapshot
+}: {
+  fail(cause?: unknown): void
+  room: MatrixRoom
+  snapshot: MatrixSnapshot
+}) {
+  const { locale } = useI18n()
+  const copy = matrixNotificationCopy(locale)
+  const [saving, setSaving] = useState(false)
+  const mode = room.notificationMode?.mode ?? 'inherit'
+  const legacy = snapshot.notificationPolicy?.channelOverrides[room.id]
+  const selected = mode === 'inherit' && (legacy === 'mentions' || legacy === 'nothing') ? legacy : mode
+  const defaultLevel = room.notificationMode?.defaultLevel
+  const disabled = saving || snapshot.state !== 'ready'
+
+  const save = (next: MatrixNotificationOverride) => {
+    if (disabled || (next === mode && legacy === undefined)) {
+      return
+    }
+
+    setSaving(true)
+    void runMatrixCommand({ kind: 'roomNotificationMode', roomId: room.id, mode: next })
+      .catch(fail)
+      .finally(() => setSaving(false))
+  }
+
+  return (
+    <DropdownMenuSub>
+      <DropdownMenuSubTrigger disabled={disabled}>
+        <Bell aria-hidden />
+        {copy.notifications}
+      </DropdownMenuSubTrigger>
+      <DropdownMenuSubContent className="min-w-48">
+        <DropdownMenuRadioGroup value={selected}>
+          {LEVELS.map(level => {
+            const hint = level === 'inherit'
+              ? defaultLevel && copy.roomModes[defaultLevel]
+              : level === 'mentions' && room.encrypted
+                ? copy.encryptedMentionsHelp
+                : copy.roomModeHelp[level]
+
+            return (
+              <DropdownMenuRadioItem
+                aria-description={hint || undefined}
+                aria-label={copy.roomModes[level]}
+                key={level}
+                onSelect={() => save(level)}
+                value={level}
+              >
+                <span>
+                  {copy.roomModes[level]}
+                  {hint && <span className="block text-xs text-muted-foreground">{hint}</span>}
+                </span>
+              </DropdownMenuRadioItem>
+            )
+          })}
         </DropdownMenuRadioGroup>
       </DropdownMenuSubContent>
     </DropdownMenuSub>

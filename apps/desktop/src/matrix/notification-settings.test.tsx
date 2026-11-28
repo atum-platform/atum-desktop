@@ -127,5 +127,5 @@ it('saves portable quiet hours with their IANA time zone and reveals the daily w
   expect(screen.getByLabelText('From')).toHaveProperty('value', '22:00')
   expect(screen.getByLabelText('Until')).toHaveProperty('value', '07:00')
   expect(screen.getByRole('combobox', { name: 'Time zone' }).textContent).toContain('Asia/Ho_Chi_Minh')
-  expect(screen.getByRole('combobox', { name: 'Team space messages' }).textContent).toContain('Mentions & replies')
+  expect(screen.getByRole('combobox', { name: 'Team space thread messages' }).textContent).toContain('Mentions & replies')
 })

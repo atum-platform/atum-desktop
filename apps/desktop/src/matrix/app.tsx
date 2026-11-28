@@ -145,6 +145,7 @@ import {
 } from '../../shared/matrix-notes-self'
 import type { MatrixPageId } from '../../shared/matrix-pages'
 import type { MatrixProfileTarget } from '../../shared/matrix-profile'
+import { matrixHumanVoiceRoom } from '../../shared/matrix-rich-content'
 import type { MatrixSavedMessagesSnapshot } from '../../shared/matrix-saved-messages'
 import { isMatrixVerificationPending } from '../../shared/matrix-security'
 import { matrixFoldSubscriptionFallbacks, matrixLatestAnswerFallback } from '../../shared/matrix-subscription-fallback'
@@ -351,6 +352,7 @@ import {
 import { MatrixGroupHeaderTopic } from './group-details'
 import { groupRecipientChoice, useGroupRoomPolicy } from './group-room-policy'
 import { groupRoomCopy, GroupRoomSettings } from './group-room-settings'
+import { GroupThreadPreview } from './group-thread-preview'
 import { HermesPrompts } from './hermes-prompts'
 import {
   $matrixHistoryReveal,
@@ -462,6 +464,8 @@ import { useMatrixReadAttention } from './read-attention'
 import { matrixFirstUnreadMessageId } from './read-marker'
 import { matrixReadinessCopy, matrixSetupCooldown } from './readiness-copy'
 import { ResultRecoveryOutcome, useResultRecovery } from './result-recovery'
+import { MatrixRichContentDialog } from './rich-content-dialog'
+import { MatrixRichRow } from './rich-row'
 import {
   $matrixRightPanel,
   MATRIX_RIGHT_PANEL_MIN_WINDOW,
@@ -570,6 +574,7 @@ import { useShellShortcuts } from './use-shell-shortcuts'
 import { useVideoConsentAsk } from './video-consent-ask'
 import { VideoConsentCard } from './video-consent-card'
 import { MatrixVoiceDictation, useMatrixReadAloud } from './voice'
+import { MatrixVoiceLedge, MatrixVoiceStart, useMatrixVoiceNote } from './voice-note/composer'
 import { matrixWalletCopy } from './wallet-copy'
 import { useMatrixWalletHistory } from './wallet-ui'
 import { MatrixWebPreviewOfferCard } from './web-preview-offer'
@@ -1452,6 +1457,16 @@ function MatrixEventMessageBubble() {
               <MatrixBotApiKeyboard keyboard={botApi.keyboard} />
               {bubbleMeta && <div className="flex justify-end" data-matrix-meta-after>{bubbleMeta}</div>}
             </>
+          ) : message.rich && settled && action ? (
+            <>
+              <MatrixRichRow
+                key={`${action.room.id}:${message.id}`}
+                message={message}
+                room={action.room}
+                save={message.attachment ? () => eventCommand('download') : undefined}
+              />
+              {bubbleMeta && <div className="flex justify-end" data-matrix-meta-after>{bubbleMeta}</div>}
+            </>
           ) : message.attachment && !message.decryptionFailed ? (
             <MatrixFileCard
               action={
@@ -1703,20 +1718,17 @@ function MatrixEventMessageBubble() {
           unread={threadSummary.unread}
         />
       )}
-      {threadSummary && !message.thread && action?.openThread && !flat && (
-        <Button
-          className={underText}
-          data-matrix-thread-summary={message.id}
-          onClick={() => action.openThread?.(message.id)}
-          size="sm"
-          variant="text"
-        >
-          <Messages aria-hidden className="size-4" />
-          {threadCopy.replies(threadSummary.replyCount)}
-          {threadSummary.unread && (
-            <span aria-label={threadCopy.unread} className="size-1.5 rounded-full bg-(--atum-accent)" />
-          )}
-        </Button>
+      {!flat && !message.redacted && threadSummary && !message.thread && action?.openThread && (
+        <div className={`w-fit max-w-full ${underText}`}>
+          <TeamSpaceThreadSummary
+            faces={threadSummaryFaces}
+            lastReplyAt={threadSummary.lastActivityAt}
+            messageId={message.id}
+            onOpen={() => action.openThread?.(message.id)}
+            replyCount={threadSummary.replyCount}
+            unread={threadSummary.unread}
+          />
+        </div>
       )}
       {reported && (
         <span className={`text-xs text-(--atum-ink-muted) ${underText}`} role="status">
@@ -2550,7 +2562,12 @@ function MatrixComposer({
   // room without one (a company channel, a chat with people) keeps just the two attach entries.
   const composerAgentPrincipal = room.agentPrincipal ?? (room.assistant ? primaryAgent(snapshot)?.principal : undefined)
 
+  const [richDialog, setRichDialog] = useState<'poll' | 'location'>()
+  const richAvailable = !attachClosed && !teamSpaceBox && !recipient && !botApiRoom && !threadRootId &&
+    !privateCos && !room.appBot && !room.assistant && !notesSelfRoom
   const plusAvailability: ComposerPlusAvailability = {
+    poll: richAvailable,
+    location: richAvailable,
     photos: !attachClosed && !recipient,
     files: !attachClosed && !recipient,
     routines: Boolean(composerAgentPrincipal && window.atumMatrix.routines),
@@ -2569,6 +2586,11 @@ function MatrixComposer({
       case 'files':
         fileInput.current?.click()
 
+        return
+
+      case 'poll':
+      case 'location':
+        setRichDialog(kind)
         return
 
       case 'routines':
@@ -3063,6 +3085,14 @@ function MatrixComposer({
 
   // Notes-to-self integration seam: a former winner or changed audience remains readable but
   // cannot receive another Atum send. The SDK repeats this check at the authority boundary.
+  const voiceNote = useMatrixVoiceNote(room.id, onSent)
+
+  const humanVoiceRoom = matrixHumanVoiceRoom(room, [
+    snapshot.assistant?.userId, ...(snapshot.agents ?? []).map(agent => agent.userId)
+  ])
+
+  const voiceRoom = humanVoiceRoom || cloudAssistant
+
   const disabled = channelArchived || channelUnknown || closedForRoom ||
     (room.roomType === MATRIX_NOTES_SELF_ROOM_TYPE && !notesSelfRoom)
 
@@ -3227,7 +3257,9 @@ function MatrixComposer({
     // A bot-api room's addressed message is an ordinary Matrix message the app's host reads;
     // the old turn API would dispatch it twice. Legacy rooms keep the existing route.
     const routedBotTarget =
-      !botApiRoom && addressedBotTarget?.ready && appBridge && !addressedBotProblem ? addressedBotTarget : undefined
+      !threadRootId && !botApiRoom && addressedBotTarget?.ready && appBridge && !addressedBotProblem
+        ? addressedBotTarget
+        : undefined
 
     // Your words show at once, as in any messaging app, on the two paths that post them as
     // your own message: your assistant's chat (here or in the cloud), and a plain room message.
@@ -3952,6 +3984,9 @@ function MatrixComposer({
           {cloudStop.stopped ? matrixAgentStatusText('stopped', locale) : t.cloud.stopRefused}
         </NoticeBand>
       )}
+      {richDialog && richAvailable && !disabled && (
+        <MatrixRichContentDialog close={() => setRichDialog(undefined)} kind={richDialog} roomId={room.id} sent={onSent} />
+      )}
       <ComposerPrimitive.Root
         className="group/composer relative z-30 mx-auto w-[min(var(--composer-width),calc(100%-2rem))] max-w-full shrink-0 rounded-[1rem] pt-2 pb-[var(--composer-shell-pad-block-end)]"
         data-composer-recipe="t3"
@@ -4024,6 +4059,9 @@ function MatrixComposer({
             )}
           </div>
         )}
+        {voiceNote.state.kind !== 'idle' && (
+          <ComposerSurface input={<MatrixVoiceLedge disabled={Boolean(disabled || paused || !voiceRoom)} voice={voiceNote} />} recipe="t3" />
+        )}
         <ComposerSurface
           actions={
             <>
@@ -4091,6 +4129,10 @@ function MatrixComposer({
                 >
                   <span aria-hidden className="block size-2.5 rounded-[0.1875rem] bg-current" />
                 </button>
+              ) : !disabled && !paused && !sending && !attachClosed && !teamSpaceBox &&
+                !threadRootId && !recipient && !directBotId && !mode && !staged && !draftText.trim() &&
+                voiceRoom && window.atumMatrix.voice ? (
+                <MatrixVoiceStart start={() => void voiceNote.start()} />
               ) : (
                 <MatrixSendButton
                   disabled={disabled || paused || sending}
@@ -4102,6 +4144,7 @@ function MatrixComposer({
               )}
             </>
           }
+          className={voiceNote.state.kind !== 'idle' ? 'hidden' : undefined}
           input={
             <ComposerPrimitive.Input
               aria-describedby={fileTooLarge ? `matrix-file-too-large-${room.id}` : undefined}
@@ -4592,7 +4635,7 @@ function MatrixThreadDetail({
   // The header names the place as the channel's own header does ("#chung"), never the raw room name.
   const placeTitle = useChannelTitle(teamSpaceAccountKey(snapshot.identity), room, (room.name ?? '').trim().replace(/^#/, ''))
   const conversationTitle = useConversationTitle(teamSpaceAccountKey(snapshot.identity), room, room.name?.trim() ?? '')
-  const place = room.companyConversation ? conversationTitle : `#${placeTitle.replace(/^#/, '')}`
+  const place = room.roomType === MATRIX_COMPANY_CHANNEL_TYPE ? `#${placeTitle.replace(/^#/, '')}` : conversationTitle
 
   // The channel's own Chief of Staff: its agent-turns/1.6 working line and interim remarks in this
   // thread are drawn as a personal agent's are in its chat (one live line under the transcript). The
@@ -4801,6 +4844,7 @@ function MatrixThreadDetail({
                 .reverse()
                 .find(message => (message.metadata.custom.matrix as MatrixMessage).own)?.id,
               forward: forwarding.open,
+              pinnedMessages: isTeamSpaceRoom(room) ? undefined : snapshot.pinnedMessages,
               threadRootId: rootId
             }}
           >
@@ -4820,7 +4864,7 @@ function MatrixThreadDetail({
                   ) : undefined
                 }
                 revealMessageId={
-                  historyReveal?.owner === 'company' &&
+                  historyReveal &&
                   historyReveal.roomId === room.id &&
                   historyReveal.threadRootId === rootId &&
                   historyReveal.accountKey === accountKey
@@ -4914,7 +4958,9 @@ function MatrixThreadPanel({
     requestAnimationFrame(() => {
       const target = opener.current?.isConnected
         ? opener.current
-        : document.querySelector<HTMLElement>('[data-matrix-threads-button], [data-matrix-chat-menu="company"]')
+        : document.querySelector<HTMLElement>(
+            '[data-matrix-threads-button], [data-matrix-chat-menu="company"], [data-matrix-side-panel-opens="info"]'
+          )
 
       target?.focus({ preventScroll: true })
     })
@@ -4936,7 +4982,7 @@ function MatrixThreadPanel({
     window.addEventListener('keydown', escape)
 
     return () => window.removeEventListener('keydown', escape)
-  }, [back, close, view.rootId])
+  }, [back, close, view.fromList, view.rootId])
 
   return (
     <aside
@@ -5754,7 +5800,9 @@ function Conversation({
   const notesCopy = matrixTeamSpaceCopy(locale)
   const sidePanelOpen = Boolean(threadView || pinsOpen)
 
-  const openThread = teamSpaceRoom
+  const showThreads = room.membership === 'join' && (teamSpaceRoom || snapshot.threads !== undefined)
+
+  const openThread = showThreads
     ? (rootId: string) => onThreadViewChange({ roomId: room.id, filter: threadView?.filter ?? 'recent', rootId })
     : undefined
 
@@ -5829,7 +5877,7 @@ function Conversation({
               members: snapshot.members,
               agents: snapshot.agents,
               appBots: snapshot.apps?.apps,
-              threads: teamSpaceRoom ? snapshot.threads : undefined,
+              threads: showThreads ? snapshot.threads : undefined,
               savedMessages: snapshot.savedMessages,
               pinnedMessages: snapshot.pinnedMessages,
               openThread,
@@ -6042,7 +6090,7 @@ function Conversation({
                 cloudOnly={cloudOnly}
                 draftTarget={teamSpaceRoom || notesSelfRoom ? { roomId: room.id } : undefined}
                 fail={fail}
-                key={`${snapshot.identity?.userId ?? ''}:${room.id}`}
+                key={`${snapshot.identity?.userId ?? ''}:${snapshot.identity?.deviceId ?? ''}:${room.id}`}
                 notice={
                   latestOwnId ? undefined : (
                     <MatrixStarterNotice defaultAssistantChat={defaultAssistantChat} locale={locale} snapshot={snapshot} />
@@ -6060,7 +6108,7 @@ function Conversation({
           )}
         </ComposerDock>
       </div>
-      {teamSpaceRoom && threadView && (
+      {showThreads && threadView && (
         <MatrixThreadPanel
           assistantName={assistantName}
           blocked={blocked}
@@ -6075,7 +6123,7 @@ function Conversation({
           view={threadView}
         />
       )}
-      {(companyChannel || companyConversation) && pinsOpen && (
+      {snapshot.pinnedMessages && pinsOpen && (
         <PinnedMessagesPanel
           compact={compact}
           nameOf={userId => userId === snapshot.identity?.userId
@@ -6094,7 +6142,7 @@ function Conversation({
 
             revealMatrixHistoryMessage(room.id, eventId, 'pinned', threadRootId)
           }}
-          pinned={snapshot.pinnedMessages ?? { canChange: false, entries: [] }}
+          pinned={snapshot.pinnedMessages}
         />
       )}
     </div>
@@ -6312,7 +6360,7 @@ function ConversationHeaderActions({
       {/* The header's right is the page's (Atum Kit): pins show while something is pinned (an
           open panel keeps its button), and threads while one has unread replies (they are always
           in "…" too). */}
-      {(companyChannel || companyConversation || privateCos) && onPins &&
+      {onPins &&
         ((snapshot.pinnedMessages?.entries.length ?? 0) > 0 || pinsOpen) && (
         <PinnedMessagesButton
           count={snapshot.pinnedMessages?.entries.length ?? 0}
@@ -7804,9 +7852,12 @@ function MatrixAccountView({
     }
   }, [snapshot.roomId])
 
-  const currentThreadView = room && threadView?.roomId === room.id ? threadView : null
+  const threadRoom = room?.membership === 'join' &&
+    (room.roomType === MATRIX_COMPANY_CHANNEL_TYPE || isCompanyConversationRoom(room) || snapshot.threads !== undefined)
 
-  const pinsOpen = Boolean(room && pinnedRoomId === room.id)
+  const currentThreadView = threadRoom && threadView?.roomId === room.id ? threadView : null
+
+  const pinsOpen = Boolean(room && snapshot.pinnedMessages && pinnedRoomId === room.id)
 
   // A channel or a company conversation: Team Space's room, shown in the company workspace and in no Personal list.
   const companyChannelBound = isTeamSpaceRoom(room)
@@ -8191,7 +8242,7 @@ function MatrixAccountView({
   }
 
   const openThreads = (rootId?: string) => {
-    if (!room || !isTeamSpaceRoom(room)) {
+    if (!room || !threadRoom) {
       return
     }
 
@@ -8204,7 +8255,7 @@ function MatrixAccountView({
   }
 
   const togglePinnedMessages = () => {
-    if (!room || !isTeamSpaceRoom(room)) {return}
+    if (!room || !snapshot.pinnedMessages) {return}
 
     if (pinsOpen) {
       setPinnedRoomId(null)
@@ -8950,6 +9001,7 @@ function MatrixAccountView({
             closeWorkspace()
           }
 
+          setPinnedRoomId(null)
           setThreadView(next)
         }}
         onWatchDesk={DESK_WATCH_SHOWN && deskEligible && !workspaceOpen ? watchDesk : undefined}
@@ -9231,10 +9283,10 @@ function MatrixAccountView({
                         fail={fail}
                         key={`conversation:${room.id}`}
                         onLookPreview={look => setLookPreview({ roomId: room.id, look })}
-                        onPins={isTeamSpaceRoom(room) ? togglePinnedMessages : undefined}
+                        onPins={snapshot.pinnedMessages ? togglePinnedMessages : undefined}
                         onPreview={revealDocument}
                         onThreads={
-                          isTeamSpaceRoom(room)
+                          companyChannelBound && threadRoom
                             ? () => (currentThreadView ? setThreadView(null) : openThreads())
                             : undefined
                         }
@@ -9803,6 +9855,9 @@ function MatrixAccountView({
                   percent={workspacePercent}
                   room={room}
                   snapshot={snapshot}
+                  threadPreview={conversationInfo.kind === 'group' && snapshot.threads
+                    ? <GroupThreadPreview onOpen={openThreads} threads={snapshot.threads} />
+                    : undefined}
                   windowControls={
                     compact || !sidebarShowing ? (
                       <AtumWindowControlsSurface
