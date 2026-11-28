@@ -33,6 +33,7 @@ import {
   type WorkSurfaceParts
 } from '../work/surface'
 import { readAccountConnections } from '../work/surface/account-connections'
+import { watchWorkModelDefault } from '../work/surface/model-default'
 import { projectPlanCapabilities, projectPlanLabels } from '../work/surface/plan-capabilities'
 import { WorkPlanFacts } from '../work/surface/plan-facts'
 import { readPlanUsage } from '../work/surface/plan-usage'
@@ -710,6 +711,8 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
   registerMatrixWorkIpc(deps.ipcMain, surface, deps.requireUi)
 
   const parts = (bound: WorkAccount): WorkSurfaceParts => {
+    let modelDefault: { incarnation: string; ready: Promise<void> } | undefined
+
     const options = () => {
       const endpoint = deps.deviceServicesEndpoint()
 
@@ -725,7 +728,22 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
           const outcome = await session.openOwnerView(createView)
 
           // First launch needs the freshly paired owner cookie; the server-ready tick may have preceded it.
-          if (outcome.state !== 'failed') {refreshWorkPublication()}
+          if (outcome.state !== 'failed') {
+            refreshWorkPublication()
+            const running = outcome.incarnation
+
+            if (modelDefault?.incarnation !== running.id) {
+              const scope = new AbortController()
+              void running.exited.then(() => scope.abort())
+              modelDefault = {
+                incarnation: running.id,
+                ready: watchWorkModelDefault(running.origin, deps.sessionFromPartition(partitionFor(bound.key)), scope.signal,
+                  () => !deps.closing() && host.current() === running && host.enabled())
+              }
+            }
+
+            await modelDefault.ready
+          }
 
           return outcome
         }

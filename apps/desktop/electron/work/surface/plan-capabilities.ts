@@ -1,7 +1,7 @@
 import { z } from 'zod'
 
 import type { FirstRunLabels } from '../../../shared/first-run-labels'
-import type { FirstRunProvider } from '../../../shared/first-run-pick'
+import { firstRunPick, type FirstRunProvider } from '../../../shared/first-run-pick'
 import { PLAN_PROVIDER_BY_INSTANCE } from '../plan-providers'
 
 import type { PlanCapabilities } from './plan-facts'
@@ -132,4 +132,44 @@ export function projectPlanLabels(providers: unknown): FirstRunLabels {
   }
 
   return result
+}
+
+/** Work uses the same pick table with the plans that its own server can run. */
+export function pickWorkSubscription(providers: unknown[]) {
+  const usable = providers.flatMap(value => {
+    const provider = nativeProvider.safeParse(value)
+
+    return provider.success && provider.data.status !== 'error' ? [{ value, provider: provider.data }] : []
+  })
+
+  const values = usable.map(({ value }) => value)
+  const capabilities = projectPlanCapabilities(values)
+  const labels = projectPlanLabels(values)
+
+  const plans = Object.fromEntries(Object.values(PLAN_PROVIDER_BY_INSTANCE).map(plan => [plan, {
+    connected: capabilities[plan]?.state === 'connected',
+    label: labels[plan]?.label,
+    models: capabilities[plan]?.models ?? []
+  }]))
+
+  const openCode = usable.find(({ provider }) => provider.instanceId === 'opencode' && provider.driver === 'opencode')
+
+  const openCodeModels = labels.opencode?.state === 'ready'
+    ? (openCode?.provider.models ?? []).flatMap(value => {
+      const model = nativeModel.safeParse(value)
+
+      return model.success && !model.data.isCustom && model.data.slug.startsWith('opencode-go/')
+        ? [{ id: model.data.slug, displayName: model.data.name }] : []
+    }) : []
+
+  // Local sessions already have direct access to these plans and need no relay publication.
+  const pick = firstRunPick({ published: true, plans, opencodeGo: { connected: openCodeModels.length > 0, models: openCodeModels } })
+
+  if (pick.kind === 'atum') {return undefined}
+
+  if (pick.kind === 'opencode_go') {return { instanceId: 'opencode', model: pick.model }}
+
+  const instance = Object.entries(PLAN_PROVIDER_BY_INSTANCE).find(([, plan]) => plan === pick.plan)
+
+  return instance && { instanceId: instance[0], model: pick.model }
 }
