@@ -55,4 +55,6 @@ The macOS Work host test also had a stale channel inventory after the learning c
 
 The Skills archive confirmation test follows the new recovery copy and still exercises cancellation, confirmation, and refresh.
 
+The provider account tests use the new display label while continuing to check that selection and removal operate on the provider ID.
+
 Run the full client suite with `npm exec --workspace apps/desktop -- vitest run --maxWorkers 4` and the public history check with `python3 scripts/public_guard.py --base origin/main --head HEAD`.
