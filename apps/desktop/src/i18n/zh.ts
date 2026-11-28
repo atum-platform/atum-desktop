@@ -1371,7 +1371,7 @@ export const zh = defineLocale({
   },
 
   billingBlock: {
-    titleNous: 'Nous 额度已用尽',
+    titleNous: '提供商额度已用尽',
     titleProvider: provider => `额度已用尽 — ${provider}`,
     fallbackMessage: '您的账户额度已用尽。请充值以继续使用。',
     openBilling: '打开账单',
@@ -2061,7 +2061,7 @@ export const zh = defineLocale({
       cloudLoadingAgents: '正在加载你的智能体…',
       cloudNoAgents: {
         before: '此账户下未找到智能体。请在',
-        linkText: 'Nous 门户',
+        linkText: '提供商门户',
         after: '中创建一个，然后刷新。'
       },
       cloudRefresh: '刷新',
@@ -2078,7 +2078,7 @@ export const zh = defineLocale({
       cloudAgentProvisioning: '正在配置…',
       cloudStatusLabel: status => `状态：${status}`,
       remoteUrlTitle: '远程 URL',
-      remoteUrlDesc: '远程 dashboard 后端的基础 URL。支持路径前缀，例如 /hermes。',
+      remoteUrlDesc: '远程 dashboard 后端的基础 URL。支持路径前缀，例如 /agent。',
       probing: '正在检查此网关的认证方式…',
       probeError: '暂时无法访问此网关。请检查 URL；网关响应后会显示认证方式。',
       signedIn: '已登录',
@@ -2138,8 +2138,8 @@ export const zh = defineLocale({
       sshPortDesc: '留空 = 22 或 ~/.ssh/config 中的端口。',
       sshKeyTitle: '密钥文件',
       sshKeyDesc: '私钥路径。留空 = ssh-agent 或 ~/.ssh/config。',
-      sshHermesPathTitle: 'Atum 路径（可选）',
-      sshHermesPathDesc: '远程 hermes 可执行文件的完整路径。留空 = 自动检测。',
+      sshHermesPathTitle: '代理可执行文件路径（可选）',
+      sshHermesPathDesc: '远程代理可执行文件的完整路径。留空 = 自动检测。',
       sshHermesPathPlaceholder: '自动检测',
       sshTestConnection: '测试 SSH',
       sshConnect: '连接',
@@ -2151,7 +2151,7 @@ export const zh = defineLocale({
         'SSH 认证失败。请将密钥加载到 ssh-agent（ssh-add），或在 ~/.ssh/config 中设置 IdentityFile——Atum 以非交互方式运行 ssh。',
       sshErrHostKey: '自上次连接以来主机密钥已更改。请确认这是预期的，然后运行 ssh-keygen -R <host> 并重新连接。',
       sshErrNotInstalled:
-        '远程主机上未安装 Atum。请在远程安装（curl -fsSL https://hermes-agent.nousresearch.com/install.sh | sh）或设置 Atum 路径。',
+        '远程主机上未找到兼容的代理。请在远程主机安装代理，或设置已安装的可执行文件路径。',
       sshErrPlatform: '不支持的远程平台。Atum Desktop 的 SSH 模式支持 Linux、macOS 和 Windows 远程主机。',
       sshErrTimeout: 'SSH 连接超时。主机可能无法访问或处于休眠状态。',
       sshErrUpdateRequired: '使用 Desktop SSH 连接前，请更新远程主机上的 Atum。',
@@ -2332,13 +2332,13 @@ export const zh = defineLocale({
       ready: '就绪',
       needsSignIn: '需要登录',
       needsSetup: '需要安装',
-      nousIncluded: '包含在 Nous 订阅中；登录 Nous Portal 即可激活。',
-      nousAuthNeededTitle: '登录 Nous Portal',
-      nousAuthNeededMessage: provider => `已保存 ${provider}，但在登录 Nous Portal 之前不会激活。`,
+      nousIncluded: '包含在 外部提供商订阅中；登录提供商门户即可激活。',
+      nousAuthNeededTitle: '登录提供商门户',
+      nousAuthNeededMessage: provider => `已保存 ${provider}，但在登录提供商门户之前不会激活。`,
       nousAuthSignIn: '登录',
-      nousAuthDoneTitle: '已连接 Nous Portal',
+      nousAuthDoneTitle: '已连接提供商门户',
       nousAuthDoneMessage: '订阅后端现已激活。',
-      nousAuthFailed: 'Nous Portal 登录未完成',
+      nousAuthFailed: '提供商门户 登录未完成',
       noApiKeyRequired: '不需要 API 密钥。',
       postSetupHint: step => `此后端需要一次性安装 (${step})。将在此机器上执行，可能需要几分钟。`,
       postSetupInstalledHint: '已安装。仅在出现问题时才需要重新运行安装。',
@@ -2441,7 +2441,7 @@ export const zh = defineLocale({
     edit: '编辑',
     archive: '归档',
     skillArchivedTitle: '技能已归档',
-    skillArchivedMessage: '可通过 hermes curator restore 恢复。',
+    skillArchivedMessage: '归档的技能可以恢复。',
     hub: {
       searchPlaceholder: '搜索技能中心',
       search: '搜索',
@@ -2828,7 +2828,7 @@ export const zh = defineLocale({
       MATTERMOST_ALLOWED_USERS: { label: '允许的用户 ID', help: '推荐。逗号分隔的 Mattermost 用户 ID。' },
       MATRIX_HOMESERVER: { label: 'Homeserver URL', placeholder: 'https://matrix.org' },
       MATRIX_ACCESS_TOKEN: { label: '访问令牌' },
-      MATRIX_USER_ID: { label: 'Bot 用户 ID', placeholder: '@hermes:example.org' },
+      MATRIX_USER_ID: { label: 'Bot 用户 ID', placeholder: '@assistant:example.org' },
       MATRIX_ALLOWED_USERS: { label: '允许的 Matrix 用户 ID', help: '推荐。@user:server 格式的逗号分隔用户 ID。' },
       SIGNAL_HTTP_URL: {
         label: 'Signal 桥接 URL',
@@ -2860,7 +2860,7 @@ export const zh = defineLocale({
       wecom: '在企业微信中添加群机器人，复制其 webhook key 作为 WECOM_BOT_ID。仅可发送——双向请用企业微信 (应用) 选项。',
       wecom_callback: '设置一个企业微信自建应用，暴露其回调 URL，并提供 corp ID、secret、agent ID 和 AES key。',
       weixin:
-        '运行 `hermes gateway setup`，选择 Weixin，然后使用个人微信账号扫描并确认二维码。Atum 会通过腾讯 iLink Bot API 连接并保存凭据。',
+        '在代理的网关设置中选择 Weixin，然后使用个人微信账号扫描并确认二维码。Atum 会通过腾讯 iLink Bot API 连接并保存凭据。',
       qqbot: '在 QQ 开放平台 (q.qq.com) 注册一个应用，复制 App ID 和 Client Secret。',
       api_server: '把 Atum 暴露为兼容 OpenAI 的 API。设置一个鉴权密钥，然后把 Open WebUI / LobeChat 等指向 host:port。',
       webhook: '运行一个 HTTP 服务器，供其他工具 (GitHub、GitLab、自定义应用)POST。用 secret 验证签名。'
@@ -3341,7 +3341,7 @@ export const zh = defineLocale({
       '/resume': '恢复之前的会话',
       '/details': '控制对话记录的详细程度',
       '/copy': '复制所选内容或最后一条助手消息',
-      '/quit': '退出 hermes'
+      '/quit': '退出 Atum'
     },
     hotkeyDescs: {
       'composer.mention': '引用文件、文件夹、URL、git',
@@ -3686,7 +3686,7 @@ export const zh = defineLocale({
     loadFailed: '无法加载模型',
     noAuthenticatedProviders: '没有已认证的提供方。',
     pro: 'Pro',
-    proNeedsSubscription: 'Pro 模型需要付费 Nous 订阅。',
+    proNeedsSubscription: 'Pro 模型需要付费 外部提供商订阅。',
     free: '免费',
     freeTier: '免费层',
     priceTitle: '每百万 token 的输入/输出价格',
@@ -4382,7 +4382,7 @@ export const zh = defineLocale({
       success: platform => `已移交到 ${platform}。随时可在此处恢复。`,
       systemNote: platform => `↻ 已移交到 ${platform} — 随时可在此处恢复。`,
       failed: error => `移交失败：${error}`,
-      timedOut: '等待网关超时。`hermes gateway` 是否正在运行？'
+      timedOut: '等待网关超时。请检查代理网关是否正在运行。'
     }
   },
 

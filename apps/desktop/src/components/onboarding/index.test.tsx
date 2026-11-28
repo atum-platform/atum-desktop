@@ -57,7 +57,7 @@ afterEach(() => {
 })
 
 describe('onboarding Picker', () => {
-  it('features Nous Portal and hides other providers behind a disclosure', () => {
+  it('labels the external provider and hides other providers behind a disclosure', () => {
     setProviders([provider('anthropic', 'Anthropic Claude'), provider('nous', 'Nous Portal')])
     render(
       <I18nProvider configClient={null}>
@@ -65,7 +65,8 @@ describe('onboarding Picker', () => {
       </I18nProvider>
     )
 
-    expect(screen.getByText('Nous Portal')).toBeTruthy()
+    expect(screen.getByText('External provider account')).toBeTruthy()
+    expect(screen.queryByText('Nous Portal')).toBeNull()
     expect(screen.getByText('Recommended')).toBeTruthy()
     // Fireworks is the always-visible #2 slot (after Nous), even while OAuth
     // alternatives stay collapsed behind the disclosure.
@@ -90,11 +91,11 @@ describe('onboarding Picker', () => {
     const labels = screen
       .getAllByRole('button')
       .map(el => el.textContent ?? '')
-      .filter(text => /Nous Portal|Fireworks AI|OpenAI OAuth|MiniMax|OpenRouter/.test(text))
+      .filter(text => /External provider account|Fireworks AI|OpenAI OAuth|MiniMax|OpenRouter/.test(text))
 
     const indexOf = (needle: string) => labels.findIndex(text => text.includes(needle))
-    expect(indexOf('Nous Portal')).toBeGreaterThanOrEqual(0)
-    expect(indexOf('Fireworks AI')).toBeGreaterThan(indexOf('Nous Portal'))
+    expect(indexOf('External provider account')).toBeGreaterThanOrEqual(0)
+    expect(indexOf('Fireworks AI')).toBeGreaterThan(indexOf('External provider account'))
     expect(indexOf('OpenAI OAuth')).toBeGreaterThan(indexOf('Fireworks AI'))
     expect(indexOf('MiniMax')).toBeGreaterThan(indexOf('OpenAI OAuth'))
   })

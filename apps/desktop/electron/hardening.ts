@@ -40,8 +40,8 @@ function encryptDesktopSecret(value, safeStorageApi) {
 
   if (!encryptionAvailable) {
     throw new Error(
-      'Secure token storage is unavailable, so Hermes Desktop cannot save remote gateway tokens. ' +
-        'Set HERMES_DESKTOP_REMOTE_URL and HERMES_DESKTOP_REMOTE_TOKEN in your environment, or enable OS keychain access and try again.'
+      'Secure token storage is unavailable, so Atum cannot save remote gateway tokens. ' +
+        'Enable access to your system keychain and try again.'
     )
   }
 
@@ -50,12 +50,8 @@ function encryptDesktopSecret(value, safeStorageApi) {
       encoding: 'safeStorage',
       value: safeStorageApi.encryptString(raw).toString('base64')
     }
-  } catch (error) {
-    const detail = error instanceof Error && error.message ? ` (${error.message})` : ''
-    throw new Error(
-      `Failed to encrypt the remote gateway token for secure storage${detail}. ` +
-        'Set HERMES_DESKTOP_REMOTE_URL and HERMES_DESKTOP_REMOTE_TOKEN in your environment as a fallback.'
-    )
+  } catch (cause) {
+    throw new Error('Could not save the remote gateway token securely. Check your system keychain and try again.', { cause })
   }
 }
 

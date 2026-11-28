@@ -2,9 +2,11 @@ import type { CSSProperties } from 'react'
 
 import { cn } from '@/lib/utils'
 
-import spec from './model-picker-spec.json'
+import { card, rail, row, search, trigger, type as typography } from './model-picker-spec.json'
 
 /** The shared picker measures (model-picker-spec.json) as the custom properties the classes below read. */
+const spec = { card, rail, row, search, trigger, type: typography }
+
 export const MODEL_PICKER_SPEC = spec
 
 const px = (value: number) => `${value}px`

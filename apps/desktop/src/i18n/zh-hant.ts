@@ -1384,7 +1384,7 @@ export const zhHant = defineLocale({
   },
 
   billingBlock: {
-    titleNous: 'Nous 額度已用盡',
+    titleNous: '供應商額度已用盡',
     titleProvider: provider => `額度已用盡 — ${provider}`,
     fallbackMessage: '您的帳戶額度已用盡。請儲值以繼續使用。',
     openBilling: '開啟帳單',
@@ -1927,7 +1927,7 @@ export const zhHant = defineLocale({
       remoteTitle: '遠端閘道',
       remoteDesc: '將此桌面殼層連線至遠端 Atum 後端。託管閘道使用 OAuth 或帳號密碼；自託管閘道也可使用工作階段 Token。',
       remoteUrlTitle: '遠端 URL',
-      remoteUrlDesc: '遠端儀表板後端的基礎 URL。支援路徑前綴，例如 /hermes。',
+      remoteUrlDesc: '遠端儀表板後端的基礎 URL。支援路徑前綴，例如 /agent。',
       probing: '正在檢查此閘道的驗證方式…',
       probeError: '暫時無法連線此閘道。請檢查 URL；閘道回應後將顯示驗證方式。',
       signedIn: '已登入',
@@ -1987,8 +1987,8 @@ export const zhHant = defineLocale({
       sshPortDesc: '留空 = 22 或 ~/.ssh/config 中的連接埠。',
       sshKeyTitle: '金鑰檔案',
       sshKeyDesc: '私密金鑰路徑。留空 = ssh-agent 或 ~/.ssh/config。',
-      sshHermesPathTitle: 'Atum 路徑（選用）',
-      sshHermesPathDesc: '遠端 hermes 執行檔的完整路徑。留空 = 自動偵測。',
+      sshHermesPathTitle: '代理程式執行檔路徑（選用）',
+      sshHermesPathDesc: '遠端代理程式執行檔的完整路徑。留空 = 自動偵測。',
       sshHermesPathPlaceholder: '自動偵測',
       sshTestConnection: '測試 SSH',
       sshConnect: '連線',
@@ -2000,7 +2000,7 @@ export const zhHant = defineLocale({
         'SSH 驗證失敗。請將金鑰載入 ssh-agent（ssh-add），或在 ~/.ssh/config 中設定 IdentityFile——Atum 以非互動方式執行 ssh。',
       sshErrHostKey: '自上次連線以來主機金鑰已變更。請確認這是預期的，然後執行 ssh-keygen -R <host> 並重新連線。',
       sshErrNotInstalled:
-        '遠端主機上未安裝 Atum。請在遠端安裝（curl -fsSL https://hermes-agent.nousresearch.com/install.sh | sh）或設定 Atum 路徑。',
+        '遠端主機上找不到相容的代理程式。請在遠端主機安裝代理程式，或設定已安裝的執行檔路徑。',
       sshErrPlatform: '不支援的遠端平台。Atum Desktop 的 SSH 模式支援 Linux、macOS 和 Windows 遠端主機。',
       sshErrTimeout: 'SSH 連線逾時。主機可能無法存取或處於睡眠狀態。',
       sshErrUpdateRequired: '使用 Desktop SSH 連線前，請更新遠端主機上的 Atum。',
@@ -2169,13 +2169,13 @@ export const zhHant = defineLocale({
       ready: '就緒',
       needsSignIn: '需要登入',
       needsSetup: '需要安裝',
-      nousIncluded: '包含在 Nous 訂閱中；登入 Nous Portal 即可啟用。',
-      nousAuthNeededTitle: '登入 Nous Portal',
-      nousAuthNeededMessage: provider => `已儲存 ${provider}，但在登入 Nous Portal 之前不會啟用。`,
+      nousIncluded: '包含在外部供應商訂閱中；登入供應商入口網站即可啟用。',
+      nousAuthNeededTitle: '登入供應商入口網站',
+      nousAuthNeededMessage: provider => `已儲存 ${provider}，但在登入供應商入口網站之前不會啟用。`,
       nousAuthSignIn: '登入',
-      nousAuthDoneTitle: '已連接 Nous Portal',
+      nousAuthDoneTitle: '已連接供應商入口網站',
       nousAuthDoneMessage: '訂閱後端現已啟用。',
-      nousAuthFailed: 'Nous Portal 登入未完成',
+      nousAuthFailed: '供應商入口網站 登入未完成',
       noApiKeyRequired: '不需要 API 金鑰。',
       postSetupHint: step => `此後端需要一次性安裝 (${step})。將在此機器上執行，可能需要幾分鐘。`,
       postSetupInstalledHint: '已安裝。僅在出現問題時才需要重新執行安裝。',
@@ -2268,7 +2268,7 @@ export const zhHant = defineLocale({
     edit: '編輯',
     archive: '封存',
     skillArchivedTitle: '技能已封存',
-    skillArchivedMessage: '可透過 hermes curator restore 還原。',
+    skillArchivedMessage: '封存的技能可以還原。',
     hub: {
       update: '更新',
       updateAll: '更新已安裝項目',
@@ -2617,7 +2617,7 @@ export const zhHant = defineLocale({
       MATTERMOST_ALLOWED_USERS: { label: '允許的使用者 ID', help: '建議設定。逗號分隔的 Mattermost 使用者 ID。' },
       MATRIX_HOMESERVER: { label: 'Homeserver URL', placeholder: 'https://matrix.org' },
       MATRIX_ACCESS_TOKEN: { label: '存取 Token' },
-      MATRIX_USER_ID: { label: 'Bot 使用者 ID', placeholder: '@hermes:example.org' },
+      MATRIX_USER_ID: { label: 'Bot 使用者 ID', placeholder: '@assistant:example.org' },
       MATRIX_ALLOWED_USERS: {
         label: '允許的 Matrix 使用者 ID',
         help: '建議設定。@user:server 格式的逗號分隔使用者 ID。'
@@ -3109,7 +3109,7 @@ export const zhHant = defineLocale({
       '/resume': '繼續之前的工作階段',
       '/details': '控制對話記錄的詳細程度',
       '/copy': '複製所選內容或最後一條助手訊息',
-      '/quit': '結束 hermes'
+      '/quit': '結束 Atum'
     },
     hotkeyDescs: {
       'composer.mention': '參照檔案、資料夾、URL、git',
@@ -3453,7 +3453,7 @@ export const zhHant = defineLocale({
     loadFailed: '無法載入模型',
     noAuthenticatedProviders: '沒有已驗證的提供方。',
     pro: 'Pro',
-    proNeedsSubscription: 'Pro 模型需要付費 Nous 訂閱。',
+    proNeedsSubscription: 'Pro 模型需要付費外部供應商訂閱。',
     free: '免費',
     freeTier: '免費層',
     priceTitle: '每百萬 Token 的輸入/輸出價格',
@@ -4150,7 +4150,7 @@ export const zhHant = defineLocale({
       success: platform => `已移交到 ${platform}。隨時可在此處恢復。`,
       systemNote: platform => `↻ 已移交到 ${platform} — 隨時可在此處恢復。`,
       failed: error => `移交失敗：${error}`,
-      timedOut: '等待閘道逾時。`hermes gateway` 是否正在執行？'
+      timedOut: '等待閘道逾時。請檢查代理程式的閘道是否正在執行。'
     }
   },
 
