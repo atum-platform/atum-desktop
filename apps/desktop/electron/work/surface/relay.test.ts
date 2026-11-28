@@ -192,4 +192,3 @@ describe('a thinking level with a plan selection', () => {
     expect((await ownerRelay([Response.json({ revision: 0, selection: null })]).relay.readPlans(principal))?.efforts).toBeUndefined()
   })
 })
-

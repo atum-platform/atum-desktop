@@ -28,6 +28,7 @@ import type {
 } from '../../../shared/agent-routines'
 import { matrixRoutineTitle } from '../../../shared/agent-routines'
 import type { MatrixAgentView } from '../../../shared/matrix'
+import { isNativeMatrixAgentRuntime } from '../agent-desk-model'
 import { executionMachineName } from '../execution-machines-copy'
 import { executionPolicyTrigger } from '../execution-policy-trigger'
 
@@ -329,7 +330,7 @@ export function RoutinesRow({
   }, [load])
 
   const nativeChanged = () => {
-    if (agent.runtime === 'hermes') {
+    if (isNativeMatrixAgentRuntime(agent.runtime)) {
       window.dispatchEvent(new Event('matrix-native-routines-changed'))
     }
   }

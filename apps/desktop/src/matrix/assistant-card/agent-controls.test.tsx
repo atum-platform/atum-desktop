@@ -170,7 +170,13 @@ describe('Paused: one notice under the header, with Resume', () => {
   const paused = { ...job, state: 'paused', pausedReason: 'owner_pause' }
 
   it('shows the notice only while its routines are paused, and Resume resumes them', async () => {
-    const { control } = hostDesk({ schedule: [schedule([paused])], files: [files([])] })
+    const { control } = hostDesk({
+      schedule: [
+        { ...schedule([paused]), globallyPaused: true },
+        { ...schedule([job]), globallyPaused: false }
+      ],
+      files: [files([])]
+    })
     show()
 
     const notice = await waitFor(() => {
