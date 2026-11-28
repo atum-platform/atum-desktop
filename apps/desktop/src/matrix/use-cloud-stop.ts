@@ -107,13 +107,13 @@ export function useMatrixCloudStop({
   // The typing signal a question from another device shows through expires in moments, long
   // before a cloud turn does. Once Stop has named that question, keep naming it until the
   // question clears or the room changes, so the button does not vanish mid-turn.
-  const latch = useRef<{ roomId: string; unansweredId: string; eventId: string } | null>(null)
+  const latch = useRef<{ roomId: string; eventId: string } | null>(null)
 
   if (live) {
-    latch.current = unanswered ? { roomId: room!.id, unansweredId: unanswered.id, eventId: live } : null
+    latch.current = live === unanswered?.id ? { roomId: room!.id, eventId: live } : null
   } else if (
     latch.current &&
-    (!available || latch.current.roomId !== room?.id || latch.current.unansweredId !== unanswered?.id)
+    (!available || latch.current.roomId !== room?.id || latch.current.eventId !== unanswered?.id)
   ) {
     latch.current = null
   }

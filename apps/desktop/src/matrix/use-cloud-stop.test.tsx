@@ -77,8 +77,8 @@ describe('what the Stop control says after an owner Stop', () => {
     expect(view.result.current).toMatchObject({ stopping: true, refused: false, requested: true })
   })
 
-  it('clears a progress-only target when that progress ends', () => {
-    state.unanswered = null
+  it.each([null, { id: '$queued' }])('clears a progress-only target after settlement with unanswered %j', unanswered => {
+    state.unanswered = unanswered
     const view = mount('$from-progress')
     expect(view.result.current).toMatchObject({ shown: true, ready: true, target: '$from-progress' })
 
