@@ -24,7 +24,8 @@ and match the expected dimensions.
 
 HTML uses Electron's offscreen BrowserWindow and capturePage. If the
 compositor copy fails, it uses the first nonempty offscreen frame within
-the render deadline. Its in-memory session allows only the exact temporary
+the render deadline. Empty frames yield to Chromium before requesting another
+paint. The in-memory session allows only the exact temporary
 document as a main-frame request.
 It has sandboxing, no preload, no Node integration and JavaScript disabled.
 SVG uses the upstream resvg 0.50.0 CLI with system fonts. Runtime staging

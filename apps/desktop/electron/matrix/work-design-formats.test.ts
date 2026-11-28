@@ -118,7 +118,7 @@ it.skipIf(posix || !electron || !resvg)('settles native HTML and SVG raster proo
     const env = { ...process.env }
     delete env.ELECTRON_RUN_AS_NODE
     await runElectron(electron!, [entry, resvg!, directory, format, String(width), String(height)], {
-      env, timeout: 15_000
+      env, timeout: 15_000, killSignal: 'SIGKILL'
     })
     return readdirSync(directory).includes('raster') ? readFileSync(path.join(directory, 'raster')) : null
   })

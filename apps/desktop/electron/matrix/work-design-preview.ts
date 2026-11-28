@@ -3,6 +3,7 @@ import { once } from 'node:events'
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
+import { setTimeout as delay } from 'node:timers/promises'
 import { pathToFileURL } from 'node:url'
 import { promisify } from 'node:util'
 
@@ -48,18 +49,17 @@ async function captureHtml(file: string, width: number, height: number, signal: 
     const { cssContentSize } = await contents.debugger.sendCommand('Page.getLayoutMetrics')
 
     if (!cssContentSize || cssContentSize.width > width || cssContentSize.height > height) {return null}
-    let painted: NativeImage
-
+    let image: NativeImage
     do {
       const paint = once(contents, 'paint', { signal })
       contents.invalidate()
-      const [, , frame] = await paint as [unknown, unknown, NativeImage]
-      painted = frame
-    } while (painted.isEmpty())
-    // Electron can reject the compositor copy after a valid offscreen paint.
-    const captured = await contents.capturePage({ x: 0, y: 0, width, height }, { stayHidden: true }).catch(() => painted)
-    signal.throwIfAborted()
-    const image = captured.isEmpty() ? painted : captured
+      const [, , painted] = await paint as [unknown, unknown, NativeImage]
+      // Electron can reject the compositor copy after a valid offscreen paint.
+      const captured = await contents.capturePage({ x: 0, y: 0, width, height }, { stayHidden: true }).catch(() => painted)
+      signal.throwIfAborted()
+      image = captured.isEmpty() ? painted : captured
+      if (image.isEmpty()) {await delay(16, undefined, { signal })}
+    } while (image.isEmpty())
 
     return blocked ? null : image.resize({ width, height }).toPNG()
   } finally {
