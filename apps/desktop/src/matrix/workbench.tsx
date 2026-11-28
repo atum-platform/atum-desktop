@@ -13,14 +13,19 @@ import { useI18n } from '@/i18n'
 import { ATUM_DESTINATION_RAIL_WIDTH, ATUM_ROSTER_WIDTH } from '@/lib/atum-shell-geometry'
 import { ChevronLeft, Code, FileText, RefreshCw, Spinner, World } from '@/lib/icons'
 import { shikiLanguageForFilename } from '@/lib/markdown-code'
+import { phosphorIcon } from '@/lib/phosphor-icon'
 
 import { isBotApiRoomForApp } from '../../shared/bot-api-room'
 import { browserUpdateUrl } from '../../shared/browser/update-restore'
 import type { MatrixDocumentPreview, MatrixSnapshot } from '../../shared/matrix'
+import { matrixAgentScreenText } from '../../shared/matrix-agent-screen-copy'
 import type { MatrixDrivePreview, MatrixDriveRow } from '../../shared/matrix-drive'
 
 import { MatrixAgentDesk, MatrixAgentDeskFace } from './agent-desk'
 import { matrixAgentDeskAgent } from './agent-desk-model'
+import { requestMatrixScreenContinue } from './agent-screen/continue'
+import { MatrixAgentScreenPane } from './agent-screen/pane'
+import { agentScreenTransport } from './agent-screen/transport'
 import { directAppBot } from './app-bots/direct-app'
 import { AppBotPanel } from './app-bots/panel'
 import type { AppBotRouteRequest } from './app-bots/route-request'
@@ -50,7 +55,16 @@ import {
   recordMatrixWorkbenchRecent
 } from './workbench-recents'
 
-type MatrixWorkbenchSelection = 'agent' | 'document' | 'drive' | 'launcher' | `browser:${string}` | `terminal:${string}`
+type MatrixWorkbenchSelection =
+  | 'agent'
+  | 'document'
+  | 'drive'
+  | 'launcher'
+  | 'screen'
+  | `browser:${string}`
+  | `terminal:${string}`
+
+const ScreenIcon = phosphorIcon('monitor')
 
 export interface MatrixDrivePreviewRequest extends MatrixDriveRow {
   scope: string
@@ -61,6 +75,8 @@ interface MatrixWorkbenchTabState {
   browsers: ConsumerBrowserTab[]
   scope: string
   documentOpen: boolean
+  /** The agent's Screen tab is open (by Watch, by the run's first browser step, or by hand). */
+  screenOpen: boolean
   selected: MatrixWorkbenchSelection
 }
 
@@ -152,6 +168,7 @@ export function MatrixWorkbench({
   onBrowserUpdateRestored,
   documentRequest,
   deskRequest,
+  screenRequest,
   browserRequest,
   terminalRequest,
   driveRequest,
@@ -179,6 +196,8 @@ export function MatrixWorkbench({
   documentRequest?: number
   /** Bumped by the chat's Watch: bring the agent's own tab to the front. */
   deskRequest?: number
+  /** Bumped by Watch and by the run's first browser step: open the agent's Screen tab. */
+  screenRequest?: number
   browserRequest?: { id: string; url: string; scope: string }
   terminalRequest?: { id: string; scope: string; serial: number }
   driveRequest?: MatrixDrivePreviewRequest
@@ -221,6 +240,11 @@ export function MatrixWorkbench({
   const deskAgent = botApp ? undefined : matrixAgentDeskAgent(snapshot, room)
   const home: MatrixWorkbenchSelection = deskAgent ? 'agent' : 'launcher'
   const deskName = deskAgent ? matrixRosterAgentName(deskAgent, t.matrixShell.assistantName) : ''
+  // The agent's cloud screen, in cloud and relay mode alike (owner D4): only where this build can
+  // reach it, so there is never a tab that cannot show anything.
+  const screenTransport = useMemo(() => agentScreenTransport(), [])
+  const screenShown = Boolean(deskAgent && room && screenTransport)
+  const screenCopy = matrixAgentScreenText(locale)
 
   // The desk's Stop is the composer's: one hook over the same chat signals.
   const cloudStop = useMatrixCloudStop({
@@ -250,6 +274,7 @@ export function MatrixWorkbench({
       scope,
       browsers: [],
       documentOpen: hasLink,
+      screenOpen: false,
       selected: hasDrivePreview ? 'drive' : hasLink ? 'document' : home
     }),
     [scope, hasLink, hasDrivePreview, home]
@@ -313,6 +338,7 @@ export function MatrixWorkbench({
   const driveRequestRef = useRef<number | undefined>(undefined)
   const scopedTabState = tabState.scope === scope ? tabState : initialTabState()
   const tabOpen = scopedTabState.documentOpen && Boolean(link)
+  const screenOpen = scopedTabState.screenOpen && screenShown
   const browserTabs = scopedTabState.browsers
   const recents = recentState.scopeKey === recentScopeKey ? recentState.entries : []
   const scopeReady = Boolean(snapshot.identity && snapshot.roomId)
@@ -365,9 +391,12 @@ export function MatrixWorkbench({
         ? home
         : scopedTabState.selected === 'agent' && !deskAgent
           ? 'launcher'
-          : scopedTabState.selected
+          : scopedTabState.selected === 'screen' && !screenOpen
+            ? home
+            : scopedTabState.selected
 
-  const tabCount = (tabOpen ? 1 : 0) + (hasDrivePreview ? 1 : 0) + browserTabs.length + terminalTabs.length
+  const tabCount =
+    (tabOpen ? 1 : 0) + (hasDrivePreview ? 1 : 0) + (screenOpen ? 1 : 0) + browserTabs.length + terminalTabs.length
   useMatrixTerminalRead(snapshot, scope, selected.startsWith('terminal:') ? activeTerminalId : null, !hidden && !obstructed)
   const matrixBrowser = window.atumMatrix.consumerBrowser
 
@@ -548,6 +577,20 @@ export function MatrixWorkbench({
     }
   }, [deskRequest, hasDesk, updateScopedTabState])
 
+  const screenRequestRef = useRef(screenRequest)
+
+  useEffect(() => {
+    if (screenRequest === screenRequestRef.current) {
+      return
+    }
+
+    screenRequestRef.current = screenRequest
+
+    if (screenShown) {
+      updateScopedTabState(current => ({ ...current, screenOpen: true, selected: 'screen' }))
+    }
+  }, [screenRequest, screenShown, updateScopedTabState])
+
   useEffect(() => onTabCountChange?.(tabCount), [onTabCountChange, tabCount])
 
   useEffect(() => {
@@ -622,6 +665,8 @@ export function MatrixWorkbench({
       activeId={
         selected === 'agent' && deskAgent
           ? 'agent'
+          : selected === 'screen' && screenOpen
+          ? 'screen'
           : selected === 'drive' && hasDrivePreview
           ? 'drive'
           : selected === 'document' && tabOpen
@@ -677,6 +722,17 @@ export function MatrixWorkbench({
           return
         }
 
+        if (id === 'screen') {
+          // Closing the tab unmounts the screen, which hands control back (never a message).
+          updateScopedTabState(current => ({
+            ...current,
+            screenOpen: false,
+            selected: current.selected === 'screen' ? home : current.selected
+          }))
+
+          return
+        }
+
         if (id === 'drive') {
           onDriveRequestClose?.()
           updateScopedTabState(current => ({
@@ -714,6 +770,10 @@ export function MatrixWorkbench({
                 pinned: true
               }
             ]
+          : []),
+        // The agent's Screen, beside its own tab.
+        ...(screenOpen
+          ? [{ id: 'screen', title: screenCopy.tab, icon: <ScreenIcon aria-hidden className="size-3.5" /> }]
           : []),
         ...(hasDrivePreview && driveRequest
           ? [{ id: 'drive', title: driveRequest.name, icon: <FileText aria-hidden className="size-3.5" /> }]
@@ -770,6 +830,18 @@ export function MatrixWorkbench({
               onOpenBrowser={openBrowser}
               room={room}
               snapshot={snapshot}
+            />
+          </div>
+        )}
+        {screenOpen && deskAgent && room && screenTransport && (
+          <div className={selected === 'screen' ? 'flex h-full min-h-0 flex-col' : 'hidden'} data-matrix-agent-screen-tab>
+            <MatrixAgentScreenPane
+              active={selected === 'screen' && !hidden}
+              binding={{ agentPrincipal: deskAgent.principal, roomId: room.id }}
+              key={`${scope}:${deskAgent.principal}`}
+              name={deskName}
+              onContinue={text => requestMatrixScreenContinue(room.id, text)}
+              transport={screenTransport}
             />
           </div>
         )}

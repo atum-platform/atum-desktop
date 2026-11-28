@@ -30,6 +30,7 @@ import { playgroundLinkPreviewMode, playgroundLinkPreviews, withPlaygroundLinkPr
 import { playgroundDocumentPreview, playgroundPlaceBridges, playgroundPlaces, withPlaygroundPlaces } from './places-fixtures'
 import { playgroundRelayMode, withPlaygroundRelay } from './relay-fixtures'
 import { playgroundRoutines, playgroundRoutinesMode } from './routine-fixtures'
+import { playgroundAgentScreen } from './screen-fixtures'
 import {
   playgroundGoogleConnections,
   playgroundLoginStartup,
@@ -140,6 +141,8 @@ window.atumMatrix = {
   ...(places.doc ? { previewDocument: async () => playgroundDocumentPreview(places) } : {}),
   // The title-bar failover control reads and saves against the fixture (§9.4), never a network.
   executionPolicy: playgroundPolicyBridge(policyMode),
+  // The agent's Screen against an in-memory lease (?screen=1|slow, screen-fixtures.ts).
+  ...playgroundAgentScreen(params),
   // The desk's Stop asks the fixture, never a controller: it answers as a stopped turn.
   ...(deskMode
     ? {

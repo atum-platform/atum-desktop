@@ -173,6 +173,9 @@ import { useMatrixAgentHandleBackfill } from './agent-handle-backfill'
 import { agentHomeTitleIconShown, MatrixAgentHomeRow } from './agent-home-control'
 import { bindAgentPlansAccount } from './agent-plans-store'
 import { NewAssistantButton } from './agent-roster'
+import { agentScreenAutoOpen } from './agent-screen/auto-open'
+import { $matrixScreenContinue, takeMatrixScreenContinue } from './agent-screen/continue'
+import { agentScreenTransport } from './agent-screen/transport'
 import { authorizedBotApi, botApiAppForMessage, isBotApiRoom } from './app-bots/bot-api'
 import { MatrixBotApiKeyboard, MatrixBotApiText } from './app-bots/bot-api-text'
 import { MatrixBotApiPhotoView } from './app-bots/bot-photo'
@@ -471,7 +474,7 @@ import {
   rightPanelToggleCopy,
   setMatrixRightPanel
 } from './right-panel'
-import { anyAgentPrompts, assistantTarget, primaryAgent, snapshotForRoom } from './room-agent'
+import { anyAgentPrompts, assistantTarget, primaryAgent, roomAgentActivity, snapshotForRoom } from './room-agent'
 import { RoomUpgradeBand } from './room-upgrade-band'
 import { MatrixRosterConversations } from './roster-conversations'
 import { useRosterCopy } from './roster-copy'
@@ -596,8 +599,13 @@ declare global {
   }
 }
 
-/** The working line's Watch stays hidden until a cloud agent's screen can be watched (owner 2026-11-21). */
-const DESK_WATCH_SHOWN: boolean = false
+/**
+ * The working line's Watch opens the agent's Screen (plan 2026-11-28 S4). It stays hidden until this
+ * build can reach a cloud agent's screen (owner 2026-11-21: no Watch that shows nothing).
+ */
+function deskWatchShown(): boolean {
+  return agentScreenTransport() !== null
+}
 
 const initial: MatrixSnapshot = {
   state: 'signed_out',
@@ -5451,6 +5459,20 @@ function Conversation({
     }
   }, [composer, composerAsk, selectedRoomId])
 
+  // The Screen's "carry on" after a confirmed hand back: sent once, on this chat's own send path,
+  // as the owner's visible message. Whatever is typed in the box stays there.
+  const screenContinue = useStore($matrixScreenContinue)
+
+  useEffect(() => {
+    if (screenContinue && composer?.ready && selectedRoomId) {
+      const request = takeMatrixScreenContinue(selectedRoomId)
+
+      if (request) {
+        void composer.send(request.text).catch(() => {})
+      }
+    }
+  }, [composer, screenContinue, selectedRoomId])
+
   // One conversation per agent: a chat of the agent's that is no longer its main (0.20's move to
   // a plain room, or a change made on another device) gives way to the main, with what was typed
   // carried over. Left open, its sends would never go out: the agent answers only in its main.
@@ -7407,6 +7429,7 @@ function MatrixAccountView({
   const [workspaceTabs, setWorkspaceTabs] = useState({ scope: '', count: 0 })
   const [documentRequest, setDocumentRequest] = useState(0)
   const [deskRequest, setDeskRequest] = useState(0)
+  const [screenRequest, setScreenRequest] = useState(0)
   const [browserRequest, setBrowserRequest] = useState<{ id: string; url: string; scope: string }>()
   // First run: pick the best plan this Mac already has while the launch screen shows (owner 2026-11-27).
   useFirstRunAutoPick(snapshot)
@@ -8255,13 +8278,29 @@ function MatrixAccountView({
     setDocumentRequest(value => value + 1)
   }
 
-  // Watch on the working line of an agent's own chat: the panel opens on its desk, never by itself.
+  // Watch on the working line of an agent's own chat (cloud or relay mode alike).
   const deskEligible = Boolean(room && !conversationInfo && matrixAgentDeskAgent(snapshot, room))
 
+  // Watch opens the agent's Screen: its cloud browser, which the owner can take over.
   const watchDesk = () => {
     openWorkspace('workbench')
-    setDeskRequest(value => value + 1)
+    setScreenRequest(value => value + 1)
   }
+
+  // The run's first browser or computer-use step opens the Screen by itself, once per run. Not at
+  // compact width, where the panel would cover the chat; Watch is still there.
+  const screenRuns = useRef(new Set<string>())
+  const screenActivity = room && deskEligible ? roomAgentActivity(snapshot, room.id) : undefined
+  const screenShown = deskWatchShown()
+  const screenToolNames = screenActivity?.tools.map(tool => tool.name).join('\u0000') ?? ''
+
+  useEffect(() => {
+    if (screenShown && !compact && agentScreenAutoOpen(screenActivity, screenRuns.current)) {
+      openWorkspace('workbench')
+      setScreenRequest(value => value + 1)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- a run's new step is the trigger; openWorkspace is per render.
+  }, [screenShown, compact, screenActivity?.invocationId, screenActivity?.state, screenToolNames])
 
   const openThreads = (rootId?: string) => {
     if (!room || !threadRoom) {
@@ -9027,7 +9066,7 @@ function MatrixAccountView({
           setPinnedRoomId(null)
           setThreadView(next)
         }}
-        onWatchDesk={DESK_WATCH_SHOWN && deskEligible && !workspaceOpen ? watchDesk : undefined}
+        onWatchDesk={screenShown && deskEligible && !(workspaceOpen && workspaceKind === 'workbench') ? watchDesk : undefined}
         pinsOpen={pinsOpen}
         settled={settled}
         snapshot={roomView}
@@ -9937,6 +9976,7 @@ function MatrixAccountView({
               onPercentChange={setWorkspacePercent}
               onTabCountChange={reportWorkspaceTabs}
               percent={workspacePercent}
+              screenRequest={screenRequest}
               snapshot={snapshot}
               terminalRequest={terminalRequest}
               windowControls={

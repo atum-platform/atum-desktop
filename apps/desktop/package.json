@@ -72,6 +72,7 @@
     "@lezer/highlight": "^1.2.3",
     "@nanostores/react": "^1.1.0",
     "@nous-research/ui": "^0.13.0",
+    "@novnc/novnc": "1.7.0",
     "@radix-ui/react-focus-scope": "1.1.10",
     "@radix-ui/react-slot": "^1.2.4",
     "@sentry/core": "10.73.0",

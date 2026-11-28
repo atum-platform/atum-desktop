@@ -907,6 +907,7 @@ export function collectNpmPackages({ repoRoot = REPO_ROOT, workspace = 'apps/des
       ...(choice ? { declaredLicense } : {}),
       author: person(manifest.author),
       repository: repository(manifest),
+      ...(typeof entry.resolved === 'string' && entry.resolved.startsWith('https://') ? { resolved: entry.resolved } : {}),
       licenseFiles,
       standardTexts
     })
@@ -915,6 +916,21 @@ export function collectNpmPackages({ repoRoot = REPO_ROOT, workspace = 'apps/des
   return [...shipped.values()].sort(
     (left, right) => compare(left.name, right.name) || compare(left.version, right.version)
   )
+}
+
+/**
+ * Where an MPL-covered package's Source Code Form is, for the notice (MPL-2.0 §3.2(a)): the app
+ * bundles it minified, so the notice names the exact published archive and its repository.
+ * Nothing for packages under other licences.
+ */
+export function npmSourceOffer(item) {
+  if (!/\bMPL-/u.test(item.license ?? '') || (!item.resolved && !item.repository)) {
+    return null
+  }
+
+  const where = [item.resolved, item.repository].filter(Boolean).join(' and ')
+
+  return `Source Code Form of ${item.name} ${item.version}: ${where}`
 }
 
 /**
@@ -1293,6 +1309,8 @@ export function renderThirdPartyNotices({
   for (const item of npm) {
     push(`  ${item.name} ${item.version} (${item.license})\n`)
     if (item.declaredLicense) push(`    Atum selects ${item.license} from ${item.declaredLicense}.\n`)
+    const offer = npmSourceOffer(item)
+    if (offer) push(wrap(offer, 78, '    ', '      '), '\n')
   }
 
   for (const notice of rust) {

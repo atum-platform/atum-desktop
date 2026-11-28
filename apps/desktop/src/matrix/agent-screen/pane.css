@@ -1,0 +1,108 @@
+/* The agent's Screen tab (side panel). Kit tokens and components only (STYLE.md §3, §13): one bar
+   (a quiet chip, the one action, Reconnect), the screen, one muted line. In control, the screen
+   wears an ink ring instead of colour: colour stays rare. */
+
+.atum-screen {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+.atum-screen--state {
+  align-items: center;
+  justify-content: center;
+}
+
+.atum-screen-bar {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--ak-s2);
+  min-height: 44px;
+  padding: var(--ak-s2) var(--ak-s3) var(--ak-s2) var(--ak-s4);
+  border-bottom: 0.5px solid var(--ak-line);
+}
+
+.atum-screen-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ak-s2);
+  min-width: 0;
+  font: var(--ak-t-callout);
+  font-weight: 600;
+  color: var(--ak-ink-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.atum-screen-dot {
+  width: 6px;
+  height: 6px;
+  flex: none;
+  background: var(--ak-ink-3);
+}
+
+.atum-screen-dot[data-on] {
+  background: var(--ak-ink);
+}
+
+.atum-screen-stage {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  margin: var(--ak-s3) var(--ak-s3) 0;
+  overflow: hidden;
+  border-radius: var(--ak-r-lg);
+  background: var(--ak-sunk);
+}
+
+/* The ring sits above the remote screen's canvas, which would otherwise paint over an inset edge. */
+.atum-screen-stage::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border-radius: inherit;
+  box-shadow: inset 0 0 0 0.5px var(--ak-line);
+  pointer-events: none;
+  transition: box-shadow var(--ak-dur-2) var(--ak-ease);
+}
+
+.atum-screen-stage[data-control]::after {
+  box-shadow: inset 0 0 0 2px var(--ak-ink);
+}
+
+.atum-screen-canvas {
+  position: absolute;
+  inset: 0;
+}
+
+.atum-screen-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--ak-s2);
+  font: var(--ak-t-body);
+  color: var(--ak-ink-3);
+  pointer-events: none;
+}
+
+.atum-screen-overlay--solid {
+  background: var(--ak-sunk);
+  pointer-events: auto;
+}
+
+.atum-screen-line {
+  flex: none;
+  margin: 0;
+  padding: var(--ak-s2) var(--ak-s4) var(--ak-s3);
+  font: var(--ak-t-caption);
+  color: var(--ak-ink-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
