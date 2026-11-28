@@ -684,3 +684,126 @@ None of the export's existing keys changed wording on main, so the phone needs n
   `glyphs.json` is not spliced, and mapping `Funnel` properly is a separate design-export step.
 - Producer on `c0245fd`: `export.mjs` and `--check` exit 0, without `Funnel`.
 - Splice: 0 added, 0 refreshed, 0 removed. All 44 manifest hashes match their files.
+
+## Wave 4i: desktop main's words after wave 4h (#145, #147, #148, #150, #154, #155, #156, #160)
+
+This wave exports the words listed under "Phone-relevant words main added that the export does not carry
+yet" above, plus four the W4-AC parity check asked for. It also adds the roster filter's glyph. The desktop
+tree is this branch's (`feat/mobile-export-wave4i`), which branches from `feat/mobile-export-beta-gate`
+`f218b9eb`. That commit already contains desktop main `1ceed177`, so no merge was needed. Producer inputs are
+on atum-app `chore/mobile-export-wave4i-keys`, which branches from wave 4h's `42d51de7`. The record is in
+`wave4i/README.md` there. The producer ran in a scratch root holding this tree's `apps/desktop` and
+`packages/atum-kit` (`git archive f218b9eb`). After that, `wave4/splice4.mjs` ran with `wave4i/spec.json`, and
+`wave4i/splice-glyphs.mjs` ran with `Funnel`.
+
+### Producer changes
+
+- **Scan.** `scripts/copy.mjs` gains `EXTRA_COPY_SOURCES`. It names copy tables outside the two scanned folders
+  (`src/matrix` and `shared`) one file at a time. Its only entry is `src/app/connections/first-run-copy.ts`
+  (#148). That file's only import is a type import, so it evaluates under the existing pure-inventory rules.
+- **i18n scope.** `I18N_SCOPES` gains `matrixShell`. The paid hire's title, `t.matrixShell.agentHireTitle`
+  (`agent-roster.tsx:855` and `:871`, #150), sits there and not in a copy table. The rest of the scope is read
+  but held back by the key list.
+- **Glyph.** `glyph-map.json` maps `Funnel` (#154's roster filter) to `line.3.horizontal.decrease`, which is
+  iOS's standard filter glyph. The eight older unmapped aliases (see wave 4e and wave 4g) still got throwaway
+  entries for the run only. `wave4i/splice-glyphs.mjs` copies only the named aliases into the public
+  `glyphs.json`. Before it does, it checks that every alias already public maps exactly as the producer maps
+  it. So no throwaway entry ships.
+- **Test.** A new test pins all 37 keys in all five locales against desktop's source. It also checks each
+  key's argument kind, the inventory row and the `matrixShell` scope rows. It fails if any other first-run or
+  `matrixShell` key is exported, and it checks the `Funnel` mapping.
+
+### Counts
+
+- **Added: 37 keys.** Refreshed 0, removed 0. Catalog 4187 → 4224. `copy-contract.json` gains 37 parameter
+  entries. Three of them take one string (`%1$@`), and none has exact selectors.
+- **Inventory: 102 → 103 sources.** The new row is `apps/desktop/src/app/connections/first-run-copy.ts`
+  (`FIRST_RUN_CONNECTIONS_COPY`). The five i18n rows also list `matrixShell`.
+- **Glyphs: 245 → 246 aliases** (`Funnel`).
+- **Copy map: unchanged.**
+- **Locales.** Every key is written in all five locales on desktop, and none falls back to English. An
+  independent check compared all 185 values with the public catalog. It bundled each source with esbuild,
+  outside the producer's evaluator, and found 185 of 185 byte-identical.
+
+| Desktop change | Keys |
+|---|---|
+| #160 room upgrade (7) | `src.matrix.room-upgrade-copy.copies.{continues,earlier,join,moved,open,unavailable,unconfirmed}` |
+| #155 notification modes (10) | `shared.matrix-notification-copy.copy.{roomModes.{all,inherit,mentions,nothing},roomModeHelp.{all,mentions,nothing},encryptedMentionsHelp,accountLevel,accountLevelHelp}` |
+| #156 threads (1) | `src.matrix.thread-copy.copy.allThreads` |
+| #154 roster filter (5) | `src.matrix.roster-create-copy.copies.{filterMenu,filterAll,filterUnread,filterFavourites,filterLowPriority}` |
+| #147 agent panel (5) | `shared.matrix-agent-desk-copy.matrixAgentDeskCopy.{filesUnavailable,noFiles,nothingScheduled,scheduleUnavailable,tryAgain}` |
+| #145 composer plus menu (1) | `src.matrix.copy.copies.addSkills` ("Add a skill") |
+| #150 paid hire title (1) | `desktop.matrixShell.agentHireTitle` ("Hire a new assistant") |
+| #148 first-run Connections (7) | `src.app.connections.first-run-copy.FIRST_RUN_CONNECTIONS_COPY.{freeLine,finishInBrowser,autoTitle,autoLine,stopUsing,inUse,greetingWriting}`; `freeLine`, `inUse` and `greetingWriting` take one string |
+
+`accountLevel` and `accountLevelHelp` count as added, not refreshed. The export never carried them before,
+so they arrive in #155's wording: "Team space thread messages" and "Choose which replies can interrupt you in
+threads." The rest of `FIRST_RUN_CONNECTIONS_COPY` (`header`, `ready`, `connect`, `connected`) is held back,
+because the parity check didn't ask for it. Promoting it later is a key-list change only.
+
+### Not exported, and why
+
+- **#157 voice notes, polls, location and stickers.** These words are English JSX text and string literals
+  inline in `.tsx`, not entries in a locale table. The producer reads only locale tables, so it cannot read
+  them as desktop shows them. Desktop shows them in English in every locale. The exact strings:
+  - `composer-plus.tsx:74–75`: "Create poll", "Share a place".
+  - `poll/row.tsx`: "Could not load poll." (:27), "Could not update poll. Try again." (:43), "Poll closed" and
+    "Results appear when closed" (:85), "End poll" (:88), "Try again" (:94).
+  - `rich-content-dialog.tsx`:
+    - titles: "Create poll" and "Share a place" (:55)
+    - descriptions: "Add a question and at least two options." and "Enter the latitude and longitude of the
+      place you want to share." (:57)
+    - labels and placeholders: "Question" and "Latitude, longitude" (:61 and :65)
+    - other words: "Add option" (:92), "Hide results until the poll closes" (:96), "Could not send. Try
+      again." (:100), "Send" (:101)
+  - `rich-row.tsx`: "Open location" (:91), "Could not open the map." (:94).
+  - `voice-note/composer.tsx`:
+    - errors: "Allow microphone access in System Settings, then try again." (:48 and :91), "Record for at
+      least half a second." (:83), "Could not record. Try again." (:92), "Voice transcription is
+      unavailable." (:135), "Could not send. Try again." (:150)
+    - consent line: "Transcribe with {provider}?" (:198), "OK" (:201), "Not now" (:203)
+    - controls: "Record voice note" (:168), "Discard voice note" (:208), "Stop recording" (:234), "Send voice
+      note" (:240)
+    - states: "Starting microphone…" and "Preparing voice note…" (:229)
+    - the draft's file name: "Voice note.ogg" (:116)
+  - `voice-note/player.tsx`: "Pause voice note" and "Play voice note" (:100), "Voice note playback position"
+    (:111), "Could not play. Try again." (:130).
+  - Not UI: `poll/model.ts:218` "Poll closed" is the `m.poll.end` fallback body sent over Matrix. Stickers draw
+    no fixed words.
+
+  **The smallest desktop-side move** is a new `apps/desktop/src/matrix/rich-content-copy.ts`. It would hold a
+  `copies` table with the strings above under `en`, read as `copies[locale] ?? copies.en`, with `{provider}` as
+  a formatter argument. The components would read it in place of the literals. Desktop would show exactly what
+  it shows now, so nothing changes on screen. The producer would then list the file in
+  `ENGLISH_FALLBACK_TABLES`, as it does for the Google write card, and promote the keys in a following wave.
+  Translations belong in desktop after that. This lane did not edit desktop source.
+- **#159 Cowork starters and status words** (Write, Analyze numbers, the blank-format preview and its
+  settlement status). #159 only pins the Work runtime (`runtime-tools.json`, 0.1.21). These words ship inside
+  that runtime, and no desktop copy table holds them (`git grep "Analyze numbers"` over `apps/desktop/src` and
+  `apps/desktop/shared` finds nothing). The producer has no source to read. To export them, the Work runtime's
+  own copy would need an export path first.
+- **Still open from wave 4h:** the phone provenance key `workGoogleWriteSource` ("From Work on your Mac") does
+  not exist on desktop yet.
+
+### For the phone repin
+
+- Manifest SHA-256: `814833c4d735de24bb856286bd3bc8b9af9d0a55e3f3b853f654fb6898c2e54c` (was
+  `726ec4a924e886e4e18a616608492d61097e54637c33b62856bd531d57a5fb75`).
+- Changed file hashes:
+  - `Localizable.xcstrings`: `b3ec64475f173b1c636975b2d99603f2cd8d4e10d966ec057356d470a00af58f`
+  - `copy-contract.json`: `5d849da78bcc8a6a71abb3ebc0b5978fc540d4bcbb120150b28626a0443fe2c8`
+  - `copy-inventory.json`: `71e8e5dff0d0e01b4d2928fa9d3dde53500d392b68307ab6b6d363ef45e1d8bc`
+  - `glyphs.json`: `ac5709f14a28384e33fb47889090f90389b35609657b95764449793cd1d5574f`
+- `schemaVersion` stays 1, and the manifest keeps its 44 members.
+- Rekeys: none. The phone only gains keys and one glyph alias.
+
+### Checks
+
+- Producer, in the scratch root: `export.mjs` and `export.mjs --check` exit 0, and tests pass 49 of 49
+  (48 plus the new wave 4i test). The run used desktop's own dependency versions, as in the merge above, plus
+  `clsx` 2.1.1 and `tailwind-merge` 3.5.0, which only the independent check's bundle needed.
+- Splice: 37 added, 0 refreshed, 0 removed (4224 entries). The glyph splice added `Funnel`
+  (`line.3.horizontal.decrease`), which makes 246 aliases. All 44 manifest hashes match their files.
+- Against the producer, the public snapshot differs only in the known held-back keys of earlier waves. No
+  entry the two share changed.
+- No desktop source changed. The outbound guard results are in the commit.

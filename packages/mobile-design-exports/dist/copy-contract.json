@@ -2506,6 +2506,7 @@
     ],
     "desktop.dm.yesterday": [],
     "desktop.dm.you": [],
+    "desktop.matrixShell.agentHireTitle": [],
     "desktop.surfaces.comingSoon": [],
     "desktop.surfaces.comingSoonHelp": [],
     "desktop.timeline.delegationCountFinished": [
@@ -2723,6 +2724,7 @@
     ],
     "shared.matrix-agent-desk-copy.matrixAgentDeskCopy.devices": [],
     "shared.matrix-agent-desk-copy.matrixAgentDeskCopy.files": [],
+    "shared.matrix-agent-desk-copy.matrixAgentDeskCopy.filesUnavailable": [],
     "shared.matrix-agent-desk-copy.matrixAgentDeskCopy.less": [],
     "shared.matrix-agent-desk-copy.matrixAgentDeskCopy.minutes": [
       {
@@ -2750,6 +2752,8 @@
         "nullable": false
       }
     ],
+    "shared.matrix-agent-desk-copy.matrixAgentDeskCopy.noFiles": [],
+    "shared.matrix-agent-desk-copy.matrixAgentDeskCopy.nothingScheduled": [],
     "shared.matrix-agent-desk-copy.matrixAgentDeskCopy.notifications": [],
     "shared.matrix-agent-desk-copy.matrixAgentDeskCopy.onDevice": [
       {
@@ -2772,9 +2776,11 @@
       }
     ],
     "shared.matrix-agent-desk-copy.matrixAgentDeskCopy.saveShort": [],
+    "shared.matrix-agent-desk-copy.matrixAgentDeskCopy.scheduleUnavailable": [],
     "shared.matrix-agent-desk-copy.matrixAgentDeskCopy.sentHere": [],
     "shared.matrix-agent-desk-copy.matrixAgentDeskCopy.steerHint": [],
     "shared.matrix-agent-desk-copy.matrixAgentDeskCopy.stop": [],
+    "shared.matrix-agent-desk-copy.matrixAgentDeskCopy.tryAgain": [],
     "shared.matrix-agent-desk-copy.matrixAgentDeskCopy.usingNow": [],
     "shared.matrix-agent-desk-copy.matrixAgentDeskCopy.waiting": [],
     "shared.matrix-agent-desk-copy.matrixAgentDeskCopy.watch": [],
@@ -3669,6 +3675,16 @@
       }
     ],
     "shared.matrix-management-copy.copy.title": [],
+    "shared.matrix-notification-copy.copy.accountLevel": [],
+    "shared.matrix-notification-copy.copy.accountLevelHelp": [],
+    "shared.matrix-notification-copy.copy.encryptedMentionsHelp": [],
+    "shared.matrix-notification-copy.copy.roomModeHelp.all": [],
+    "shared.matrix-notification-copy.copy.roomModeHelp.mentions": [],
+    "shared.matrix-notification-copy.copy.roomModeHelp.nothing": [],
+    "shared.matrix-notification-copy.copy.roomModes.all": [],
+    "shared.matrix-notification-copy.copy.roomModes.inherit": [],
+    "shared.matrix-notification-copy.copy.roomModes.mentions": [],
+    "shared.matrix-notification-copy.copy.roomModes.nothing": [],
     "shared.matrix-pages-copy.archiveCopy.archive": [],
     "shared.matrix-pages-copy.archiveCopy.detail": [
       {
@@ -4112,6 +4128,28 @@
     "shared.matrix-voice-settings-copy.matrixVoiceSettingsCopy.title": [],
     "shared.matrix-voice-settings-copy.matrixVoiceSettingsCopy.tts": [],
     "shared.matrix-voice-settings-copy.matrixVoiceSettingsCopy.unknown": [],
+    "src.app.connections.first-run-copy.FIRST_RUN_CONNECTIONS_COPY.autoLine": [],
+    "src.app.connections.first-run-copy.FIRST_RUN_CONNECTIONS_COPY.autoTitle": [],
+    "src.app.connections.first-run-copy.FIRST_RUN_CONNECTIONS_COPY.finishInBrowser": [],
+    "src.app.connections.first-run-copy.FIRST_RUN_CONNECTIONS_COPY.freeLine": [
+      {
+        "kind": "string",
+        "nullable": false
+      }
+    ],
+    "src.app.connections.first-run-copy.FIRST_RUN_CONNECTIONS_COPY.greetingWriting": [
+      {
+        "kind": "string",
+        "nullable": false
+      }
+    ],
+    "src.app.connections.first-run-copy.FIRST_RUN_CONNECTIONS_COPY.inUse": [
+      {
+        "kind": "string",
+        "nullable": false
+      }
+    ],
+    "src.app.connections.first-run-copy.FIRST_RUN_CONNECTIONS_COPY.stopUsing": [],
     "src.matrix.account-step-copy.copies.setUpHelp": [],
     "src.matrix.account-step-copy.copies.setUpTitle": [],
     "src.matrix.account-step-copy.copies.unlockHelp": [],
@@ -5196,6 +5234,7 @@
     "src.matrix.conversation-copy.copies.noMembership": [],
     "src.matrix.conversation-copy.copies.remove": [],
     "src.matrix.conversation-copy.copies.unnamed": [],
+    "src.matrix.copy.copies.addSkills": [],
     "src.matrix.copy.copies.addToRequest": [],
     "src.matrix.copy.copies.attach": [],
     "src.matrix.copy.copies.cancel": [],
@@ -7447,6 +7486,13 @@
     "src.matrix.profile-copy.copies.nameFailed": [],
     "src.matrix.profile-copy.copies.save": [],
     "src.matrix.read-state-copy.copies.notifications": [],
+    "src.matrix.room-upgrade-copy.copies.continues": [],
+    "src.matrix.room-upgrade-copy.copies.earlier": [],
+    "src.matrix.room-upgrade-copy.copies.join": [],
+    "src.matrix.room-upgrade-copy.copies.moved": [],
+    "src.matrix.room-upgrade-copy.copies.open": [],
+    "src.matrix.room-upgrade-copy.copies.unavailable": [],
+    "src.matrix.room-upgrade-copy.copies.unconfirmed": [],
     "src.matrix.roster-copy.copies.audio": [],
     "src.matrix.roster-copy.copies.byline": [
       {
@@ -7490,6 +7536,11 @@
     "src.matrix.roster-create-copy.copies.createAssistant": [],
     "src.matrix.roster-create-copy.copies.createGroup": [],
     "src.matrix.roster-create-copy.copies.creating": [],
+    "src.matrix.roster-create-copy.copies.filterAll": [],
+    "src.matrix.roster-create-copy.copies.filterFavourites": [],
+    "src.matrix.roster-create-copy.copies.filterLowPriority": [],
+    "src.matrix.roster-create-copy.copies.filterMenu": [],
+    "src.matrix.roster-create-copy.copies.filterUnread": [],
     "src.matrix.roster-create-copy.copies.find": [],
     "src.matrix.roster-create-copy.copies.findOnAtum": [
       {
@@ -7813,6 +7864,7 @@
     "src.matrix.team-space.revamp-copy.copy.suggestedHint": [],
     "src.matrix.team-space.revamp-copy.copy.tryAgain": [],
     "src.matrix.team-space.revamp-copy.copy.workspace": [],
+    "src.matrix.thread-copy.copy.allThreads": [],
     "src.matrix.thread-copy.copy.backToThreads": [],
     "src.matrix.thread-copy.copy.closeThreads": [],
     "src.matrix.thread-copy.copy.follow": [],
