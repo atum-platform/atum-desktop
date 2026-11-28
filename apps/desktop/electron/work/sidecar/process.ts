@@ -86,6 +86,8 @@ export function workProvider(python: string, home: string) {
 }
 
 export function workRuntimeEnvironment(root: string, resources: string, shellPath = ''): Record<string, string> {
+  const macPath = process.platform === 'darwin' ? [join(homedir(), '.local', 'bin'), '/opt/homebrew/bin', '/usr/local/bin'] : []
+
   return {
     HOME: homedir(),
     TMPDIR: tmpdir(),
@@ -93,7 +95,7 @@ export function workRuntimeEnvironment(root: string, resources: string, shellPat
     ...(process.env.LOGNAME ? { LOGNAME: process.env.LOGNAME } : {}),
     ...(process.env.SHELL ? { SHELL: process.env.SHELL } : {}),
     ...Object.fromEntries(['XDG_CONFIG_HOME', 'XDG_CACHE_HOME', 'XDG_DATA_HOME', 'CODEX_HOME', 'CLAUDE_CONFIG_DIR'].flatMap(name => process.env[name] ? [[name, process.env[name]!]] : [])),
-    PATH: [join(resources, 'work-runtime'), shellPath, '/usr/bin', '/bin', '/usr/sbin', '/sbin'].filter(Boolean).join(':'),
+    PATH: [...new Set([join(resources, 'work-runtime'), ...shellPath.split(':'), ...macPath, '/usr/bin', '/bin', '/usr/sbin', '/sbin'].filter(Boolean))].join(':'),
     PYTHONPATH: join(resources, 'runtime', 'hermes-agent'),
     LANG: 'en_US.UTF-8',
     NO_PROXY: 'localhost,127.0.0.1,::1',

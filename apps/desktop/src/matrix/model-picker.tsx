@@ -396,6 +396,7 @@ export function MatrixModelPicker({
   const work = useStore($work)
   const workHere = Boolean(work)
   const accountConnections = useStore($accountConnections)
+  const planStatusRevision = work?.planStatusRevision
   const connectionWords = connectionsCopy(locale)
   const scope = preferenceScope ?? room.id
 
@@ -421,7 +422,11 @@ export function MatrixModelPicker({
       value => settleAgentPlansRead(read, value),
       () => failAgentPlansRead(read)
     )
-  }, [agentPrincipal, open, plansKey, readAgentPlans, work?.view])
+  }, [agentPrincipal, open, plansKey, readAgentPlans, work?.view, planStatusRevision])
+
+  useEffect(() => {
+    if (open) {void loadAccountConnections()}
+  }, [open, work?.view, planStatusRevision])
 
   const planReadReason = readAgentPlans && agentPlans === undefined ? words.modelsLoading : words.modelsUnavailable
 
@@ -1006,7 +1011,10 @@ export function MatrixModelPicker({
   const planClearWrite = (applies: boolean) =>
     applies && plansKey ? beginAgentPlansWrite(plansKey, { kind: 'clear' }) : undefined
 
-  const modelsFor = (each: MatrixModelPickerRelay) => each.models ?? (each.view.plan === 'codex' ? chatgptModels : accountPickerPlans(accountConnections).flatMap(pick => pick.plan === each.view.plan && pick.kind !== 'connect' ? pick.models : []))
+  const modelsFor = (each: MatrixModelPickerRelay) => each.models ??
+    (each.view.plan === 'codex' && !readAgentPlans ? chatgptModels : accountPickerPlans(accountConnections).flatMap(
+      pick => pick.plan === each.view.plan && pick.kind !== 'connect' ? pick.models : []
+    ))
 
   const relayCurrentName = relayCurrent
     ? ((selectedRelay ? modelsFor(selectedRelay) : []).find(model => model.id === relayCurrent)?.displayName ??
@@ -1301,7 +1309,8 @@ export function MatrixModelPicker({
     filterTouched &&
     !query.trim() &&
     accountPicks.some(pick => pick.plan === railPlan && pick.kind === 'connect') &&
-    !sections.some(section => section.note || section.rows.some(({ route }) => route.provider === shownFilter.source))
+    !sections.some(section => section.rows.some(({ route }) => route.provider === shownFilter.source)) &&
+    (!readAgentPlans || agentPlans?.plans[railPlan]?.state !== 'connected')
       ? railPlan
       : undefined
 
@@ -1497,8 +1506,6 @@ export function MatrixModelPicker({
       setEffortNotice(undefined)
       setRetryPick(null)
       loadCatalog()
-
-      void loadAccountConnections()
 
       if (cloudSubscriptions) {
         void loadAccountSubscriptions()

@@ -18,6 +18,7 @@ function provider(instanceId: string, type: string, label: string, ...models: st
 
 function connect() {
   const writes = vi.fn()
+  const statuses = vi.fn()
   let markSubscribed!: () => void
   const subscribed = new Promise<void>(resolve => {markSubscribed = resolve})
   let active: FixtureSocket
@@ -53,10 +54,10 @@ function connect() {
   vi.stubGlobal('WebSocket', FixtureSocket)
   const controller = new AbortController()
   const owner = { fetch: vi.fn(async () => Response.json({ ticket: 'fixture' })) }
-  const ready = watchWorkModelDefault('http://127.0.0.1:8137', owner, controller.signal, () => true)
+  const ready = watchWorkModelDefault('http://127.0.0.1:8137', owner, controller.signal, () => true, statuses)
 
   return {
-    ready, writes,
+    ready, writes, statuses,
     chunk: async (update: object) => {
       await subscribed
       active.receive({ _tag: 'Chunk', requestId: '1', values: [update] })
@@ -75,8 +76,10 @@ it('applies the best available model in the shared plan order and returns to Atu
   try {
     await work.chunk({ type: 'snapshot', config: { settings: { defaultModelSelection: atum }, providers: [chatgpt, sonnet] } })
     await work.ready
+    expect(work.statuses).toHaveBeenLastCalledWith([chatgpt, sonnet])
     expect(work.writes.mock.calls).toEqual([[{ defaultModelSelection: claude }]])
     await work.chunk({ type: 'providerStatuses', payload: { providers: [chatgpt] } })
+    expect(work.statuses).toHaveBeenLastCalledWith([chatgpt])
     expect(work.writes).toHaveBeenLastCalledWith({ defaultModelSelection: codex })
     await work.chunk({ type: 'providerStatuses', payload: { providers: [] } })
     expect(work.writes).toHaveBeenLastCalledWith({ defaultModelSelection: atum })

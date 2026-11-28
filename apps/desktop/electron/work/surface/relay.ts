@@ -51,7 +51,8 @@ export function workRelayMachines(state: WorkSubscriptionState, now: number): Wo
 export function createOwnerRelay(
   readCatalog: () => Promise<Omit<WorkAgentPlans, 'selection'> | null>,
   platform: () => DeviceServicePlatformOptions,
-  now: () => number = Date.now
+  now: () => number = Date.now,
+  beforeSelect?: () => Promise<void>
 ) {
   async function readSelection(call: ReturnType<typeof deviceServiceCall>, principal: string) {
     return selectionSnapshot.parse(await call('work_selection_read', { agentPrincipal: principal }))
@@ -99,6 +100,7 @@ export function createOwnerRelay(
       }
     },
     async select(principal: string, model: string, plan: WorkRelayPlan = 'codex', effort?: WorkRelayEffort) {
+      await beforeSelect?.()
       const options = platform()
       // The read, write and possible retry all belong to the same signed-in owner.
       const bearer = await options.bearer()

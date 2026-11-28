@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { ACCOUNT_CONNECTIONS_FIXTURE, type AccountConnectionsView } from '../../../shared/account-connections'
+import { ACCOUNT_CONNECTIONS_FIXTURE, type AccountConnectionsView, localAccountConnections } from '../../../shared/account-connections'
 
 import { accountPlanLine } from './connections-section'
 import { connectionsCopy } from './copy'
@@ -42,6 +42,21 @@ describe('account plan rows', () => {
 })
 
 describe('the picker rule (relay plan §3.1)', () => {
+  it('offers the observed Antigravity models before enrollment and Connect after sign-out', () => {
+    const models = [{ id: 'gemini-test', displayName: 'Gemini Test' }]
+    const ready = localAccountConnections({
+      capabilities: { antigravity: { state: 'connected', models } }, deviceName: 'Mac', now: 1
+    })
+
+    expect(accountPlanRow(ready, 'antigravity')).toMatchObject({ here: true, state: 'connected' })
+    expect(accountPickerPlans(ready)).toContainEqual({ plan: 'antigravity', kind: 'relay', models })
+    const signedOut = localAccountConnections({
+      capabilities: { antigravity: { state: 'disconnected' } }, deviceName: 'Mac', now: 2
+    })
+
+    expect(accountPickerPlans(signedOut)).toContainEqual({ plan: 'antigravity', kind: 'connect' })
+  })
+
   it('a plan the relay carries follows the relay; one it does not is greyed in Work; one connected nowhere offers Connect', () => {
     expect(accountPickerPlans(ACCOUNT_CONNECTIONS_FIXTURE).map(pick => [pick.plan, pick.kind])).toEqual([
       ['codex', 'relay'],
