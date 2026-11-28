@@ -7,6 +7,7 @@ import { I18nProvider } from '@/i18n'
 
 import ownerSnapshotFixture from '../../contracts/atum-agent-home-v2.5/fixtures/owner.placement.snapshot.json'
 import { ownerHomeViewFor } from '../../electron/matrix/agent-home-placement/view'
+import { createOwnerRelay } from '../../electron/work/surface/relay'
 import { ACCOUNT_CONNECTIONS_FIXTURE } from '../../shared/account-connections'
 import type {
   MatrixAgentHomeBridge,
@@ -1605,6 +1606,56 @@ describe('account subscriptions in the model picker', () => {
   })
 
   const nativePlanAgent = '00000000-0000-4000-8000-bd7662a5eeb4'
+
+  it('refreshes a closed picker on focus after another Mac saves a plan model', async () => {
+    let revision = 5
+    let selection = { provider: 'atum-work', plan: 'codex', model: 'gpt-6.2-astra' }
+
+    const deviceServices = vi.fn<typeof fetch>(async (_url, init) => {
+      const request = JSON.parse(String(init?.body))
+
+      if (request.operation === 'work_selection_read' && request.agentPrincipal === nativePlanAgent) {
+        return Response.json({ revision, selection })
+      }
+
+      if (request.operation === 'work_selection_set' && request.agentPrincipal === nativePlanAgent) {
+        if (request.expectedRevision !== revision) {return new Response(null, { status: 409 })}
+
+        selection = request.selection
+        revision += 1
+
+        return Response.json({ ...selection, revision })
+      }
+
+      return new Response(null, { status: 404 })
+    })
+
+    const mac = () => createOwnerRelay(async () => ({
+      published: true,
+      plans: {
+        codex: { state: 'connected', models: [
+          { id: 'gpt-6.2-astra', displayName: 'GPT-6.2 Astra' },
+          { id: 'gpt-6.2-sol', displayName: 'GPT-6.2 Sol' }
+        ] }
+      }
+    }), () => ({ endpoint: 'https://example.test/device-services', bearer: async () => 'fixture', fetch: deviceServices }))
+
+    const macA = mac()
+    const macB = mac()
+    picker(ROOM, {
+      cloud: true, here: 'cloud', agentPrincipal: nativePlanAgent, preferenceScope: 'device-b',
+      cloudChoice: { offered: ['default'], current: 'default' },
+      bridge: { work: { readAgentPlans: macB.readPlans, selectRelay: macB.select } as NonNullable<MatrixUiBridge['work']> }
+    })
+
+    await screen.findByRole('button', { name: 'Model: GPT-6.2 Astra' })
+    await expect(macA.select(nativePlanAgent, 'gpt-6.2-sol')).resolves.toMatchObject({ model: 'gpt-6.2-sol', revision: 6 })
+    expect(screen.getByRole('button', { name: 'Model: GPT-6.2 Astra' })).toBeTruthy()
+
+    fireEvent.focus(window)
+
+    expect(await screen.findByRole('button', { name: 'Model: GPT-6.2 Sol' })).toBeTruthy()
+  })
 
   it.each([
     [false, 'connected', 'Plan unavailable. Connect this Mac to Atum Work.'],

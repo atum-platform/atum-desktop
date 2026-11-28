@@ -413,15 +413,23 @@ export function MatrixModelPicker({
   // A pick in flight in either picker is named at once, and stays named through the picker closing.
   const shownPlanSelection = agentPlansShownSelection(agentPlansEntry)
 
-  // Also re-read when the owner view becomes ready after the hidden Work startup.
+  // Re-read on focus so the chip catches a selection saved on another device.
+  // Local Work status changes still cover the hidden Work startup.
   useEffect(() => {
     if (!readAgentPlans || !agentPrincipal || !plansKey) {return}
 
-    const read = beginAgentPlansRead(plansKey)
-    void readAgentPlans(agentPrincipal).then(
-      value => settleAgentPlansRead(read, value),
-      () => failAgentPlansRead(read)
-    )
+    const refresh = () => {
+      const read = beginAgentPlansRead(plansKey)
+      void readAgentPlans(agentPrincipal).then(
+        value => settleAgentPlansRead(read, value),
+        () => failAgentPlansRead(read)
+      )
+    }
+
+    refresh()
+    window.addEventListener('focus', refresh)
+
+    return () => window.removeEventListener('focus', refresh)
   }, [agentPrincipal, open, plansKey, readAgentPlans, work?.view, planStatusRevision])
 
   useEffect(() => {
